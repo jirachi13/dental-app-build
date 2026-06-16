@@ -1,0 +1,167 @@
+
+## Session: April 16, 2026 (Sprint 1-4 + Base44 comparison)
+
+### COMPLETED THIS SESSION
+
+**Sprint 1 — Clinical Core:**
+- Full 3-tab IPTR form (DentalChart.tsx ~745 lines)
+  - Tab 1: Medical History (12 fields), Dietary/Social History (7), Oral Health Condition (10) — all per year column
+  - Tab 2: Dental charting with FDI odontogram, code-first selection, DMFT auto-calc
+  - Tab 3: Filipino consent text, RA 10173 Data Privacy Act in Filipino, consent checkboxes, appointments list
+- Multi-year dental chart — year tabs at top, DMFT progression table (click row to switch year), + Add Year button
+- Filipino consent + RA 10173 — Tab 3
+- DOH Consolidated Report — full official format
+
+**Sprint 2 — Appointments + Visits:**
+- Today/Upcoming/Past tabs + Calendar + Rotation tabs in Appointments
+- Mark attended ✓ / missed ✗ buttons + reset button, statusMap state
+- Dentist rotation schedule — Set Rotation modal, Rotation tab with per-school cards
+- Vital signs (Weight, Temperature, BP, Chief Complaint) on TreatmentRecords
+
+**Sprint 3 — Student Records:**
+- PhilHealth Number, PhilHealth Status, 4Ps checkbox, 4Ps ID, Consent Status in Add Student form
+- Bulk upload CSV modal — 3-step: Upload → Preview → Done (mock parse with 5 sample rows)
+- Consent compliance tracking — progress bars per school + Complete/Pending/Missing totals in Internal Reports
+
+**Sprint 4 — Analytics:**
+- Real risk scoring algorithm (15+ factors):
+  - DMFT ≥ 4 → +3, D ≥ 3 → +3, DMFT increased → +3, DX teeth → +3
+  - No visits / last visit > 12mo → +2, recurring gingivitis/debris → +2 each
+  - Sugar/tobacco/betel nut/diabetes → +2 each, no preventive → +2
+  - 4Ps → +1, thumbsucking → +1
+  - High ≥ 6, Medium ≥ 3, Low < 3
+  - "Update Risk Scores" button re-runs on all students
+- Treatment Pending list — Risk Assessment + Treatment Pending sub-tabs
+  - Treatment Pending: grouped by Grade → Section, shows predicted issue + recommended action + risk factor badges
+- Print styles — in src/styles/index.css (hides nav/buttons, keeps table colors, page-break utility)
+
+**Base44 condition/treatment codes applied:**
+- ✓ (not √) for Sound/Sealed
+- conditionCodes array has perm and temp fields
+- handleToothClick uses codeObj.temp or codeObj.perm based on tooth type
+- DMFT includes x/X for DX teeth: t = d+m+f+x, T = D+M+F+X
+- DMFT display boxes show 5 values each (d,m,f,x,t and D,M,F,X,T)
+- Legend updated with color swatches showing actual condition backgrounds
+- Selected tooth highlight: border-teal-500 ring-2 ring-teal-300 bg-teal-50
+- Treatment codes shown as full-width rows with code + label
+- Condition codes shown as 2-column grid with perm/temp pair (D/d) + label
+
+**Reports rebuilt:**
+- DOH Consolidated: exact official format with age brackets per grade
+  - Kinder: 4 and below, 5-9
+  - Grade 1: 4 and below, 5-9, 10-14, 15-19
+  - Grades 2-6: 5-9, 10-14, 15-19, 20+
+  - Summary columns: all 5 age brackets across all grades
+  - Blank when zero (no 0s shown)
+  - All sub-rows with ↳ arrows
+- Internal Reports: Monthly bar chart (Recharts), consent compliance bars, quick stats grid, referral tracking table
+
+**School context applied to all tabs:**
+- selectedSchool from AuthContext filters all data in PatientList, RPCTracking, Appointments, AIAnalytics
+- School banner on Dashboard with Switch School button
+- Sidebar school banner with tap-to-switch
+
+**Removed school view (drill-down cards) from:**
+- Student Records → flat list only
+- RPC Records → flat list only
+- Predictive Module → flat list only
+
+**TypeScript: 0 errors**
+
+### CURRENT FILE STATE
+- DentalChart.tsx: ~745 lines (full IPTR, multi-year, Base44 codes)
+- Appointments.tsx: ~585 lines (Today/Upcoming/Past/Calendar/Rotation tabs)
+- Reports.tsx: ~500 lines (DOH consolidated + Internal)
+- PatientList.tsx: ~754 lines (filters + bulk upload + PhilHealth/4Ps)
+- AIAnalytics.tsx: ~870 lines (risk scoring + treatment pending)
+- TreatmentRecords.tsx: ~170 lines (with vital signs)
+
+### PENDING / KNOWN ISSUES
+- DOH report is 77 columns wide — hard to read on screen, needs print optimization
+- No real backend yet (all mock data)
+- Prev/next patient navigation in IPTR not yet implemented
+- Print-specific HTML layout for IPTR not yet done
+- Editable DOH report cells not yet done
+- Treatment history table on patient profile not done
+- Dental records by year grid on patient profile not done
+- Link appointments → dental form not done
+
+### LATEST COMMIT
+cc876d27 — DOH report exact official format — age brackets per grade, summary columns, blank when zero
+
+---
+
+## Session: April 17, 2026 (Sprint 5 — Patient UX)
+
+### COMPLETED THIS SESSION
+
+**Prev/Next patient navigation in DentalChart (IPTR):**
+- `patientNavList` constant added at top of DentalChart.tsx (10 patients, matches DentalChartNav order)
+- `navIndex`, `prevPatient`, `nextPatient` computed from URL param `id`
+- Patient nav bar added to IPTR header — shows first name of prev/next patient, current position (e.g. "2/10"), hidden on mobile (sm:flex)
+- Clicking prev/next calls `navigate('/dental-chart/${id}')` via useNavigate
+- Year navigation (ChevronLeft/Right for school years) is unchanged — both nav types coexist in header
+
+**Treatment History tab on PatientProfile:**
+- New "Treatment History" tab (FileText icon) added to PatientProfile
+- 5 mock treatment entries with date, complaint, diagnosis, treatment, dentist, remarks
+- Desktop: full table with all 6 columns
+- Mobile: stacked cards with CC/Dx/Tx labels
+- "Add Entry" button toggles inline form (date, dentist, CC, diagnosis, treatment, remarks)
+
+**Dental Records tab on PatientProfile:**
+- New "Dental Records" tab (TrendingUp icon) added to PatientProfile
+- DMFT by year table: 3 school years (2023–2026) with d/m/f/x/dmft and D/M/F/X/DMFT columns
+- Color-coded columns: red=D/d, slate=M/m, blue=F/f, orange=X/x, gray=totals
+- Blank when zero (falsy display)
+- Oral Status badge per year (Orally Fit / Under Treatment / Needs Treatment)
+- 4 KPI cards below: latest dmft, latest DMFT, # school years, trend arrow
+- "Open IPTR" button links to `/dental-chart/:id`
+
+**TypeScript: 0 errors**
+
+### CURRENT FILE STATE
+- DentalChart.tsx: ~800 lines (prev/next patient nav added)
+- PatientProfile.tsx: ~620 lines (Dental Records + Treatment History tabs added)
+- Appointments.tsx: ~585 lines
+- Reports.tsx: ~500 lines
+- PatientList.tsx: ~754 lines
+- AIAnalytics.tsx: ~870 lines
+- TreatmentRecords.tsx: ~170 lines
+
+### PENDING / KNOWN ISSUES
+- DOH report is 77 columns wide — hard to read on screen, needs print optimization
+- No real backend yet (all mock data)
+- Print-specific HTML layout for IPTR not yet done
+- Editable DOH report cells not yet done
+- Link appointments → dental form not done
+- Prev/next nav only works for the 10 patients in patientNavList; fallback shows "—" for position
+
+### LATEST COMMIT
+(pending commit)
+
+---
+
+## Session: April 17, 2026 — Part 2 (Polish)
+
+### COMPLETED THIS SESSION
+
+**DOH Report — sticky column hover fix (Reports.tsx):**
+- Added `group` class to body data rows (`<tr>`)
+- Sticky label `<td>` now has `group-hover:bg-yellow-50 transition-colors` so it turns yellow with the rest of the row on hover
+- Previously: label cell stayed white while data cells turned yellow (visual disconnect)
+
+**Appointments → Dental Charts link (Appointments.tsx):**
+- Added `FileText` icon button to every `AppointmentCard` (left of status badge)
+- Links to `/dental-charts` — jumps straight to the dental chart list
+- Blue tint (bg-blue-50 hover:bg-blue-100) to distinguish from action buttons (green/red)
+- `Link` and `FileText` added to imports
+
+**TypeScript: 0 errors**
+
+### PENDING / KNOWN ISSUES
+- DOH report is 77 columns wide — sticky + scroll works, but no "compact view" toggle yet
+- No real backend yet (all mock data)
+- Print-specific HTML layout for IPTR not yet done
+- Editable DOH report cells not yet done
+- Prev/next nav only covers 10 patients in patientNavList
