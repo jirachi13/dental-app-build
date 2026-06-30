@@ -5,6 +5,11 @@ import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, X, Check, Cl
 import { getGradeColor } from '../utils/gradeColors';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
 import { GradePill } from './GradePill';
+import { useAppointments, type AppointmentSession } from '../hooks/useAppointments';
+import { useDentistRotations } from '../hooks/useDentistRotations';
+import { useStudents } from '../hooks/useStudents';
+import { apiClient } from '../api/client';
+import type { ApiSchool } from '../api/types';
 
 const SCHOOLS = [
   'Bagong Tanyag Integrated School',
@@ -12,13 +17,12 @@ const SCHOOLS = [
   'South Daang Hari Elementary School Main',
 ];
 
-const TODAY = '2026-04-16';
+const TODAY = new Date().toISOString().slice(0, 10);
 
 export const Appointments = () => {
   const { user, selectedSchool } = useAuth();
   const navigate = useNavigate();
   const staffNameLabel = user?.role === 'dental_aide' ? 'Dental Aide' : 'Dentist';
-  const loggedInStaffName = user?.name ?? '';
 
   // Tabs
   const [activeTab, setActiveTab] = useState<'today' | 'upcoming' | 'completed' | 'missed' | 'rotation'>('today');
@@ -42,24 +46,36 @@ export const Appointments = () => {
   const [appointmentDate, setAppointmentDate] = useState('');
   const [appointmentTime, setAppointmentTime] = useState('');
   const [appointmentType, setAppointmentType] = useState('');
-  const [appointmentDentist, setAppointmentDentist] = useState('');
+  const [appointmentDentistId, setAppointmentDentistId] = useState('');
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   // Rotation form
   const [rotSchool, setRotSchool] = useState('');
-  const [rotDentist, setRotDentist] = useState('');
+  const [rotDentistId, setRotDentistId] = useState('');
   const [rotWeekStart, setRotWeekStart] = useState('');
   const [rotWeekEnd, setRotWeekEnd] = useState('');
   const [rotNotes, setRotNotes] = useState('');
+  const [rotError, setRotError] = useState<string | null>(null);
+  const [rotSaving, setRotSaving] = useState(false);
 
-  // Appointment statuses (mutable)
-  const [statusMap, setStatusMap] = useState<Record<string, string>>({});
+  const { sessions, dentists, loading: appointmentsLoading, error: appointmentsError, updateSessionStatus, reload: reloadAppointments } = useAppointments();
+  const { rotations, loading: rotationsLoading, reload: reloadRotations } = useDentistRotations();
+  const { students: allRealStudents } = useStudents();
+  const [schools, setSchools] = useState<ApiSchool[]>([]);
 
   useEffect(() => {
-    if (!loggedInStaffName) return;
+    apiClient.get<ApiSchool[]>('/schools').then(setSchools).catch(() => {});
+  }, []);
 
-    setAppointmentDentist(prev => prev || loggedInStaffName);
-    setRotDentist(prev => prev || loggedInStaffName);
-  }, [loggedInStaffName]);
+  // Default the dentist pickers to the logged-in dentist, once dentists have loaded
+  useEffect(() => {
+    if (!user || dentists.length === 0) return;
+    const own = dentists.find(d => d.user_id === user.id);
+    const defaultId = own?._id ?? dentists[0]._id;
+    setAppointmentDentistId(prev => prev || defaultId);
+    setRotDentistId(prev => prev || defaultId);
+  }, [user, dentists]);
 
   const resetCreateAppointmentForm = () => {
     setFormSchool('');
@@ -69,67 +85,90 @@ export const Appointments = () => {
     setAppointmentDate('');
     setAppointmentTime('');
     setAppointmentType('');
-    setAppointmentDentist(loggedInStaffName);
+    setCreateError(null);
   };
 
   const resetRotationForm = () => {
     setRotSchool('');
-    setRotDentist(loggedInStaffName);
     setRotWeekStart('');
     setRotWeekEnd('');
     setRotNotes('');
+    setRotError(null);
+  };
+
+  const handleCreateAppointment = async () => {
+    setCreateError(null);
+    if (!formSchool || !selectedGrade || !selectedSection || !appointmentDate || !appointmentTime || !appointmentType || !appointmentDentistId || selectedStudents.length === 0) {
+      setCreateError('Please fill in all fields and select at least one student.');
+      return;
+    }
+    setCreating(true);
+    try {
+      const appointment_datetime = new Date(`${appointmentDate}T${appointmentTime}`).toISOString();
+      await Promise.all(
+        selectedStudents.map(student_id =>
+          apiClient.post('/appointments', {
+            student_id,
+            dentist_id: appointmentDentistId,
+            appointment_datetime,
+            status: 'Scheduled',
+            appointment_type: appointmentType,
+          }),
+        ),
+      );
+      await reloadAppointments();
+      resetCreateAppointmentForm();
+      setShowCreateModal(false);
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Failed to create appointment');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleSaveRotation = async () => {
+    setRotError(null);
+    if (!rotSchool || !rotDentistId || !rotWeekStart || !rotWeekEnd) {
+      setRotError('School, dentist, and week start/end are required.');
+      return;
+    }
+    setRotSaving(true);
+    try {
+      const school = schools.find(s => s.school_name === rotSchool);
+      if (!school) throw new Error('Selected school not found');
+      await apiClient.post('/dentist-rotations', {
+        school_id: school._id,
+        dentist_id: rotDentistId,
+        week_start: rotWeekStart,
+        week_end: rotWeekEnd,
+        notes: rotNotes,
+      });
+      await reloadRotations();
+      resetRotationForm();
+      setShowRotationModal(false);
+      setActiveTab('rotation');
+    } catch (err) {
+      setRotError(err instanceof Error ? err.message : 'Failed to save rotation');
+    } finally {
+      setRotSaving(false);
+    }
   };
 
   const grades = ['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6'];
-  const sectionsByGrade: Record<string, string[]> = {
-    'Grade 1':['Sampaguita','Rosal'],'Grade 2':['Rose','Dahlia'],
-    'Grade 3':['Jasmine','Orchid'],'Grade 4':['Tulip','Lily'],
-    'Grade 5':['Sunflower','Daisy'],'Grade 6':['Carnation','Ilang-Ilang'],
-  };
-  const studentsInSection = selectedSection ? [
-    { id:'1', name:'Juan Dela Cruz', gender:'Male', age:10 },
-    { id:'2', name:'Maria Santos', gender:'Female', age:9 },
-    { id:'3', name:'Pedro Reyes', gender:'Male', age:10 },
-    { id:'4', name:'Ana Garcia', gender:'Female', age:9 },
-    { id:'5', name:'Jose Martinez', gender:'Male', age:10 },
-  ] : [];
+  const studentsInSection = (formSchool && selectedGrade && selectedSection)
+    ? allRealStudents.filter(s => s.school === formSchool && s.grade === selectedGrade && s.section === selectedSection)
+    : [];
+  const sectionsForGrade = (formSchool && selectedGrade)
+    ? [...new Set(allRealStudents.filter(s => s.school === formSchool && s.grade === selectedGrade).map(s => s.section))].sort()
+    : [];
 
-  // Mock appointments — use today's date + future dates
-  const allAppointmentsRaw = [
-    { id:'1', date: TODAY, time:'09:00', school:'Bagong Tanyag Integrated School', grade:'Grade 4', section:'Sampaguita', studentCount:32, type:'Regular Checkup', status:'Scheduled', dentist:'Dr. Maria Santos', students:[
-      { id:'s1', name:'Juan Dela Cruz', gender:'Male', age:10, riskLevel:'High' },
-      { id:'s2', name:'Maria Garcia', gender:'Female', age:9, riskLevel:'Low' },
-      { id:'s3', name:'Pedro Reyes', gender:'Male', age:10, riskLevel:'Medium' },
-    ]},
-    { id:'2', date: TODAY, time:'13:00', school:'Bagong Tanyag Elementary School Annex A', grade:'Grade 3', section:'Topaz', studentCount:28, type:'Fluoride Application', status:'In Progress', dentist:'Dr. Maria Santos', students:[
-      { id:'s6', name:'Sofia Cruz', gender:'Female', age:8, riskLevel:'Low' },
-      { id:'s7', name:'Miguel Torres', gender:'Male', age:9, riskLevel:'Medium' },
-    ]},
-    { id:'3', date: TODAY, time:'15:00', school:'Bagong Tanyag Integrated School', grade:'Grade 2', section:'Rose', studentCount:26, type:'Screening', status:'Scheduled', dentist:'Dr. Maria Santos', students:[]},
-    { id:'4', date:'2026-04-20', time:'08:00', school:'South Daang Hari Elementary School Main', grade:'Grade 5', section:'Yakal', studentCount:35, type:'Bayanihan Mission', status:'Scheduled', dentist:'Dr. Maria Santos', students:[
-      { id:'s9', name:'Rafael Gomez', gender:'Male', age:11, riskLevel:'Medium' },
-    ]},
-    { id:'5', date:'2026-04-22', time:'09:00', school:'Bagong Tanyag Elementary School Annex A', grade:'Grade 4', section:'Opal', studentCount:30, type:'Fluoride Application', status:'Scheduled', dentist:'Dr. Maria Santos', students:[]},
-    { id:'6', date:'2026-04-28', time:'08:00', school:'South Daang Hari Elementary School Main', grade:'Grade 6', section:'Guijo', studentCount:40, type:'Bayanihan Mission', status:'Scheduled', dentist:'Dr. Maria Santos', students:[]},
-    { id:'7', date:'2026-04-08', time:'09:00', school:'Bagong Tanyag Integrated School', grade:'Grade 5', section:'Sunflower', studentCount:33, type:'Fluoride Application', status:'Completed', dentist:'Dr. Maria Santos', students:[]},
-    { id:'8', date:'2026-04-10', time:'10:00', school:'Bagong Tanyag Elementary School Annex A', grade:'Grade 6', section:'Garnet', studentCount:29, type:'Screening', status:'Completed', dentist:'Dr. Maria Santos', students:[]},
-    { id:'9', date:'2026-04-12', time:'08:00', school:'South Daang Hari Elementary School Main', grade:'Grade 3', section:'Bamboo', studentCount:31, type:'Regular Checkup', status:'Missed', dentist:'Dr. Maria Santos', students:[]},
-  ];
-
-  // Mock rotation schedules
-  const [rotations, setRotations] = useState([
-    { id:'r1', school:'Bagong Tanyag Integrated School', dentist:'Dr. Maria Santos', weekStart:'2026-04-13', weekEnd:'2026-04-18', notes:'Regular schedule' },
-    { id:'r2', school:'Bagong Tanyag Elementary School Annex A', dentist:'Dr. Maria Santos', weekStart:'2026-04-20', weekEnd:'2026-04-25', notes:'' },
-    { id:'r3', school:'South Daang Hari Elementary School Main', dentist:'Dr. Maria Santos', weekStart:'2026-04-27', weekEnd:'2026-05-02', notes:'Bayanihan week' },
-  ]);
-
-  const appointments = selectedSchool
-    ? allAppointmentsRaw.filter(a => a.school === selectedSchool)
-    : allAppointmentsRaw;
+  const appointments: AppointmentSession[] = selectedSchool
+    ? sessions.filter(a => a.school === selectedSchool)
+    : sessions;
   const calendarLegendGrades = [...new Set(appointments.map(a => a.grade))]
     .sort((a, b) => grades.indexOf(a) - grades.indexOf(b));
 
-  const getStatus = (a: any) => statusMap[a.id] || a.status;
+  const getStatus = (a: AppointmentSession) => a.status;
 
   // Tab filters
   const todayAppts = appointments.filter(a => a.date === TODAY);
@@ -167,8 +206,8 @@ export const Appointments = () => {
   const monthName = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
   const days = getDaysInMonth(currentDate);
 
-  const markStatus = (id: string, status: string) => {
-    setStatusMap(prev => ({ ...prev, [id]: status }));
+  const markStatus = (session: AppointmentSession, status: string) => {
+    updateSessionStatus(session, status);
   };
 
   const statusBadge = (status: string) => {
@@ -182,7 +221,7 @@ export const Appointments = () => {
     return map[status] || 'bg-gray-100 text-gray-500';
   };
 
-  const AppointmentCard = ({ a, showActions = false }: { a: any; showActions?: boolean }) => {
+  const AppointmentCard = ({ a, showActions = false }: { a: AppointmentSession; showActions?: boolean }) => {
     const gc = getGradeColor(a.grade);
     const sc = getSchoolColor(a.school);
     const status = getStatus(a);
@@ -217,24 +256,24 @@ export const Appointments = () => {
           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusBadge(status)}`}>{status}</span>
           {showActions && status === 'Scheduled' && (
             <>
-              <button onClick={() => markStatus(a.id, 'Completed')}
+              <button onClick={() => markStatus(a, 'Completed')}
                 className="w-7 h-7 rounded-full bg-green-100 hover:bg-green-200 text-green-700 flex items-center justify-center transition-colors" title="Mark Attended">
                 <Check className="w-3.5 h-3.5" />
               </button>
-              <button onClick={() => markStatus(a.id, 'Missed')}
+              <button onClick={() => markStatus(a, 'Missed')}
                 className="w-7 h-7 rounded-full bg-red-100 hover:bg-red-200 text-red-700 flex items-center justify-center transition-colors" title="Mark Missed">
                 <X className="w-3.5 h-3.5" />
               </button>
             </>
           )}
           {showActions && status === 'In Progress' && (
-            <button onClick={() => markStatus(a.id, 'Completed')}
+            <button onClick={() => markStatus(a, 'Completed')}
               className="w-7 h-7 rounded-full bg-green-100 hover:bg-green-200 text-green-700 flex items-center justify-center transition-colors" title="Mark Completed">
               <Check className="w-3.5 h-3.5" />
             </button>
           )}
           {showActions && (status === 'Completed' || status === 'Missed') && (
-            <button onClick={() => markStatus(a.id, 'Scheduled')}
+            <button onClick={() => markStatus(a, 'Scheduled')}
               className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition-colors" title="Reset">
               <RotateCcw className="w-3 h-3" />
             </button>
@@ -244,8 +283,15 @@ export const Appointments = () => {
     );
   };
 
+  if (appointmentsLoading || rotationsLoading) {
+    return <div className="text-sm text-gray-500 p-8 text-center">Loading appointments…</div>;
+  }
+
   return (
     <div className="space-y-4">
+      {appointmentsError && (
+        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{appointmentsError}</div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -467,7 +513,7 @@ export const Appointments = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
                   <label className="block text-xs font-medium text-gray-600 mb-1">School</label>
-                  <select value={formSchool} onChange={e => setFormSchool(e.target.value)}
+                  <select value={formSchool} onChange={e => { setFormSchool(e.target.value); setSelectedGrade(''); setSelectedSection(''); }}
                     className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="">Select school</option>
                     {SCHOOLS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -486,7 +532,7 @@ export const Appointments = () => {
                   <select value={selectedSection} onChange={e => setSelectedSection(e.target.value)}
                     className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="">Section</option>
-                    {(sectionsByGrade[selectedGrade] || []).map(s => <option key={s} value={s}>{s}</option>)}
+                    {sectionsForGrade.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div>
@@ -509,8 +555,10 @@ export const Appointments = () => {
                 </div>
                 <div className="col-span-2">
                   <label className="block text-xs font-medium text-gray-600 mb-1">{staffNameLabel}</label>
-                  <input type="text" value={appointmentDentist} onChange={e => setAppointmentDentist(e.target.value)}
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <select value={appointmentDentistId} onChange={e => setAppointmentDentistId(e.target.value)}
+                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    {dentists.map(d => <option key={d._id} value={d._id}>Dr. {d.first_name} {d.last_name}</option>)}
+                  </select>
                 </div>
               </div>
               {studentsInSection.length > 0 && (
@@ -523,20 +571,21 @@ export const Appointments = () => {
                           onChange={() => setSelectedStudents(prev => prev.includes(s.id) ? prev.filter(x => x !== s.id) : [...prev, s.id])}
                           className="w-4 h-4 rounded accent-blue-600" />
                         <span className="text-sm text-gray-700">{s.name}</span>
-                        <span className="text-xs text-gray-400 ml-auto">{s.gender} · {s.age}y</span>
+                        <span className="text-xs text-gray-400 ml-auto">{s.gender} · {new Date().getFullYear() - new Date(s.birthdate).getFullYear()}y</span>
                       </label>
                     ))}
                   </div>
                 </div>
               )}
+              {createError && <p className="text-sm text-red-600">{createError}</p>}
               <div className="flex gap-3 pt-2">
                 <button onClick={() => { resetCreateAppointmentForm(); setShowCreateModal(false); }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
                   Cancel
                 </button>
-                <button onClick={() => { alert(`Appointment created! ${formSchool} — ${selectedGrade} ${selectedSection}`); resetCreateAppointmentForm(); setShowCreateModal(false); }}
-                  className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
-                  Create Appointment
+                <button onClick={handleCreateAppointment} disabled={creating}
+                  className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 text-sm font-medium">
+                  {creating ? 'Creating…' : 'Create Appointment'}
                 </button>
               </div>
             </div>
@@ -562,10 +611,11 @@ export const Appointments = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">{staffNameLabel} Name</label>
-                <input type="text" value={rotDentist} onChange={e => setRotDentist(e.target.value)}
-                  placeholder={loggedInStaffName || `e.g. ${staffNameLabel}`}
-                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-xs font-medium text-gray-600 mb-1">{staffNameLabel}</label>
+                <select value={rotDentistId} onChange={e => setRotDentistId(e.target.value)}
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  {dentists.map(d => <option key={d._id} value={d._id}>Dr. {d.first_name} {d.last_name}</option>)}
+                </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -585,21 +635,15 @@ export const Appointments = () => {
                   placeholder="e.g. Bayanihan week"
                   className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
+              {rotError && <p className="text-sm text-red-600">{rotError}</p>}
               <div className="flex gap-3 pt-2">
                 <button onClick={() => { resetRotationForm(); setShowRotationModal(false); }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
                   Cancel
                 </button>
-                <button onClick={() => {
-                  if (rotSchool && rotDentist && rotWeekStart) {
-                    setRotations(prev => [...prev, { id: `r${Date.now()}`, school: rotSchool, dentist: rotDentist, weekStart: rotWeekStart, weekEnd: rotWeekEnd, notes: rotNotes }]);
-                    resetRotationForm();
-                    setShowRotationModal(false);
-                    setActiveTab('rotation');
-                  }
-                }}
-                  className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
-                  Save Schedule
+                <button onClick={handleSaveRotation} disabled={rotSaving}
+                  className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 text-sm font-medium">
+                  {rotSaving ? 'Saving…' : 'Save Schedule'}
                 </button>
               </div>
             </div>

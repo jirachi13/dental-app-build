@@ -21,6 +21,7 @@ import {
   RiskStratification,
   Appointment,
   AuditTrail,
+  DentistRotation,
 } from "../models";
 
 const router = Router();
@@ -48,5 +49,6 @@ router.use("/preventive-care-records", createCrudRouter(PreventiveCareRecord));
 router.use("/risk-stratifications", createCrudRouter(RiskStratification));
 router.use("/appointments", createCrudRouter(Appointment));
 router.use("/audit-trails", createCrudRouter(AuditTrail, { readOnly: true }));
+router.use("/dentist-rotations", createCrudRouter(DentistRotation));
 
 export default router;

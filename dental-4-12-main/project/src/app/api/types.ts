@@ -62,3 +62,33 @@ export interface ApiTreatment {
   remarks: string;
   date: string;
 }
+
+export interface ApiDentist {
+  _id: string;
+  school_id: string;
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  license_number: string;
+}
+
+export interface ApiAppointment {
+  _id: string;
+  student_id: string;
+  dentist_id: string;
+  appointment_datetime: string;
+  status: string;
+  appointment_type: string;
+  requires_followup: boolean;
+  parental_supervision_required: boolean;
+  isArchived: boolean;
+}
+
+export interface ApiDentistRotation {
+  _id: string;
+  school_id: string;
+  dentist_id: string;
+  week_start: string;
+  week_end: string;
+  notes: string;
+}

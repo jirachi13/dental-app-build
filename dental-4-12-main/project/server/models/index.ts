@@ -14,3 +14,4 @@ export { default as PreventiveCareRecord } from "./PreventiveCareRecord";
 export { default as RiskStratification } from "./RiskStratification";
 export { default as Appointment } from "./Appointment";
 export { default as AuditTrail } from "./AuditTrail";
+export { default as DentistRotation } from "./DentistRotation";
