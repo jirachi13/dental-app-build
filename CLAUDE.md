@@ -57,11 +57,13 @@ Capstone Thesis — Build Phase — Group 404 — AY 2025-2026
 - **School Administrator** — view school reports, school dashboards only, no access to clinical records
 - **Barangay Health Office Staff** — consolidated reports across all schools, City Health Office report submission
 
+> Note: System Admin is **not** in the Chapter 3 ERD's original role list but is required for the system to function (user management, audit trail access, archive restoration, system settings) and is treated as authoritative going forward. Only System Admin can create/edit/deactivate user accounts, view the full audit trail, restore archived records, and access system settings — enforced via RBAC in Sprint 7.
+
 ## MONGODB MODELS (exact from ERD Chapter 3)
 
 **SCHOOL** — school_id, school_name, school_type, principal_name, street_address, barangay, city, created_at, updated_at, isArchived, archivedAt, archivedBy
 
-**USER** — user_id, school_id (FK), role (system_admin/dentist/dental_aide/school_admin/bho_staff), full_name, is_enrolled (BOOLEAN), last_login, created_at, updated_at, isArchived, archivedAt, archivedBy
+**USER** — user_id, school_id (FK, optional — system_admin and bho_staff are not tied to one school), role (system_admin/dentist/dental_aide/school_admin/bho_staff), full_name, password_hash (added ahead of Sprint 7, not in original ERD), is_enrolled (BOOLEAN), last_login, created_at, updated_at, isArchived, archivedAt, archivedBy
 
 **DENTIST** — dentist_id, school_id (FK), user_id (FK), last_name, first_name, license_number (VARCHAR 50), created_at, updated_at, isArchived, archivedAt, archivedBy
 
