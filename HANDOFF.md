@@ -1,7 +1,7 @@
-# HANDOFF — Sprint 7 Complete
+# HANDOFF — Sprint 8 Complete
 
 ## Status
-Sprints 1-7 done and verified against the real MongoDB Atlas cluster.
+Sprints 1-8 done and verified against the real MongoDB Atlas cluster.
 - Sprint 1: Express MVC + MongoDB connection
 - Sprint 2: SCHOOL, USER, STUDENT, DENTIST, DENTAL_AIDE models
 - Sprint 3: STUDENT_IPTR, MEDICAL_HISTORY, DIETARY_SOCIAL_HABITS, ORAL_HEALTH_CONDITION models
@@ -9,6 +9,7 @@ Sprints 1-7 done and verified against the real MongoDB Atlas cluster.
 - Sprint 5: PREVENTIVE_CARE_RECORD, RISK_STRATIFICATION, APPOINTMENT, AUDIT_TRAIL models
 - Sprint 6: CRUD API for all 16 model routers
 - Sprint 7: JWT auth (httpOnly cookies) + 5-role auth machinery (RBAC middleware built, not yet wired into Sprint 6 routes)
+- Sprint 8: Field-level encryption for sensitive patient data (STUDENT, DENTAL_AIDE, MEDICAL_HISTORY, TREATMENT)
 
 ## What exists now
 - `dental-4-12-main/project/server/` — Express MVC backend
@@ -66,6 +67,20 @@ Done: `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` added to Vercel (Production +
 
 System Admin account: only one MongoDB database exists (local `.env` and Vercel both point at the same `floral-cluster` Atlas cluster), so the seeded `system_admin` account is already usable once the app is deployed — no separate production seeding needed. Login email is `admin@floral.local`; the password was rotated away from the original weak seed value to a strong random one (given to you directly, not stored in any file/commit — save it in a password manager).
 
+**New**: add `FIELD_ENCRYPTION_SECRET` to Vercel (Production + Preview, Sensitive) — same process as the JWT secrets. Currently only in local `.env`. Without it, encrypted-field reads/writes will throw in production. I'll generate a fresh production-only value for you to paste in, same as before, whenever you're ready.
+
+## Sprint 8 decisions (grill-me round)
+- **Library**: `mongoose-field-encryption` (AES-256-CBC, deterministic salt derived from the secret so identical plaintext always encrypts the same way — fine since these fields are explicitly not meant to be queried).
+- **Scope**: `STUDENT` (full_name, address, contact_number), `DENTAL_AIDE` (contact_number), `MEDICAL_HISTORY` (allergies, others — free text only, not the 11 boolean condition flags, since those are Phase 3 ML inputs and aren't identifying on their own), `TREATMENT` (diagnosis, treatment_done). `USER.full_name` deliberately NOT encrypted — it's staff, not patient PII.
+- **Secret**: `FIELD_ENCRYPTION_SECRET`, a 64-char random hex string, lazily read via a function (not at import time) so module load order relative to `dotenv` doesn't matter. Shared `server/models/shared/fieldEncryption.ts` helper wraps the plugin options consistently across the 4 models.
+
+## Bug found and fixed during Sprint 8 testing
+`findByIdAndUpdate`/`updateOne` are broken for encrypted fields in this version of `mongoose-field-encryption` (v7.0.1): its `pre('findOneAndUpdate')` hook has a logic bug that ends up writing the plaintext value back over the encrypted one, and the next read then crashes trying to decrypt it (`crypto.createDecipher is not a function` — a removed Node API the library falls back to for a legacy format). Confirmed via direct testing against the real cluster, including the tightest case (`DentalAide.contact_number`, `maxlength: 20`, where ciphertext is far longer than 20 chars).
+
+**Fix**: `crudFactory.ts`'s `PUT` handler now does `findById` → `Object.assign` → `.save()` instead of `findByIdAndUpdate(..., { runValidators: true })`. `.save()` goes through the plugin's working `pre('save')` hook, and Mongoose validation runs *before* that hook fires (so `maxlength` etc. validate against the original plaintext, not ciphertext — also verified directly, not assumed). `archive`/`restore` endpoints were left on `findByIdAndUpdate` since they never touch encrypted fields, so the bug doesn't apply to them.
+
+Also fixed: `.create()`/`.save()` leave the in-memory document's encrypted fields as ciphertext (the plugin only decrypts on read via `post('init')`, not after a write). `POST` and the new `PUT` handler now call the plugin's `doc.decryptFieldsSync()` before sending the response, so API responses always show plaintext while the DB stores ciphertext. Verified raw collection reads (bypassing Mongoose) show real ciphertext with the `:`-separated IV format; Mongoose reads/writes show plaintext throughout.
+
 ## Repo hygiene done this session
 - Added root `.gitignore` (node_modules, .env, .env.local, dist, build)
 - Untracked `node_modules/` and `dist/` that were previously committed (72k+ files removed from git history going forward)
@@ -79,12 +94,13 @@ System Admin account: only one MongoDB database exists (local `.env` and Vercel 
 - All 16 models smoke-tested with linked create/read/delete against the real cluster across Sprints 2-5
 - Sprint 6 CRUD routes verified end-to-end
 - Sprint 7 auth flow verified end-to-end against the real cluster: wrong password → 401; correct login → cookies set, `last_login` updated; `GET /api/auth/me` with cookie → 200 with user (no password_hash); without cookie → 401; `POST /api/auth/refresh` → new access token; `POST /api/auth/logout` → cookies cleared; `GET /api/auth/me` after logout → 401. Confirmed `password_hash` absent from both `/api/auth/me` and `/api/users` after the `select: false` fix.
+- Sprint 8 encryption verified end-to-end against the real cluster, both via direct Mongoose calls AND actual HTTP requests through the running server: create → response shows plaintext, raw collection read (bypassing Mongoose) shows real `iv:ciphertext` format; update via `PUT /api/students/:id` → no crash, response shows new plaintext, persisted correctly on re-fetch; verified specifically against the tightest `maxlength` case (`DentalAide.contact_number`, limit 20) to confirm the validation-order assumption (validates plaintext before encryption, not ciphertext after).
 
 ## Not done yet (deliberately out of scope so far)
 - RBAC not yet wired into Sprint 6's CRUD routes — all CRUD/archive/restore endpoints are currently unprotected (anyone can call them without logging in)
-- No data encryption (Sprint 8) — sensitive fields are currently plain text in the DB
 - No frontend wiring to the real API yet (Sprints 9-10), including no login UI
-- Not yet deployed to Vercel (Sprint 17) — only linked/configured; `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET` not yet added to Vercel env vars (see "Action needed from you" above)
+- Not yet deployed to Vercel (Sprint 17) — only linked/configured; `FIELD_ENCRYPTION_SECRET` not yet added to Vercel env vars (see "Action needed from you" above)
+- `GET`/list responses include the plugin's `__enc_<field>` boolean marker fields (e.g. `__enc_full_name: false`) — harmless (no content leaked) but cosmetically noisy; not cleaned up, low priority
 
 ## Next sprint
-Sprint 8 → Data encryption setup (full_name, address, contact_number, medical_history fields, diagnosis, treatment_done). Flagged complex in CLAUDE.md — requires a clarifying round before building. Do not start without explicit approval. (RBAC retrofit into CRUD routes is also outstanding and can be done as a smaller follow-up whenever convenient — not tied to a specific numbered sprint.)
+Sprint 9 → List all dummy frontend data (review list before any changes). Not flagged complex, but per CLAUDE.md still requires approval before starting. (RBAC retrofit into CRUD routes is also outstanding and can be done as a smaller follow-up whenever convenient — not tied to a specific numbered sprint.)

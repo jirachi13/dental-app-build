@@ -1,4 +1,6 @@
 import mongoose from "mongoose";
+import { fieldEncryption } from "mongoose-field-encryption";
+import { fieldEncryptionOptions } from "./shared/fieldEncryption";
 
 const medicalHistorySchema = new mongoose.Schema(
   {
@@ -18,5 +20,7 @@ const medicalHistorySchema = new mongoose.Schema(
   },
   { timestamps: { createdAt: "created_at", updatedAt: false } },
 );
+
+medicalHistorySchema.plugin(fieldEncryption, fieldEncryptionOptions(["allergies", "others"]));
 
 export default mongoose.models.MedicalHistory || mongoose.model("MedicalHistory", medicalHistorySchema);

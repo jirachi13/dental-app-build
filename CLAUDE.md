@@ -115,6 +115,7 @@ Capstone Thesis — Build Phase — Group 404 — AY 2025-2026
 - Fields to encrypt: full_name, address, contact_number, medical_history fields, diagnosis, treatment_done
 - Fields NOT to encrypt (need querying): isArchived, dates, IDs, role, school_id
 - Use mongoose-field-encryption or Node.js crypto AES-256
+- Implemented Sprint 8 using `mongoose-field-encryption` (AES-256-CBC), scoped to: STUDENT (full_name, address, contact_number), DENTAL_AIDE (contact_number), MEDICAL_HISTORY (allergies, others — not the boolean condition flags), TREATMENT (diagnosis, treatment_done). USER.full_name is NOT encrypted (staff name, not patient PII). See HANDOFF.md Sprint 8 notes for why CRUD routes use findById+save instead of findByIdAndUpdate for these models.
 
 ## SECURITY
 - OWASP Top 10 compliance before deployment

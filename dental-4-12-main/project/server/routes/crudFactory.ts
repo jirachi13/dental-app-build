@@ -10,6 +10,14 @@ function sanitizeBody(body: Record<string, unknown>) {
   return clean;
 }
 
+// mongoose-field-encryption leaves encrypted fields as ciphertext on the in-memory
+// document after create()/save() (decryption only happens on read via post('init')).
+// Decrypt in place before sending the response, without touching the DB.
+function decryptForResponse(doc: any) {
+  if (typeof doc.decryptFieldsSync === "function") doc.decryptFieldsSync();
+  return doc;
+}
+
 export function createCrudRouter(model: Model<any>, options: { readOnly?: boolean } = {}) {
   const router = Router();
   const hasSoftDelete = !!model.schema.path("isArchived");
@@ -46,7 +54,7 @@ export function createCrudRouter(model: Model<any>, options: { readOnly?: boolea
     "/",
     asyncHandler(async (req, res) => {
       const doc = await model.create(sanitizeBody(req.body));
-      res.status(201).json(doc);
+      res.status(201).json(decryptForResponse(doc));
     }),
   );
 
@@ -57,15 +65,18 @@ export function createCrudRouter(model: Model<any>, options: { readOnly?: boolea
         res.status(400).json({ error: "Invalid id" });
         return;
       }
-      const doc = await model.findByIdAndUpdate(req.params.id, sanitizeBody(req.body), {
-        new: true,
-        runValidators: true,
-      });
+      // Loads + mutates + .save() rather than findByIdAndUpdate: the latter's
+      // pre('findOneAndUpdate') hook in mongoose-field-encryption has a bug that
+      // corrupts encrypted fields and crashes on the next decrypt (calls a removed
+      // Node crypto API). save() goes through the working pre('save') hook instead.
+      const doc = await model.findById(req.params.id);
       if (!doc) {
         res.status(404).json({ error: "Not found" });
         return;
       }
-      res.json(doc);
+      Object.assign(doc, sanitizeBody(req.body));
+      await doc.save();
+      res.json(decryptForResponse(doc));
     }),
   );
 

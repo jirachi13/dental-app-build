@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
+import { fieldEncryption } from "mongoose-field-encryption";
 import { softDeleteFields } from "./shared/softDelete";
+import { fieldEncryptionOptions } from "./shared/fieldEncryption";
 
 const dentalAideSchema = new mongoose.Schema(
   {
@@ -13,5 +15,7 @@ const dentalAideSchema = new mongoose.Schema(
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
+
+dentalAideSchema.plugin(fieldEncryption, fieldEncryptionOptions(["contact_number"]));
 
 export default mongoose.models.DentalAide || mongoose.model("DentalAide", dentalAideSchema);

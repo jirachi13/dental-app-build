@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
+import { fieldEncryption } from "mongoose-field-encryption";
 import { softDeleteFields } from "./shared/softDelete";
+import { fieldEncryptionOptions } from "./shared/fieldEncryption";
 
 const studentSchema = new mongoose.Schema(
   {
@@ -15,5 +17,7 @@ const studentSchema = new mongoose.Schema(
   },
   { timestamps: { createdAt: "created_at", updatedAt: false } },
 );
+
+studentSchema.plugin(fieldEncryption, fieldEncryptionOptions(["full_name", "address", "contact_number"]));
 
 export default mongoose.models.Student || mongoose.model("Student", studentSchema);
