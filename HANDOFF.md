@@ -67,7 +67,7 @@ Done: `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` added to Vercel (Production +
 
 System Admin account: only one MongoDB database exists (local `.env` and Vercel both point at the same `floral-cluster` Atlas cluster), so the seeded `system_admin` account is already usable once the app is deployed — no separate production seeding needed. Login email is `admin@floral.local`; the password was rotated away from the original weak seed value to a strong random one (given to you directly, not stored in any file/commit — save it in a password manager).
 
-**New**: add `FIELD_ENCRYPTION_SECRET` to Vercel (Production + Preview, Sensitive) — same process as the JWT secrets. Currently only in local `.env`. Without it, encrypted-field reads/writes will throw in production. I'll generate a fresh production-only value for you to paste in, same as before, whenever you're ready.
+Done: `FIELD_ENCRYPTION_SECRET` added to Vercel (Production + Preview, Sensitive) — fresh production-only value, distinct from local `.env`. **This secret must never be rotated once real data is encrypted with it** — losing/changing it makes existing encrypted data permanently unreadable. User has it saved outside of this repo.
 
 ## Sprint 8 decisions (grill-me round)
 - **Library**: `mongoose-field-encryption` (AES-256-CBC, deterministic salt derived from the secret so identical plaintext always encrypts the same way — fine since these fields are explicitly not meant to be queried).
