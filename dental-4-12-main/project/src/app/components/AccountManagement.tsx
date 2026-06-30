@@ -1,75 +1,52 @@
 import { useState } from 'react';
 import { Plus, Edit, Power, Search } from 'lucide-react';
+import { useUsers, ROLE_LABELS } from '../hooks/useUsers';
+import { apiClient, ApiError } from '../api/client';
+import type { ApiRole } from '../api/types';
+
+const ROLES: ApiRole[] = ['dentist', 'dental_aide', 'school_admin', 'bho_staff', 'system_admin'];
 
 export const AccountManagement = () => {
+  const { users, schools, loading, error, reload } = useUsers();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-
-  const users = [
-    {
-      id: '1',
-      name: 'Dr. Maria Santos',
-      email: 'maria.santos@floral.ph',
-      role: 'Dentist',
-      school: 'Bagong Tanyag Integrated School',
-      status: 'Active',
-      lastLogin: '2026-04-10 09:30 AM',
-    },
-    {
-      id: '2',
-      name: 'Ana Reyes',
-      email: 'ana.reyes@floral.ph',
-      role: 'Dental Aide',
-      school: 'Bagong Tanyag Integrated School',
-      status: 'Active',
-      lastLogin: '2026-04-10 08:15 AM',
-    },
-    {
-      id: '3',
-      name: 'Principal Jose Cruz',
-      email: 'jose.cruz@floral.ph',
-      role: 'School Admin',
-      school: 'Bagong Tanyag Integrated School',
-      status: 'Active',
-      lastLogin: '2026-04-09 02:45 PM',
-    },
-    {
-      id: '4',
-      name: 'Dr. Elena Martinez',
-      email: 'elena.martinez@floral.ph',
-      role: 'Barangay Health',
-      school: 'Barangay Health Office',
-      status: 'Active',
-      lastLogin: '2026-04-10 10:00 AM',
-    },
-    {
-      id: '5',
-      name: 'Dr. Ana Cruz',
-      email: 'ana.cruz@floral.ph',
-      role: 'Dentist',
-      school: 'South Daang Hari Elementary School Main',
-      status: 'Inactive',
-      lastLogin: '2026-03-28 11:20 AM',
-    },
-    {
-      id: '6',
-      name: 'Carlos Mendoza',
-      email: 'carlos.mendoza@floral.ph',
-      role: 'System Admin',
-      school: 'All Schools',
-      status: 'Active',
-      lastLogin: '2026-04-10 07:00 AM',
-    },
-  ];
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({ full_name: '', email: '', role: 'dentist' as ApiRole, school_id: '', password: '' });
 
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.role.toLowerCase().includes(searchTerm.toLowerCase())
+    user.roleLabel.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const roles = ['Dentist', 'Dental Aide', 'School Admin', 'Barangay Health', 'System Admin'];
-  const schools = ['Bagong Tanyag Integrated School', 'South Daang Hari Elementary School Main', 'Barangay Health Office'];
+  const handleCreate = async () => {
+    setFormError(null);
+    if (!form.full_name || !form.email || !form.password) {
+      setFormError('Full name, email, and password are required.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await apiClient.post('/users', { ...form, school_id: form.school_id || null });
+      setShowCreateForm(false);
+      setForm({ full_name: '', email: '', role: 'dentist', school_id: '', password: '' });
+      await reload();
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : 'Failed to create account');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleToggleStatus = async (id: string, status: 'Active' | 'Inactive') => {
+    await apiClient.patch(`/users/${id}/${status === 'Active' ? 'archive' : 'restore'}`);
+    await reload();
+  };
+
+  if (loading) {
+    return <div className="text-sm text-gray-500 p-8 text-center">Loading accounts…</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -79,7 +56,7 @@ export const AccountManagement = () => {
           <h1 className="text-3xl font-bold text-gray-900">Account Management</h1>
           <p className="text-gray-600 mt-1">{filteredUsers.length} user accounts</p>
         </div>
-        
+
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
           className="flex items-center gap-2 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-[#1E3A8A] transition-colors"
@@ -88,6 +65,10 @@ export const AccountManagement = () => {
           Create Account
         </button>
       </div>
+
+      {error && (
+        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{error}</div>
+      )}
 
       {/* Search */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
@@ -112,6 +93,8 @@ export const AccountManagement = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
               <input
                 type="text"
+                value={form.full_name}
+                onChange={(e) => setForm({ ...form, full_name: e.target.value })}
                 placeholder="Dr. Juan Dela Cruz"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
               />
@@ -120,24 +103,34 @@ export const AccountManagement = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
               <input
                 type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
                 placeholder="juan.delacruz@floral.ph"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
-              <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent">
-                {roles.map(role => (
-                  <option key={role} value={role}>{role}</option>
+              <select
+                value={form.role}
+                onChange={(e) => setForm({ ...form, role: e.target.value as ApiRole })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+              >
+                {ROLES.map(role => (
+                  <option key={role} value={role}>{ROLE_LABELS[role]}</option>
                 ))}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Assigned School</label>
-              <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent">
+              <select
+                value={form.school_id}
+                onChange={(e) => setForm({ ...form, school_id: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+              >
                 <option value="">None (Barangay Level)</option>
                 {schools.map(school => (
-                  <option key={school} value={school}>{school}</option>
+                  <option key={school._id} value={school._id}>{school.school_name}</option>
                 ))}
               </select>
             </div>
@@ -145,24 +138,25 @@ export const AccountManagement = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">Temporary Password</label>
               <input
                 type="password"
-                placeholder="Auto-generated or custom"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                placeholder="Set an initial password"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
               />
-              <p className="text-xs text-gray-500 mt-1">User will be required to change password on first login</p>
+              <p className="text-xs text-gray-500 mt-1">Share this with the user securely; there's no forced password-change flow yet</p>
             </div>
           </div>
+          {formError && <p className="text-sm text-red-600 mt-3">{formError}</p>}
           <div className="flex gap-2 mt-4">
-            <button 
-              onClick={() => {
-                alert('Account created successfully!');
-                setShowCreateForm(false);
-              }}
-              className="px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-[#1E3A8A] transition-colors"
+            <button
+              onClick={handleCreate}
+              disabled={submitting}
+              className="px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-[#1E3A8A] disabled:opacity-60 transition-colors"
             >
-              Create Account
+              {submitting ? 'Creating…' : 'Create Account'}
             </button>
             <button
-              onClick={() => setShowCreateForm(false)}
+              onClick={() => { setShowCreateForm(false); setFormError(null); }}
               className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
             >
               Cancel
@@ -208,7 +202,7 @@ export const AccountManagement = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
-                      {user.role}
+                      {user.roleLabel}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
@@ -225,7 +219,7 @@ export const AccountManagement = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-3">
-                      <button 
+                      <button
                         onClick={() => {
                           alert(`Edit user: ${user.name}`);
                         }}
@@ -233,11 +227,8 @@ export const AccountManagement = () => {
                       >
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button 
-                        onClick={() => {
-                          const action = user.status === 'Active' ? 'deactivated' : 'activated';
-                          alert(`User ${user.name} ${action} successfully!`);
-                        }}
+                      <button
+                        onClick={() => handleToggleStatus(user.id, user.status)}
                         className={`${
                         user.status === 'Active'
                           ? 'text-red-600 hover:text-red-700'
@@ -275,7 +266,7 @@ export const AccountManagement = () => {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600">Role:</span>
                 <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
-                  {user.role}
+                  {user.roleLabel}
                 </span>
               </div>
               <div className="flex items-center justify-between text-sm">
@@ -284,7 +275,7 @@ export const AccountManagement = () => {
               </div>
             </div>
             <div className="flex gap-2">
-              <button 
+              <button
                 onClick={() => {
                   alert(`Edit user: ${user.name}`);
                 }}
@@ -293,11 +284,8 @@ export const AccountManagement = () => {
                 <Edit className="w-4 h-4" />
                 Edit
               </button>
-              <button 
-                onClick={() => {
-                  const action = user.status === 'Active' ? 'deactivated' : 'activated';
-                  alert(`User ${user.name} ${action} successfully!`);
-                }}
+              <button
+                onClick={() => handleToggleStatus(user.id, user.status)}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm ${
                 user.status === 'Active'
                   ? 'bg-red-100 text-red-700 hover:bg-red-200'

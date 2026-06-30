@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { getHealth } from "../controllers/healthController";
+import { createUser } from "../controllers/userController";
 import { createCrudRouter } from "./crudFactory";
 import authRoutes from "./authRoutes";
+import { asyncHandler } from "../utils/asyncHandler";
 import {
   School,
   User,
@@ -27,6 +29,10 @@ router.get("/health", getHealth);
 router.use("/auth", authRoutes);
 
 router.use("/schools", createCrudRouter(School));
+// Intercepts POST /users before the generic CRUD router so passwords are
+// always hashed server-side — the generic router would store a plaintext
+// "password" field as-is, and password_hash is stripped from its bodies.
+router.post("/users", asyncHandler(createUser));
 router.use("/users", createCrudRouter(User));
 router.use("/dentists", createCrudRouter(Dentist));
 router.use("/dental-aides", createCrudRouter(DentalAide));

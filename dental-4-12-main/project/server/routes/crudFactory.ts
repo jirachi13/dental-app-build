@@ -2,7 +2,7 @@ import { Router } from "express";
 import mongoose, { type Model } from "mongoose";
 import { asyncHandler } from "../utils/asyncHandler";
 
-const PROTECTED_FIELDS = ["_id", "isArchived", "archivedAt", "archivedBy", "created_at", "updated_at"];
+const PROTECTED_FIELDS = ["_id", "isArchived", "archivedAt", "archivedBy", "created_at", "updated_at", "password_hash"];
 
 function sanitizeBody(body: Record<string, unknown>) {
   const clean = { ...body };

@@ -1,7 +1,7 @@
-# HANDOFF — Sprint 10 (part 1) Complete
+# HANDOFF — Sprint 10 Complete
 
 ## Status
-Sprints 1-9 done, Sprint 10 in progress (auth + 4 duplicated student-data arrays consolidated; AccountManagement/AuditTrail still pending).
+Sprints 1-10 done and verified against the real MongoDB Atlas cluster.
 - Sprint 1: Express MVC + MongoDB connection
 - Sprint 2: SCHOOL, USER, STUDENT, DENTIST, DENTAL_AIDE models
 - Sprint 3: STUDENT_IPTR, MEDICAL_HISTORY, DIETARY_SOCIAL_HABITS, ORAL_HEALTH_CONDITION models
@@ -11,7 +11,7 @@ Sprints 1-9 done, Sprint 10 in progress (auth + 4 duplicated student-data arrays
 - Sprint 7: JWT auth (httpOnly cookies) + 5-role auth machinery (RBAC middleware built, not yet wired into routes)
 - Sprint 8: Field-level encryption (STUDENT, DENTAL_AIDE, MEDICAL_HISTORY, TREATMENT)
 - Sprint 9: Inventoried all dummy frontend data (no code changes — see chat history for the full list)
-- Sprint 10 (in progress): real auth wired end-to-end; 4 of the duplicated student-data arrays now pull from the real API
+- Sprint 10: real auth wired end-to-end; 4 duplicated student-data arrays + AccountManagement consolidated into real API calls. AuditTrail deliberately left on dummy data (see below).
 
 ## What exists now
 **Backend** (`dental-4-12-main/project/server/`):
@@ -28,6 +28,7 @@ Sprints 1-9 done, Sprint 10 in progress (auth + 4 duplicated student-data arrays
 - `api/client.ts` — fetch wrapper (`credentials: include`, `/api` base path), `ApiError` class
 - `api/types.ts` — shared API response types
 - `hooks/useStudents.ts` — fetches students + schools + IPTRs + dental charts + preventive records + risk stratifications, joins them client-side into the UI's existing row shape (id/name/birthdate/gender/grade/section/school/lastVisit/oralStatus/riskLevel). `oralStatus` is derived from `riskLevel` (High→Needs Treatment, Medium→Under Treatment, Low→Orally Fit, none→Not Yet Screened) — there's no such field in the ERD, this mirrors what the prototype already displayed.
+- `hooks/useUsers.ts` — fetches users + schools, maps to a display row (role label, resolved school name, Active/Inactive from `isArchived`), exposes `reload()` for after create/archive/restore actions
 - `context/AuthContext.tsx` — real `/api/auth/login`, `/api/auth/me` (session restore on load, with a `loading` flag `RootLayout` waits on), `/api/auth/logout`
 - `vite.config.ts` — dev proxy `/api` → `localhost:4000`; `package.json` got its first `"dev"` script (was missing entirely)
 
@@ -46,6 +47,8 @@ Sprints 1-9 done, Sprint 10 in progress (auth + 4 duplicated student-data arrays
 4. **`Dashboard.tsx` had two role-gated dashboard blocks with swapped role checks** — comments said "SCHOOL ADMIN DASHBOARD" / "BARANGAY HEALTH OFFICE DASHBOARD" but checked the wrong role string each. Fixed to match the comments (which revealed the true intent).
 5. **`authController.login` returned a different shape than `/api/auth/me`** — unified to both return the same Mongoose-document shape.
 6. **`TreatmentRecords.tsx`'s "Treatment List" view filtered by a hardcoded `Set` of fake sequential IDs** (`'2','5','7'...`) that would never match real ObjectIds — fixed to derive the set from real `/api/treatments` + `/api/student-iptrs` data instead.
+7. **The generic CRUD factory let `password_hash` be set directly via POST/PUT on any model** — a client could set a user's password to an arbitrary plaintext string, completely bypassing bcrypt. Found while wiring `AccountManagement`'s Create Account form. Fixed two ways: added `password_hash` to `crudFactory`'s stripped-fields list (defense in depth, harmless on other models since only USER has this field), and added a dedicated `POST /api/users` handler (`userController.createUser`) that properly hashes the password before storage, registered ahead of the generic CRUD router so it intercepts that one route.
+8. **`userController.createUser`'s response leaked `password_hash`** — same root cause as bug #1 (`.create()` returns the full document, bypassing `select: false`). Fixed the same way: re-fetch via `findById` before responding. Caught by testing the response body directly, not assumed fixed by the schema-level `select: false` alone.
 
 ## Demo credentials (re-seeded per user's exact spec, replacing earlier `.local` versions which are now archived)
 | Role | Email | Password | School |
@@ -60,16 +63,22 @@ No Quick Demo Login buttons in the UI anymore (removed per user request — real
 
 ## Verified
 - All 16 models smoke-tested against the real Atlas cluster (Sprints 2-5); Sprint 6 CRUD verified end-to-end; Sprint 7 auth flow verified end-to-end (login/me/refresh/logout, password_hash never leaks); Sprint 8 encryption verified end-to-end including the tightest `maxlength` case
-- Sprint 10: login verified through the actual Vite dev proxy (not just direct backend) — wrong password → 401, correct login → cookies set + `/api/auth/me` restores session + `/api/schools` resolves correctly. `useStudents()`'s join logic independently verified by replaying it in Node against the real API — all 18 seeded students resolve correctly (names decrypt correctly, school names resolve, risk levels match, the 3 "not yet screened" students correctly show `null`)
-- No browser automation tool available in this environment (no `chromium-cli`/Playwright) — verification is via TypeScript compile (clean) + direct API/network testing, not an actual rendered screenshot. Flagged honestly, not assumed.
+- Sprint 10 auth: login verified through the actual Vite dev proxy (not just direct backend) — wrong password → 401, correct login → cookies set + `/api/auth/me` restores session + `/api/schools` resolves correctly
+- Sprint 10 student data: `useStudents()`'s join logic independently verified by replaying it in Node against the real API — all 18 seeded students resolve correctly (names decrypt correctly, school names resolve, risk levels match, the 3 "not yet screened" students correctly show `null`)
+- Sprint 10 accounts: full create→archive→restore flow verified through the Vite proxy exactly as the UI would call it; confirmed `password_hash` absent from the create response; confirmed a PUT containing `password_hash` is silently stripped and doesn't affect the user's real password (login still works with the original password afterward)
+- No browser automation tool available in this environment (no `chromium-cli`/Playwright) — verification is via TypeScript compile (clean, both frontend and backend tsconfigs) + direct API/network testing, not an actual rendered screenshot. Flagged honestly, not assumed.
+
+## AuditTrail.tsx — deliberately NOT wired
+Backend `AUDIT_TRAIL` only has `user_id`/`action`/`timestamp`/`affected_record_id`/`affected_model` — no `module`/`details`/`ipAddress` (the UI invented those). More importantly, nothing in the app writes real audit entries yet (that's Sprint 15's job; `AUDIT_TRAIL` is deliberately read-only since Sprint 6). Wiring this now would just show a permanently empty table. User chose to leave it on dummy data until Sprint 15 adds real write triggers.
 
 ## Not done yet
 - RBAC not wired into CRUD routes — everything is reachable by anyone right now, logged in or not
-- `AccountManagement.tsx` and `AuditTrail.tsx` still use their own hardcoded arrays (Sprint 10 remainder)
+- `AuditTrail.tsx` still uses its own hardcoded array (intentionally, see above)
 - No OCR (Sprint 16), no real deployment yet (Sprint 17) — Vercel is linked/configured with all env vars but nothing has actually been pushed live
 - `GET`/list responses include the encryption plugin's `__enc_<field>` boolean markers — harmless but cosmetically noisy, not cleaned up
 - Phase 3 plan revised in CLAUDE.md: real Excel IPTR data exists (not synthetic) — see CLAUDE.md's Phase 3 section and project memory for details
 - Chapter 4/5 manuscript structure saved in project memory, not started (correctly deferred until build+deploy+eval+algo are done)
+- `AccountManagement`'s "Edit" button is still a no-op `alert()` placeholder — it always was (no edit form existed before Sprint 10 either), left as-is since building a new edit UI is feature work, not the "data only" swap Sprint 10 asked for
 
 ## Next sprint
-Continue Sprint 10: wire `AccountManagement.tsx` (→ `/api/users`) and `AuditTrail.tsx` (→ `/api/audit-trails`) to real data, same pattern as the student-data files. Then Sprint 11 (Appointment scheduling module). Do not start without explicit approval.
+Sprint 11 → Appointment scheduling module. Do not start without explicit approval.
