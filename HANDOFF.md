@@ -1,7 +1,10 @@
-# HANDOFF — Sprint 2 Complete
+# HANDOFF — Sprint 3 Complete
 
 ## Status
-Sprint 1 (Express MVC + MongoDB connection) and Sprint 2 (SCHOOL, USER, STUDENT, DENTIST, DENTAL_AIDE models) done and verified against the real MongoDB Atlas cluster.
+Sprints 1-3 done and verified against the real MongoDB Atlas cluster:
+- Sprint 1: Express MVC + MongoDB connection
+- Sprint 2: SCHOOL, USER, STUDENT, DENTIST, DENTAL_AIDE models
+- Sprint 3: STUDENT_IPTR, MEDICAL_HISTORY, DIETARY_SOCIAL_HABITS, ORAL_HEALTH_CONDITION models
 
 ## What exists now
 - `dental-4-12-main/project/server/` — Express MVC backend
@@ -9,8 +12,8 @@ Sprint 1 (Express MVC + MongoDB connection) and Sprint 2 (SCHOOL, USER, STUDENT,
   - `config/db.ts` — Mongoose connection, cached across invocations for serverless reuse
   - `routes/index.ts`, `controllers/healthController.ts` — `/api/health` endpoint only
   - `local.ts` — local dev entry point (`npm run dev:server`, listens on port 4000)
-  - `models/School.ts`, `User.ts`, `Dentist.ts`, `DentalAide.ts`, `Student.ts` — Mongoose schemas, `models/index.ts` barrel export
-  - `models/shared/softDelete.ts` — shared `isArchived`/`archivedAt`/`archivedBy` fields, spread into every model
+  - `models/School.ts`, `User.ts`, `Dentist.ts`, `DentalAide.ts`, `Student.ts`, `StudentIptr.ts`, `MedicalHistory.ts`, `DietarySocialHabits.ts`, `OralHealthCondition.ts` — Mongoose schemas, `models/index.ts` barrel export
+  - `models/shared/softDelete.ts` — shared `isArchived`/`archivedAt`/`archivedBy` fields, spread into models that have them per the ERD
 - `dental-4-12-main/project/api/index.ts` — Vercel serverless entry, re-exports the same Express app
 - `dental-4-12-main/project/vercel.json` — rewrites `/api/*` → the single function so Express handles sub-routing
 - `dental-4-12-main/project/tsconfig.server.json` — separate Node-targeted tsconfig (frontend tsconfig.json is bundler/DOM-targeted, kept untouched)
@@ -22,7 +25,11 @@ Sprint 1 (Express MVC + MongoDB connection) and Sprint 2 (SCHOOL, USER, STUDENT,
 - **USER.password_hash**: added now even though the ERD doesn't list it, since AUTH RULES require bcrypt+JWT later (Sprint 7) and adding it now avoids a breaking schema change. Field exists but nothing reads/writes it yet.
 - **USER.school_id**: made optional (not required) — System Admin and BHO Staff roles span all schools per their role descriptions, so they shouldn't be forced to belong to one school.
 - **Encryption**: NOT applied yet. All fields (including ones flagged for encryption in CLAUDE.md like full_name, address, contact_number) are stored plain for now — encryption is explicitly Sprint 8's job, not bolted on early.
-- **Timestamps**: SCHOOL/USER/DENTIST/DENTAL_AIDE have `created_at` + `updated_at` per the ERD. STUDENT has `created_at` only (no `updated_at` in the ERD) — handled via Mongoose's `timestamps: { updatedAt: false }` option.
+- **Timestamps**: SCHOOL/USER/DENTIST/DENTAL_AIDE have `created_at` + `updated_at` per the ERD. STUDENT, STUDENT_IPTR, MEDICAL_HISTORY, DIETARY_SOCIAL_HABITS, ORAL_HEALTH_CONDITION have `created_at` only — handled via Mongoose's `timestamps: { updatedAt: false }` option.
+
+## Sprint 3 notes
+- Per the ERD, `MEDICAL_HISTORY`, `DIETARY_SOCIAL_HABITS`, and `ORAL_HEALTH_CONDITION` have **no** `isArchived`/`archivedAt`/`archivedBy` fields — only `STUDENT_IPTR` (their parent) does. Archiving an IPTR conceptually archives its child records; this was followed exactly as specified rather than adding soft-delete to every model uniformly.
+- All four new models reference `StudentIptr` via `iptr_id` (ObjectId ref), consistent with Sprint 2's native-`_id` decision.
 
 ## Repo hygiene done this session
 - Added root `.gitignore` (node_modules, .env, .env.local, dist, build)
@@ -34,14 +41,14 @@ Sprint 1 (Express MVC + MongoDB connection) and Sprint 2 (SCHOOL, USER, STUDENT,
 ## Verified
 - `npm run dev:server` starts the Express app locally
 - `GET /api/health` → `{"status":"ok","db":"connected"}` against the real `floral-cluster` Atlas cluster
-- Smoke-tested School model: created a doc (confirmed `isArchived` defaults `false`), read it back by `_id`, deleted it — all against the real cluster, no leftover test data
+- Smoke-tested School + Student + StudentIptr + MedicalHistory + DietarySocialHabits + OralHealthCondition: created linked docs (confirmed soft-delete fields present/absent matches the ERD per model), read back, deleted — all against the real cluster, no leftover test data
 
 ## Not done yet (deliberately out of scope so far)
-- No STUDENT_IPTR / MEDICAL_HISTORY / DIETARY_SOCIAL_HABITS / ORAL_HEALTH_CONDITION models (Sprint 3)
+- No DENTAL_CHART / TOOTH_RECORD / TREATMENT models (Sprint 4)
 - No CRUD routes for any model beyond health check (Sprint 6)
 - No JWT auth (Sprint 7) — `password_hash` field exists but is unused
 - No data encryption (Sprint 8) — sensitive fields are currently plain text in the DB
 - Not yet deployed to Vercel (Sprint 17) — only linked/configured
 
 ## Next sprint
-Sprint 3 → STUDENT_IPTR, MEDICAL_HISTORY, DIETARY_SOCIAL_HABITS, ORAL_HEALTH_CONDITION models, per the exact ERD in `CLAUDE.md` / Chapter 3 of the manuscript. Do not start without explicit approval.
+Sprint 4 → DENTAL_CHART, TOOTH_RECORD, TREATMENT models, per the exact ERD in `CLAUDE.md` / Chapter 3 of the manuscript. Do not start without explicit approval.
