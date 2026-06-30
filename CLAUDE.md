@@ -22,6 +22,7 @@ Capstone Thesis — Build Phase — Group 404 — AY 2025-2026
 - Follow YAGNI: don't build it if it doesn't need to exist yet
 - Prefer native platform features (e.g. `<input type="date">`) over installing a library
 - Prefer stdlib/already-installed dependencies over writing custom code or adding new packages
+- Before starting a sprint, give a one-line scope estimate (files touched, new models, complexity) so the user can decide whether to proceed or pause. Claude Code has no visibility into token/cost usage in this environment — this scope estimate is the practical substitute for a real usage warning.
 - Minimum code that works, nothing more
 
 ## APP CONTEXT
@@ -159,10 +160,35 @@ Capstone Thesis — Build Phase — Group 404 — AY 2025-2026
 - Pipeline:
   1. Data preprocessing (clean IPTR records, handle missing values)
   2. Feature engineering (convert IPTR attributes to model inputs)
-  3. Model training + comparison: Logistic Regression vs Random Forest vs SVM
-  4. Evaluation metrics: accuracy, precision, recall, F1
-  5. Stratified K-Fold (k=5)
-  6. Risk output: High / Medium / Low
+  3. Model training + comparison (see ALGORITHMS TO COMPARE and EVALUATION METHODS below)
+  4. Risk output: High / Medium / Low
+
+### ALGORITHMS TO COMPARE
+1. Logistic Regression (interpretable baseline)
+2. Decision Tree (visual, explainable)
+3. Random Forest (ensemble)
+4. SVM (kernel-based)
+5. XGBoost (gradient boosting)
+
+Primary feature: DMF/dmf index score. Metric priority: F1 score. Generate a visual decision tree for Chapter 4.
+
+**Open question for adviser**: 5 algorithms is thorough but adds work. SVM is the hardest to explain to a non-technical panel and often performs similarly to Random Forest on medical data. Safe minimum = LR + Decision Tree + RF + XGBoost (drop SVM). Strong set = all 5. Ask adviser whether they prefer more algorithms or deeper analysis of fewer — not yet decided.
+
+### EVALUATION METHODS
+Compare both:
+1. Train/Test Split (80% train, 20% test) — secondary comparison
+2. Stratified K-Fold (k=5) — **primary evaluation**, used for final model selection
+
+K=5 chosen over K=10: dataset is ~8,000 records with imbalanced dental conditions (caries common, periodontitis moderate, cleft lip/palate rare). K=10 folds (~800 records each) risk rare conditions appearing in only 1-2 folds — unreliable. K=5 folds (~1,600 records each) give more stable per-condition results, is standard for medical ML research, and is sufficient at thesis level. K=10 can optionally be mentioned in Chapter 4 as a consistency check ("K=10 was also tested, results were consistent with K=5 findings") without doing it as the primary analysis.
+
+Report per algorithm: Accuracy, Precision, Recall, F1 Score, Confusion Matrix. Generate a comparison table for both methods (5 algorithms × 2 methods = 10 result sets). Save results to `/docs/algo-results.md`. Final model selected based on K-Fold F1.
+
+What the Train/Test vs K-Fold comparison shows the panel: results ≈ each other → model is stable, not overfitting. K-Fold >> Train/Test → the holdout split was lucky. K-Fold << Train/Test → model was overfitting and K-Fold caught it. This comparison is itself a Chapter 4 discussion point, not just a table.
+
+Chapter 4 paragraph template (fill in real numbers once experiments run): "Table X presents the performance comparison of five classification algorithms evaluated using both holdout validation (80/20 split) and Stratified K-Fold cross-validation (k=5). K-Fold results were used as the primary basis for model selection due to their reliability on imbalanced medical datasets. [Algorithm] demonstrated the highest F1 score of X.XX under K-Fold validation and was selected as the active classification model."
+
+### Sample size caveat — algo experiments cannot start yet
+Current student data is only the Sprint 10 demo seeder (18 records) — far too small for ML. Real Excel data (~8,000 records, see Phase 3 plan above) is not encoded yet. Sprint 21a-c (clean → map → seed real data) must complete BEFORE any algorithm experiments (21d onward) run — do not attempt model training against demo seeder data, the sample size is meaningless for that purpose.
 - Strategy Pattern for algo swapping
 - Active algo in config.py only
 - Express calls predictor.py only
@@ -224,11 +250,10 @@ Capstone Thesis — Build Phase — Group 404 — AY 2025-2026
 - Sprint 21b → Map cleaned data to MongoDB models
 - Sprint 21c → Seed real data into MongoDB (replaces dummy/demo seeder data)
 - Sprint 21d → Feature engineering from real IPTR data
-- Sprint 21e → LR vs RF vs SVM experiments on real data
-- Sprint 21f → Stratified K-Fold k=5 — accuracy, precision, recall, F1
-- Sprint 21g → Integrate winner Strategy Pattern
-- Sprint 21h → Risk classification UI — High/Medium/Low
-- Sprint 21i → Dentist decision support interface — validation before clinical action
+- Sprint 21e → Train/Test (80/20) + Stratified K-Fold (k=5) experiments on real data, all 5 algorithms (see ALGORITHMS TO COMPARE — pending adviser input on full 5 vs. dropping SVM), accuracy/precision/recall/F1/confusion matrix per algorithm per method, results saved to /docs/algo-results.md, visual decision tree generated
+- Sprint 21f → Integrate winner (selected by K-Fold F1) via Strategy Pattern
+- Sprint 21g → Risk classification UI — High/Medium/Low
+- Sprint 21h → Dentist decision support interface — validation before clinical action
 
 For Chapter 4: real IPTR records from Barangay Tanyag school dental clinics were used as training data after cleaning and standardization — stronger than a synthetic dataset, note this in the manuscript.
 
