@@ -1,11 +1,12 @@
-# HANDOFF — Sprint 4 Complete
+# HANDOFF — Sprint 5 Complete
 
 ## Status
-Sprints 1-4 done and verified against the real MongoDB Atlas cluster:
+Sprints 1-5 done and verified against the real MongoDB Atlas cluster. All 13 ERD models now exist — Phase 1's data layer is complete.
 - Sprint 1: Express MVC + MongoDB connection
 - Sprint 2: SCHOOL, USER, STUDENT, DENTIST, DENTAL_AIDE models
 - Sprint 3: STUDENT_IPTR, MEDICAL_HISTORY, DIETARY_SOCIAL_HABITS, ORAL_HEALTH_CONDITION models
 - Sprint 4: DENTAL_CHART, TOOTH_RECORD, TREATMENT models
+- Sprint 5: PREVENTIVE_CARE_RECORD, RISK_STRATIFICATION, APPOINTMENT, AUDIT_TRAIL models
 
 ## What exists now
 - `dental-4-12-main/project/server/` — Express MVC backend
@@ -13,7 +14,7 @@ Sprints 1-4 done and verified against the real MongoDB Atlas cluster:
   - `config/db.ts` — Mongoose connection, cached across invocations for serverless reuse
   - `routes/index.ts`, `controllers/healthController.ts` — `/api/health` endpoint only
   - `local.ts` — local dev entry point (`npm run dev:server`, listens on port 4000)
-  - `models/School.ts`, `User.ts`, `Dentist.ts`, `DentalAide.ts`, `Student.ts`, `StudentIptr.ts`, `MedicalHistory.ts`, `DietarySocialHabits.ts`, `OralHealthCondition.ts`, `DentalChart.ts`, `ToothRecord.ts`, `Treatment.ts` — Mongoose schemas, `models/index.ts` barrel export
+  - `models/` — all 13 ERD models: `School.ts`, `User.ts`, `Dentist.ts`, `DentalAide.ts`, `Student.ts`, `StudentIptr.ts`, `MedicalHistory.ts`, `DietarySocialHabits.ts`, `OralHealthCondition.ts`, `DentalChart.ts`, `ToothRecord.ts`, `Treatment.ts`, `PreventiveCareRecord.ts`, `RiskStratification.ts`, `Appointment.ts`, `AuditTrail.ts` — `models/index.ts` barrel export
   - `models/shared/softDelete.ts` — shared `isArchived`/`archivedAt`/`archivedBy` fields, spread into models that have them per the ERD
 - `dental-4-12-main/project/api/index.ts` — Vercel serverless entry, re-exports the same Express app
 - `dental-4-12-main/project/vercel.json` — rewrites `/api/*` → the single function so Express handles sub-routing
@@ -35,6 +36,11 @@ Sprints 1-4 done and verified against the real MongoDB Atlas cluster:
 ## Sprint 4 notes
 - Per the ERD, `DENTAL_CHART` has no `created_at`/`updated_at` at all — just `date_charted` plus soft-delete fields. `TOOTH_RECORD` has no timestamps or soft-delete fields whatsoever (pure child record of a chart). `TREATMENT` has `created_at` + soft-delete, no `updated_at`. Followed exactly as specified, verified via smoke test (`created_at` came back `undefined` on DentalChart/ToothRecord as expected).
 
+## Sprint 5 notes
+- Per the ERD: `PREVENTIVE_CARE_RECORD` has `created_at` + soft-delete (no `updated_at`). `RISK_STRATIFICATION` has neither timestamps nor soft-delete (it's a point-in-time assessment tied to a preventive visit, not independently archivable). `APPOINTMENT` has soft-delete but no `created_at`. `AUDIT_TRAIL` has neither — audit logs are never archived or soft-deleted, by design (immutable record).
+- `AuditTrail.affected_record_id` is a bare `ObjectId` with no `ref` — it can point at any model depending on `affected_model`, so a fixed ref isn't possible.
+- All 13 models from the ERD now exist. Phase 1 remaining work: CRUD routes (Sprint 6), auth (Sprint 7), encryption (Sprint 8), frontend wiring (Sprints 9-14), soft-delete/audit enforcement in routes (Sprint 15), security (15.5), OCR (16), deploy (17).
+
 ## Repo hygiene done this session
 - Added root `.gitignore` (node_modules, .env, .env.local, dist, build)
 - Untracked `node_modules/` and `dist/` that were previously committed (72k+ files removed from git history going forward)
@@ -45,14 +51,13 @@ Sprints 1-4 done and verified against the real MongoDB Atlas cluster:
 ## Verified
 - `npm run dev:server` starts the Express app locally
 - `GET /api/health` → `{"status":"ok","db":"connected"}` against the real `floral-cluster` Atlas cluster
-- Smoke-tested School + User + Dentist + Student + StudentIptr + DentalChart + ToothRecord + Treatment: created linked docs (confirmed soft-delete/timestamp fields present/absent matches the ERD per model), read back, deleted — all against the real cluster, no leftover test data
+- Smoke-tested School + User + Dentist + Student + StudentIptr + PreventiveCareRecord + RiskStratification + Appointment + AuditTrail: created linked docs (confirmed soft-delete/timestamp fields present/absent matches the ERD per model), read back, deleted — all against the real cluster, no leftover test data
 
 ## Not done yet (deliberately out of scope so far)
-- No PREVENTIVE_CARE_RECORD / RISK_STRATIFICATION / APPOINTMENT / AUDIT_TRAIL models (Sprint 5)
 - No CRUD routes for any model beyond health check (Sprint 6)
 - No JWT auth (Sprint 7) — `password_hash` field exists but is unused
 - No data encryption (Sprint 8) — sensitive fields are currently plain text in the DB
 - Not yet deployed to Vercel (Sprint 17) — only linked/configured
 
 ## Next sprint
-Sprint 5 → PREVENTIVE_CARE_RECORD, RISK_STRATIFICATION, APPOINTMENT, AUDIT_TRAIL models, per the exact ERD in `CLAUDE.md` / Chapter 3 of the manuscript. Do not start without explicit approval.
+Sprint 6 → CRUD API for all 13 models. Do not start without explicit approval.

@@ -10,3 +10,7 @@ export { default as OralHealthCondition } from "./OralHealthCondition";
 export { default as DentalChart } from "./DentalChart";
 export { default as ToothRecord } from "./ToothRecord";
 export { default as Treatment } from "./Treatment";
+export { default as PreventiveCareRecord } from "./PreventiveCareRecord";
+export { default as RiskStratification } from "./RiskStratification";
+export { default as Appointment } from "./Appointment";
+export { default as AuditTrail } from "./AuditTrail";
