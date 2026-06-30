@@ -64,7 +64,7 @@ Sprints 1-7 done and verified against the real MongoDB Atlas cluster.
 ## Action needed from you
 Done: `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` added to Vercel (Production + Preview, Sensitive) — confirmed with fresh, production-only values, distinct from local `.env`.
 
-(`SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` are only needed locally to run the one-off seed script — no need to add them to Vercel. The first production `system_admin` will need to be seeded separately once deployed, e.g. by running the seed script with `MONGODB_URI` pointed at production, or by promoting a user manually — not done yet.)
+System Admin account: only one MongoDB database exists (local `.env` and Vercel both point at the same `floral-cluster` Atlas cluster), so the seeded `system_admin` account is already usable once the app is deployed — no separate production seeding needed. Login email is `admin@floral.local`; the password was rotated away from the original weak seed value to a strong random one (given to you directly, not stored in any file/commit — save it in a password manager).
 
 ## Repo hygiene done this session
 - Added root `.gitignore` (node_modules, .env, .env.local, dist, build)
