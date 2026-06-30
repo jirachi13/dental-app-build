@@ -19,6 +19,10 @@ Capstone Thesis — Build Phase — Group 404 — AY 2025-2026
 - Never start next sprint without approval
 - Confirm success criteria before building
 - Ask clarifying questions if requirements unclear
+- Follow YAGNI: don't build it if it doesn't need to exist yet
+- Prefer native platform features (e.g. `<input type="date">`) over installing a library
+- Prefer stdlib/already-installed dependencies over writing custom code or adding new packages
+- Minimum code that works, nothing more
 
 ## APP CONTEXT
 - Full name: Floral, Dental Health Record Management System with Predictive Analytics
