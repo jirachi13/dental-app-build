@@ -8,7 +8,8 @@
     "build": "vite build",
     "dev:server": "tsx watch server/local.ts",
     "seed:admin": "tsx server/scripts/seedAdmin.ts",
-    "seed:demo": "tsx server/scripts/seedDemo.ts"
+    "seed:demo": "tsx server/scripts/seedDemo.ts",
+    "seed:students": "tsx server/scripts/seedStudents.ts"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

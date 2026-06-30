@@ -17,3 +17,48 @@ export interface ApiSchool {
   school_type: string;
   isArchived: boolean;
 }
+
+export interface ApiStudent {
+  _id: string;
+  school_id: string;
+  full_name: string;
+  birthday: string;
+  sex: string;
+  address: string;
+  contact_number?: string;
+  grade_level: string;
+  section: string;
+  isArchived: boolean;
+}
+
+export interface ApiStudentIptr {
+  _id: string;
+  student_id: string;
+  school_year: string;
+}
+
+export interface ApiDentalChart {
+  _id: string;
+  iptr_id: string;
+  date_charted: string;
+}
+
+export interface ApiPreventiveCareRecord {
+  _id: string;
+  iptr_id: string;
+}
+
+export interface ApiRiskStratification {
+  _id: string;
+  preventive_id: string;
+  risk_level: "High" | "Medium" | "Low";
+}
+
+export interface ApiTreatment {
+  _id: string;
+  iptr_id: string;
+  diagnosis: string;
+  treatment_done: string;
+  remarks: string;
+  date: string;
+}
