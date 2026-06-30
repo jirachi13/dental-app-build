@@ -22,7 +22,7 @@ Sprints 1-7 done and verified against the real MongoDB Atlas cluster.
 - `dental-4-12-main/project/vercel.json` — rewrites `/api/*` → the single function so Express handles sub-routing
 - `dental-4-12-main/project/tsconfig.server.json` — separate Node-targeted tsconfig (frontend tsconfig.json is bundler/DOM-targeted, kept untouched)
 - `dental-4-12-main/project/.env` — local `MONGODB_URI` (gitignored, not committed)
-- Vercel project linked to this repo, root directory set to `dental-4-12-main/project`, `MONGODB_URI` set as a Sensitive env var for Production + Preview (Development intentionally left unset — Vercel disallows Sensitive + Development together; local dev uses the `.env` file instead)
+- Vercel project linked to this repo, root directory set to `dental-4-12-main/project`. Env vars set as Sensitive for Production + Preview (Development intentionally left unset — Vercel disallows Sensitive + Development together; local dev uses the `.env` file instead): `MONGODB_URI`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` (production secrets are deliberately different values from the ones in local `.env`)
 
 ## Sprint 2 decisions (grill-me round)
 - **IDs**: using Mongo's native `_id` (ObjectId) only — no separate `school_id`/`user_id` literal fields as the ERD's relational notation implies. FK references (`school_id (FK)` etc.) are Mongoose `ObjectId` refs pointing at the related model's `_id`.
@@ -62,11 +62,9 @@ Sprints 1-7 done and verified against the real MongoDB Atlas cluster.
 - **Security fix found during testing**: `GET /api/users` was leaking `password_hash` (bcrypt hash) in responses via the Sprint 6 generic CRUD route — this is an output-sanitization bug independent of the RBAC-deferral decision, so it was fixed now rather than left for later. Fixed via `select: false` on `User.password_hash`; `authController.login` explicitly `.select("+password_hash")` to compare it.
 
 ## Action needed from you
-Add these to Vercel (Settings → Environment Variables, Production + Preview, mark Sensitive) so auth works once deployed — currently only in local `.env`:
-- `JWT_ACCESS_SECRET`
-- `JWT_REFRESH_SECRET`
+Done: `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` added to Vercel (Production + Preview, Sensitive) — confirmed with fresh, production-only values, distinct from local `.env`.
 
-(`SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` are only needed locally to run the one-off seed script — no need to add them to Vercel.)
+(`SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` are only needed locally to run the one-off seed script — no need to add them to Vercel. The first production `system_admin` will need to be seeded separately once deployed, e.g. by running the seed script with `MONGODB_URI` pointed at production, or by promoting a user manually — not done yet.)
 
 ## Repo hygiene done this session
 - Added root `.gitignore` (node_modules, .env, .env.local, dist, build)
