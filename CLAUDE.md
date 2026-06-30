@@ -242,8 +242,9 @@ Complex sprints use /grill-me first: Sprints 1, 2, 7, 8, 16, 19, 21
 - git push
 
 ## CHAPTER REFERENCES
-- /docs/chapter1.pdf → objectives, scope, limitations, conceptual framework
-- /docs/chapter3.pdf → ERD, architecture, DFD, use cases, methodology
+- /docs/Group404 - Manuscript.md → full thesis manuscript
+  - Chapter 1 (line ~95) → objectives, scope, limitations, conceptual framework
+  - Chapter 3 (line ~315) → ERD, architecture, DFD, use cases, methodology
 - ERD = exact MongoDB models
 - Use cases = exact permissions per role
 - Do NOT deviate from Chapter specs
