@@ -7,3 +7,6 @@ export { default as StudentIptr } from "./StudentIptr";
 export { default as MedicalHistory } from "./MedicalHistory";
 export { default as DietarySocialHabits } from "./DietarySocialHabits";
 export { default as OralHealthCondition } from "./OralHealthCondition";
+export { default as DentalChart } from "./DentalChart";
+export { default as ToothRecord } from "./ToothRecord";
+export { default as Treatment } from "./Treatment";
