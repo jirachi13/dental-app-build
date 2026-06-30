@@ -51,7 +51,8 @@ export async function login(req: Request, res: Response) {
   user.last_login = new Date();
   await user.save();
 
-  res.json({ id: user._id, full_name: user.full_name, email: user.email, role: user.role, school_id: user.school_id });
+  const safeUser = await User.findById(user._id);
+  res.json(safeUser);
 }
 
 export async function refresh(req: Request, res: Response) {

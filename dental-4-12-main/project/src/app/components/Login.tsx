@@ -1,29 +1,31 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, Stethoscope } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 // Logo placeholder — replace with actual Barangay Tanyag logo file
 const logoImage = null;
 
 export const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    login(email, password);
-    navigate('/');
+    setError(null);
+    setSubmitting(true);
+    const result = await login(email, password);
+    setSubmitting(false);
+    if (result.ok) {
+      navigate('/');
+    } else {
+      setError(result.error || 'Login failed');
+    }
   };
-
-  const quickLogins = [
-    { email: 'dentist@floral.ph', role: 'Dentist' },
-    { email: 'aide@floral.ph', role: 'Dental Aide' },
-    { email: 'school@floral.ph', role: 'Clinic Staff' },
-    { email: 'barangay@floral.ph', role: 'School Admin' },
-    { email: 'admin@floral.ph', role: 'System Admin' },
-  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex items-center justify-center p-4">
@@ -71,13 +73,21 @@ export const Login = () => {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent text-sm"
+                  className="w-full pl-9 pr-9 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent text-sm"
                   placeholder="••••••••"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
@@ -86,32 +96,20 @@ export const Login = () => {
               <a href="#" className="text-[#1E40AF] hover:text-[#1E3A8A]">Forgot password?</a>
             </div>
 
+            {error && (
+              <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                {error}
+              </div>
+            )}
+
             <button
               type="submit"
-              className="w-full bg-[#E31E24] hover:bg-[#c71a1f] text-white font-medium py-2 rounded-lg transition-colors text-sm"
+              disabled={submitting}
+              className="w-full bg-[#E31E24] hover:bg-[#c71a1f] disabled:opacity-60 text-white font-medium py-2 rounded-lg transition-colors text-sm"
             >
-              Sign In
+              {submitting ? 'Signing in…' : 'Sign In'}
             </button>
           </form>
-
-          {/* Quick Login Demo Buttons */}
-          <div className="mt-3 pt-3 border-t border-gray-200">
-            <p className="text-xs text-gray-500 text-center mb-2">Quick Demo Login:</p>
-            <div className="grid grid-cols-3 gap-2">
-              {quickLogins.map((account) => (
-                <button
-                  key={account.email}
-                  onClick={() => {
-                    setEmail(account.email);
-                    setPassword('demo');
-                  }}
-                  className="text-xs px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#1E40AF] rounded border border-blue-200 transition-colors"
-                >
-                  {account.role}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         <p className="text-center text-xs text-gray-500 mt-3">

@@ -381,7 +381,7 @@ export const Dashboard = () => {
   }
 
   // ===== SCHOOL ADMIN DASHBOARD =====
-  if (user?.role === 'clinic_staff') {
+  if (user?.role === 'school_admin') {
     const screeningCoverageData = [
       { name: 'Screened', value: 85, fill: COLORS.blue },
     ];
@@ -523,7 +523,7 @@ export const Dashboard = () => {
   }
 
   // ===== BARANGAY HEALTH OFFICE DASHBOARD =====
-  if (user?.role === 'school_admin') {
+  if (user?.role === 'bho_staff') {
     const schoolComparisonData = [
       { school: 'Bagong Tanyag Integrated', screened: 272, treated: 156, highRisk: 24 },
       { school: 'Annex A', screened: 245, treated: 138, highRisk: 18 },

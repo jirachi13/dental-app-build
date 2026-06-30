@@ -24,16 +24,16 @@ const SCHOOL_META: Record<string, { shortName: string; address: string; levels: 
 const roleLabels: Record<string, string> = {
   dentist: 'Dentist',
   dental_aide: 'Dental Aide',
-  clinic_staff: 'Clinic Staff',
   school_admin: 'School Admin',
+  bho_staff: 'Barangay Health Office Staff',
   system_admin: 'System Admin',
 };
 
 const roleBadgeColors: Record<string, string> = {
   dentist: 'bg-blue-100 text-blue-800',
   dental_aide: 'bg-teal-100 text-teal-800',
-  clinic_staff: 'bg-purple-100 text-purple-800',
   school_admin: 'bg-orange-100 text-orange-800',
+  bho_staff: 'bg-purple-100 text-purple-800',
   system_admin: 'bg-red-100 text-red-800',
 };
 
@@ -48,8 +48,8 @@ export const SchoolSelect = () => {
     navigate('/');
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 

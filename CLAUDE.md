@@ -162,7 +162,8 @@ Capstone Thesis — Build Phase — Group 404 — AY 2025-2026
 - Express calls predictor.py only
 - Never call individual algo files directly
 - Dentist MUST validate before clinical action
-- Synthetic dataset used until real data encoded
+- **UPDATE**: Real IPTR Excel records from Barangay Tanyag school dental clinics are available (group has the files) and contain full IPTR fields — oral health conditions, treatment records, DMF scores — not just student lists. Plan revised to clean and use this real data instead of generating a synthetic dataset; see revised Phase 3 sprint breakdown below. Excel files have inconsistent formatting across files (different column names/order, missing values, inconsistent date formats and condition spellings) and need standardization before use.
+- Privacy: before committing any Excel files to the repo, confirm with adviser whether student names need anonymizing (e.g. Student_001) even though this is a private repo.
 
 ## REPORTING MODULE
 - School Oral Health Status + Service Report
@@ -212,13 +213,18 @@ Capstone Thesis — Build Phase — Group 404 — AY 2025-2026
 - Sprint 20 → Workbox sync + conflict handling
 
 **Phase 3 — Algo (AFTER Phase 2):**
-- Sprint 21a → Synthetic IPTR dataset generation (DMF index focus, oral conditions, dietary habits, medical history)
-- Sprint 21b → Feature engineering pipeline
-- Sprint 21c → LR vs RF vs SVM experiments
-- Sprint 21d → Stratified K-Fold k=5 — accuracy, precision, recall, F1
-- Sprint 21e → Integrate winner Strategy Pattern
-- Sprint 21f → Risk classification UI — High/Medium/Low
-- Sprint 21g → Dentist decision support interface — validation before clinical action
+**REVISED — real Excel IPTR data available, no synthetic dataset needed:**
+- Sprint 21a → Clean + standardize real Excel files: read all files in /data/raw/, analyze headers/structure, identify inconsistencies (column naming, missing values, date formats, condition spelling), generate a cleaning report, output unified CSV to /data/cleaned/dataset.csv matching MongoDB model fields, document all transformations in /data/cleaning-log.md. Work on copies only — never modify original Excel files. Decide on student-name anonymization with adviser first.
+- Sprint 21b → Map cleaned data to MongoDB models
+- Sprint 21c → Seed real data into MongoDB (replaces dummy/demo seeder data)
+- Sprint 21d → Feature engineering from real IPTR data
+- Sprint 21e → LR vs RF vs SVM experiments on real data
+- Sprint 21f → Stratified K-Fold k=5 — accuracy, precision, recall, F1
+- Sprint 21g → Integrate winner Strategy Pattern
+- Sprint 21h → Risk classification UI — High/Medium/Low
+- Sprint 21i → Dentist decision support interface — validation before clinical action
+
+For Chapter 4: real IPTR records from Barangay Tanyag school dental clinics were used as training data after cleaning and standardization — stronger than a synthetic dataset, note this in the manuscript.
 
 **Before Defense:**
 - Encode real IPTR paper records to CSV

@@ -1,82 +1,84 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-
-type Role = 'dentist' | 'dental_aide' | 'clinic_staff' | 'school_admin' | 'system_admin';
-
-const ALL_SCHOOLS = [
-  'Bagong Tanyag Integrated School',
-  'Bagong Tanyag Elementary School Annex A',
-  'South Daang Hari Elementary School Main',
-];
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
+import { apiClient, ApiError } from '../api/client';
+import type { ApiUser, ApiRole, ApiSchool } from '../api/types';
 
 interface User {
   id: string;
   name: string;
   email: string;
-  role: Role;
-  schools: string[]; // assigned schools
+  role: ApiRole;
+  schools: string[]; // assigned schools (resolved school names)
+}
+
+interface LoginResult {
+  ok: boolean;
+  error?: string;
 }
 
 interface AuthContextType {
   user: User | null;
+  loading: boolean;
   selectedSchool: string | null;
   setSelectedSchool: (school: string | null) => void;
-  login: (email: string, password: string) => boolean;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<LoginResult>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+async function resolveUser(apiUser: ApiUser): Promise<User> {
+  const allSchools = await apiClient.get<ApiSchool[]>('/schools');
+  const schools = apiUser.school_id
+    ? allSchools.filter((s) => s._id === apiUser.school_id).map((s) => s.school_name)
+    : allSchools.map((s) => s.school_name);
+
+  return {
+    id: apiUser._id,
+    name: apiUser.full_name,
+    email: apiUser.email,
+    role: apiUser.role,
+    schools,
+  };
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const [selectedSchool, setSelectedSchool] = useState<string | null>(null);
 
-  const login = (email: string, password: string) => {
-    const mockUsers: Record<string, User> = {
-      'dentist@floral.ph': {
-        id: '1', name: 'Dr. Maria Santos', email: 'dentist@floral.ph',
-        role: 'dentist', schools: ALL_SCHOOLS,
-      },
-      'aide@floral.ph': {
-        id: '2', name: 'Ana Reyes', email: 'aide@floral.ph',
-        role: 'dental_aide', schools: ALL_SCHOOLS,
-      },
-      'school@floral.ph': {
-        id: '3', name: 'Nurse Rosa Cruz', email: 'school@floral.ph',
-        role: 'clinic_staff', schools: ALL_SCHOOLS,
-      },
-      'barangay@floral.ph': {
-        id: '4', name: 'Mr. Jose Santos', email: 'barangay@floral.ph',
-        role: 'school_admin', schools: ALL_SCHOOLS,
-      },
-      'admin@floral.ph': {
-        id: '5', name: 'System Administrator', email: 'admin@floral.ph',
-        role: 'system_admin', schools: ALL_SCHOOLS,
-      },
-    };
+  useEffect(() => {
+    (async () => {
+      try {
+        const apiUser = await apiClient.get<ApiUser>('/auth/me');
+        setUser(await resolveUser(apiUser));
+      } catch {
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
-    const credentials: Record<string, string> = {
-      'dentist@floral.ph': 'demo',
-      'aide@floral.ph': 'demo',
-      'school@floral.ph': 'demo',
-      'barangay@floral.ph': 'demo',
-      'admin@floral.ph': 'demo',
-    };
-
-    if (mockUsers[email] && credentials[email] === password) {
-      setUser(mockUsers[email]);
+  const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
+    try {
+      const apiUser = await apiClient.post<ApiUser>('/auth/login', { email, password });
+      setUser(await resolveUser(apiUser));
       setSelectedSchool(null); // reset school on login
-      return true;
+      return { ok: true };
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : 'Login failed';
+      return { ok: false, error: message };
     }
-    return false;
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(async () => {
+    await apiClient.post('/auth/logout').catch(() => {});
     setUser(null);
     setSelectedSchool(null);
-  };
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ user, selectedSchool, setSelectedSchool, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, selectedSchool, setSelectedSchool, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

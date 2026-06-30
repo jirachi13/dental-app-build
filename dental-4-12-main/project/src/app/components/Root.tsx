@@ -25,19 +25,19 @@ export const Root = () => {
   const allTabs = [
     {
       id: 1, path: '/', label: 'Dashboard', icon: LayoutDashboard,
-      roles: ['dentist','dental_aide','clinic_staff','school_admin','system_admin']
+      roles: ['dentist','dental_aide','school_admin','bho_staff','system_admin']
     },
     {
       id: 2, path: '/appointments', label: 'Appointments', icon: Calendar,
-      roles: ['dentist','dental_aide','clinic_staff']
+      roles: ['dentist','dental_aide']
     },
     {
       id: 3, path: '/patients', label: 'Students', icon: Users,
-      roles: ['dentist','dental_aide','clinic_staff']
+      roles: ['dentist','dental_aide']
     },
     {
       id: 4, path: '/dental-charts', label: 'Dental Charts', icon: Stethoscope,
-      roles: ['dentist','dental_aide','clinic_staff']
+      roles: ['dentist','dental_aide']
     },
     {
       id: 5, path: '/ai-analytics', label: 'Risk Classification', icon: Brain,
@@ -45,15 +45,15 @@ export const Root = () => {
     },
     {
       id: 6, path: '/treatment-records', label: 'Treatment', icon: Clipboard,
-      roles: ['dentist','dental_aide','clinic_staff']
+      roles: ['dentist','dental_aide']
     },
     {
       id: 7, path: '/rpc', label: 'RPC Tracking', icon: Shield,
-      roles: ['dentist','dental_aide','clinic_staff']
+      roles: ['dentist','dental_aide']
     },
     {
       id: 8, path: '/reports', label: 'Reports', icon: FileBarChart,
-      roles: ['dentist','dental_aide','school_admin']
+      roles: ['dentist','dental_aide','school_admin','bho_staff']
     },
     {
       id: 9, path: '/accounts', label: 'User Management', icon: UserCog,
@@ -73,7 +73,7 @@ export const Root = () => {
     navigate('/select-school');
   };
 
-  const handleLogout = () => { logout(); navigate('/login'); };
+  const handleLogout = async () => { await logout(); navigate('/login'); };
 
   const isTabActive = (path: string) => {
     if (path === '/') return location.pathname === '/';
