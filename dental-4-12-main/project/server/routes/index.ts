@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { getHealth } from "../controllers/healthController";
 import { createCrudRouter } from "./crudFactory";
+import authRoutes from "./authRoutes";
 import {
   School,
   User,
@@ -23,6 +24,7 @@ import {
 const router = Router();
 
 router.get("/health", getHealth);
+router.use("/auth", authRoutes);
 
 router.use("/schools", createCrudRouter(School));
 router.use("/users", createCrudRouter(User));

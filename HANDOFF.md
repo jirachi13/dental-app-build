@@ -1,13 +1,14 @@
-# HANDOFF — Sprint 6 Complete
+# HANDOFF — Sprint 7 Complete
 
 ## Status
-Sprints 1-6 done and verified against the real MongoDB Atlas cluster.
+Sprints 1-7 done and verified against the real MongoDB Atlas cluster.
 - Sprint 1: Express MVC + MongoDB connection
 - Sprint 2: SCHOOL, USER, STUDENT, DENTIST, DENTAL_AIDE models
 - Sprint 3: STUDENT_IPTR, MEDICAL_HISTORY, DIETARY_SOCIAL_HABITS, ORAL_HEALTH_CONDITION models
 - Sprint 4: DENTAL_CHART, TOOTH_RECORD, TREATMENT models
 - Sprint 5: PREVENTIVE_CARE_RECORD, RISK_STRATIFICATION, APPOINTMENT, AUDIT_TRAIL models
 - Sprint 6: CRUD API for all 16 model routers
+- Sprint 7: JWT auth (httpOnly cookies) + 5-role auth machinery (RBAC middleware built, not yet wired into Sprint 6 routes)
 
 ## What exists now
 - `dental-4-12-main/project/server/` — Express MVC backend
@@ -51,6 +52,22 @@ Sprints 1-6 done and verified against the real MongoDB Atlas cluster.
 - Verified end-to-end against the real Atlas cluster: create → list (excludes archived) → get-by-id → update (mass-assignment blocked) → archive → list (excludes it) → `includeArchived=true` (includes it) → restore → invalid-ObjectId returns 400 → AuditTrail POST returns 404. Test record was archived then hard-deleted via a one-off script (not through the API, since hard delete is intentionally not exposed) to leave the DB clean.
 - All 16 models from the ERD now exist. Phase 1 remaining work: auth (Sprint 7), encryption (Sprint 8), frontend wiring (Sprints 9-14), soft-delete/audit enforcement + role checks in routes (Sprint 15), security (15.5), OCR (16), deploy (17).
 
+## Sprint 7 decisions (grill-me round)
+- **Login identifier**: added `email` to USER (unique, required, lowercase) — the ERD had no login field at all. Not in the original ERD; documented in CLAUDE.md.
+- **Token storage**: httpOnly, `sameSite: lax` cookies (`access_token` 15min, `refresh_token` 7 days) instead of Authorization headers — not readable by JS, protects against XSS token theft. `secure` flag is environment-gated (`NODE_ENV === "production"`) since local dev runs on plain HTTP.
+- **CORS**: `cors({ origin: true, credentials: true })` so cookies work in local dev where frontend (Vite) and backend (Express on :4000) are different origins; in production the Vercel rewrite makes them same-origin anyway.
+- **Refresh tokens are stateless** (JWT-only, no DB-backed session/revocation list) — simplest approach that satisfies "Refresh token handling" from AUTH RULES. Logout just clears cookies; there's no way to remotely invalidate a stolen refresh token before it expires. Acceptable for now given app scale (~10 staff users); revisit if that changes.
+- **RBAC scope**: built the machinery only (`requireAuth`, `requireRole` middleware in `server/middleware/auth.ts`) — did NOT retrofit Sprint 6's CRUD routes with role checks yet, so all CRUD/archive/restore endpoints remain open to anyone right now. That wiring is a focused follow-up, not bundled into this sprint.
+- **Bootstrap admin**: `npm run seed:admin` reads `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` from `.env` and creates the first `system_admin` user if one doesn't already exist with that email. Ran locally — created `admin@floral.local`.
+- **Security fix found during testing**: `GET /api/users` was leaking `password_hash` (bcrypt hash) in responses via the Sprint 6 generic CRUD route — this is an output-sanitization bug independent of the RBAC-deferral decision, so it was fixed now rather than left for later. Fixed via `select: false` on `User.password_hash`; `authController.login` explicitly `.select("+password_hash")` to compare it.
+
+## Action needed from you
+Add these to Vercel (Settings → Environment Variables, Production + Preview, mark Sensitive) so auth works once deployed — currently only in local `.env`:
+- `JWT_ACCESS_SECRET`
+- `JWT_REFRESH_SECRET`
+
+(`SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` are only needed locally to run the one-off seed script — no need to add them to Vercel.)
+
 ## Repo hygiene done this session
 - Added root `.gitignore` (node_modules, .env, .env.local, dist, build)
 - Untracked `node_modules/` and `dist/` that were previously committed (72k+ files removed from git history going forward)
@@ -62,13 +79,14 @@ Sprints 1-6 done and verified against the real MongoDB Atlas cluster.
 - `npm run dev:server` starts the Express app locally
 - `GET /api/health` → `{"status":"ok","db":"connected"}` against the real `floral-cluster` Atlas cluster
 - All 16 models smoke-tested with linked create/read/delete against the real cluster across Sprints 2-5
-- Sprint 6 CRUD routes verified end-to-end (see notes above)
+- Sprint 6 CRUD routes verified end-to-end
+- Sprint 7 auth flow verified end-to-end against the real cluster: wrong password → 401; correct login → cookies set, `last_login` updated; `GET /api/auth/me` with cookie → 200 with user (no password_hash); without cookie → 401; `POST /api/auth/refresh` → new access token; `POST /api/auth/logout` → cookies cleared; `GET /api/auth/me` after logout → 401. Confirmed `password_hash` absent from both `/api/auth/me` and `/api/users` after the `select: false` fix.
 
 ## Not done yet (deliberately out of scope so far)
-- No JWT auth (Sprint 7) — `password_hash` field exists but is unused; all CRUD/archive/restore routes are currently unprotected
+- RBAC not yet wired into Sprint 6's CRUD routes — all CRUD/archive/restore endpoints are currently unprotected (anyone can call them without logging in)
 - No data encryption (Sprint 8) — sensitive fields are currently plain text in the DB
-- No frontend wiring to the real API yet (Sprints 9-10)
-- Not yet deployed to Vercel (Sprint 17) — only linked/configured
+- No frontend wiring to the real API yet (Sprints 9-10), including no login UI
+- Not yet deployed to Vercel (Sprint 17) — only linked/configured; `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET` not yet added to Vercel env vars (see "Action needed from you" above)
 
 ## Next sprint
-Sprint 7 → JWT auth + 5 roles + RBAC. Flagged complex in CLAUDE.md — requires a clarifying round before building. Do not start without explicit approval.
+Sprint 8 → Data encryption setup (full_name, address, contact_number, medical_history fields, diagnosis, treatment_done). Flagged complex in CLAUDE.md — requires a clarifying round before building. Do not start without explicit approval. (RBAC retrofit into CRUD routes is also outstanding and can be done as a smaller follow-up whenever convenient — not tied to a specific numbered sprint.)
