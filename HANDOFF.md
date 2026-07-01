@@ -421,7 +421,25 @@ After building admin-assisted reset, realized there was no way for a user to cha
 
 Needed the same backend restart as the reset-password endpoint (no watch mode). Verified directly against the real backend: wrong current password → 401 correctly rejected; correct flow changes the password and the new one immediately works for login; then reverted the test account's password back to its real value and confirmed login still works, leaving no side effects.
 
-`tsc --noEmit` clean (both configs), `npm run build` succeeds. Not yet committed/pushed.
+`tsc --noEmit` clean (both configs), `npm run build` succeeds. Committed (`5084b6e2`), pushed, deployed, confirmed live.
+
+## CSV export added for 4 real-data pages (Students, Audit Trail, Appointments, RPC Tracking)
+
+Followed up on a user question about export formats (CSV/Excel/PDF/Word) across the app. Surveyed every list-style view for real (non-mock) data with no export today — found 6 candidates, ranked by value: Students (highest, full roster), Audit Trail, Appointments, RPC Tracking, Account Management (real but low value, ~10 rows, admin already sees it all on one screen), Treatment Records (real despite a confusingly-named `mockPatients` variable — not actually mock, just bad naming, left alone). Dental Chart isn't a list (single-patient interactive view), so export doesn't apply there.
+
+Decided CSV is the right format for all of these — they're tabular lists, CSV opens directly in Excel with zero new dependencies (just string formatting + a Blob download, no library). PDF only makes sense for a formatted document like the DOH Consolidated Report (which already has one, separately broken/paused). No use case found anywhere in the app for Word/.doc export — nothing here produces letters or narrative documents, so left out.
+
+Built `src/app/utils/exportCsv.ts` — a small shared `exportToCsv(rows, columns, filename)` utility (RFC 4180 field escaping for commas/quotes/newlines, UTF-8 BOM so Excel doesn't mangle Filipino names, standard Blob+anchor download pattern). Wired into all 4 candidates:
+- **PatientList.tsx (Students)**: exports the currently-filtered list (respects active filters), excludes not-yet-synced offline rows (no real ID yet). Columns: Name, Birthdate, Gender, Grade, Section, School, Risk Level, Oral Status, Last Visit, Consent Status.
+- **AuditTrail.tsx**: exports the currently-filtered logs. Columns: Timestamp, User, Action, Module, Record ID.
+- **Appointments.tsx**: exports the currently-filtered session list (same grouped-session shape as the calendar view). Columns: Date, Time, School, Grade, Section, Students, Type, Status, Dentist.
+- **RPCTracking.tsx**: exports the currently-filtered records. Columns: Student Name, Gender, School, Grade, Section, Visit 1/2 Date+Status, Overall Status.
+
+**Also caught while checking RPCTracking.tsx for the same class of bug**: its `filtered` useMemo already correctly includes `schoolRecords` in its dependency array — verified it does NOT have the stale-closure bug found earlier in PatientList.tsx, so no fix needed there.
+
+Verified all 4 with Playwright (real download events, not just code review): downloaded each CSV, confirmed correct headers, real data rows, and proper comma-escaping (e.g. `"Morales, Juan"` correctly quoted). Caught and fixed one real issue during verification — Students' "Last Visit" column showed a raw ISO timestamp (`2026-05-13T21:48:48.536Z`) instead of a clean date; fixed to show just the date portion.
+
+`tsc --noEmit` clean, `npm run build` succeeds. Not yet committed/pushed.
 
 ## Next sprint
 Sprint 21a is blocked until the real dental IPTR Excel files are located and added to `data/` (see above). Once that happens, Sprint 21a can proceed: clean/standardize into `/data/cleaned/dataset.csv` + `/data/cleaning-report.md`, dropping name columns per the resolved anonymization approach. Do not start Sprint 21a against the current `data/` contents (nutritional status data) — verify with a quick openpyxl header check first if unsure whether new files have actually landed.

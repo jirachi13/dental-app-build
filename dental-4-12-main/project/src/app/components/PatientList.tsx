@@ -1,7 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Eye, FileText, X, School as SchoolIcon, List, ChevronRight, Users, Upload, CheckCircle, AlertCircle, ScanLine } from 'lucide-react';
+import { Plus, Eye, FileText, X, School as SchoolIcon, List, ChevronRight, Users, Upload, CheckCircle, AlertCircle, ScanLine, Download } from 'lucide-react';
+import { exportToCsv } from '../utils/exportCsv';
+import { toLocalDateString } from '../utils/localDate';
 import { extractIptrFields, OCR_CONFIDENCE_THRESHOLD, type IptrOcrFieldKey } from '../utils/iptrOcr';
 import { getGradeColor } from '../utils/gradeColors';
 import { formatStudentName } from '../utils/formatStudentName';
@@ -240,6 +242,28 @@ export const PatientList = () => {
     setGenderFilter('all'); setAgeGroupFilter('all'); setSearchTerm('');
   };
 
+  // Exports exactly what's currently visible (respects active filters) --
+  // excludes not-yet-synced offline rows since they don't have a real ID yet.
+  const handleExportCsv = () => {
+    const rows = filtered.filter((s) => !s.pending);
+    exportToCsv(
+      rows,
+      [
+        { label: 'Name', value: (s) => formatStudentName(s.name) },
+        { label: 'Birthdate', value: (s) => s.birthdate },
+        { label: 'Gender', value: (s) => s.gender },
+        { label: 'Grade', value: (s) => s.grade },
+        { label: 'Section', value: (s) => s.section },
+        { label: 'School', value: (s) => s.school },
+        { label: 'Risk Level', value: (s) => s.riskLevel ?? 'Not Screened' },
+        { label: 'Oral Status', value: (s) => s.oralStatus },
+        { label: 'Last Visit', value: (s) => s.lastVisit?.slice(0, 10) ?? '' },
+        { label: 'Consent Status', value: (s) => s.consentStatus },
+      ],
+      `students_${toLocalDateString(new Date())}.csv`,
+    );
+  };
+
   const riskBadge = (level: string) => {
     const c: Record<string,string> = { 'High':'bg-red-100 text-red-800', 'Medium':'bg-yellow-100 text-yellow-800', 'Low':'bg-green-100 text-green-800' };
     return <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${c[level]||'bg-gray-100 text-gray-700'}`}>{level}</span>;
@@ -305,6 +329,9 @@ export const PatientList = () => {
           <p className="text-sm text-gray-500 mt-0.5">{schoolStudents.length} students{selectedSchool ? '' : ' across 3 schools'}</p>
         </div>
         <div className="flex items-center gap-3">
+          <button onClick={handleExportCsv} className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
+            <Download className="w-4 h-4" /> Export CSV
+          </button>
 {canAddStudent && (
             <>
               <button onClick={() => { setOcrError(null); setShowOcrUpload(true); }} className="flex items-center gap-2 px-4 py-2 border border-[#1E40AF] text-[#1E40AF] rounded-lg hover:bg-blue-50 text-sm font-medium">

@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Search, Filter, Calendar } from 'lucide-react';
+import { Search, Filter, Calendar, Download } from 'lucide-react';
 import { useAuditTrail } from '../hooks/useAuditTrail';
+import { exportToCsv } from '../utils/exportCsv';
+import { toLocalDateString } from '../utils/localDate';
 
 export const AuditTrail = () => {
   const { logs, loading, error } = useAuditTrail();
@@ -40,6 +42,20 @@ export const AuditTrail = () => {
     return d.toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
   };
 
+  const handleExportCsv = () => {
+    exportToCsv(
+      filteredLogs,
+      [
+        { label: 'Timestamp', value: (log) => formatTimestamp(log.timestamp) },
+        { label: 'User', value: (log) => log.user },
+        { label: 'Action', value: (log) => log.action },
+        { label: 'Module', value: (log) => log.module },
+        { label: 'Record ID', value: (log) => log.affectedRecordId },
+      ],
+      `audit_trail_${toLocalDateString(new Date())}.csv`,
+    );
+  };
+
   if (loading) {
     return <div className="text-sm text-gray-500 p-8 text-center">Loading audit trail…</div>;
   }
@@ -61,6 +77,9 @@ export const AuditTrail = () => {
           <h1 className="text-3xl font-bold text-gray-900">Audit Trail</h1>
           <p className="text-gray-600 mt-1">{filteredLogs.length} activity logs</p>
         </div>
+        <button onClick={handleExportCsv} className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
+          <Download className="w-4 h-4" /> Export CSV
+        </button>
       </div>
 
       {/* Filters */}

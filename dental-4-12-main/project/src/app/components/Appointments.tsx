@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, X, Check, Clock, Users, Stethoscope, AlertCircle, RotateCcw, FileText } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, X, Check, Clock, Users, Stethoscope, AlertCircle, RotateCcw, FileText, Download } from 'lucide-react';
 import { getGradeColor } from '../utils/gradeColors';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
 import { GradePill } from './GradePill';
@@ -10,6 +10,7 @@ import { useDentistRotations } from '../hooks/useDentistRotations';
 import { useStudents } from '../hooks/useStudents';
 import { apiClient } from '../api/client';
 import { toLocalDateString } from '../utils/localDate';
+import { exportToCsv } from '../utils/exportCsv';
 import type { ApiSchool } from '../api/types';
 
 const SCHOOLS = [
@@ -186,6 +187,24 @@ export const Appointments = () => {
     return true;
   });
 
+  const handleExportCsv = () => {
+    exportToCsv(
+      filteredAppointments.filter((a) => !a.pending),
+      [
+        { label: 'Date', value: (a) => a.date },
+        { label: 'Time', value: (a) => a.time },
+        { label: 'School', value: (a) => a.school },
+        { label: 'Grade', value: (a) => a.grade },
+        { label: 'Section', value: (a) => a.section },
+        { label: 'Students', value: (a) => a.studentCount },
+        { label: 'Type', value: (a) => a.type },
+        { label: 'Status', value: (a) => getStatus(a) },
+        { label: 'Dentist', value: (a) => a.dentist },
+      ],
+      `appointments_${toLocalDateString(new Date())}.csv`,
+    );
+  };
+
   // Calendar helpers
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -303,6 +322,10 @@ export const Appointments = () => {
           <p className="text-sm text-gray-500 mt-0.5">{appointments.length} appointment{appointments.length !== 1 ? 's' : ''} total</p>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={handleExportCsv}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
+            <Download className="w-4 h-4" /> Export CSV
+          </button>
           <button onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
             <Plus className="w-4 h-4" /> New Appointment
