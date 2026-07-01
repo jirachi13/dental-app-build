@@ -123,7 +123,7 @@ Verified end-to-end against the real Atlas cluster: replayed both the Dashboard 
 - `useStudents()` now exposes `reload()` so the UI can refresh after adding a student — same pattern as `useUsers()`/`useDentistRotations()`.
 - **Found `TreatmentLog.tsx` and `FollowUpAlerts.tsx` are both orphaned** — not referenced in `routes.tsx` or imported anywhere, genuinely unreachable dead code. Left un-wired per YAGNI; flagging in case they're meant to be wired into routing at some point rather than actually dead.
 - Audited search/filter across all wired list components (`PatientList`, `TreatmentRecords`, `DentalChartNav`, `DentalChartList`, `RPCTracking`, `AccountManagement`) — no bugs found. They're checked against strongly-typed hook return shapes (`StudentRow`, `RPCRow`, etc.), so a stale/renamed field reference would already be a TypeScript compile error; none exist.
-- `AccountManagement`'s "Edit" button is still a no-op `alert()` placeholder — flagged as a candidate for actual feature work (a real edit modal) rather than built unprompted, since it's new functionality, not a fix to something broken by the data-wiring sprints.
+- ~~`AccountManagement`'s "Edit" button is still a no-op `alert()` placeholder~~ — **built** as a side-quest after Sprint 20 (see the dedicated note further down).
 
 ## Sprint 15 notes
 Two grill-me questions resolved a real tension before building: CLAUDE.md says School Admin has "no access to clinical records," but Sprint 13's dashboards for School Admin/BHO Staff need to *read* clinical data (student counts, risk distribution) to compute their stats.
@@ -163,7 +163,7 @@ Ran a forked subagent to do a real OWASP Top 10 review reading actual current co
 - `GET`/list responses include the encryption plugin's `__enc_<field>` boolean markers — harmless but cosmetically noisy, not cleaned up
 - Phase 3 plan revised in CLAUDE.md: real Excel IPTR data exists (not synthetic) — see CLAUDE.md's Phase 3 section, docs/phase3-sprint-prompts.md, and project memory for details
 - Chapter 4/5 manuscript structure saved in project memory, not started (correctly deferred until build+deploy+eval+algo are done)
-- `AccountManagement`'s "Edit" button is still a no-op `alert()` placeholder (see Sprint 14 notes)
+- ~~`AccountManagement`'s "Edit" button is still a no-op `alert()` placeholder~~ — **built**, see below
 - `TreatmentLog.tsx` and `FollowUpAlerts.tsx` are orphaned/unreachable — not wired into routing at all
 - A real Excel data file exists locally in `data/` (gitignored) — held pending adviser confirmation on student-name anonymization
 - A genuine UI/visual polish pass (empty states, skeleton loaders, inline form validation, mobile/tablet responsiveness, button-style consistency) has NOT been done — Sprint 14 fixed a functional bug (Add Student), not a visual audit. Flagged to the user as needing its own dedicated sprint if wanted.
@@ -311,6 +311,9 @@ Since real data isn't available yet, the user asked to build the swappable-algor
 **Explicitly NOT done / out of scope for this scaffold**: no real training data, no train/test or K-Fold evaluation (that's Sprint 21c, needs real data), no FastAPI HTTP endpoint wiring Express to this service yet (the user's confirmed scope was config/predictor/algorithms/dummy-data only), no saved/persisted model files (trains fresh in-memory every time `train()` is called). None of this should be treated as a working prediction feature — it's scaffolding proven to work mechanically, waiting for real data.
 
 **Environment note**: this session's Python/bash setup has a filesystem restriction where Python's own file-write calls (and even `python -m py_compile`, `cp`, `mkdir` via Bash) fail with `FileNotFoundError`/`No such file or directory` inside certain directories (`ml-service/data/`, also seen earlier with `.env` edits) — worked around by using the Write tool directly for file creation instead of Python/bash writes. `pip install` and directory creation via PowerShell's `New-Item` both work fine. Worth knowing if this comes up again in a future Python-heavy sprint.
+
+## Side-quest: AccountManagement Edit button wired (real, since Sprint 14)
+Was a no-op `alert()` placeholder. Now: clicking Edit opens a modal pre-filled with the user's current `full_name`/`email`/`role`/`school_id`, saving does a real `PUT /api/users/:id`. Confirmed safe against the live backend before wiring: `crudFactory`'s PUT strips `password_hash` from the body (defense in depth from Sprint 10's bug #7) and `findById` already excludes it (`select: false`) before `.save()`, so the response never leaks it and an edit can't accidentally touch the password. Verified directly: edited a real user (`aide@floral.com`), confirmed the response has no `password_hash`, confirmed their password still logs in correctly afterward. Password itself isn't editable here — that's a separate reset flow, not built (form has a note saying so).
 
 ## Next sprint
 Sprint 21a is blocked until the real dental IPTR Excel files are located and added to `data/` (see above). Once that happens, Sprint 21a can proceed: clean/standardize into `/data/cleaned/dataset.csv` + `/data/cleaning-report.md`, dropping name columns per the resolved anonymization approach. Do not start Sprint 21a against the current `data/` contents (nutritional status data) — verify with a quick openpyxl header check first if unsure whether new files have actually landed.

@@ -14,6 +14,37 @@ export const AccountManagement = () => {
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ full_name: '', email: '', role: 'dentist' as ApiRole, school_id: '', password: '' });
 
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ full_name: '', email: '', role: 'dentist' as ApiRole, school_id: '' });
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
+  const openEdit = (user: (typeof users)[number]) => {
+    const school = schools.find((s) => s.school_name === user.school);
+    setEditForm({ full_name: user.name, email: user.email, role: user.role, school_id: school?._id ?? '' });
+    setEditError(null);
+    setEditingUserId(user.id);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingUserId) return;
+    setEditError(null);
+    if (!editForm.full_name || !editForm.email) {
+      setEditError('Full name and email are required.');
+      return;
+    }
+    setEditSubmitting(true);
+    try {
+      await apiClient.put(`/users/${editingUserId}`, { ...editForm, school_id: editForm.school_id || null });
+      setEditingUserId(null);
+      await reload();
+    } catch (err) {
+      setEditError(err instanceof ApiError ? err.message : 'Failed to update account');
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -220,9 +251,7 @@ export const AccountManagement = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-3">
                       <button
-                        onClick={() => {
-                          alert(`Edit user: ${user.name}`);
-                        }}
+                        onClick={() => openEdit(user)}
                         className="text-[#1E40AF] hover:text-[#1E3A8A]"
                       >
                         <Edit className="w-4 h-4" />
@@ -276,9 +305,7 @@ export const AccountManagement = () => {
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => {
-                  alert(`Edit user: ${user.name}`);
-                }}
+                onClick={() => openEdit(user)}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
               >
                 <Edit className="w-4 h-4" />
@@ -298,6 +325,79 @@ export const AccountManagement = () => {
           </div>
         ))}
       </div>
+
+      {/* Edit Account Modal */}
+      {editingUserId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
+            <div className="p-6 border-b">
+              <h2 className="text-lg font-bold text-gray-900">Edit Account</h2>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                <input
+                  type="text"
+                  value={editForm.full_name}
+                  onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                <select
+                  value={editForm.role}
+                  onChange={(e) => setEditForm({ ...editForm, role: e.target.value as ApiRole })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                >
+                  {ROLES.map(role => (
+                    <option key={role} value={role}>{ROLE_LABELS[role]}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Assigned School</label>
+                <select
+                  value={editForm.school_id}
+                  onChange={(e) => setEditForm({ ...editForm, school_id: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                >
+                  <option value="">None (Barangay Level)</option>
+                  {schools.map(school => (
+                    <option key={school._id} value={school._id}>{school.school_name}</option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-xs text-gray-500">Password isn't changed here — that's a separate reset flow, not built yet.</p>
+              {editError && <p className="text-sm text-red-600">{editError}</p>}
+            </div>
+            <div className="flex gap-3 p-6 border-t">
+              <button
+                onClick={() => setEditingUserId(null)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={editSubmitting}
+                className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-[#1E3A8A] disabled:opacity-60 transition-colors"
+              >
+                {editSubmitting ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
