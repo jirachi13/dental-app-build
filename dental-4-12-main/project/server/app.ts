@@ -59,6 +59,8 @@ app.use(
       res.status(403).json({ error: "Origin not allowed" });
       return;
     }
+    // Server-side only — never sent to the client (see ABSOLUTE DO NOT: no stack traces in error messages).
+    console.error(err);
     res.status(500).json({ error: "Internal server error" });
   },
 );

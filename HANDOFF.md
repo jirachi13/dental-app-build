@@ -1,7 +1,7 @@
-# HANDOFF — Sprint 16 Complete
+# HANDOFF — Sprint 17 Complete (App Deployed Live)
 
 ## Status
-Sprints 1-16 done and verified against the real MongoDB Atlas cluster.
+Sprints 1-17 done. **App is live in production**: https://dental-app-build.vercel.app
 - Sprint 1: Express MVC + MongoDB connection
 - Sprint 2: SCHOOL, USER, STUDENT, DENTIST, DENTAL_AIDE models
 - Sprint 3: STUDENT_IPTR, MEDICAL_HISTORY, DIETARY_SOCIAL_HABITS, ORAL_HEALTH_CONDITION models
@@ -19,6 +19,7 @@ Sprints 1-16 done and verified against the real MongoDB Atlas cluster.
 - Sprint 15: RBAC finally wired into all 16 CRUD routes (was built in Sprint 7, unused until now — every route was open to anyone, logged in or not). Real audit-trail writes on every create/update/archive/restore. Discovered and fixed a critical consequence of this exact change: requireAuth now actually enforces the 15-minute access-token expiry, so added transparent 401-refresh-and-retry to the frontend API client — without it, the whole app would break every 15 minutes.
 - Sprint 15.5: manual OWASP Top 10 audit (forked, real code review not from memory) found 1 Critical + 3 High findings, all fixed and verified: real passwords committed to git (rotated + removed hardcoded values from source), CORS reflecting any origin with credentials (locked to an allowlist), deactivated users keeping access for up to 7 days via stale refresh tokens (now re-checks DB), and 3 vulnerable dependencies with public CVEs (patched, 0 vulnerabilities remaining). Medium/Low findings deferred — see notes below.
 - Sprint 16: Client-side OCR (Tesseract.js) for scanning paper DOH IPTR forms into the Add Student form, with PDF support (pdfjs-dist rasterization, multi-page merge) and confidence-flagged pre-fill (no field is ever silently trusted). Verified against a real Barangay Tanyag IPTR form PDF, not just synthetic text — found and fixed 2 real bugs in the process (see notes below).
+- Sprint 17: Deployed to Vercel production. Found and fixed 2 real deployment blockers (ESM import resolution, MongoDB Atlas IP allowlist) — neither was hypothetical, both were confirmed via actual failed production requests and logs, not assumed. Verified end-to-end against the live URL: login, session restore, and a real data endpoint all return 200.
 
 ## What exists now
 **Backend** (`dental-4-12-main/project/server/`):
@@ -187,5 +188,23 @@ Scope decided via grill-me before building: client-side OCR (not a server endpoi
 - OCR extraction confirmed to not find grade_level/section on the real form (no bug, the field genuinely isn't on the paper form) — staff will need to fill grade/section manually every time until/unless a different data source is wired in
 - No filled (non-blank) real IPTR form has been tested yet — only confirmed correct behavior on a blank form (extracts nothing, no bleed) and label-boundary logic reasoned through code review; actual populated-field accuracy is unverified
 
+## Sprint 17 notes
+Linked this environment to the existing Vercel project via `vercel login` + `vercel link` (user ran the interactive browser auth themselves). Confirmed all 4 required runtime env vars (`MONGODB_URI`, `FIELD_ENCRYPTION_SECRET`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`) were already set for Production — `ALLOWED_ORIGINS` isn't needed since production is same-origin via the Vercel rewrite, and `SEED_*` vars are only for local one-off scripts.
+
+**First deploy attempt failed** — `POST /api/auth/login` returned 500. This was the actual first time the deployed app had ever been tested end-to-end (the earlier "stale deployment" from Sprint 15.5 was never functionally verified, only observed as stale in the dashboard) — so this uncovered 2 real, previously-unknown deployment blockers, not regressions:
+
+1. **ESM import resolution** (`ERR_MODULE_NOT_FOUND`): `package.json` has `"type": "module"`, so Node's ESM loader requires explicit file extensions on relative imports. Vercel's Node runtime transpiles TypeScript to native ESM per-file without bundling, so `import app from "../server/app"` failed at runtime looking for a literal file named `app` (no extension). This was invisible locally because `tsx` (used for `npm run dev:server`) doesn't enforce the rule. Fixed via a one-off codemod adding `.js` to all 88 relative imports across 33 files in `server/` and `api/` (directory imports like `../models` resolve to `../models/index.js`). Verified: `tsc --noEmit` clean on both tsconfigs, local dev server restarted and login still works with the new import paths.
+2. **Silent error handler**: while diagnosing #1, found `server/app.ts`'s error-handling middleware caught non-Mongoose errors and returned a generic 500 to the client (correct — no stack traces per CLAUDE.md) but never logged the error server-side either, making Vercel's function logs empty for every 500. Added `console.error(err)` server-side only, right before the generic response — doesn't change what the client receives, just makes future production errors debuggable via `vercel logs`.
+3. **MongoDB Atlas IP allowlist**: after fixing #1, logs revealed the real second blocker — `MongooseServerSelectionError`, Atlas rejecting connections because Vercel's serverless functions run on dynamic IPs not in the cluster's Network Access list. Fixed by the user adding `0.0.0.0/0` (Allow Access from Anywhere, permanent not temporary) via Atlas's Network Access page — standard practice for serverless platforms with no fixed IP to whitelist; actual security still comes from the DB username/password, not IP restriction.
+
+**Verified live in production** (not just build success): `POST /api/auth/login` → 200 with real user data, `GET /api/auth/me` → 200 (session restore via cookie), `GET /api/schools` → 200 with real seeded school data. All 3 confirmed via direct `curl` against `https://dental-app-build.vercel.app`, not just Vercel's own build/deploy status.
+
+**Also rotated this sprint**: `admin@floral.com`'s password (unrelated to deployment — user requested a routine credential cycle mid-sprint after realizing local Excel data files were sitting in `data/`, confirmed still correctly gitignored and never committed).
+
+## Not done yet (Sprint 17 additions)
+- Large bundle size warning from Vite build (`index-*.js` ~1.4MB, `pdf.worker.min-*.mjs` ~1.25MB) — not blocking, but worth a code-splitting pass at some point (dynamic `import()` for the OCR/pdf.js code path so it's not in the main bundle for users who never scan a form)
+- No custom domain configured — still on the `*.vercel.app` subdomain
+- PWA/offline (Phase 2, Sprints 18-20) not started — correctly deferred per CLAUDE.md's build phase order
+
 ## Next sprint
-Sprint 17 → Deploy to Vercel (redeploy — an earlier auto-deploy is stale per Vercel's dashboard, per Sprint 15.5 notes). Do not start without explicit approval.
+Sprint 18 → PWA service worker review (Phase 2 start). Do not start without explicit approval.
