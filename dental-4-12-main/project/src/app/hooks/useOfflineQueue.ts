@@ -24,7 +24,13 @@ export function useOfflineQueue() {
     };
   }, [reload]);
 
-  return { queue, isOnline, pendingCount: queue.filter((w) => w.status === 'pending').length, failedCount: queue.filter((w) => w.status === 'failed').length };
+  return {
+    queue,
+    isOnline,
+    pendingCount: queue.filter((w) => w.status === 'pending').length,
+    failedCount: queue.filter((w) => w.status === 'failed').length,
+    conflicts: queue.filter((w) => w.status === 'conflict'),
+  };
 }
 
 // Helper for hooks (useStudents, useAppointments, etc.) to find queued

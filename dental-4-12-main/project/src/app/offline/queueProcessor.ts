@@ -1,4 +1,4 @@
-import { getQueue, removeFromQueue, markFailed, resetToPending, type QueuedWrite } from './db';
+import { getQueue, removeFromQueue, markFailed, markConflict, resetToPending, resolveConflictKeepMine, type QueuedWrite } from './db';
 import { notifyQueueChange } from './queueEvents';
 
 let processing = false;
@@ -30,19 +30,49 @@ async function sendDirect(write: QueuedWrite): Promise<{ ok: boolean; status: nu
   return { ok: res.ok, status: res.status };
 }
 
-// FIFO, strictly sequential: process the oldest queued write first, and if
-// it fails, stop entirely rather than skip ahead — per CLAUDE.md's PWA/
-// OFFLINE spec ("Stop queue if sync fails, never skip").
+// Detects whether the server's current value for any field this write is
+// trying to change has drifted from what this device last saw (baseline) —
+// meaning someone else edited the same field while this device was offline.
+// Only checks fields this write actually touches; unrelated fields changing
+// elsewhere isn't a conflict for this write.
+function detectConflict(baseline: Record<string, unknown>, current: Record<string, unknown>, changedFields: string[]): boolean {
+  return changedFields.some((field) => JSON.stringify(baseline[field]) !== JSON.stringify(current[field]));
+}
+
+async function checkForConflict(write: QueuedWrite): Promise<Record<string, unknown> | null> {
+  if (write.method === 'POST' || !write.baselineSnapshot) return null;
+  try {
+    const res = await fetch(`/api${write.endpoint}`, { credentials: 'include' });
+    if (!res.ok) return null; // can't verify — don't block the write over an unrelated read failure
+    const current = await res.json();
+    const changedFields = typeof write.body === 'object' && write.body ? Object.keys(write.body as object) : [];
+    if (detectConflict(write.baselineSnapshot, current, changedFields)) return current;
+    return null;
+  } catch {
+    return null; // network hiccup checking — not itself a conflict, fall through to the normal send attempt
+  }
+}
+
+// FIFO, strictly sequential. A network failure or real server rejection
+// stops the whole queue (per CLAUDE.md's "stop queue if sync fails, never
+// skip") — but a data conflict on one record is isolated to that record and
+// does NOT block unrelated queued writes behind it (user's explicit choice).
 export async function processQueue(): Promise<void> {
   if (processing || !navigator.onLine) return;
   processing = true;
   try {
     const queue = await getQueue();
     for (const write of queue) {
-      // A failed item genuinely blocks the queue — "never skip" means we
-      // stop here, not silently process items behind it. Manual retry
-      // (see retryQueue()) is the only way past this.
       if (write.status === 'failed') break;
+      if (write.status === 'conflict') continue; // already flagged, waiting on manual resolution — doesn't block others
+
+      const conflictRecord = await checkForConflict(write);
+      if (conflictRecord) {
+        await markConflict(write.id!, conflictRecord);
+        notifyQueueChange();
+        continue;
+      }
+
       try {
         const result = await sendDirect(write);
         if (result.ok) {
@@ -67,6 +97,7 @@ export async function processQueue(): Promise<void> {
   }
 }
 
+// Page-context only (uses window) — Sprint 19's tab-open sync trigger.
 export function initQueueProcessor(): void {
   window.addEventListener('online', () => { processQueue(); });
   if (navigator.onLine) processQueue();
@@ -82,4 +113,16 @@ export async function retryQueue(): Promise<void> {
     notifyQueueChange();
   }
   await processQueue();
+}
+
+// Conflict resolution (offline banner's conflict review UI).
+export async function keepMyChange(id: number): Promise<void> {
+  await resolveConflictKeepMine(id);
+  notifyQueueChange();
+  await processQueue();
+}
+
+export async function discardMyChange(id: number): Promise<void> {
+  await removeFromQueue(id);
+  notifyQueueChange();
 }
