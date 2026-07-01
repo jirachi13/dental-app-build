@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { getGradeColor } from '../utils/gradeColors';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
+import { toLocalDateString } from '../utils/localDate';
 import { 
   BarChart, 
   Bar, 
@@ -101,7 +102,7 @@ export const Dashboard = () => {
     [allStudentsRaw, selectedSchool],
   );
   const todaySessions = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = toLocalDateString(new Date());
     const sessions = selectedSchool ? allSessions.filter((s) => s.school === selectedSchool) : allSessions;
     return sessions.filter((s) => s.date === today);
   }, [allSessions, selectedSchool]);
@@ -131,7 +132,7 @@ export const Dashboard = () => {
     return DAY_LABELS.map((label, i) => {
       const day = new Date(startOfWeek);
       day.setDate(startOfWeek.getDate() + i);
-      const dateStr = day.toISOString().slice(0, 10);
+      const dateStr = toLocalDateString(day);
       const daySessions = scoped.filter((s) => s.date === dateStr);
       return {
         day: label,
@@ -483,7 +484,7 @@ export const Dashboard = () => {
     ];
 
     const schoolSessions = schoolName ? allSessions.filter((s) => s.school === schoolName) : [];
-    const today = new Date().toISOString().slice(0, 10);
+    const today = toLocalDateString(new Date());
     const upcomingEvents = schoolSessions
       .filter((s) => s.type === 'Bayanihan Mission' && s.date >= today)
       .sort((a, b) => a.date.localeCompare(b.date))

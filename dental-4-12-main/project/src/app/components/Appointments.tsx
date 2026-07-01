@@ -9,6 +9,7 @@ import { useAppointments, type AppointmentSession } from '../hooks/useAppointmen
 import { useDentistRotations } from '../hooks/useDentistRotations';
 import { useStudents } from '../hooks/useStudents';
 import { apiClient } from '../api/client';
+import { toLocalDateString } from '../utils/localDate';
 import type { ApiSchool } from '../api/types';
 
 const SCHOOLS = [
@@ -17,7 +18,7 @@ const SCHOOLS = [
   'South Daang Hari Elementary School Main',
 ];
 
-const TODAY = new Date().toISOString().slice(0, 10);
+const TODAY = toLocalDateString(new Date());
 
 export const Appointments = () => {
   const { user, selectedSchool } = useAuth();
@@ -198,7 +199,7 @@ export const Appointments = () => {
   };
   const getAppointmentsForDay = (date: Date | null) => {
     if (!date) return [];
-    const ds = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+    const ds = toLocalDateString(date);
     return filteredAppointments.filter(a => a.date === ds);
   };
   const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth()-1, 1));
@@ -335,7 +336,7 @@ export const Appointments = () => {
         <div className="grid grid-cols-7">
           {days.map((day, idx) => {
             const dayAppts = getAppointmentsForDay(day);
-            const isToday = day && day.toISOString().split('T')[0] === TODAY;
+            const isToday = day && toLocalDateString(day) === TODAY;
             return (
               <div key={idx} className={`min-h-[80px] p-1.5 border-r border-b border-gray-100 last:border-b-0 ${!day ? 'bg-gray-50/60' : ''} ${isToday ? 'bg-teal-50' : ''}`}>
                 {day && (

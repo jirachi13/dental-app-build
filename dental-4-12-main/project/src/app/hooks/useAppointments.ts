@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiClient } from '../api/client';
 import { usePendingWritesFor } from './useOfflineQueue';
+import { toLocalDateString, toLocalTimeString } from '../utils/localDate';
 import type { ApiAppointment, ApiStudent, ApiDentist, ApiSchool } from '../api/types';
 
 export interface SessionStudent {
@@ -48,8 +49,8 @@ function buildSessions(
     if (!student) continue;
 
     const dt = new Date(appt.appointment_datetime);
-    const date = dt.toISOString().slice(0, 10);
-    const time = dt.toISOString().slice(11, 16);
+    const date = toLocalDateString(dt);
+    const time = toLocalTimeString(dt);
     const school = schoolNameById.get(student.school_id) ?? 'Unknown School';
     const key = [date, time, school, student.grade_level, student.section, appt.appointment_type, appt.dentist_id, appt._id.startsWith('pending-') ? appt._id : ''].join('|');
 
