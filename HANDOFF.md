@@ -398,5 +398,19 @@ Fixed both sides:
 
 Verified with Playwright: submitting without a birthdate is blocked (was previously allowed); submitting with all 7 required fields succeeds cleanly with a real age shown, no "NaN" anywhere; submitting with just one of the newly-validated fields missing (gender) is blocked with the clean message, not a leaked Mongoose error. `tsc --noEmit` clean, `npm run build` succeeds.
 
+## Forgot Password: admin-assisted reset (chose this over a full email flow)
+
+The "Forgot password?" link on Login.tsx was a dead `href="#"` from the original prototype, and no email infrastructure existed anywhere in the backend. Given this app's actual scale (~10 staff across 3 schools, 1 System Admin who already manages all accounts), chose admin-assisted reset over building a full self-service email flow (token generation/expiry, email service account + cost, deliverability setup) — the System Admin sets a new password directly and relays it out-of-band (in person, chat, phone).
+
+- **Backend**: new `PATCH /users/:id/reset-password` endpoint (`userController.ts`'s `resetPassword`, wired in `routes/index.ts` — same "intercept before the generic CRUD router" pattern as `createUser`, since `password_hash` is a `PROTECTED_FIELD` there and this needs bcrypt hashing the generic router doesn't do). Admin-only (`ADMIN_ONLY` role guard), validates password length (≥8 chars, same rule as account creation), logs to `AUDIT_TRAIL` as "Reset Password".
+- **Frontend**: `AccountManagement.tsx` gets a new "Reset Password" action (KeyRound icon) next to Edit/Archive on every user row (desktop table + mobile card), opening a small modal for new password + confirmation, with a clear note that there's no automatic email — the admin has to tell the person directly.
+- `Login.tsx`'s dead link replaced with real instructional text: "Forgot password? Contact your System Admin."
+
+**Verified directly against the real backend** (not just `tsc`/build): logged in as system_admin, called the new endpoint (safely — reset the admin account's password to its own current value, a functional no-op, then confirmed re-login with that same password still succeeds, proving the hash/save round-trip is genuinely correct, not just returning a fake success). Also confirmed the RBAC guard (dentist role → 403) and the length validation (`short` password → 400) both work correctly.
+
+Needed a backend restart to pick up the new route — the dev backend runs via plain `tsx server/local.ts`, not watch mode, so route changes don't hot-reload.
+
+`tsc --noEmit` clean (both `tsconfig.json` and `tsconfig.server.json`), `npm run build` succeeds. Not yet committed/pushed.
+
 ## Next sprint
 Sprint 21a is blocked until the real dental IPTR Excel files are located and added to `data/` (see above). Once that happens, Sprint 21a can proceed: clean/standardize into `/data/cleaned/dataset.csv` + `/data/cleaning-report.md`, dropping name columns per the resolved anonymization approach. Do not start Sprint 21a against the current `data/` contents (nutritional status data) — verify with a quick openpyxl header check first if unsure whether new files have actually landed.

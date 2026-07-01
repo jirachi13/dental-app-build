@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getHealth } from "../controllers/healthController.js";
-import { createUser } from "../controllers/userController.js";
+import { createUser, resetPassword } from "../controllers/userController.js";
 import { createCrudRouter } from "./crudFactory.js";
 import authRoutes from "./authRoutes.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -39,6 +39,10 @@ router.use("/schools", createCrudRouter(School, { writeRoles: ADMIN_ONLY }));
 // always hashed server-side — the generic router would store a plaintext
 // "password" field as-is, and password_hash is stripped from its bodies.
 router.post("/users", requireAuth, requireRole(...ADMIN_ONLY), asyncHandler(createUser));
+// Also intercepted before the generic CRUD router -- password_hash is a
+// PROTECTED_FIELD there (can't be set via the generic update), and this
+// needs bcrypt hashing the generic router doesn't do.
+router.patch("/users/:id/reset-password", requireAuth, requireRole(...ADMIN_ONLY), asyncHandler(resetPassword));
 router.use("/users", createCrudRouter(User, { readRoles: ADMIN_ONLY, writeRoles: ADMIN_ONLY }));
 router.use("/dentists", createCrudRouter(Dentist, { writeRoles: ADMIN_ONLY }));
 router.use("/dental-aides", createCrudRouter(DentalAide, { writeRoles: ADMIN_ONLY }));

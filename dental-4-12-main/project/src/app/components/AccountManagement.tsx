@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit, Power, Search } from 'lucide-react';
+import { Plus, Edit, Power, Search, KeyRound } from 'lucide-react';
 import { useUsers, ROLE_LABELS } from '../hooks/useUsers';
 import { apiClient, ApiError } from '../api/client';
 import type { ApiRole } from '../api/types';
@@ -73,6 +73,46 @@ export const AccountManagement = () => {
   const handleToggleStatus = async (id: string, status: 'Active' | 'Inactive') => {
     await apiClient.patch(`/users/${id}/${status === 'Active' ? 'archive' : 'restore'}`);
     await reload();
+  };
+
+  // Admin-assisted password reset -- System Admin sets a new password
+  // directly and relays it out-of-band, no email/reset-token flow needed
+  // at this app's scale.
+  const [resettingUserId, setResettingUserId] = useState<string | null>(null);
+  const [resettingUserName, setResettingUserName] = useState('');
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetConfirm, setResetConfirm] = useState('');
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetSubmitting, setResetSubmitting] = useState(false);
+
+  const openResetPassword = (user: (typeof users)[number]) => {
+    setResetPassword('');
+    setResetConfirm('');
+    setResetError(null);
+    setResettingUserName(user.name);
+    setResettingUserId(user.id);
+  };
+
+  const handleResetPassword = async () => {
+    if (!resettingUserId) return;
+    setResetError(null);
+    if (resetPassword.length < 8) {
+      setResetError('Password must be at least 8 characters.');
+      return;
+    }
+    if (resetPassword !== resetConfirm) {
+      setResetError('Passwords do not match.');
+      return;
+    }
+    setResetSubmitting(true);
+    try {
+      await apiClient.patch(`/users/${resettingUserId}/reset-password`, { password: resetPassword });
+      setResettingUserId(null);
+    } catch (err) {
+      setResetError(err instanceof ApiError ? err.message : 'Failed to reset password');
+    } finally {
+      setResetSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -263,6 +303,13 @@ export const AccountManagement = () => {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
+                          onClick={() => openResetPassword(user)}
+                          title="Reset Password"
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          <KeyRound className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => handleToggleStatus(user.id, user.status)}
                           className={`${
                           user.status === 'Active'
@@ -316,13 +363,20 @@ export const AccountManagement = () => {
               </div>
             </div>
             {!user.pending && (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => openEdit(user)}
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
                 >
                   <Edit className="w-4 h-4" />
                   Edit
+                </button>
+                <button
+                  onClick={() => openResetPassword(user)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                >
+                  <KeyRound className="w-4 h-4" />
+                  Reset Password
                 </button>
                 <button
                   onClick={() => handleToggleStatus(user.id, user.status)}
@@ -391,7 +445,7 @@ export const AccountManagement = () => {
                   ))}
                 </select>
               </div>
-              <p className="text-xs text-gray-500">Password isn't changed here — that's a separate reset flow, not built yet.</p>
+              <p className="text-xs text-gray-500">Password isn't changed here — use the Reset Password action instead.</p>
               {editError && <p className="text-sm text-red-600">{editError}</p>}
             </div>
             <div className="flex gap-3 p-6 border-t">
@@ -407,6 +461,55 @@ export const AccountManagement = () => {
                 className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-[#1E3A8A] disabled:opacity-60 transition-colors"
               >
                 {editSubmitting ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {resettingUserId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
+            <div className="p-6 border-b">
+              <h2 className="text-lg font-bold text-gray-900">Reset Password</h2>
+              <p className="text-sm text-gray-500 mt-1">for {resettingUserName}</p>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                <input
+                  type="password"
+                  value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
+                <input
+                  type="password"
+                  value={resetConfirm}
+                  onChange={(e) => setResetConfirm(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                />
+              </div>
+              <p className="text-xs text-gray-500">Share the new password with {resettingUserName} directly (in person, chat, or phone) — there's no automatic email notification.</p>
+              {resetError && <p className="text-sm text-red-600">{resetError}</p>}
+            </div>
+            <div className="flex gap-3 p-6 border-t">
+              <button
+                onClick={() => setResettingUserId(null)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleResetPassword}
+                disabled={resetSubmitting}
+                className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-[#1E3A8A] disabled:opacity-60 transition-colors"
+              >
+                {resetSubmitting ? 'Resetting…' : 'Reset Password'}
               </button>
             </div>
           </div>

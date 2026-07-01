@@ -93,7 +93,7 @@ export const Login = () => {
 
             <div className="flex items-center justify-between text-xs">
               <div className="text-gray-500">Role is auto-detected from account</div>
-              <a href="#" className="text-[#1E40AF] hover:text-[#1E3A8A]">Forgot password?</a>
+              <span className="text-gray-500">Forgot password? Contact your System Admin.</span>
             </div>
 
             {error && (
