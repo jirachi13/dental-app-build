@@ -1,10 +1,17 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import helmet from "helmet";
 import { connectDB } from "./config/db.js";
 import routes from "./routes/index.js";
 
 const app = express();
+
+// This server only ever returns JSON (the React app is served separately —
+// directly by Vite in dev, or as static files via the Vercel rewrite in
+// production) — helmet's default CSP/HSTS/etc. are safe to apply as-is
+// since there's no HTML response here for a restrictive CSP to break.
+app.use(helmet());
 
 // Production is same-origin (the Vercel rewrite serves frontend + API from
 // the same domain), so CORS only matters for local dev, where the Vite dev

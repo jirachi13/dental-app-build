@@ -157,6 +157,17 @@ Ran a forked subagent to do a real OWASP Top 10 review reading actual current co
 
 **Deferred to a later pass** (Medium/Low, not fixed this sprint — see the audit's full findings): deterministic encryption IV (real crypto weakness — same plaintext always produces same ciphertext, leaking which records share a value — this was a known tradeoff from Sprint 8, now explicitly named as a security finding rather than just a design note), no login rate limiting, no password strength requirement on `userController.createUser`, missing security headers (helmet), JWT `verify()` not pinning `algorithms`, no email format validation.
 
+**UPDATE — 5 of 6 fixed as a side-quest** (post-Sprint 20, same day as the AccountManagement/calendar fixes): the deterministic encryption IV was deliberately left out of this pass — it requires understanding exactly how `mongoose-field-encryption` stores/retrieves IVs before touching it, since a mistake could make existing encrypted records (real student names, addresses, medical history already in Atlas) permanently undecryptable. Worth its own careful pass. The other 5:
+- `helmet` added to `app.ts` (safe here since this Express app only ever returns JSON — the React app is served separately, so there's no HTML for a restrictive CSP to break). Verified: `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options` headers present on responses.
+- Login rate limiting via `express-rate-limit` on `POST /auth/login` only (10 attempts / 15 min / IP). Verified: 11 rapid wrong-password attempts in a row, 10th one returned 429.
+- Password strength check (`userController.createUser`, min 8 characters — length over complexity, per NIST guidance) since there's no separate password-change endpoint yet. Verified: a 5-character password is rejected with a clear 400.
+- Email format validation added as a Mongoose schema-level `match` validator on `User.email` — protects both create and the edit path (AccountManagement's PUT) automatically, not just one controller. Verified: `"notanemail"` rejected with a clear 400.
+- JWT `sign()`/`verify()` now explicitly pin `algorithm: "HS256"` instead of relying on the library default — standard mitigation for algorithm-confusion attacks. Verified indirectly: login/session-restore still work correctly after the change (no regression).
+
+## Not done yet (security)
+- Deterministic encryption IV — needs its own research pass on `mongoose-field-encryption`'s actual IV storage/retrieval mechanism before attempting a fix, given the real-data risk
+- "Forgot password" self-service reset flow — currently only System Admin can reset a password (manually, no UI for it either). Real gap, came up when discussing MFA — recommended skipping MFA given this app's risk model (internal-only, ~10 staff) but flagged this as worth building at some point.
+
 ## Not done yet
 - ~~`AuditTrail.tsx` (the frontend page) still uses its own hardcoded array~~ — **wired for real** post-Sprint 20, see "AuditTrail.tsx" section above.
 - No OCR (Sprint 16), no real deployment yet (Sprint 17) — Vercel is linked/configured with all env vars but **a deployment from an early commit auto-deployed and is now stale** (per Vercel's own "Stale" status label) — auto-deploy on push doesn't seem to be triggering; user needs to check Vercel Settings → Git (production branch = main, auto-deploy toggle) or manually redeploy from the dashboard

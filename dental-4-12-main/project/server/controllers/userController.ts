@@ -14,6 +14,12 @@ export async function createUser(req: Request, res: Response) {
     res.status(400).json({ error: `role must be one of: ${ROLES.join(", ")}` });
     return;
   }
+  // Length over complexity rules, per NIST guidance — a long passphrase beats
+  // a short password with forced special characters.
+  if (String(password).length < 8) {
+    res.status(400).json({ error: "Password must be at least 8 characters" });
+    return;
+  }
 
   const password_hash = await hashPassword(password);
   const user = await User.create({
