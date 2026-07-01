@@ -487,7 +487,15 @@ Given the size, did a full scope estimate and got explicit confirmation before s
 
 **Known side effect from testing, not a bug**: the verification run's Save clicks created a few real (empty-valued, correctly-structured) MedicalHistory/DietarySocialHabits/OralHealthCondition records for the test student ("Juan Morales") in the actual database, since those writes succeed independently of the tooth-record writes in the same `Promise.all` batch. Not incorrect data (just blank), not cleaned up — flagging in case anyone notices blank records for that one student.
 
-`tsc --noEmit` clean, `npm run build` succeeds. Not yet committed/pushed.
+`tsc --noEmit` clean, `npm run build` succeeds. Committed (`eeb22975`), pushed, deployed. Verified against the actual production JS bundle (not just Vercel's "Ready" status): honest empty-state text present, no fake names from this file, no regression.
+
+## Deleted TreatmentLog.tsx, PatientProfile.tsx, FollowUpAlerts.tsx — completely dead code, not a data-fix
+
+Asked to fix these two (from the same fake-data audit as AIAnalytics.tsx/DentalChart.tsx). Before touching anything, checked whether they were actually reachable — **neither is referenced in `routes.tsx`, `Root.tsx`'s nav, or imported by any other file anywhere in `src/`.** They're leftover Figma-prototype pages, fully superseded by the real routed equivalents (`DentalChart.tsx`, `PatientList.tsx`, `TreatmentRecords.tsx`) and unreachable by any real user of the running app. Checked `FollowUpAlerts.tsx` too while at it (same fake-name pattern flagged in the earlier audit) — also completely dead code.
+
+Given no user can ever see these pages, rewiring their fake data (887+ combined lines) to real data would be pure wasted effort. Deleted all three outright instead, per the "if certain something is unused, delete it completely" principle — this is a cleanup, not a data-accuracy fix, since the "fake data" was never actually reachable to begin with.
+
+Confirmed via `grep -rln` across the whole `src/` tree that nothing imported them before deleting. `tsc --noEmit` clean, `npm run build` succeeds. Verified the production bundle after build: the one remaining "Juan Dela Cruz" occurrence anywhere is a harmless `placeholder="Dr. Juan Dela Cruz"` attribute on an empty input in `AccountManagement.tsx` (example text, not persisted/displayed-as-real data) — confirmed intentionally left alone.
 
 ## Next sprint
 Sprint 21a is blocked until the real dental IPTR Excel files are located and added to `data/` (see above). Once that happens, Sprint 21a can proceed: clean/standardize into `/data/cleaned/dataset.csv` + `/data/cleaning-report.md`, dropping name columns per the resolved anonymization approach. Do not start Sprint 21a against the current `data/` contents (nutritional status data) — verify with a quick openpyxl header check first if unsure whether new files have actually landed.
