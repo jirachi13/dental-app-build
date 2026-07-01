@@ -67,13 +67,15 @@ export const PatientList = () => {
 
   const calculateAge = (birthdate: string) => {
     const today = new Date(); const birth = new Date(birthdate);
+    if (isNaN(birth.getTime())) return null;
     let age = today.getFullYear() - birth.getFullYear();
     const m = today.getMonth() - birth.getMonth();
     if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
     return age;
   };
 
-  const getAgeGroup = (age: number) => {
+  const getAgeGroup = (age: number | null) => {
+    if (age === null) return 'Unknown';
     if (age <= 4) return '4 & below';
     if (age <= 9) return '5-9';
     if (age <= 14) return '10-14';
@@ -89,7 +91,15 @@ export const PatientList = () => {
 
   const handleAddStudent = async () => {
     setAddPatientError(null);
-    if (!newPatient.firstName || !newPatient.lastName || !newPatient.school || !newPatient.grade) {
+    // birthdate/gender/address/section are all required on the backend
+    // (Student model) and already marked with * in this form's labels, but
+    // weren't actually enforced here -- a student could be submitted
+    // without them, either failing with a raw Mongoose validation error
+    // message online, or (worse) queuing successfully offline and only
+    // failing to sync later with a confusing 400 -- instead of being
+    // caught at entry time like the other required fields already were.
+    if (!newPatient.firstName || !newPatient.lastName || !newPatient.school || !newPatient.grade
+      || !newPatient.birthdate || !newPatient.gender || !newPatient.address || !newPatient.section) {
       setAddPatientError('Please fill in all required fields.');
       return;
     }
@@ -396,7 +406,7 @@ export const PatientList = () => {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-gray-600">{student.gender}</td>
-                      <td className="px-4 py-3 text-gray-600">{calculateAge(student.birthdate)}</td>
+                      <td className="px-4 py-3 text-gray-600">{calculateAge(student.birthdate) ?? '—'}</td>
                       <td className="px-4 py-3">{riskBadge(student.riskLevel)}</td>
                       <td className="px-4 py-3">{statusBadge(student.oralStatus)}</td>
                       <td className="px-4 py-3 text-gray-500">{student.lastVisit}</td>
@@ -463,7 +473,7 @@ export const PatientList = () => {
                         <GradeTableCell grade={student.grade} />
                         <td className={studentListTableStyles.secondaryCell}>{student.section}</td>
                         <td className={studentListTableStyles.secondaryCell}>{student.gender}</td>
-                        <td className={studentListTableStyles.secondaryCell}>{age}</td>
+                        <td className={studentListTableStyles.secondaryCell}>{age ?? '—'}</td>
                         <td className={studentListTableStyles.secondaryCell}>
                           {!student.pending && (
                             <button

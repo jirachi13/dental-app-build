@@ -384,9 +384,19 @@ Followed up on the offline-banner verification gap noted in Sprint 19/20 (only t
 
 This bug likely explains why the Sprint 19 manual DevTools test appeared to work — a filter dropdown was probably touched around the same time, coincidentally triggering a recompute and masking the actual gap. It's a real, higher-impact bug than "offline-only" — it affected the list going stale after *any* data change unless a filter was also touched.
 
-**Also noticed, not fixed (separate, pre-existing, minor)**: the Age column shows "NaN" for a student added without a birthdate — `birthday` isn't in `handleAddStudent`'s required-field validation, so it's possible to submit without one, and `calculateAge('')` doesn't handle that gracefully. Unrelated to the offline fix; flagging for a future pass, not fixed here since it wasn't the object of this investigation.
+**Also noticed at the time, fixed in a follow-up pass (see below)**: the Age column showed "NaN" for a student added without a birthdate.
 
-`tsc --noEmit` clean, `npm run build` succeeds. Not yet committed/pushed.
+`tsc --noEmit` clean, `npm run build` succeeds. Committed (`2d43a939`), pushed, and deployed to production — confirmed live.
+
+## Fixed: "NaN" age display + missing required-field validation on Add Student
+
+Root cause: `handleAddStudent`'s required-field check only covered `firstName, lastName, school, grade` — but the backend's `Student` model actually requires 4 more fields: `birthday`, `sex`, `address`, `section` (all already marked `*` in the form's own labels). A student could be submitted missing any of these, either surfacing a raw Mongoose error message to the user online ("Student validation failed: sex: Path `sex` is required...") or — worse — queuing successfully while offline and only failing to sync later with a confusing 400, instead of being caught at entry time.
+
+Fixed both sides:
+1. `handleAddStudent` now validates all 7 backend-required fields (was 4), giving the same clean "Please fill in all required fields." message for any of them instead of leaking a raw backend validation error.
+2. Defense-in-depth for existing/edge-case data: `calculateAge()` now returns `null` (not `NaN`) for an invalid/empty birthdate, `getAgeGroup()` handles `null` as `'Unknown'` instead of crashing/misbehaving, and both Age-column render sites show `'—'` instead of `NaN` when age is `null`.
+
+Verified with Playwright: submitting without a birthdate is blocked (was previously allowed); submitting with all 7 required fields succeeds cleanly with a real age shown, no "NaN" anywhere; submitting with just one of the newly-validated fields missing (gender) is blocked with the clean message, not a leaked Mongoose error. `tsc --noEmit` clean, `npm run build` succeeds.
 
 ## Next sprint
 Sprint 21a is blocked until the real dental IPTR Excel files are located and added to `data/` (see above). Once that happens, Sprint 21a can proceed: clean/standardize into `/data/cleaned/dataset.csv` + `/data/cleaning-report.md`, dropping name columns per the resolved anonymization approach. Do not start Sprint 21a against the current `data/` contents (nutritional status data) — verify with a quick openpyxl header check first if unsure whether new files have actually landed.
