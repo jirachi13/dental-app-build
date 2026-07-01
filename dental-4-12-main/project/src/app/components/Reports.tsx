@@ -219,14 +219,18 @@ export const Reports = () => {
   const [reportSchool, setReportSchool] = useState<string|null>(null);
   const dohReportRef = useRef<HTMLDivElement>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const handleDownloadPdf = async () => {
     if (!dohReportRef.current) return;
     setDownloadingPdf(true);
+    setDownloadError(null);
     try {
       const schoolPart = reportSchool ? getSchoolShortName(reportSchool).replace(/\s+/g, '_') : 'AllSchools';
       const filename = `DOH_Report_${schoolPart}_${MONTHS[reportMonth - 1]}${reportYear}.pdf`;
       await exportElementToPdf(dohReportRef.current, filename);
+    } catch (err) {
+      setDownloadError(err instanceof Error ? err.message : 'Failed to generate PDF');
     } finally {
       setDownloadingPdf(false);
     }
@@ -289,7 +293,7 @@ export const Reports = () => {
           <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
           <p className="text-gray-500 text-sm mt-0.5">DOH Consolidated Report &amp; Internal Reports</p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="doh-report-controls flex items-center gap-2 flex-shrink-0">
           <select value={reportMonth} onChange={e => setReportMonth(Number(e.target.value))}
             className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
             {MONTHS.map((m,i) => <option key={m} value={i+1}>{m}</option>)}
@@ -310,6 +314,9 @@ export const Reports = () => {
           )}
         </div>
       </div>
+      {downloadError && (
+        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{downloadError}</div>
+      )}
 
       {/* Tabs */}
       <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 w-fit">
@@ -327,7 +334,7 @@ export const Reports = () => {
       {activeReportTab === 'doh' && (
         <div className="space-y-3">
           {/* School filter — thin bar, doesn't scroll */}
-          <div className="flex items-center gap-3">
+          <div className="doh-report-controls flex items-center gap-3">
             <label className="text-sm text-gray-500 whitespace-nowrap">School:</label>
             <select value={reportSchool ?? ''} onChange={e => setReportSchool(e.target.value || null)}
               className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -337,8 +344,11 @@ export const Reports = () => {
           </div>
 
           {/* Table */}
-          <div ref={dohReportRef} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
+          <div id="doh-report-printable" className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            {/* ref goes on the scrollable inner div, not the overflow-hidden outer
+                one — html2canvas clips to the ref'd element's own rendered box,
+                so ref'ing the outer div only captured the already-clipped width. */}
+            <div ref={dohReportRef} className="overflow-x-auto">
               <table style={{borderCollapse:'collapse', fontSize:'10px', whiteSpace:'nowrap'}}>
                 {/* ── TITLE ── */}
                 <thead>

@@ -2,8 +2,60 @@
 @import './tailwind.css';
 @import './theme.css';
 
+/* Edge/IE add their own built-in reveal/clear icons inside <input
+   type="password">, which visually stacks on top of our custom show/hide
+   toggle (Login.tsx). Suppress the native ones so only ours shows. */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
 /* ── Print Styles ────────────────────────────────────────────────────────── */
 @media print {
+  /* The DOH report table is very wide (many age-bracket columns) — printing
+     in default portrait with the table's horizontal scroll container just
+     crops everything past the page edge. `@page { size: landscape }` is a
+     hint, not a guarantee — Chrome/Edge print dialogs often ignore it and
+     need "Landscape" ticked manually; this can't be forced from CSS alone.
+     overflow: visible on BOTH the scrollable inner div AND its overflow-
+     hidden outer wrapper is required — fixing only the inner one still left
+     the outer div clipping the content. */
+  @page {
+    size: landscape;
+  }
+
+  .overflow-x-auto,
+  .overflow-hidden {
+    overflow: visible !important;
+  }
+
+  /* Best-effort shrink for the DOH report table specifically — even in
+     landscape, this table's real rendered width (many age-bracket columns)
+     is wider than a physical printed page, so it still overflows the right
+     edge without an explicit scale-down. `zoom` (not `transform: scale`)
+     actually reflows layout at the scaled size in Chromium/Edge, so the
+     table doesn't just get clipped again by print pagination. This is a
+     fixed guess, not a real fit-to-page algorithm — if it's still too wide
+     or too small, "Download PDF" is the more reliable option since it
+     explicitly renders + paginates the full table rather than relying on
+     the browser's print engine. */
+  #doh-report-printable {
+    zoom: 0.45;
+  }
+
+  /* The month/year/school <select> dropdowns are real form controls, not
+     buttons, so the `button { display: none }` rule below never caught
+     them — they were showing up on the printed page. */
+  .doh-report-controls {
+    display: none !important;
+  }
+
+  /* A table row splitting across a page boundary was cropping the last
+     visible line of each printed page. */
+  tr {
+    break-inside: avoid;
+  }
+
   body {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
