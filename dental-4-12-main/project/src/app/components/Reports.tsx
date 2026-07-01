@@ -274,7 +274,7 @@ export const Reports = () => {
           </button>
           {activeReportTab === 'doh' && (
             <button onClick={handleDownloadPdf} disabled={downloadingPdf}
-              className="flex items-center gap-2 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-[#1E3A8A] disabled:opacity-60 text-sm font-medium whitespace-nowrap">
+              className="flex items-center gap-2 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 text-sm font-medium whitespace-nowrap">
               <Download className="w-4 h-4" /> {downloadingPdf ? 'Generating…' : 'Download PDF'}
             </button>
           )}

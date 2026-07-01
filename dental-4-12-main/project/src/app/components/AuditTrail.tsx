@@ -62,7 +62,7 @@ export const AuditTrail = () => {
 
   if (error) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+      <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
         <p className="text-red-600">{error}</p>
         <p className="text-sm text-gray-500 mt-1">Audit trail is restricted to System Admin — make sure you're logged in with that role.</p>
       </div>
@@ -74,7 +74,7 @@ export const AuditTrail = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Audit Trail</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Audit Trail</h1>
           <p className="text-gray-600 mt-1">{filteredLogs.length} activity logs</p>
         </div>
         <button onClick={handleExportCsv} className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
@@ -83,7 +83,7 @@ export const AuditTrail = () => {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Filter className="w-5 h-5 text-gray-400" />
           <h3 className="font-semibold text-gray-900">Filters</h3>
@@ -159,7 +159,7 @@ export const AuditTrail = () => {
       </div>
 
       {/* Desktop Table */}
-      <div className="hidden lg:block bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="hidden lg:block bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -195,7 +195,7 @@ export const AuditTrail = () => {
       {/* Mobile Cards */}
       <div className="lg:hidden space-y-4">
         {filteredLogs.map((log) => (
-          <div key={log.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div key={log.id} className="bg-white rounded-xl border border-gray-200 p-4">
             <div className="flex items-start justify-between mb-3">
               <div>
                 <div className="font-medium text-gray-900">{log.user}</div>
@@ -214,8 +214,9 @@ export const AuditTrail = () => {
       </div>
 
       {filteredLogs.length === 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-          <p className="text-gray-500">No audit logs found matching your filters.</p>
+        <div className="py-12 text-center text-gray-400">
+          <Filter className="w-8 h-8 mx-auto mb-2 opacity-30" />
+          <p className="text-sm">No audit logs found matching your filters.</p>
         </div>
       )}
     </div>

@@ -412,7 +412,7 @@ export const Appointments = () => {
           </div>
           {todayAppts.length === 0 ? (
             <div className="py-12 text-center text-gray-400">
-              <CalendarIcon className="w-8 h-8 mx-auto mb-2 opacity-40" />
+              <CalendarIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm">No appointments scheduled for today</p>
             </div>
           ) : (
@@ -429,7 +429,7 @@ export const Appointments = () => {
           </div>
           {upcomingAppts.length === 0 ? (
             <div className="py-12 text-center text-gray-400">
-              <CalendarIcon className="w-8 h-8 mx-auto mb-2 opacity-40" />
+              <CalendarIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm">No upcoming appointments</p>
             </div>
           ) : (
@@ -456,6 +456,7 @@ export const Appointments = () => {
           </div>
           {completedAppts.length === 0 ? (
             <div className="py-12 text-center text-gray-400">
+              <CalendarIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm">No completed appointments</p>
             </div>
           ) : (
@@ -472,6 +473,7 @@ export const Appointments = () => {
           </div>
           {missedAppts.length === 0 ? (
             <div className="py-12 text-center text-gray-400">
+              <CalendarIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm">No missed appointments</p>
             </div>
           ) : (

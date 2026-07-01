@@ -3,7 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, Users, Calendar, Brain,
   ClipboardList, LogOut, Stethoscope, Shield,
-  Clipboard, FileBarChart, UserCog, KeyRound
+  Clipboard, FileBarChart, UserCog, KeyRound,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
@@ -20,6 +21,16 @@ export const Root = () => {
   useEffect(() => {
     if (!user) navigate('/login');
   }, [user, navigate]);
+
+  // Desktop-only manual collapse -- mobile stays icon-only regardless (no
+  // room to expand there anyway). Persisted so it's remembered across visits.
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('sidebarCollapsed') === 'true');
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      localStorage.setItem('sidebarCollapsed', String(!prev));
+      return !prev;
+    });
+  };
 
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -128,6 +139,7 @@ export const Root = () => {
     return (
       <Link
         to={tab.path}
+        title={collapsed ? tab.label : undefined}
         className={`flex items-center gap-3 px-4 py-3 transition-colors ${
           isActive
             ? 'bg-[#1E40AF] text-white'
@@ -135,7 +147,7 @@ export const Root = () => {
         }`}
       >
         <Icon className="w-5 h-5 flex-shrink-0" />
-        <span className="hidden md:block text-sm font-medium">{tab.label}</span>
+        <span className={`${collapsed ? 'hidden' : 'hidden md:block'} text-sm font-medium`}>{tab.label}</span>
       </Link>
     );
   };
@@ -143,9 +155,17 @@ export const Root = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* LEFT TAB BAR */}
-      <aside className="w-[60px] md:w-[220px] bg-white border-r border-gray-200 flex flex-col fixed left-0 top-0 h-screen z-40">
+      <aside className={`w-[60px] ${collapsed ? '' : 'md:w-[220px]'} bg-white border-r border-gray-200 flex flex-col fixed left-0 top-0 h-screen z-40 transition-[width] duration-200`}>
         {/* Logo */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-200 relative">
+          {/* Collapse toggle -- desktop only, mobile has no room to expand anyway */}
+          <button
+            onClick={toggleCollapsed}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className="hidden md:flex absolute -right-3 top-5 w-6 h-6 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-50 shadow-sm z-10"
+          >
+            {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+          </button>
           <div className="flex items-center gap-3">
             {logoImage ? (
               <img src={logoImage} alt="Barangay Tanyag" className="w-8 h-8 md:w-10 md:h-10 object-contain flex-shrink-0" />
@@ -154,7 +174,7 @@ export const Root = () => {
                 <span className="text-white font-bold text-xs">BT</span>
               </div>
             )}
-            <div className="hidden md:block">
+            <div className={collapsed ? 'hidden' : 'hidden md:block'}>
               <div className="text-lg font-bold text-[#1E40AF]">FLORAL</div>
               <div className="text-xs text-gray-500 leading-tight">Dental Health System</div>
             </div>
@@ -165,7 +185,8 @@ export const Root = () => {
         {selectedSchool && (
           <button
             onClick={handleSwitchSchool}
-            className="mx-3 my-2 hidden md:flex items-start gap-2 px-3 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors text-left w-[calc(100%-24px)]"
+            title={collapsed ? getSchoolShortName(selectedSchool) : undefined}
+            className={`mx-3 my-2 items-start gap-2 px-3 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors text-left w-[calc(100%-24px)] ${collapsed ? 'hidden' : 'hidden md:flex'}`}
           >
             <div className="min-w-0 flex-1">
               <div className="text-[10px] font-medium text-blue-400 uppercase tracking-wide leading-none mb-0.5">Current School</div>
@@ -184,7 +205,7 @@ export const Root = () => {
 
         {/* User info + logout */}
         <div className="border-t border-gray-200 p-4">
-          <div className="hidden md:block mb-3">
+          <div className={`mb-3 ${collapsed ? 'hidden' : 'hidden md:block'}`}>
             <div className="text-sm font-medium text-gray-900 truncate">{user.name}</div>
             <div className="mt-1">
               <span className="inline-block px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded capitalize">
@@ -194,23 +215,25 @@ export const Root = () => {
           </div>
           <button
             onClick={openChangePassword}
-            className="w-full flex items-center justify-center md:justify-start gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors mb-1"
+            title={collapsed ? 'Change Password' : undefined}
+            className={`w-full flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors mb-1 ${collapsed ? 'justify-center' : 'justify-center md:justify-start'}`}
           >
             <KeyRound className="w-5 h-5 flex-shrink-0" />
-            <span className="hidden md:block text-sm font-medium">Change Password</span>
+            <span className={`${collapsed ? 'hidden' : 'hidden md:block'} text-sm font-medium`}>Change Password</span>
           </button>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center md:justify-start gap-3 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            title={collapsed ? 'Logout' : undefined}
+            className={`w-full flex items-center gap-3 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors ${collapsed ? 'justify-center' : 'justify-center md:justify-start'}`}
           >
             <LogOut className="w-5 h-5 flex-shrink-0" />
-            <span className="hidden md:block text-sm font-medium">Logout</span>
+            <span className={`${collapsed ? 'hidden' : 'hidden md:block'} text-sm font-medium`}>Logout</span>
           </button>
         </div>
       </aside>
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 ml-[60px] md:ml-[220px] overflow-x-hidden">
+      <main className={`flex-1 ml-[60px] ${collapsed ? '' : 'md:ml-[220px]'} overflow-x-hidden transition-[margin] duration-200`}>
         <div className="p-4 md:p-8">
           <Outlet />
         </div>
@@ -228,7 +251,7 @@ export const Root = () => {
                 <p className="text-sm text-green-700">Password changed successfully.</p>
                 <button
                   onClick={() => setShowChangePassword(false)}
-                  className="w-full px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-[#1E3A8A] transition-colors"
+                  className="w-full px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   Close
                 </button>
@@ -275,7 +298,7 @@ export const Root = () => {
                   <button
                     onClick={handleChangePassword}
                     disabled={changingPassword}
-                    className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-[#1E3A8A] disabled:opacity-60 transition-colors"
+                    className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
                   >
                     {changingPassword ? 'Changing…' : 'Change Password'}
                   </button>

@@ -581,7 +581,7 @@ export const DentalChart = () => {
             </>
           )}
           {canEdit && currentYearData && (
-            <button onClick={handleSave} disabled={saving} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-60 ${saved ? 'bg-green-600 text-white' : 'bg-blue-700 text-white hover:bg-blue-700'}`}>
+            <button onClick={handleSave} disabled={saving} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-60 ${saved ? 'bg-green-600 text-white' : 'bg-[#1E40AF] text-white hover:bg-blue-700'}`}>
               <Save className="w-4 h-4" />
               {saving ? 'Saving…' : saved ? 'Saved!' : 'Save'}
             </button>
@@ -1175,7 +1175,7 @@ export const DentalChart = () => {
               </div>
             )}
             {allTreatments.length === 0 ? (
-              <p className="text-center text-gray-400 text-sm py-8">No treatment records yet.</p>
+              <p className="text-center text-gray-400 text-sm py-12">No treatment records yet.</p>
             ) : (
             <>
             <div className="hidden md:block overflow-x-auto rounded-lg border border-gray-200">
