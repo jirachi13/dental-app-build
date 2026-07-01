@@ -245,15 +245,14 @@ Current student data is only the Sprint 10 demo seeder (18 records) — far too 
 - Sprint 20 → Workbox sync + conflict handling
 
 **Phase 3 — Algo (AFTER Phase 2):**
-**REVISED — real Excel IPTR data available, no synthetic dataset needed:**
-- Sprint 21a → Clean + standardize real Excel files: read all files in /data/raw/, analyze headers/structure, identify inconsistencies (column naming, missing values, date formats, condition spelling), generate a cleaning report, output unified CSV to /data/cleaned/dataset.csv matching MongoDB model fields, document all transformations in /data/cleaning-log.md. Work on copies only — never modify original Excel files. Decide on student-name anonymization with adviser first.
-- Sprint 21b → Map cleaned data to MongoDB models
-- Sprint 21c → Seed real data into MongoDB (replaces dummy/demo seeder data)
-- Sprint 21d → Feature engineering from real IPTR data
-- Sprint 21e → Train/Test (80/20) + Stratified K-Fold (k=5) experiments on real data, all 5 algorithms (see ALGORITHMS TO COMPARE — pending adviser input on full 5 vs. dropping SVM), accuracy/precision/recall/F1/confusion matrix per algorithm per method, results saved to /docs/algo-results.md, visual decision tree generated
-- Sprint 21f → Integrate winner (selected by K-Fold F1) via Strategy Pattern
-- Sprint 21g → Risk classification UI — High/Medium/Low
-- Sprint 21h → Dentist decision support interface — validation before clinical action
+**REVISED — real Excel IPTR data available, no synthetic dataset needed. Full detailed task breakdown for every sprint below is in `/docs/phase3-sprint-prompts.md` — treat that file as authoritative, this is just the index. Each sprint requires explicit review/approval before the next starts.**
+- Sprint 21a → Clean + standardize real Excel files from /data/raw/ → /data/cleaned/dataset.csv + /data/cleaning-report.md. Work on copies only — never modify original Excel files. Decide on student-name anonymization with adviser first.
+- Sprint 21b → Feature engineering directly from cleaned CSV → /data/processed/ml_dataset.csv (DMF index calc, risk labels, missing-value imputation, class distribution check)
+- Sprint 21c → Train/Test (80/20) + Stratified K-Fold (k=5) experiments, all 5 algorithms (see ALGORITHMS TO COMPARE — pending adviser input on full 5 vs. dropping SVM), results to /docs/algo-results.md, decision tree + feature importance charts, confusion matrices
+- Sprint 21d → Select and justify winner by K-Fold F1 → /docs/model-selection-rationale.md (becomes Chapter 4 Section 4.2)
+- Sprint 21e → Integrate winner via Strategy Pattern (/ml-service/, predictor.py as sole entry point, config.py for active model)
+- Sprint 21f → Risk classification UI — High/Medium/Low, dentist validation required before any clinical action, logged to AUDIT_TRAIL
+- Sprint 21g → Dentist decision support interface — priority queue, bulk assessment, risk trend dashboard, validation before clinical action
 
 For Chapter 4: real IPTR records from Barangay Tanyag school dental clinics were used as training data after cleaning and standardization — stronger than a synthetic dataset, note this in the manuscript.
 
