@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getModel } from "./shared/getModel";
 
 const oralHealthConditionSchema = new mongoose.Schema(
   {
@@ -15,4 +16,4 @@ const oralHealthConditionSchema = new mongoose.Schema(
   { timestamps: { createdAt: "created_at", updatedAt: false } },
 );
 
-export default mongoose.models.OralHealthCondition || mongoose.model("OralHealthCondition", oralHealthConditionSchema);
+export default getModel("OralHealthCondition", oralHealthConditionSchema);

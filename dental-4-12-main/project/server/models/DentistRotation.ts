@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getModel } from "./shared/getModel";
 import { softDeleteFields } from "./shared/softDelete";
 
 // Not in the original ERD — added Sprint 11 per CLAUDE.md's appointment
@@ -15,4 +16,4 @@ const dentistRotationSchema = new mongoose.Schema(
   { timestamps: { createdAt: "created_at", updatedAt: false } },
 );
 
-export default mongoose.models.DentistRotation || mongoose.model("DentistRotation", dentistRotationSchema);
+export default getModel("DentistRotation", dentistRotationSchema);

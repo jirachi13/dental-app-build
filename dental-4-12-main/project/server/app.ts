@@ -6,7 +6,35 @@ import routes from "./routes/index";
 
 const app = express();
 
-app.use(cors({ origin: true, credentials: true }));
+// Production is same-origin (the Vercel rewrite serves frontend + API from
+// the same domain), so CORS only matters for local dev, where the Vite dev
+// server (:5173) and this Express server (:4000) are different origins.
+// `origin: true` used to reflect ANY origin back with credentials allowed —
+// combined with cookie-based auth, that let any site a logged-in user
+// visited read patient data via a cross-origin fetch(). Fixed via an
+// explicit allowlist; extend ALLOWED_ORIGINS (comma-separated) in .env for
+// edge cases like a Vercel preview URL, rather than reopening this.
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  ...(process.env.ALLOWED_ORIGINS?.split(",").map((o) => o.trim()).filter(Boolean) ?? []),
+];
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      // No Origin header (same-origin requests, curl, server-to-server) — allow.
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      const err = new Error("Not allowed by CORS");
+      err.name = "CorsError";
+      callback(err);
+    },
+    credentials: true,
+  }),
+);
 app.use(express.json());
 app.use(cookieParser());
 
@@ -25,6 +53,10 @@ app.use(
   (err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     if (err.name === "ValidationError" || err.name === "CastError") {
       res.status(400).json({ error: err.message });
+      return;
+    }
+    if (err.name === "CorsError") {
+      res.status(403).json({ error: "Origin not allowed" });
       return;
     }
     res.status(500).json({ error: "Internal server error" });

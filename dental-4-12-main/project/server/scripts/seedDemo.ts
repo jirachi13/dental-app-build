@@ -55,6 +55,12 @@ async function ensureUser(email: string, role: string, full_name: string, passwo
   return user;
 }
 
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`${name} must be set in .env — no hardcoded fallback (see Sprint 15.5 security fix)`);
+  return value;
+}
+
 async function main() {
   await connectDB();
 
@@ -66,7 +72,7 @@ async function main() {
     "dentist@floral.com",
     "dentist",
     "Dr. Maria Santos",
-    await hashPassword("Dentist@1234"),
+    await hashPassword(requireEnv("SEED_DENTIST_PASSWORD")),
     integrated._id,
   );
   let dentist = await Dentist.findOne({ user_id: dentistUser._id });
@@ -85,7 +91,7 @@ async function main() {
     "aide@floral.com",
     "dental_aide",
     "Ana Reyes",
-    await hashPassword("Aide@1234"),
+    await hashPassword(requireEnv("SEED_AIDE_PASSWORD")),
     integrated._id,
   );
   const existingAide = await DentalAide.findOne({ user_id: aideUser._id });
@@ -101,8 +107,8 @@ async function main() {
     console.log("Created DentalAide record for aide@floral.com");
   }
 
-  await ensureUser("schooladmin@floral.com", "school_admin", "Nurse Rosa Cruz", await hashPassword("SchoolAdmin@1234"), annexA._id);
-  await ensureUser("bho@floral.com", "bho_staff", "Jose Santos", await hashPassword("Bho@1234"), null);
+  await ensureUser("schooladmin@floral.com", "school_admin", "Nurse Rosa Cruz", await hashPassword(requireEnv("SEED_SCHOOLADMIN_PASSWORD")), annexA._id);
+  await ensureUser("bho@floral.com", "bho_staff", "Jose Santos", await hashPassword(requireEnv("SEED_BHO_PASSWORD")), null);
 
   await mongoose.disconnect();
 }

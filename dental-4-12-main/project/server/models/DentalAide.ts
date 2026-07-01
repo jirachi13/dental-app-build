@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getModel } from "./shared/getModel";
 import { fieldEncryption } from "mongoose-field-encryption";
 import { softDeleteFields } from "./shared/softDelete";
 import { fieldEncryptionOptions } from "./shared/fieldEncryption";
@@ -18,4 +19,4 @@ const dentalAideSchema = new mongoose.Schema(
 
 dentalAideSchema.plugin(fieldEncryption, fieldEncryptionOptions(["contact_number"]));
 
-export default mongoose.models.DentalAide || mongoose.model("DentalAide", dentalAideSchema);
+export default getModel("DentalAide", dentalAideSchema);

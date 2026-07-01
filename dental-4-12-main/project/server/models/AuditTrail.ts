@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getModel } from "./shared/getModel";
 
 const auditTrailSchema = new mongoose.Schema({
   user_id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
@@ -8,4 +9,4 @@ const auditTrailSchema = new mongoose.Schema({
   affected_model: { type: String, maxlength: 50, required: true },
 });
 
-export default mongoose.models.AuditTrail || mongoose.model("AuditTrail", auditTrailSchema);
+export default getModel("AuditTrail", auditTrailSchema);

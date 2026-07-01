@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getModel } from "./shared/getModel";
 
 const riskStratificationSchema = new mongoose.Schema({
   preventive_id: { type: mongoose.Schema.Types.ObjectId, ref: "PreventiveCareRecord", required: true },
@@ -10,4 +11,4 @@ const riskStratificationSchema = new mongoose.Schema({
   validated_at: { type: Date, default: null },
 });
 
-export default mongoose.models.RiskStratification || mongoose.model("RiskStratification", riskStratificationSchema);
+export default getModel("RiskStratification", riskStratificationSchema);

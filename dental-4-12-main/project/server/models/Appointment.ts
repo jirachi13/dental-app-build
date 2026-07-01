@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getModel } from "./shared/getModel";
 import { softDeleteFields } from "./shared/softDelete";
 
 const appointmentSchema = new mongoose.Schema({
@@ -13,4 +14,4 @@ const appointmentSchema = new mongoose.Schema({
   ...softDeleteFields,
 });
 
-export default mongoose.models.Appointment || mongoose.model("Appointment", appointmentSchema);
+export default getModel("Appointment", appointmentSchema);

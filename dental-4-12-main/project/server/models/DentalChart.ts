@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getModel } from "./shared/getModel";
 import { softDeleteFields } from "./shared/softDelete";
 
 const dentalChartSchema = new mongoose.Schema({
@@ -8,4 +9,4 @@ const dentalChartSchema = new mongoose.Schema({
   ...softDeleteFields,
 });
 
-export default mongoose.models.DentalChart || mongoose.model("DentalChart", dentalChartSchema);
+export default getModel("DentalChart", dentalChartSchema);

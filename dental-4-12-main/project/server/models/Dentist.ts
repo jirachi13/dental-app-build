@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getModel } from "./shared/getModel";
 import { softDeleteFields } from "./shared/softDelete";
 
 const dentistSchema = new mongoose.Schema(
@@ -13,4 +14,4 @@ const dentistSchema = new mongoose.Schema(
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
 
-export default mongoose.models.Dentist || mongoose.model("Dentist", dentistSchema);
+export default getModel("Dentist", dentistSchema);

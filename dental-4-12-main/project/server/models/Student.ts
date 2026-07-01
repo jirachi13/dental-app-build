@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getModel } from "./shared/getModel";
 import { fieldEncryption } from "mongoose-field-encryption";
 import { softDeleteFields } from "./shared/softDelete";
 import { fieldEncryptionOptions } from "./shared/fieldEncryption";
@@ -33,4 +34,4 @@ studentSchema.plugin(
   fieldEncryptionOptions(["full_name", "address", "contact_number", "guardian_name", "guardian_contact", "philhealth_number", "fourps_id"]),
 );
 
-export default mongoose.models.Student || mongoose.model("Student", studentSchema);
+export default getModel("Student", studentSchema);

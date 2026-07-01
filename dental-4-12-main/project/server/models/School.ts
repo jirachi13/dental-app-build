@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getModel } from "./shared/getModel";
 import { softDeleteFields } from "./shared/softDelete";
 
 const schoolSchema = new mongoose.Schema(
@@ -14,4 +15,4 @@ const schoolSchema = new mongoose.Schema(
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
 
-export default mongoose.models.School || mongoose.model("School", schoolSchema);
+export default getModel("School", schoolSchema);

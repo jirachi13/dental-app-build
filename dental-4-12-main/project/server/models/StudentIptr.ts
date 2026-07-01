@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getModel } from "./shared/getModel";
 import { softDeleteFields } from "./shared/softDelete";
 
 const studentIptrSchema = new mongoose.Schema(
@@ -10,4 +11,4 @@ const studentIptrSchema = new mongoose.Schema(
   { timestamps: { createdAt: "created_at", updatedAt: false } },
 );
 
-export default mongoose.models.StudentIptr || mongoose.model("StudentIptr", studentIptrSchema);
+export default getModel("StudentIptr", studentIptrSchema);

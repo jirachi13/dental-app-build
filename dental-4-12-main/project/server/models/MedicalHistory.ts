@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getModel } from "./shared/getModel";
 import { fieldEncryption } from "mongoose-field-encryption";
 import { fieldEncryptionOptions } from "./shared/fieldEncryption";
 
@@ -23,4 +24,4 @@ const medicalHistorySchema = new mongoose.Schema(
 
 medicalHistorySchema.plugin(fieldEncryption, fieldEncryptionOptions(["allergies", "others"]));
 
-export default mongoose.models.MedicalHistory || mongoose.model("MedicalHistory", medicalHistorySchema);
+export default getModel("MedicalHistory", medicalHistorySchema);

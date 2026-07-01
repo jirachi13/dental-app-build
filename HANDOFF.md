@@ -1,7 +1,7 @@
-# HANDOFF — Sprint 15 Complete
+# HANDOFF — Sprint 15.5 Complete
 
 ## Status
-Sprints 1-15 done and verified against the real MongoDB Atlas cluster.
+Sprints 1-15.5 done and verified against the real MongoDB Atlas cluster.
 - Sprint 1: Express MVC + MongoDB connection
 - Sprint 2: SCHOOL, USER, STUDENT, DENTIST, DENTAL_AIDE models
 - Sprint 3: STUDENT_IPTR, MEDICAL_HISTORY, DIETARY_SOCIAL_HABITS, ORAL_HEALTH_CONDITION models
@@ -17,6 +17,7 @@ Sprints 1-15 done and verified against the real MongoDB Atlas cluster.
 - Sprint 13: Dashboard (all 5 roles) + DOH Reports table wired to real data where genuinely computable; illustrative data kept only where honestly required (see notes below)
 - Sprint 14: found and fixed the real gap — PatientList's "Add New Student" form was still a fake alert(), never actually saving. Extended STUDENT with guardian/PhilHealth/4Ps/consent fields (real DOH IPTR data, not UI-invented) and wired the form to a real POST. Audited search/filter across all wired components — no bugs found, TypeScript already guarantees no stale field references.
 - Sprint 15: RBAC finally wired into all 16 CRUD routes (was built in Sprint 7, unused until now — every route was open to anyone, logged in or not). Real audit-trail writes on every create/update/archive/restore. Discovered and fixed a critical consequence of this exact change: requireAuth now actually enforces the 15-minute access-token expiry, so added transparent 401-refresh-and-retry to the frontend API client — without it, the whole app would break every 15 minutes.
+- Sprint 15.5: manual OWASP Top 10 audit (forked, real code review not from memory) found 1 Critical + 3 High findings, all fixed and verified: real passwords committed to git (rotated + removed hardcoded values from source), CORS reflecting any origin with credentials (locked to an allowlist), deactivated users keeping access for up to 7 days via stale refresh tokens (now re-checks DB), and 3 vulnerable dependencies with public CVEs (patched, 0 vulnerabilities remaining). Medium/Low findings deferred — see notes below.
 
 ## What exists now
 **Backend** (`dental-4-12-main/project/server/`):
@@ -135,6 +136,20 @@ Two grill-me questions resolved a real tension before building: CLAUDE.md says S
 
 Verified the full matrix against the real Atlas cluster with real role logins (not just typecheck): school_admin can read `/api/students` but gets 403 on `POST`, 403 on `?includeArchived=true`, 403 on `/api/users`, 403 on `/api/audit-trails`. Dentist can create a student but gets 403 trying to archive it; system_admin's archive succeeds and is correctly attributed. Audit trail correctly shows both the "Created Student" and "Archived Student" entries with correct `user_id` per actor. Archived record is 404 for the dentist, 200 for system_admin, by direct ID lookup.
 
+## Sprint 15.5 notes
+Ran a forked subagent to do a real OWASP Top 10 review reading actual current code (not summarizing from conversation memory) — deliberately isolated so its raw tool output didn't fill context. Findings calibrated to the real threat model (internal app, ~10 staff, 3 schools), not treated as a public-internet-scale system.
+
+**Critical — fixed**: `server/scripts/seedDemo.ts` had 4 real account passwords (`Dentist@1234`, `Aide@1234`, `SchoolAdmin@1234`, `Bho@1234`) hardcoded in source and pushed to GitHub, for accounts on the actual production database (same Mongo instance as local — no separate prod DB, established back in Sprint 7). Anyone with repo read access had working logins. Rotated all 4 passwords directly on the live DB (new values given to the user, never committed) and rewrote the seed script to require `SEED_DENTIST_PASSWORD`/`SEED_AIDE_PASSWORD`/`SEED_SCHOOLADMIN_PASSWORD`/`SEED_BHO_PASSWORD` from `.env` instead — same pattern already used for the admin seed. **Note**: the old passwords remain visible in git history forever (rewriting history wasn't requested and is destructive) — they're rotated/invalid now, which is what actually matters.
+
+**High — fixed**:
+1. `server/app.ts` CORS was `origin: true` (reflects any origin) + `credentials: true` — combined with cookie auth, any site a logged-in user visited could `fetch()` the API cross-origin and read patient data. Replaced with an explicit allowlist (`localhost:5173`/`127.0.0.1:5173` for dev, same-origin needs no CORS in production via the Vercel rewrite, `ALLOWED_ORIGINS` env var available for edge cases like preview URLs). Verified: disallowed origin gets no `Access-Control-Allow-Origin` header and a clean 403; allowed origin works.
+2. `authController.refresh()` re-signed a new access token straight from the old JWT payload without checking the DB — a deactivated user or one with a changed role kept their stale permissions for up to 7 days (the refresh token's lifetime). Fixed to re-fetch the user and reject if not found or archived. Verified directly: archived a real user mid-session, confirmed their still-valid refresh token now correctly 401s.
+3. 3 dependencies with public CVEs (`mongoose` NoSQL injection, `express`'s transitive ReDoS via `path-to-regexp`/`qs`, `react-router`'s stored XSS/open-redirect/CSRF CVEs) — all patched via `npm audit fix --force` to minor/patch versions within the same major already in use (mongoose 8→8.24, express 4→4.22, react-router 7→7.18). `npm audit` now reports 0 vulnerabilities.
+
+**Unexpected regression from the dependency bump**: mongoose 8.24 broke TypeScript inference on the `mongoose.models.X || mongoose.model("X", schema)` pattern used in all 17 model files (union of overloaded Model types stopped resolving cleanly) — a real build-breaking issue, not hypothetical. Fixed by centralizing the pattern in `server/models/shared/getModel.ts` with an explicit `Model<any>` return type, applied across all 17 model files. Verified clean `tsc --noEmit` on both frontend and backend after the fix, plus a full login+CRUD smoke test through the actual dev servers.
+
+**Deferred to a later pass** (Medium/Low, not fixed this sprint — see the audit's full findings): deterministic encryption IV (real crypto weakness — same plaintext always produces same ciphertext, leaking which records share a value — this was a known tradeoff from Sprint 8, now explicitly named as a security finding rather than just a design note), no login rate limiting, no password strength requirement on `userController.createUser`, missing security headers (helmet), JWT `verify()` not pinning `algorithms`, no email format validation.
+
 ## Not done yet
 - `AuditTrail.tsx` (the frontend page) still uses its own hardcoded array — the *backend* now writes real entries (Sprint 15), but the UI hasn't been switched over. Worth revisiting now that real audit data actually exists; wasn't in this sprint's original grill-me scope.
 - No OCR (Sprint 16), no real deployment yet (Sprint 17) — Vercel is linked/configured with all env vars but **a deployment from an early commit auto-deployed and is now stale** (per Vercel's own "Stale" status label) — auto-deploy on push doesn't seem to be triggering; user needs to check Vercel Settings → Git (production branch = main, auto-deploy toggle) or manually redeploy from the dashboard
@@ -144,6 +159,8 @@ Verified the full matrix against the real Atlas cluster with real role logins (n
 - `AccountManagement`'s "Edit" button is still a no-op `alert()` placeholder (see Sprint 14 notes)
 - `TreatmentLog.tsx` and `FollowUpAlerts.tsx` are orphaned/unreachable — not wired into routing at all
 - A real Excel data file exists locally in `data/` (gitignored) — held pending adviser confirmation on student-name anonymization
+- A genuine UI/visual polish pass (empty states, skeleton loaders, inline form validation, mobile/tablet responsiveness, button-style consistency) has NOT been done — Sprint 14 fixed a functional bug (Add Student), not a visual audit. Flagged to the user as needing its own dedicated sprint if wanted.
+- Security Medium/Low findings from the Sprint 15.5 audit (see above) — deterministic encryption IV, no rate limiting, no password strength check, missing security headers, JWT algorithm pinning, email format validation
 
 ## Next sprint
-Sprint 15.5 → OWASP security + ZAP scan. Do not start without explicit approval.
+Sprint 16 → OCR Tesseract.js IPTR scanning. Do not start without explicit approval.

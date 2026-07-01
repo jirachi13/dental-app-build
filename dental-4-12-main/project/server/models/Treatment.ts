@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getModel } from "./shared/getModel";
 import { fieldEncryption } from "mongoose-field-encryption";
 import { softDeleteFields } from "./shared/softDelete";
 import { fieldEncryptionOptions } from "./shared/fieldEncryption";
@@ -18,4 +19,4 @@ const treatmentSchema = new mongoose.Schema(
 
 treatmentSchema.plugin(fieldEncryption, fieldEncryptionOptions(["diagnosis", "treatment_done"]));
 
-export default mongoose.models.Treatment || mongoose.model("Treatment", treatmentSchema);
+export default getModel("Treatment", treatmentSchema);

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getModel } from "./shared/getModel";
 import { softDeleteFields } from "./shared/softDelete";
 
 const preventiveCareRecordSchema = new mongoose.Schema(
@@ -11,4 +12,4 @@ const preventiveCareRecordSchema = new mongoose.Schema(
   { timestamps: { createdAt: "created_at", updatedAt: false } },
 );
 
-export default mongoose.models.PreventiveCareRecord || mongoose.model("PreventiveCareRecord", preventiveCareRecordSchema);
+export default getModel("PreventiveCareRecord", preventiveCareRecordSchema);

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getModel } from "./shared/getModel";
 import { softDeleteFields } from "./shared/softDelete";
 
 export const ROLES = ["system_admin", "dentist", "dental_aide", "school_admin", "bho_staff"] as const;
@@ -17,4 +18,4 @@ const userSchema = new mongoose.Schema(
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
 
-export default mongoose.models.User || mongoose.model("User", userSchema);
+export default getModel("User", userSchema);

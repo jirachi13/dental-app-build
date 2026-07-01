@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getModel } from "./shared/getModel";
 
 const dietarySocialHabitsSchema = new mongoose.Schema(
   {
@@ -14,4 +15,4 @@ const dietarySocialHabitsSchema = new mongoose.Schema(
   { timestamps: { createdAt: "created_at", updatedAt: false } },
 );
 
-export default mongoose.models.DietarySocialHabits || mongoose.model("DietarySocialHabits", dietarySocialHabitsSchema);
+export default getModel("DietarySocialHabits", dietarySocialHabitsSchema);

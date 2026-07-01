@@ -64,7 +64,20 @@ export async function refresh(req: Request, res: Response) {
 
   try {
     const payload = verifyRefreshToken(token);
-    const accessToken = signAccessToken({ sub: payload.sub, role: payload.role, school_id: payload.school_id });
+    // Re-check the DB rather than trusting the token's embedded role/school_id
+    // — otherwise a deactivated user or one whose role changed keeps their
+    // stale permissions for up to 7 days (the refresh token's lifetime),
+    // since minting a new access token from the old payload never noticed.
+    const user = await User.findById(payload.sub);
+    if (!user || user.isArchived) {
+      res.status(401).json({ error: "Invalid or expired refresh token" });
+      return;
+    }
+    const accessToken = signAccessToken({
+      sub: user._id.toString(),
+      role: user.role,
+      school_id: user.school_id?.toString() ?? null,
+    });
     res.cookie("access_token", accessToken, { ...baseCookieOptions, maxAge: ACCESS_COOKIE_MAX_AGE_MS });
     res.json({ ok: true });
   } catch {

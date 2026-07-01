@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getModel } from "./shared/getModel";
 
 const toothRecordSchema = new mongoose.Schema({
   chart_id: { type: mongoose.Schema.Types.ObjectId, ref: "DentalChart", required: true },
@@ -7,4 +8,4 @@ const toothRecordSchema = new mongoose.Schema({
   treatment_code: { type: String, maxlength: 50 },
 });
 
-export default mongoose.models.ToothRecord || mongoose.model("ToothRecord", toothRecordSchema);
+export default getModel("ToothRecord", toothRecordSchema);
