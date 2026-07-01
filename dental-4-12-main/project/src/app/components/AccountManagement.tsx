@@ -224,9 +224,14 @@ export const AccountManagement = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredUsers.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
+                <tr key={user.id} className={`hover:bg-gray-50 ${user.pending ? 'opacity-70' : ''}`}>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-gray-900">{user.name}</div>
+                    <div className="font-medium text-gray-900 flex items-center">
+                      {user.name}
+                      {user.pending && (
+                        <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200">Pending sync</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {user.email}
@@ -249,23 +254,25 @@ export const AccountManagement = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => openEdit(user)}
-                        className="text-[#1E40AF] hover:text-[#1E3A8A]"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleToggleStatus(user.id, user.status)}
-                        className={`${
-                        user.status === 'Active'
-                          ? 'text-red-600 hover:text-red-700'
-                          : 'text-green-600 hover:text-green-700'
-                      }`}>
-                        <Power className="w-4 h-4" />
-                      </button>
-                    </div>
+                    {!user.pending && (
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => openEdit(user)}
+                          className="text-[#1E40AF] hover:text-[#1E3A8A]"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleToggleStatus(user.id, user.status)}
+                          className={`${
+                          user.status === 'Active'
+                            ? 'text-red-600 hover:text-red-700'
+                            : 'text-green-600 hover:text-green-700'
+                        }`}>
+                          <Power className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -277,10 +284,15 @@ export const AccountManagement = () => {
       {/* Mobile Cards */}
       <div className="md:hidden space-y-4">
         {filteredUsers.map((user) => (
-          <div key={user.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div key={user.id} className={`bg-white rounded-xl shadow-sm border border-gray-100 p-4 ${user.pending ? 'opacity-70' : ''}`}>
             <div className="flex items-start justify-between mb-3">
               <div>
-                <h3 className="font-semibold text-gray-900">{user.name}</h3>
+                <h3 className="font-semibold text-gray-900 flex items-center">
+                  {user.name}
+                  {user.pending && (
+                    <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200">Pending sync</span>
+                  )}
+                </h3>
                 <p className="text-sm text-gray-600">{user.email}</p>
               </div>
               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -303,25 +315,27 @@ export const AccountManagement = () => {
                 <span className="text-gray-900">{user.school}</span>
               </div>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => openEdit(user)}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-              >
-                <Edit className="w-4 h-4" />
-                Edit
-              </button>
-              <button
-                onClick={() => handleToggleStatus(user.id, user.status)}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm ${
-                user.status === 'Active'
-                  ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                  : 'bg-green-100 text-green-700 hover:bg-green-200'
-              }`}>
-                <Power className="w-4 h-4" />
-                {user.status === 'Active' ? 'Deactivate' : 'Activate'}
-              </button>
-            </div>
+            {!user.pending && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => openEdit(user)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                >
+                  <Edit className="w-4 h-4" />
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleToggleStatus(user.id, user.status)}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm ${
+                  user.status === 'Active'
+                    ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                    : 'bg-green-100 text-green-700 hover:bg-green-200'
+                }`}>
+                  <Power className="w-4 h-4" />
+                  {user.status === 'Active' ? 'Deactivate' : 'Activate'}
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>

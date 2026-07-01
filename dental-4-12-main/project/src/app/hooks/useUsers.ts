@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiClient } from '../api/client';
+import { usePendingWritesFor } from './useOfflineQueue';
 import type { ApiUser, ApiSchool, ApiRole } from '../api/types';
 
 export const ROLE_LABELS: Record<ApiRole, string> = {
@@ -18,6 +19,7 @@ export interface UserRow {
   roleLabel: string;
   school: string;
   status: 'Active' | 'Inactive';
+  pending?: boolean;
 }
 
 export function useUsers() {
@@ -25,6 +27,7 @@ export function useUsers() {
   const [schools, setSchools] = useState<ApiSchool[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const pendingWrites = usePendingWritesFor('/users');
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -58,5 +61,35 @@ export function useUsers() {
     reload();
   }, [reload]);
 
-  return { users, schools, loading, error, reload };
+  // A pending write disappearing from the queue means it just synced --
+  // reload so the real server record (with its real _id) replaces the
+  // optimistic one instead of leaving a gap until the next natural reload.
+  const prevPendingCount = useRef(pendingWrites.length);
+  useEffect(() => {
+    if (pendingWrites.length < prevPendingCount.current) reload();
+    prevPendingCount.current = pendingWrites.length;
+  }, [pendingWrites.length, reload]);
+
+  // Merge queued (not-yet-synced) user creations in as optimistic rows, so
+  // System Admin sees the account they just created while offline instead
+  // of it silently disappearing until sync completes.
+  const usersWithPending = useMemo(() => {
+    const schoolNameById = new Map(schools.map((s) => [s._id, s.school_name]));
+    const pendingRows: UserRow[] = pendingWrites.map((w) => {
+      const body = w.body as Partial<{ full_name: string; email: string; role: ApiRole; school_id: string }>;
+      return {
+        id: `pending-${w.id}`,
+        name: body.full_name ?? '(pending sync)',
+        email: body.email ?? '',
+        role: body.role ?? 'dentist',
+        roleLabel: body.role ? (ROLE_LABELS[body.role] ?? body.role) : 'Pending',
+        school: body.school_id ? (schoolNameById.get(body.school_id) ?? 'Unknown School') : 'All Schools',
+        status: 'Active',
+        pending: true,
+      };
+    });
+    return [...pendingRows, ...users];
+  }, [users, schools, pendingWrites]);
+
+  return { users: usersWithPending, schools, loading, error, reload };
 }
