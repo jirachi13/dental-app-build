@@ -376,5 +376,17 @@ Added the exact same pattern as `useStudents.ts`: `useUsers.ts` now merges pendi
 
 Only handles new-user creation (POST) while offline, not edits/archives of existing users while offline (PUT/PATCH) — matches the existing `usePendingWritesFor` helper's scope (POST only), same limitation Students/Appointments already have. Not yet visually verified with Playwright (would need throttling the network to actually queue a write) — logic verified by code review against the proven Students pattern.
 
+## Real bug found and fixed: Students' "Pending sync" badge silently didn't show in practice
+
+Followed up on the offline-banner verification gap noted in Sprint 19/20 (only tested via DevTools network throttle, never a real simulated disconnect). Used Playwright's `context.setOffline(true)` (blocks all network requests at the browser level — closer to a real disconnect than DevTools throttling) to test the full lifecycle: go offline on `/patients`, add a student, check the pending badge, reconnect, check sync.
+
+**The offline banner itself works correctly** ("You're offline... (N pending)" appears/disappears exactly as designed). But the "Pending sync" badge on the newly-added student did NOT appear — dug into it with a direct IndexedDB dump (confirmed the write WAS correctly queued with the right data) before finding the actual bug: `PatientList.tsx`'s `filtered` list (the one actually rendered) is a `useMemo` whose dependency array was `[gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm]` — **missing `schoolStudents` itself**. This meant `filtered` only recomputed when a filter dropdown changed, not when the underlying student data changed for any other reason (a new pending offline write merging in, a reload after a real sync, even switching schools) — a stale closure, not just a "React should re-render" issue. Fixed by adding `schoolStudents` to the dependency array. Re-ran the same Playwright test after the fix: badge and pending student name both now show correctly.
+
+This bug likely explains why the Sprint 19 manual DevTools test appeared to work — a filter dropdown was probably touched around the same time, coincidentally triggering a recompute and masking the actual gap. It's a real, higher-impact bug than "offline-only" — it affected the list going stale after *any* data change unless a filter was also touched.
+
+**Also noticed, not fixed (separate, pre-existing, minor)**: the Age column shows "NaN" for a student added without a birthdate — `birthday` isn't in `handleAddStudent`'s required-field validation, so it's possible to submit without one, and `calculateAge('')` doesn't handle that gracefully. Unrelated to the offline fix; flagging for a future pass, not fixed here since it wasn't the object of this investigation.
+
+`tsc --noEmit` clean, `npm run build` succeeds. Not yet committed/pushed.
+
 ## Next sprint
 Sprint 21a is blocked until the real dental IPTR Excel files are located and added to `data/` (see above). Once that happens, Sprint 21a can proceed: clean/standardize into `/data/cleaned/dataset.csv` + `/data/cleaning-report.md`, dropping name columns per the resolved anonymization approach. Do not start Sprint 21a against the current `data/` contents (nutritional status data) — verify with a quick openpyxl header check first if unsure whether new files have actually landed.

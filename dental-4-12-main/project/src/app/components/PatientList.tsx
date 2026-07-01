@@ -216,7 +216,12 @@ export const PatientList = () => {
       if (!formattedName.includes(query) && !s.grade.toLowerCase().includes(query) && !s.section.toLowerCase().includes(query)) return false;
     }
     return true;
-  }), [gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm]);
+  // schoolStudents was missing from this dependency array -- filtered went
+  // stale (kept showing old data) whenever the underlying student list
+  // changed for any reason (new pending offline write merged in, a reload
+  // after sync, even switching schools) unless a filter dropdown was also
+  // touched, since that was the only thing that could trigger a recompute.
+  }), [schoolStudents, gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm]);
 
   const hasActiveFilters = gradeFilter !== 'all' || sectionFilter !== 'all' || genderFilter !== 'all' || ageGroupFilter !== 'all' || searchTerm !== '';
 
