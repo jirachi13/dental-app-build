@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FileSpreadsheet, FileText, Printer, Download, AlertTriangle, AlertCircle, CheckCircle, Users, Calendar, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '../context/AuthContext';
@@ -6,6 +6,9 @@ import { getSchoolShortName } from '../utils/schoolColors';
 import { GradePill } from './GradePill';
 import { useDohReportData } from '../hooks/useDohReportData';
 import { exportElementToPdf } from '../utils/exportPdf';
+import { apiClient } from '../api/client';
+import type { ApiTreatment } from '../api/types';
+import { useStudents } from '../hooks/useStudents';
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -24,25 +27,6 @@ const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grad
 
 // Summary age brackets (rightmost columns)
 const SUMMARY_BRACKETS = ['4 yrs & below','5-9 yrs','10-14 yrs','15-19 yrs','20 yrs & above'];
-
-// Illustrative fallback for fields with no real backing yet (Services
-// Rendered has no schema at all; a few oral-health/DMF rows have no clean
-// real proxy either — see useDohReportData.ts for exactly which fields are
-// real vs. illustrative).
-const MOCK_V = (grade: string, age: string, sex: 'M'|'F', field: string): number => {
-  const key = `${grade}|${age}|${sex}|${field}`;
-  const sparse: Record<string,number> = {
-    'Grade 4|5-9 yrs|M|examined': 1,
-    'Grade 4|5-9 yrs|F|examined': 1,
-    'Grade 4|5-9 yrs|M|attended': 1,
-    'Grade 4|5-9 yrs|F|attended': 1,
-    'Grade 4|5-9 yrs|M|dentalCaries': 1,
-    'Grade 4|5-9 yrs|M|ofc_exam': 1,
-    'Grade 2|10-14 yrs|F|examined': 1,
-    'Grade 2|10-14 yrs|F|attended': 1,
-  };
-  return sparse[key] || 0;
-};
 
 // Cell display — blank if zero
 const cell = (v: number) => v === 0 ? '' : String(v);
@@ -124,32 +108,11 @@ const DOH_ROWS: RowDef[] = [
   { type:'data', label:'OFC Upon Complete Oral Rehabilitation', field:'ofc_rehab',  indent:true },
 ];
 
-// Mock referral data (created from IPTR Treatment tab)
-const mockReferrals = [
-  { student:'Juan Dela Cruz',  school:'Bagong Tanyag Integrated School',         grade:'Grade 4', date:'2026-03-15', facility:'Taguig City Health Office',  reason:'Severe caries, abscess on tooth #36',      followUp:'2026-04-15', status:'pending'   },
-  { student:'Maria Santos',    school:'Bagong Tanyag Integrated School',         grade:'Grade 3', date:'2026-03-02', facility:'Taguig City Health Office',  reason:'Deep caries requiring emergency extraction', followUp:'2026-04-02', status:'completed' },
-  { student:'Pedro Reyes',     school:'South Daang Hari Elementary School Main', grade:'Grade 5', date:'2026-02-20', facility:'Taguig District Hospital',   reason:'Multiple extractions, bleeding disorder',   followUp:'2026-03-20', status:'completed' },
-  { student:'Ana Garcia',      school:'Bagong Tanyag Integrated School',         grade:'Grade 2', date:'2026-03-10', facility:'Taguig City Health Office',  reason:'Recurring gingivitis, unresponsive to care', followUp:'2026-04-10', status:'no-show'   },
-];
-
-// Mock treatment sessions (bulk school visits)
-const mockSessions = [
-  { date:'2026-04-08', school:'Bagong Tanyag Integrated School',         grade:'Grade 4', section:'Sampaguita', students:30, procedures:['Fluoride Varnish','Oral Prophylaxis'], treated:28 },
-  { date:'2026-04-07', school:'Bagong Tanyag Integrated School',         grade:'Grade 4', section:'Lily',       students:32, procedures:['Fluoride Varnish','Temporary Filling'], treated:30 },
-  { date:'2026-04-05', school:'Bagong Tanyag Elementary School Annex A', grade:'Grade 3', section:'Topaz',      students:28, procedures:['Fluoride Varnish','Oral Prophylaxis','Extraction'], treated:27 },
-  { date:'2026-04-03', school:'South Daang Hari Elementary School Main', grade:'Grade 5', section:'Yakal',      students:29, procedures:['Fluoride Varnish'], treated:29 },
-  { date:'2026-04-01', school:'Bagong Tanyag Integrated School',         grade:'Grade 2', section:'Rose',       students:31, procedures:['Oral Prophylaxis','Sealant'], treated:25 },
-  { date:'2026-03-28', school:'South Daang Hari Elementary School Main', grade:'Grade 6', section:'Apitong',    students:27, procedures:['Fluoride Varnish','Extraction'], treated:27 },
-  { date:'2026-03-25', school:'Bagong Tanyag Elementary School Annex A', grade:'Grade 5', section:'Pearl',      students:30, procedures:['Fluoride Varnish','Oral Prophylaxis'], treated:28 },
-  { date:'2026-03-20', school:'Bagong Tanyag Integrated School',         grade:'Grade 3', section:'Jasmine',    students:33, procedures:['Fluoride Varnish','Temporary Filling','Oral Prophylaxis'], treated:33 },
-];
-
-const treatmentChartData = [
-  { name:'Extraction', value:38 }, { name:'Fluoride', value:142 },
-  { name:'Cleaning',   value:67 }, { name:'Perm Fill', value:51  },
-  { name:'Temp Fill',  value:28 }, { name:'Sealant',   value:44  },
-  { name:'Counseling', value:95 }, { name:'Other',     value:33  },
-];
+// No real Referral or bulk-Session-tracking model exists anywhere in the
+// ERD -- these lists are genuinely empty until such a model is built, never
+// fabricated placeholder rows.
+const mockReferrals: { student:string; school:string; grade:string; date:string; facility:string; reason:string; followUp:string; status:string }[] = [];
+const mockSessions: { date:string; school:string; grade:string; section:string; students:number; procedures:string[]; treated:number }[] = [];
 
 const REPORT_SCHOOLS = [
   'Bagong Tanyag Integrated School',
@@ -161,26 +124,13 @@ const ALL_GRADES_INT = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 
 const PROCEDURES = ['Fluoride Varnish','Oral Prophylaxis','Temp Filling','Perm Filling','Extraction (Primary)','Extraction (Permanent)','Sealant','SDF Application','OHE / Counseling'];
 const CONDITIONS  = ['Caries (Primary)','Caries (Permanent)','Gingivitis','Malocclusion','Orally Fit'];
 type GX = Record<string,{M:number,F:number}>;
-const MX = (vals: number[][]): GX => Object.fromEntries(ALL_GRADES_INT.map((g,i) => [g,{M:vals[i][0],F:vals[i][1]}]));
 
-const treatmentMatrix: Record<string,GX> = {
-  'Fluoride Varnish':       MX([[4,5],[12,13],[11,14],[13,12],[10,11],[9,10],[8,9],[6,7],[5,6],[4,5],[3,4]]),
-  'Oral Prophylaxis':       MX([[2,3],[8,9],[7,8],[9,8],[7,7],[6,7],[5,6],[4,5],[3,4],[3,3],[2,3]]),
-  'Temp Filling':           MX([[1,1],[3,4],[4,3],[3,3],[2,3],[2,2],[1,2],[1,1],[1,1],[0,1],[0,0]]),
-  'Perm Filling':           MX([[0,0],[1,1],[2,2],[3,2],[3,3],[4,3],[3,4],[3,3],[2,3],[2,2],[1,2]]),
-  'Extraction (Primary)':  MX([[2,2],[4,3],[3,4],[2,2],[1,2],[1,1],[0,0],[0,0],[0,0],[0,0],[0,0]]),
-  'Extraction (Permanent)':MX([[0,0],[0,0],[1,0],[1,1],[2,1],[2,2],[2,2],[2,2],[1,2],[1,1],[1,1]]),
-  'Sealant':                MX([[1,1],[3,3],[3,4],[4,3],[3,3],[2,3],[2,2],[1,2],[1,1],[1,1],[0,1]]),
-  'SDF Application':        MX([[2,2],[4,5],[3,3],[2,2],[1,2],[1,1],[0,1],[0,0],[0,0],[0,0],[0,0]]),
-  'OHE / Counseling':       MX([[4,5],[14,15],[13,14],[12,13],[11,12],[10,11],[9,10],[7,8],[6,7],[5,6],[4,5]]),
-};
-const conditionMatrix: Record<string,GX> = {
-  'Caries (Primary)':   MX([[3,2],[8,7],[7,8],[6,6],[4,5],[3,4],[2,2],[0,0],[0,0],[0,0],[0,0]]),
-  'Caries (Permanent)': MX([[0,0],[2,2],[3,3],[4,4],[5,5],[6,6],[7,7],[6,7],[5,6],[4,5],[3,4]]),
-  'Gingivitis':         MX([[1,1],[3,3],[4,4],[5,4],[6,5],[7,6],[8,7],[7,8],[6,7],[5,6],[4,5]]),
-  'Malocclusion':       MX([[1,0],[2,2],[2,2],[3,2],[2,3],[2,2],[2,2],[2,2],[1,2],[1,1],[1,1]]),
-  'Orally Fit':         MX([[3,4],[10,12],[9,11],[8,10],[9,10],[8,9],[7,8],[6,7],[5,6],[4,5],[3,4]]),
-};
+// No real per-procedure/per-condition breakdown by grade+gender exists --
+// Treatment.treatment_done and OralHealthCondition's fields don't cleanly
+// map to these exact categories. Genuinely empty until that aggregation is
+// built for real, never fabricated counts.
+const treatmentMatrix: Record<string,GX> = {};
+const conditionMatrix: Record<string,GX> = {};
 
 const getCount = (matrix: Record<string,GX>, key: string, grade: string, gender: string): number => {
   const row = matrix[key];
@@ -204,8 +154,11 @@ const getCount = (matrix: Record<string,GX>, key: string, grade: string, gender:
 export const Reports = () => {
   const { selectedSchool } = useAuth();
   const { getRealCount, loading: dohLoading } = useDohReportData();
+  // Fields with no real backing data source yet show 0, never a fabricated
+  // fallback number -- see useDohReportData.ts for exactly which fields are
+  // real vs. not yet wireable.
   const V = (grade: string, age: string, sex: 'M'|'F', field: string): number =>
-    getRealCount(grade, age, sex, field) ?? MOCK_V(grade, age, sex, field);
+    getRealCount(grade, age, sex, field) ?? 0;
   const sumSummaryBracket = (field: string, sex: 'M'|'F', bracket: string) =>
     GRADES.reduce((s, g) => {
       const ages = GRADE_BRACKETS[g].ages;
@@ -220,6 +173,19 @@ export const Reports = () => {
   const dohReportRef = useRef<HTMLDivElement>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [realTreatmentCount, setRealTreatmentCount] = useState(0);
+  const { students: realStudents } = useStudents();
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const treatments = await apiClient.get<ApiTreatment[]>('/treatments');
+        setRealTreatmentCount(treatments.length);
+      } catch (err) {
+        console.error('Reports extra data fetch failed:', err);
+      }
+    })();
+  }, []);
 
   const handleDownloadPdf = async () => {
     if (!dohReportRef.current) return;
@@ -556,13 +522,18 @@ export const Reports = () => {
                 const totals = PROCEDURES.map(p => cnt(treatmentMatrix, p, intGenderFilter));
                 const grandTotal = totals.reduce((a,b) => a+b, 0);
                 const topIdx = totals.indexOf(Math.max(...totals));
+                // With no real per-procedure breakdown, every total is 0 --
+                // indexOf(max) would misleadingly point at PROCEDURES[0] as
+                // if it were genuinely "most common". Only claim a most-
+                // common procedure when there's real data behind it.
+                const mostCommon = grandTotal > 0 ? PROCEDURES[topIdx] : 'N/A';
                 return (
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     {[
                       { label:'Total Procedures', value: grandTotal, color:'text-blue-700 bg-blue-50 border-blue-200' },
-                      { label:'Most Common', value: PROCEDURES[topIdx], color:'text-green-700 bg-green-50 border-green-200', small: true },
+                      { label:'Most Common', value: mostCommon, color:'text-green-700 bg-green-50 border-green-200', small: true },
                       { label:'Sessions', value: mockSessions.length, color:'text-cyan-700 bg-cyan-50 border-cyan-200' },
-                      { label:'Students Treated', value: mockSessions.reduce((s,x)=>s+x.treated,0), color:'text-purple-700 bg-purple-50 border-purple-200' },
+                      { label:'Students Treated', value: realTreatmentCount, color:'text-purple-700 bg-purple-50 border-purple-200' },
                     ].map((c,i) => (
                       <div key={i} className={`rounded-xl border p-4 ${c.color}`}>
                         <div className={`font-bold mt-1 ${(c as any).small ? 'text-sm' : 'text-2xl'}`}>{c.value}</div>
@@ -740,15 +711,26 @@ export const Reports = () => {
           {internalSection === 'admin' && (
             <div className="space-y-4">
               {/* Quick Stats + Consent */}
+              {(() => {
+                const highRisk = realStudents.filter((s) => s.riskLevel === 'High').length;
+                const mediumRisk = realStudents.filter((s) => s.riskLevel === 'Medium').length;
+                const consentBySchool = REPORT_SCHOOLS.map((school) => {
+                  const inSchool = realStudents.filter((s) => s.school === school);
+                  const complete = inSchool.filter((s) => s.consentStatus === 'complete').length;
+                  return { school, complete, total: inSchool.length };
+                });
+                const totalComplete = realStudents.filter((s) => s.consentStatus === 'complete').length;
+                const totalPending = realStudents.filter((s) => s.consentStatus === 'pending').length;
+                return (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="bg-white rounded-xl border border-gray-200 p-5">
                   <h3 className="text-sm font-bold text-gray-900 mb-4">Quick Stats</h3>
                   <div className="grid grid-cols-2 gap-3">
                     {[
-                      { label:'High Risk Students',   value:3,  color:'red',   Icon:AlertTriangle },
-                      { label:'Medium Risk Students', value:2,  color:'amber', Icon:AlertCircle   },
-                      { label:'Sessions This Month',  value:8,  color:'blue',  Icon:Calendar      },
-                      { label:'Students Treated',     value:227,color:'green', Icon:Users         },
+                      { label:'High Risk Students',   value: highRisk,  color:'red',   Icon:AlertTriangle },
+                      { label:'Medium Risk Students', value: mediumRisk,  color:'amber', Icon:AlertCircle   },
+                      { label:'Sessions This Month',  value: 0,  color:'blue',  Icon:Calendar      },
+                      { label:'Students Treated',     value: realTreatmentCount, color:'green', Icon:Users         },
                     ].map(s => (
                       <div key={s.label} className={`bg-${s.color}-50 rounded-xl p-4`}>
                         <s.Icon className={`w-5 h-5 text-${s.color}-600 mb-2`} />
@@ -761,32 +743,30 @@ export const Reports = () => {
                 <div className="bg-white rounded-xl border border-gray-200 p-5">
                   <h3 className="text-sm font-bold text-gray-900 mb-4">Consent Compliance by School</h3>
                   <div className="space-y-4">
-                    {[
-                      { school:'Bagong Tanyag Integrated School',         complete:48, total:60, color:'#1E40AF' },
-                      { school:'Bagong Tanyag Elementary School Annex A', complete:52, total:60, color:'#0D9488' },
-                      { school:'South Daang Hari Elementary School Main', complete:41, total:60, color:'#EA580C' },
-                    ].map(s => {
-                      const pct = Math.round((s.complete/s.total)*100);
+                    {consentBySchool.map((s, i) => {
+                      const pct = s.total ? Math.round((s.complete/s.total)*100) : 0;
+                      const color = ['#1E40AF', '#0D9488', '#EA580C'][i % 3];
                       return (
                         <div key={s.school}>
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-xs font-medium text-gray-700">{getSchoolShortName(s.school)}</span>
-                            <span className="text-xs font-bold" style={{color:s.color}}>{s.complete}/{s.total} ({pct}%)</span>
+                            <span className="text-xs font-bold" style={{color}}>{s.complete}/{s.total} ({pct}%)</span>
                           </div>
                           <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full" style={{width:`${pct}%`,backgroundColor:s.color}} />
+                            <div className="h-full rounded-full" style={{width:`${pct}%`,backgroundColor:color}} />
                           </div>
                         </div>
                       );
                     })}
                   </div>
-                  <div className="mt-4 pt-3 border-t border-gray-100 grid grid-cols-3 gap-2 text-center text-xs">
-                    <div><div className="text-base font-bold text-green-600">141</div><div className="text-gray-400">Complete</div></div>
-                    <div><div className="text-base font-bold text-yellow-600">29</div><div className="text-gray-400">Pending</div></div>
-                    <div><div className="text-base font-bold text-red-600">10</div><div className="text-gray-400">Missing</div></div>
+                  <div className="mt-4 pt-3 border-t border-gray-100 grid grid-cols-2 gap-2 text-center text-xs">
+                    <div><div className="text-base font-bold text-green-600">{totalComplete}</div><div className="text-gray-400">Complete</div></div>
+                    <div><div className="text-base font-bold text-yellow-600">{totalPending}</div><div className="text-gray-400">Pending</div></div>
                   </div>
                 </div>
               </div>
+                );
+              })()}
 
               {/* Treatment Sessions */}
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -802,7 +782,9 @@ export const Reports = () => {
                       ))}</tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {mockSessions.map((s, i) => {
+                      {mockSessions.length === 0 ? (
+                        <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400">No treatment sessions recorded yet.</td></tr>
+                      ) : mockSessions.map((s, i) => {
                         const pct = Math.round((s.treated / s.students) * 100);
                         return (
                           <tr key={i} className="hover:bg-gray-50">
@@ -846,7 +828,9 @@ export const Reports = () => {
                       ))}</tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {mockReferrals.map((r, i) => (
+                      {mockReferrals.length === 0 ? (
+                        <tr><td colSpan={8} className="px-4 py-6 text-center text-gray-400">No referrals recorded yet.</td></tr>
+                      ) : mockReferrals.map((r, i) => (
                         <>
                         <tr key={i} onClick={() => setExpandedReferral(expandedReferral === i ? null : i)}
                           className="hover:bg-orange-50/40 cursor-pointer select-none">

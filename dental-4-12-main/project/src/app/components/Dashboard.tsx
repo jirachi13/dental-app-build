@@ -32,10 +32,8 @@ import {
   PieChart, 
   Pie, 
   Cell, 
-  LineChart, 
+  LineChart,
   Line,
-  AreaChart,
-  Area,
   RadialBarChart,
   RadialBar
 } from 'recharts';
@@ -45,7 +43,7 @@ import { useStudents } from '../hooks/useStudents';
 import { useAppointments } from '../hooks/useAppointments';
 import { useRPCTracking } from '../hooks/useRPCTracking';
 import { apiClient } from '../api/client';
-import type { ApiUser, ApiTreatment, ApiStudentIptr } from '../api/types';
+import type { ApiUser, ApiTreatment, ApiStudentIptr, ApiAuditTrail } from '../api/types';
 
 export const Dashboard = () => {
   const { user, selectedSchool, setSelectedSchool } = useAuth();
@@ -71,27 +69,44 @@ export const Dashboard = () => {
   const [treatmentCount, setTreatmentCount] = useState(0);
   const [iptrsByStudent, setIptrsByStudent] = useState<Map<string, string[]>>(new Map());
   const [chartedIptrIds, setChartedIptrIds] = useState<Set<string>>(new Set());
+  const [auditEntries, setAuditEntries] = useState<ApiAuditTrail[]>([]);
   const [extraLoading, setExtraLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const [apiUsers, treatments, iptrs, charts] = await Promise.all([
-        apiClient.get<ApiUser[]>('/users'),
-        apiClient.get<ApiTreatment[]>('/treatments'),
-        apiClient.get<ApiStudentIptr[]>('/student-iptrs'),
-        apiClient.get<{ iptr_id: string }[]>('/dental-charts'),
-      ]);
-      setUsers(apiUsers);
-      setTreatmentCount(treatments.length);
-      const byStudent = new Map<string, string[]>();
-      for (const i of iptrs) {
-        const list = byStudent.get(i.student_id) ?? [];
-        list.push(i._id);
-        byStudent.set(i.student_id, list);
+      try {
+        // /users and /audit-trails are both system_admin-only on the backend
+        // (Sprint 15 RBAC) — the other 4 roles got a 403 here, which threw
+        // uncaught inside Promise.all and left extraLoading (and the whole
+        // dashboard) stuck on "Loading dashboard…" forever, since
+        // setExtraLoading(false) never ran. Only fetch them for the role
+        // that actually needs them (System Admin dashboard only) and has
+        // permission.
+        const [apiUsers, treatments, iptrs, charts, audits] = await Promise.all([
+          user?.role === 'system_admin' ? apiClient.get<ApiUser[]>('/users') : Promise.resolve([]),
+          apiClient.get<ApiTreatment[]>('/treatments'),
+          apiClient.get<ApiStudentIptr[]>('/student-iptrs'),
+          apiClient.get<{ iptr_id: string }[]>('/dental-charts'),
+          user?.role === 'system_admin' ? apiClient.get<ApiAuditTrail[]>('/audit-trails') : Promise.resolve([]),
+        ]);
+        setUsers(apiUsers);
+        setTreatmentCount(treatments.length);
+        const byStudent = new Map<string, string[]>();
+        for (const i of iptrs) {
+          const list = byStudent.get(i.student_id) ?? [];
+          list.push(i._id);
+          byStudent.set(i.student_id, list);
+        }
+        setIptrsByStudent(byStudent);
+        setChartedIptrIds(new Set(charts.map((c) => c.iptr_id)));
+        setAuditEntries(audits);
+      } catch (err) {
+        // Defense in depth: even if something else in this block fails,
+        // never leave the dashboard stuck on the loading screen forever.
+        console.error('Dashboard extra data fetch failed:', err);
+      } finally {
+        setExtraLoading(false);
       }
-      setIptrsByStudent(byStudent);
-      setChartedIptrIds(new Set(charts.map((c) => c.iptr_id)));
-      setExtraLoading(false);
     })();
   }, []);
 
@@ -186,6 +201,14 @@ export const Dashboard = () => {
     );
   };
 
+  // Shown in place of a chart/list when there's genuinely no real data
+  // source to compute it from yet (e.g. no historical snapshots, no backing
+  // model) -- never fabricate numbers just to make a chart look populated.
+  const NoDataYet = ({ message }: { message: string }) => (
+    <div className="flex items-center justify-center text-center px-4" style={{ height: 220 }}>
+      <p className="text-sm text-gray-400">{message}</p>
+    </div>
+  );
 
   // School context banner
   const SchoolBanner = () => {
@@ -219,26 +242,6 @@ export const Dashboard = () => {
       { name: 'Medium Risk', value: mediumRiskCount, color: COLORS.yellow },
       { name: 'Low Risk', value: lowRiskCount, color: COLORS.green },
     ];
-    // Oral Health Trend (6-month) is intentionally left as illustrative data —
-    // it needs historical monthly snapshots we don't have yet, and fabricating
-    // fake history would be worse than clearly-labeled placeholder data.
-
-    const oralHealthTrendData = [
-      { month: 'Jan', decayed: 45, treated: 28, orallyFit: 127 },
-      { month: 'Feb', decayed: 52, treated: 35, orallyFit: 133 },
-      { month: 'Mar', decayed: 48, treated: 42, orallyFit: 140 },
-      { month: 'Apr', decayed: 38, treated: 48, orallyFit: 154 },
-      { month: 'May', decayed: 35, treated: 52, orallyFit: 163 },
-      { month: 'Jun', decayed: 28, treated: 58, orallyFit: 174 },
-    ];
-
-    const todaysAppointments = [
-      { id: 1, school: 'Bagong Tanyag Integrated', grade: 'Grade 4', section: 'Sampaguita', time: '9:00 AM', studentCount: 32, status: 'Scheduled' },
-      { id: 2, school: 'Bagong Tanyag Annex A', grade: 'Grade 2', section: 'Rose', time: '10:30 AM', studentCount: 28, status: 'In Progress' },
-      { id: 3, school: 'South Daang Hari Main', grade: 'Grade 5', section: 'Narra', time: '1:00 PM', studentCount: 30, status: 'Scheduled' },
-      { id: 4, school: 'Bagong Tanyag Integrated', grade: 'Grade 1', section: 'Tulip', time: '3:00 PM', studentCount: 25, status: 'Completed' },
-    ];
-
     return (
       <div className="space-y-4">
         <div>
@@ -316,18 +319,9 @@ export const Dashboard = () => {
 
           <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
             <h2 className="text-sm font-bold text-gray-900 mb-3">Oral Health Trend (Last 6 Months)</h2>
-            <ResponsiveContainer width="100%" height={220} key="trend-container">
-              <LineChart data={oralHealthTrendData} id="oral-health-trend-chart">
-                <CartesianGrid strokeDasharray="3 3" key="trend-grid" />
-                <XAxis dataKey="month" key="trend-xaxis" tick={{ fontSize: 11 }} />
-                <YAxis key="trend-yaxis" tick={{ fontSize: 11 }} />
-                <Tooltip key="trend-tooltip" />
-                <Legend key="trend-legend" wrapperStyle={{ fontSize: 11 }} />
-                <Line type="monotone" dataKey="decayed" stroke={COLORS.red} strokeWidth={2} dot={{ r: 3 }} name="Decayed" key="trend-line-decayed" />
-                <Line type="monotone" dataKey="treated" stroke={COLORS.blue} strokeWidth={2} dot={{ r: 3 }} name="Treated" key="trend-line-treated" />
-                <Line type="monotone" dataKey="orallyFit" stroke={COLORS.green} strokeWidth={2} dot={{ r: 3 }} name="Orally Fit" key="trend-line-fit" />
-              </LineChart>
-            </ResponsiveContainer>
+            {/* No historical monthly snapshots exist yet to compute a real
+                trend from -- an honest empty state, not fabricated numbers. */}
+            <NoDataYet message="No historical trend data yet. This chart will populate once monthly snapshots begin accumulating." />
           </div>
         </div>
       </div>
@@ -337,21 +331,6 @@ export const Dashboard = () => {
   // ===== DENTAL AIDE DASHBOARD =====
   if (user?.role === 'dental_aide') {
     const appointmentsByStatusData = weekAppointmentsByDay;
-
-    // Pending Tasks has no backing model in the ERD (no Task entity) — left as
-    // illustrative data, consistent with the AuditTrail.tsx precedent.
-    const tasksByPriorityData = [
-      { priority: 'High', count: 12 },
-      { priority: 'Medium', count: 28 },
-      { priority: 'Low', count: 45 },
-    ];
-
-    const pendingTasks = [
-      { patient: 'Juan Dela Cruz', task: 'Complete Dental Chart', dueDate: '2026-04-12', priority: 'High' },
-      { patient: 'Maria Santos', task: 'Schedule Follow-up', dueDate: '2026-04-13', priority: 'Medium' },
-      { patient: 'Pedro Reyes', task: 'Send RPC Reminder', dueDate: '2026-04-14', priority: 'High' },
-      { patient: 'Ana Garcia', task: 'Update Medical History', dueDate: '2026-04-15', priority: 'Low' },
-    ];
 
     return (
       <div className="space-y-4">
@@ -412,54 +391,18 @@ export const Dashboard = () => {
             </ResponsiveContainer>
           </div>
 
-          {/* Pending Tasks by Priority - Horizontal Bar Chart */}
+          {/* Pending Tasks by Priority - no Task entity exists in the ERD,
+              so there's no real data to chart -- honest empty state. */}
           <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
             <h2 className="text-sm font-bold text-gray-900 mb-3">Pending Tasks by Priority</h2>
-            <ResponsiveContainer width="100%" height={220} key="tasks-priority-container">
-              <BarChart data={tasksByPriorityData} layout="vertical" id="tasks-priority-chart">
-                <CartesianGrid strokeDasharray="3 3" key="tasks-grid" />
-                <XAxis type="number" key="tasks-xaxis" />
-                <YAxis dataKey="priority" type="category" key="tasks-yaxis" />
-                <Tooltip key="tasks-tooltip" />
-                <Bar dataKey="count" fill={COLORS.blue} key="tasks-bar">
-                  {tasksByPriorityData.map((entry, index) => (
-                    <Cell key={`task-cell-${index}`} fill={
-                      entry.priority === 'High' ? COLORS.red :
-                      entry.priority === 'Medium' ? COLORS.yellow :
-                      COLORS.green
-                    } />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <NoDataYet message="No task-tracking system exists yet -- there's no Task entity in the data model to report on." />
           </div>
         </div>
 
-        {/* Task List */}
+        {/* Task List -- same reason as above, no backing model */}
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <h2 className="text-sm font-bold text-gray-900 mb-3">Pending Tasks</h2>
-          <div className="space-y-3">
-            {pendingTasks.map((task, idx) => (
-              <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex-1">
-                  <div className="font-medium text-gray-900">{task.patient}</div>
-                  <div className="text-sm text-gray-600">{task.task} • Due: {task.dueDate}</div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    task.priority === 'High' ? 'bg-red-100 text-red-800' :
-                    task.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-green-100 text-green-800'
-                  }`}>
-                    {task.priority}
-                  </span>
-                  <button className="text-blue-600 hover:text-blue-800">
-                    <CheckCircle className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+          <p className="text-sm text-gray-400 text-center py-6">No task-tracking system exists yet.</p>
         </div>
       </div>
     );
@@ -596,20 +539,24 @@ export const Dashboard = () => {
         {/* Upcoming Bayanihan Events */}
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <h2 className="text-sm font-bold text-gray-900 mb-3">Upcoming Bayanihan Events</h2>
-          <div className="space-y-3">
-            {upcomingEvents.map((event, idx) => (
-              <div key={idx} className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
-                <div>
-                  <div className="font-medium text-gray-900">{event.name}</div>
-                  <div className="text-sm text-gray-600">{event.date} • {event.school}</div>
+          {upcomingEvents.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">No upcoming Bayanihan Mission events scheduled.</p>
+          ) : (
+            <div className="space-y-3">
+              {upcomingEvents.map((event, idx) => (
+                <div key={idx} className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                  <div>
+                    <div className="font-medium text-gray-900">{event.name}</div>
+                    <div className="text-sm text-gray-600">{event.date} • {event.school}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-blue-600">{event.students}</div>
+                    <div className="text-xs text-gray-600">students expected</div>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-blue-600">{event.students}</div>
-                  <div className="text-xs text-gray-600">students expected</div>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -632,16 +579,6 @@ export const Dashboard = () => {
       };
     });
 
-    // Monthly Program Coverage Trend is intentionally illustrative — needs
-    // historical monthly snapshots we don't have yet.
-    const coverageTrendData = [
-      { month: 'Jan', coverage: 65 },
-      { month: 'Feb', coverage: 68 },
-      { month: 'Mar', coverage: 72 },
-      { month: 'Apr', coverage: 75 },
-      { month: 'May', coverage: 79 },
-      { month: 'Jun', coverage: 82 },
-    ];
 
     const bracketOf = (birthdate: string) => {
       const age = new Date().getFullYear() - new Date(birthdate).getFullYear();
@@ -728,15 +665,8 @@ export const Dashboard = () => {
           {/* Monthly Coverage Trend - Area Chart */}
           <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
             <h2 className="text-sm font-bold text-gray-900 mb-3">Monthly Program Coverage Trend</h2>
-            <ResponsiveContainer width="100%" height={220} key="coverage-trend-container">
-              <AreaChart data={coverageTrendData} id="coverage-trend-chart">
-                <CartesianGrid strokeDasharray="3 3" key="coverage-grid" />
-                <XAxis dataKey="month" key="coverage-xaxis" />
-                <YAxis key="coverage-yaxis" />
-                <Tooltip key="coverage-tooltip" />
-                <Area type="monotone" dataKey="coverage" stroke={COLORS.blue} fill={COLORS.cyan} fillOpacity={0.6} key="coverage-area" />
-              </AreaChart>
-            </ResponsiveContainer>
+            {/* No historical monthly snapshots exist yet -- honest empty state. */}
+            <NoDataYet message="No historical coverage data yet. This chart will populate once monthly snapshots begin accumulating." />
           </div>
         </div>
 
@@ -777,36 +707,43 @@ export const Dashboard = () => {
   // ===== SYSTEM ADMIN DASHBOARD =====
   if (user?.role === 'system_admin') {
     const activeUsersCount = users.filter((u) => !u.isArchived).length;
-    // Login activity, actions-by-module, and recent audit activity all need
-    // real audit-trail writes, which don't exist until Sprint 15 (AUDIT_TRAIL
-    // is deliberately read-only for now — same as AuditTrail.tsx). System
-    // uptime and failed-login tracking aren't measured anywhere either.
-    // Left as illustrative data, consistent with that precedent.
-    const loginActivityData = [
-      { day: 'Apr 4', logins: 45 },
-      { day: 'Apr 5', logins: 52 },
-      { day: 'Apr 6', logins: 48 },
-      { day: 'Apr 7', logins: 58 },
-      { day: 'Apr 8', logins: 62 },
-      { day: 'Apr 9', logins: 55 },
-      { day: 'Apr 10', logins: 51 },
-    ];
 
-    const actionsByModuleData = [
-      { module: 'Patients', actions: 342 },
-      { module: 'Charts', actions: 278 },
-      { module: 'Appointments', actions: 456 },
-      { module: 'Reports', actions: 185 },
-      { module: 'Accounts', actions: 92 },
-    ];
+    // Real, computed from users' last_login timestamps -- an approximation
+    // (one login per user per day, not a full session log) but genuinely
+    // real, not fabricated.
+    const loginActivityData = (() => {
+      const days: { key: string; label: string }[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        days.push({ key: toLocalDateString(d), label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) });
+      }
+      return days.map(({ key, label }) => ({
+        day: label,
+        logins: users.filter((u) => u.last_login && toLocalDateString(new Date(u.last_login)) === key).length,
+      }));
+    })();
 
-    const recentAudit = [
-      { time: '10:24 AM', user: 'Dr. Santos', action: 'Created Dental Chart', module: 'Charts', status: 'Success' },
-      { time: '10:18 AM', user: 'Aide Cruz', action: 'Updated Patient Profile', module: 'Patients', status: 'Success' },
-      { time: '10:12 AM', user: 'Dr. Reyes', action: 'Generated Report', module: 'Reports', status: 'Success' },
-      { time: '10:05 AM', user: 'Admin Garcia', action: 'Created User Account', module: 'Accounts', status: 'Success' },
-      { time: '09:58 AM', user: 'Unknown', action: 'Failed Login Attempt', module: 'System', status: 'Failed' },
-    ];
+    // Real, computed from actual audit trail entries.
+    const actionsByModuleData = (() => {
+      const counts = new Map<string, number>();
+      for (const a of auditEntries) {
+        counts.set(a.affected_model, (counts.get(a.affected_model) ?? 0) + 1);
+      }
+      return Array.from(counts.entries()).map(([module, actions]) => ({ module, actions }));
+    })();
+
+    // Real, 5 most recent audit trail entries.
+    const userNameById = new Map(users.map((u) => [u._id, u.full_name]));
+    const recentAudit = [...auditEntries]
+      .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+      .slice(0, 5)
+      .map((a) => ({
+        time: new Date(a.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+        user: userNameById.get(a.user_id) ?? 'Unknown User',
+        action: a.action,
+        module: a.affected_model,
+      }));
 
     return (
       <div className="space-y-4">
@@ -824,83 +761,90 @@ export const Dashboard = () => {
             color="text-blue-600"
             linkTo="/accounts"
           />
+          {/* System uptime and failed-login tracking aren't measured anywhere
+              in this system — honest "N/A", not a fabricated specific number. */}
           <StatCard
             icon={CheckCircle}
             label="System Uptime"
-            value="99.8%"
-            color="text-green-600"
+            value="N/A"
+            color="text-gray-400"
+            trend="not monitored"
             linkTo="/audit"
           />
           <StatCard
             icon={AlertCircle}
             label="Failed Logins Today"
-            value="3"
-            color="text-red-600"
-            trend="security alert"
+            value="N/A"
+            color="text-gray-400"
+            trend="not tracked"
             linkTo="/audit"
           />
           <StatCard
             icon={Clock}
             label="Pending Actions"
-            value="7"
-            color="text-yellow-600"
+            value="N/A"
+            color="text-gray-400"
+            trend="no task-tracking system"
             linkTo="/audit"
           />
         </div>
 
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Login Activity - Line Chart */}
+          {/* Login Activity - Line Chart (real, from users' last_login) */}
           <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
             <h2 className="text-sm font-bold text-gray-900 mb-3">Login Activity (Last 7 Days)</h2>
             <ResponsiveContainer width="100%" height={220} key="login-activity-container">
               <LineChart data={loginActivityData} id="login-activity-chart">
                 <CartesianGrid strokeDasharray="3 3" key="login-grid" />
                 <XAxis dataKey="day" key="login-xaxis" />
-                <YAxis key="login-yaxis" />
+                <YAxis key="login-yaxis" allowDecimals={false} />
                 <Tooltip key="login-tooltip" />
                 <Line type="monotone" dataKey="logins" stroke={COLORS.blue} strokeWidth={2} dot={{ r: 5 }} key="login-line" />
               </LineChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Actions by Module - Horizontal Bar Chart */}
+          {/* Actions by Module - Horizontal Bar Chart (real, from audit trail) */}
           <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
             <h2 className="text-sm font-bold text-gray-900 mb-3">Actions by Module</h2>
-            <ResponsiveContainer width="100%" height={220} key="actions-module-container">
-              <BarChart data={actionsByModuleData} layout="vertical" id="actions-module-chart">
-                <CartesianGrid strokeDasharray="3 3" key="actions-grid" />
-                <XAxis type="number" key="actions-xaxis" />
-                <YAxis dataKey="module" type="category" width={100} key="actions-yaxis" />
-                <Tooltip key="actions-tooltip" />
-                <Bar dataKey="actions" fill={COLORS.blue} key="actions-bar" />
-              </BarChart>
-            </ResponsiveContainer>
+            {actionsByModuleData.length === 0 ? (
+              <NoDataYet message="No audit trail activity recorded yet." />
+            ) : (
+              <ResponsiveContainer width="100%" height={220} key="actions-module-container">
+                <BarChart data={actionsByModuleData} layout="vertical" id="actions-module-chart">
+                  <CartesianGrid strokeDasharray="3 3" key="actions-grid" />
+                  <XAxis type="number" key="actions-xaxis" allowDecimals={false} />
+                  <YAxis dataKey="module" type="category" width={100} key="actions-yaxis" />
+                  <Tooltip key="actions-tooltip" />
+                  <Bar dataKey="actions" fill={COLORS.blue} key="actions-bar" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
-        {/* Recent Audit Activity */}
+        {/* Recent Audit Activity (real) */}
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <h2 className="text-sm font-bold text-gray-900 mb-3">Recent Audit Activity</h2>
-          <div className="space-y-3">
-            {recentAudit.map((log, idx) => (
-              <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-500">{log.time}</span>
-                    <span className="font-medium text-gray-900">{log.user}</span>
-                    <span className="text-sm text-gray-600">• {log.action}</span>
+          {recentAudit.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">No audit trail activity recorded yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {recentAudit.map((log, idx) => (
+                <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-gray-500">{log.time}</span>
+                      <span className="font-medium text-gray-900">{log.user}</span>
+                      <span className="text-sm text-gray-600">• {log.action}</span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">Module: {log.module}</div>
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">Module: {log.module}</div>
                 </div>
-                <span className={`px-2 py-1 rounded-full text-xs ${
-                  log.status === 'Success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                }`}>
-                  {log.status}
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
           <Link
             to="/audit"
             className="block mt-4 text-center text-sm text-blue-600 hover:text-blue-800 font-medium"

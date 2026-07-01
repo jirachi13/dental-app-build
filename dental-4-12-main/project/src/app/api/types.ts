@@ -28,6 +28,7 @@ export interface ApiStudent {
   contact_number?: string;
   grade_level: string;
   section: string;
+  consent_status: "pending" | "complete";
   isArchived: boolean;
 }
 

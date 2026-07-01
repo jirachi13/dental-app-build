@@ -21,6 +21,7 @@ export interface StudentRow {
   lastVisit: string | null;
   oralStatus: string;
   riskLevel: 'High' | 'Medium' | 'Low' | null;
+  consentStatus: 'pending' | 'complete';
   pending?: boolean;
 }
 
@@ -89,6 +90,7 @@ export function useStudents() {
           lastVisit,
           oralStatus: deriveOralStatus(riskLevel),
           riskLevel,
+          consentStatus: s.consent_status,
         };
       });
 
@@ -133,6 +135,7 @@ export function useStudents() {
         lastVisit: null,
         oralStatus: 'Not Yet Screened',
         riskLevel: null,
+        consentStatus: 'pending',
         pending: true,
       };
     });
