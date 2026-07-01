@@ -195,7 +195,7 @@ Current student data is only the Sprint 10 demo seeder (18 records) — far too 
 - Never call individual algo files directly
 - Dentist MUST validate before clinical action
 - **UPDATE**: Real IPTR Excel records from Barangay Tanyag school dental clinics are available (group has the files) and contain full IPTR fields — oral health conditions, treatment records, DMF scores — not just student lists. Plan revised to clean and use this real data instead of generating a synthetic dataset; see revised Phase 3 sprint breakdown below. Excel files have inconsistent formatting across files (different column names/order, missing values, inconsistent date formats and condition spellings) and need standardization before use.
-- Privacy: before committing any Excel files to the repo, confirm with adviser whether student names need anonymizing (e.g. Student_001) even though this is a private repo.
+- Privacy: **RESOLVED** — `full_name` is dropped entirely from the ML training/eval pipeline (Sprint 21a-21c), not just anonymized. The model only needs DMF scores, oral health conditions, dietary/social habits, medical history, and treatment history — none of which require a name. Each row is identified by `student_id` (or a generated `Student_001`-style placeholder) instead. This is stronger than pseudonymizing and means Excel-derived training data never contains real names, so no adviser sign-off is needed to proceed with Sprint 21a. (A quick heads-up to the adviser about this design choice is still worth sending, per the user's own judgment — not a blocker.) Real names stay exactly where they already are: encrypted in MongoDB (Sprint 8), used only by the live app for clinical staff to identify students.
 
 ## REPORTING MODULE
 - School Oral Health Status + Service Report
@@ -246,7 +246,7 @@ Current student data is only the Sprint 10 demo seeder (18 records) — far too 
 
 **Phase 3 — Algo (AFTER Phase 2):**
 **REVISED — real Excel IPTR data available, no synthetic dataset needed. Full detailed task breakdown for every sprint below is in `/docs/phase3-sprint-prompts.md` — treat that file as authoritative, this is just the index. Each sprint requires explicit review/approval before the next starts.**
-- Sprint 21a → Clean + standardize real Excel files from /data/raw/ → /data/cleaned/dataset.csv + /data/cleaning-report.md. Work on copies only — never modify original Excel files. Decide on student-name anonymization with adviser first.
+- Sprint 21a → Clean + standardize real Excel files from /data/raw/ → /data/cleaned/dataset.csv + /data/cleaning-report.md. Work on copies only — never modify original Excel files. Drop `full_name`/any name column entirely during cleaning — not needed for training, use `student_id` (or a generated placeholder) as the row identifier instead (see Privacy note above — resolved, not a blocker).
 - Sprint 21b → Feature engineering directly from cleaned CSV → /data/processed/ml_dataset.csv (DMF index calc, risk labels, missing-value imputation, class distribution check)
 - Sprint 21c → Train/Test (80/20) + Stratified K-Fold (k=5) experiments, all 5 algorithms (see ALGORITHMS TO COMPARE — pending adviser input on full 5 vs. dropping SVM), results to /docs/algo-results.md, decision tree + feature importance charts, confusion matrices
 - Sprint 21d → Select and justify winner by K-Fold F1 → /docs/model-selection-rationale.md (becomes Chapter 4 Section 4.2)
