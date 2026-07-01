@@ -1,6 +1,9 @@
 import { Router } from "express";
 import mongoose, { type Model } from "mongoose";
 import { asyncHandler } from "../utils/asyncHandler";
+import { requireAuth, requireRole } from "../middleware/auth";
+import { logAudit } from "../utils/auditLog";
+import { ALL_ROLES, ADMIN_ONLY } from "../middleware/roleGroups";
 
 const PROTECTED_FIELDS = ["_id", "isArchived", "archivedAt", "archivedBy", "created_at", "updated_at", "password_hash"];
 
@@ -18,15 +21,33 @@ function decryptForResponse(doc: any) {
   return doc;
 }
 
-export function createCrudRouter(model: Model<any>, options: { readOnly?: boolean } = {}) {
+interface CrudOptions {
+  readOnly?: boolean;
+  readRoles?: string[];
+  writeRoles?: string[];
+  archiveRoles?: string[];
+}
+
+export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
   const router = Router();
   const hasSoftDelete = !!model.schema.path("isArchived");
   const readOnly = options.readOnly === true;
+  const readRoles = options.readRoles ?? ALL_ROLES;
+  const writeRoles = options.writeRoles ?? ADMIN_ONLY;
+  const archiveRoles = options.archiveRoles ?? ADMIN_ONLY;
+  const modelName = model.modelName;
 
   router.get(
     "/",
+    requireAuth,
+    requireRole(...readRoles),
     asyncHandler(async (req, res) => {
-      const filter = hasSoftDelete && req.query.includeArchived !== "true" ? { isArchived: false } : {};
+      const wantsArchived = req.query.includeArchived === "true";
+      if (wantsArchived && !ADMIN_ONLY.includes(req.user!.role)) {
+        res.status(403).json({ error: "Only System Admin can view archived records" });
+        return;
+      }
+      const filter = hasSoftDelete && !wantsArchived ? { isArchived: false } : {};
       const docs = await model.find(filter);
       res.json(docs);
     }),
@@ -34,6 +55,8 @@ export function createCrudRouter(model: Model<any>, options: { readOnly?: boolea
 
   router.get(
     "/:id",
+    requireAuth,
+    requireRole(...readRoles),
     asyncHandler(async (req, res) => {
       if (!mongoose.isValidObjectId(req.params.id)) {
         res.status(400).json({ error: "Invalid id" });
@@ -41,6 +64,12 @@ export function createCrudRouter(model: Model<any>, options: { readOnly?: boolea
       }
       const doc = await model.findById(req.params.id);
       if (!doc) {
+        res.status(404).json({ error: "Not found" });
+        return;
+      }
+      // Archived records are only visible to System Admin — 404 (not 403) for
+      // everyone else so their existence isn't leaked.
+      if (hasSoftDelete && (doc as any).isArchived && !ADMIN_ONLY.includes(req.user!.role)) {
         res.status(404).json({ error: "Not found" });
         return;
       }
@@ -52,14 +81,19 @@ export function createCrudRouter(model: Model<any>, options: { readOnly?: boolea
 
   router.post(
     "/",
+    requireAuth,
+    requireRole(...writeRoles),
     asyncHandler(async (req, res) => {
       const doc = await model.create(sanitizeBody(req.body));
+      await logAudit(req.user!.id, `Created ${modelName}`, doc._id.toString(), modelName);
       res.status(201).json(decryptForResponse(doc));
     }),
   );
 
   router.put(
     "/:id",
+    requireAuth,
+    requireRole(...writeRoles),
     asyncHandler(async (req, res) => {
       if (!mongoose.isValidObjectId(req.params.id)) {
         res.status(400).json({ error: "Invalid id" });
@@ -76,6 +110,7 @@ export function createCrudRouter(model: Model<any>, options: { readOnly?: boolea
       }
       Object.assign(doc, sanitizeBody(req.body));
       await doc.save();
+      await logAudit(req.user!.id, `Updated ${modelName}`, (doc._id as any).toString(), modelName);
       res.json(decryptForResponse(doc));
     }),
   );
@@ -83,6 +118,8 @@ export function createCrudRouter(model: Model<any>, options: { readOnly?: boolea
   if (hasSoftDelete) {
     router.patch(
       "/:id/archive",
+      requireAuth,
+      requireRole(...archiveRoles),
       asyncHandler(async (req, res) => {
         if (!mongoose.isValidObjectId(req.params.id)) {
           res.status(400).json({ error: "Invalid id" });
@@ -90,19 +127,22 @@ export function createCrudRouter(model: Model<any>, options: { readOnly?: boolea
         }
         const doc = await model.findByIdAndUpdate(
           req.params.id,
-          { isArchived: true, archivedAt: new Date(), archivedBy: req.body.archivedBy ?? null },
+          { isArchived: true, archivedAt: new Date(), archivedBy: req.user!.id },
           { new: true },
         );
         if (!doc) {
           res.status(404).json({ error: "Not found" });
           return;
         }
+        await logAudit(req.user!.id, `Archived ${modelName}`, (doc._id as any).toString(), modelName);
         res.json(doc);
       }),
     );
 
     router.patch(
       "/:id/restore",
+      requireAuth,
+      requireRole(...archiveRoles),
       asyncHandler(async (req, res) => {
         if (!mongoose.isValidObjectId(req.params.id)) {
           res.status(400).json({ error: "Invalid id" });
@@ -117,6 +157,7 @@ export function createCrudRouter(model: Model<any>, options: { readOnly?: boolea
           res.status(404).json({ error: "Not found" });
           return;
         }
+        await logAudit(req.user!.id, `Restored ${modelName}`, (doc._id as any).toString(), modelName);
         res.json(doc);
       }),
     );

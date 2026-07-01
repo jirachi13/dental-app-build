@@ -1,7 +1,7 @@
-# HANDOFF — Sprint 14 Complete
+# HANDOFF — Sprint 15 Complete
 
 ## Status
-Sprints 1-14 done and verified against the real MongoDB Atlas cluster.
+Sprints 1-15 done and verified against the real MongoDB Atlas cluster.
 - Sprint 1: Express MVC + MongoDB connection
 - Sprint 2: SCHOOL, USER, STUDENT, DENTIST, DENTAL_AIDE models
 - Sprint 3: STUDENT_IPTR, MEDICAL_HISTORY, DIETARY_SOCIAL_HABITS, ORAL_HEALTH_CONDITION models
@@ -16,6 +16,7 @@ Sprints 1-14 done and verified against the real MongoDB Atlas cluster.
 - Sprint 12: RPC 2-visit tracking module wired to real API — no schema changes needed, PREVENTIVE_CARE_RECORD already covered it
 - Sprint 13: Dashboard (all 5 roles) + DOH Reports table wired to real data where genuinely computable; illustrative data kept only where honestly required (see notes below)
 - Sprint 14: found and fixed the real gap — PatientList's "Add New Student" form was still a fake alert(), never actually saving. Extended STUDENT with guardian/PhilHealth/4Ps/consent fields (real DOH IPTR data, not UI-invented) and wired the form to a real POST. Audited search/filter across all wired components — no bugs found, TypeScript already guarantees no stale field references.
+- Sprint 15: RBAC finally wired into all 16 CRUD routes (was built in Sprint 7, unused until now — every route was open to anyone, logged in or not). Real audit-trail writes on every create/update/archive/restore. Discovered and fixed a critical consequence of this exact change: requireAuth now actually enforces the 15-minute access-token expiry, so added transparent 401-refresh-and-retry to the frontend API client — without it, the whole app would break every 15 minutes.
 
 ## What exists now
 **Backend** (`dental-4-12-main/project/server/`):
@@ -42,7 +43,7 @@ Sprints 1-14 done and verified against the real MongoDB Atlas cluster.
 - **Soft-delete fields vary per model exactly per the ERD** — not every model has isArchived/archivedAt/archivedBy or created_at/updated_at; followed literally rather than uniformly. (Full per-model breakdown was in earlier HANDOFF versions — check git history if needed, e.g. `git show <old-commit>:HANDOFF.md`.)
 - **Auth**: httpOnly `sameSite: lax` cookies (not Authorization headers), stateless refresh tokens (no DB revocation list — acceptable at this app's scale of ~10 staff users).
 - **Encryption**: `mongoose-field-encryption`, scoped to STUDENT (full_name/address/contact_number), DENTAL_AIDE (contact_number), MEDICAL_HISTORY (allergies/others — not the boolean condition flags), TREATMENT (diagnosis/treatment_done). USER.full_name NOT encrypted (staff, not patient PII).
-- **RBAC**: machinery built (Sprint 7), routes not yet protected (deliberately deferred, tracked as outstanding).
+- **RBAC** (wired Sprint 15): all 5 roles can read clinical models (school_admin/bho_staff need this for dashboards/reports, which is explicitly their job), only dentist/dental_aide/system_admin can write clinical data, only system_admin can archive/restore/view-archived anything, only system_admin can manage users/schools/dentists/dental-aides. See Sprint 15 notes below for the full matrix and reasoning.
 
 ## Bugs found and fixed along the way
 1. **`GET /api/users` leaked `password_hash`** (Sprint 7) — fixed via `select: false` on the schema field.
@@ -116,15 +117,33 @@ Verified end-to-end against the real Atlas cluster: replayed both the Dashboard 
 - Audited search/filter across all wired list components (`PatientList`, `TreatmentRecords`, `DentalChartNav`, `DentalChartList`, `RPCTracking`, `AccountManagement`) — no bugs found. They're checked against strongly-typed hook return shapes (`StudentRow`, `RPCRow`, etc.), so a stale/renamed field reference would already be a TypeScript compile error; none exist.
 - `AccountManagement`'s "Edit" button is still a no-op `alert()` placeholder — flagged as a candidate for actual feature work (a real edit modal) rather than built unprompted, since it's new functionality, not a fix to something broken by the data-wiring sprints.
 
+## Sprint 15 notes
+Two grill-me questions resolved a real tension before building: CLAUDE.md says School Admin has "no access to clinical records," but Sprint 13's dashboards for School Admin/BHO Staff need to *read* clinical data (student counts, risk distribution) to compute their stats.
+
+**Resolution**: "no access to clinical records" = no write access, not no read access. Final permission matrix, enforced via `requireAuth` + `requireRole` on every route in `crudFactory.ts` (previously applied to none):
+- **Clinical models** (Student, StudentIptr, MedicalHistory, DietarySocialHabits, OralHealthCondition, DentalChart, ToothRecord, Treatment, PreventiveCareRecord, RiskStratification, Appointment, DentistRotation): all 5 roles can `GET`, only dentist/dental_aide/system_admin can `POST`/`PUT`
+- **Org-management models** (School, User, Dentist, DentalAide): all roles can `GET` (needed for school-name resolution, dentist pickers, etc.), only system_admin can `POST`/`PUT`
+- **Archive/restore/view-archived** (`?includeArchived=true`): system_admin only, uniformly across every model, matching CLAUDE.md's SOFT DELETE RULES literally
+- **AuditTrail**: `GET` restricted to system_admin only (was previously open to nobody having to authenticate at all)
+- `crudFactory`'s default (when a model doesn't specify `writeRoles`/`readRoles` explicitly) is now system_admin-only — secure by default, each `routes/index.ts` mount explicitly opts into broader access rather than accidentally getting it
+
+**Real audit-trail writes**: `server/utils/auditLog.ts`'s `logAudit()` is now called from every successful create/update/archive/restore in `crudFactory`, plus the custom `POST /users` handler. Fire-and-forget with try/catch — an audit-logging failure never blocks the actual operation. `archivedBy` is now set from the authenticated user's real ID (`req.user!.id`) instead of a client-supplied `req.body.archivedBy` value, which was a minor pre-existing trust issue.
+
+**GET /:id on archived records**: now returns 404 (not the document) for non-system_admin roles, so an archived record's existence isn't leaked to unauthorized roles via direct ID lookup — closes a gap the list-level `isArchived: false` filter never covered.
+
+**Critical side effect found and fixed**: enforcing `requireAuth` everywhere for the first time means the 15-minute access-token expiry (set in Sprint 7, never actually exercised since nothing was protected) now really happens. Without a fix, every user would get logged out mid-session every 15 minutes. Added transparent refresh-and-retry to `src/app/api/client.ts`: on any 401, it calls `POST /api/auth/refresh` once (deduped across concurrent requests via a shared promise) and retries the original request; only propagates the 401 if refresh also fails. Verified directly: corrupted a valid session's access-token cookie, confirmed a request 401s, confirmed refresh+retry recovers access using the still-valid refresh token — the exact sequence the client code performs automatically.
+
+Verified the full matrix against the real Atlas cluster with real role logins (not just typecheck): school_admin can read `/api/students` but gets 403 on `POST`, 403 on `?includeArchived=true`, 403 on `/api/users`, 403 on `/api/audit-trails`. Dentist can create a student but gets 403 trying to archive it; system_admin's archive succeeds and is correctly attributed. Audit trail correctly shows both the "Created Student" and "Archived Student" entries with correct `user_id` per actor. Archived record is 404 for the dentist, 200 for system_admin, by direct ID lookup.
+
 ## Not done yet
-- RBAC not wired into CRUD routes — everything is reachable by anyone right now, logged in or not
-- `AuditTrail.tsx` still uses its own hardcoded array (intentionally, see above)
+- `AuditTrail.tsx` (the frontend page) still uses its own hardcoded array — the *backend* now writes real entries (Sprint 15), but the UI hasn't been switched over. Worth revisiting now that real audit data actually exists; wasn't in this sprint's original grill-me scope.
 - No OCR (Sprint 16), no real deployment yet (Sprint 17) — Vercel is linked/configured with all env vars but **a deployment from an early commit auto-deployed and is now stale** (per Vercel's own "Stale" status label) — auto-deploy on push doesn't seem to be triggering; user needs to check Vercel Settings → Git (production branch = main, auto-deploy toggle) or manually redeploy from the dashboard
 - `GET`/list responses include the encryption plugin's `__enc_<field>` boolean markers — harmless but cosmetically noisy, not cleaned up
 - Phase 3 plan revised in CLAUDE.md: real Excel IPTR data exists (not synthetic) — see CLAUDE.md's Phase 3 section, docs/phase3-sprint-prompts.md, and project memory for details
 - Chapter 4/5 manuscript structure saved in project memory, not started (correctly deferred until build+deploy+eval+algo are done)
 - `AccountManagement`'s "Edit" button is still a no-op `alert()` placeholder (see Sprint 14 notes)
 - `TreatmentLog.tsx` and `FollowUpAlerts.tsx` are orphaned/unreachable — not wired into routing at all
+- A real Excel data file exists locally in `data/` (gitignored) — held pending adviser confirmation on student-name anonymization
 
 ## Next sprint
-Sprint 15 → Soft delete + audit logs. Do not start without explicit approval.
+Sprint 15.5 → OWASP security + ZAP scan. Do not start without explicit approval.

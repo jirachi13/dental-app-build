@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { User, ROLES } from "../models";
 import { hashPassword } from "../utils/password";
+import { logAudit } from "../utils/auditLog";
 
 export async function createUser(req: Request, res: Response) {
   const { full_name, email, role, school_id, password } = req.body;
@@ -22,6 +23,8 @@ export async function createUser(req: Request, res: Response) {
     school_id: school_id || null,
     password_hash,
   });
+
+  await logAudit(req.user!.id, "Created User", user._id.toString(), "User");
 
   const safeUser = await User.findById(user._id);
   res.status(201).json(safeUser);
