@@ -79,8 +79,10 @@ No Quick Demo Login buttons in the UI anymore (removed per user request — real
 - Sprint 10 accounts: full create→archive→restore flow verified through the Vite proxy exactly as the UI would call it; confirmed `password_hash` absent from the create response; confirmed a PUT containing `password_hash` is silently stripped and doesn't affect the user's real password (login still works with the original password afterward)
 - No browser automation tool available in this environment (no `chromium-cli`/Playwright) — verification is via TypeScript compile (clean, both frontend and backend tsconfigs) + direct API/network testing, not an actual rendered screenshot. Flagged honestly, not assumed.
 
-## AuditTrail.tsx — deliberately NOT wired
+## AuditTrail.tsx — deliberately NOT wired at first, later wired (see below)
 Backend `AUDIT_TRAIL` only has `user_id`/`action`/`timestamp`/`affected_record_id`/`affected_model` — no `module`/`details`/`ipAddress` (the UI invented those). More importantly, nothing in the app writes real audit entries yet (that's Sprint 15's job; `AUDIT_TRAIL` is deliberately read-only since Sprint 6). Wiring this now would just show a permanently empty table. User chose to leave it on dummy data until Sprint 15 adds real write triggers.
+
+**UPDATE (post-Sprint 20, same day as the ML scaffold work)**: wired for real. `useAuditTrail.ts` fetches `/api/audit-trails` + `/api/users`, resolves `user_id` to a real name. `AuditTrail.tsx` dropped the invented "Details"/"IP Address" columns (replaced with a real "Record ID" column) and removed the "Export Logs" button (was a no-op `alert()` placeholder with nothing real behind it). Verified against the live backend — 11 real entries showing correctly (Archived/Restored User, Created Appointment, etc. with real timestamps), confirmed by the user directly in the browser.
 
 ## Sprint 11 notes
 The biggest gap found: the ERD's APPOINTMENT is one student + one dentist + one datetime, but the prototype UI schedules a whole class section (many students) as a single "appointment." Resolved via grill-me round:
@@ -156,7 +158,7 @@ Ran a forked subagent to do a real OWASP Top 10 review reading actual current co
 **Deferred to a later pass** (Medium/Low, not fixed this sprint — see the audit's full findings): deterministic encryption IV (real crypto weakness — same plaintext always produces same ciphertext, leaking which records share a value — this was a known tradeoff from Sprint 8, now explicitly named as a security finding rather than just a design note), no login rate limiting, no password strength requirement on `userController.createUser`, missing security headers (helmet), JWT `verify()` not pinning `algorithms`, no email format validation.
 
 ## Not done yet
-- `AuditTrail.tsx` (the frontend page) still uses its own hardcoded array — the *backend* now writes real entries (Sprint 15), but the UI hasn't been switched over. Worth revisiting now that real audit data actually exists; wasn't in this sprint's original grill-me scope.
+- ~~`AuditTrail.tsx` (the frontend page) still uses its own hardcoded array~~ — **wired for real** post-Sprint 20, see "AuditTrail.tsx" section above.
 - No OCR (Sprint 16), no real deployment yet (Sprint 17) — Vercel is linked/configured with all env vars but **a deployment from an early commit auto-deployed and is now stale** (per Vercel's own "Stale" status label) — auto-deploy on push doesn't seem to be triggering; user needs to check Vercel Settings → Git (production branch = main, auto-deploy toggle) or manually redeploy from the dashboard
 - `GET`/list responses include the encryption plugin's `__enc_<field>` boolean markers — harmless but cosmetically noisy, not cleaned up
 - Phase 3 plan revised in CLAUDE.md: real Excel IPTR data exists (not synthetic) — see CLAUDE.md's Phase 3 section, docs/phase3-sprint-prompts.md, and project memory for details

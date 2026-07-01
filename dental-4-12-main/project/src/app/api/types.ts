@@ -132,3 +132,12 @@ export interface ApiDentistRotation {
   week_end: string;
   notes: string;
 }
+
+export interface ApiAuditTrail {
+  _id: string;
+  user_id: string;
+  action: string;
+  timestamp: string;
+  affected_record_id: string;
+  affected_model: string;
+}
