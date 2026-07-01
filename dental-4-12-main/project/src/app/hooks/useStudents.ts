@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
 import type {
   ApiStudent,
@@ -34,75 +34,72 @@ export function useStudents() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  const reload = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [apiStudents, schools, iptrs, charts, preventives, riskStrats] = await Promise.all([
+        apiClient.get<ApiStudent[]>('/students'),
+        apiClient.get<ApiSchool[]>('/schools'),
+        apiClient.get<ApiStudentIptr[]>('/student-iptrs'),
+        apiClient.get<ApiDentalChart[]>('/dental-charts'),
+        apiClient.get<ApiPreventiveCareRecord[]>('/preventive-care-records'),
+        apiClient.get<ApiRiskStratification[]>('/risk-stratifications'),
+      ]);
 
-    (async () => {
-      try {
-        const [apiStudents, schools, iptrs, charts, preventives, riskStrats] = await Promise.all([
-          apiClient.get<ApiStudent[]>('/students'),
-          apiClient.get<ApiSchool[]>('/schools'),
-          apiClient.get<ApiStudentIptr[]>('/student-iptrs'),
-          apiClient.get<ApiDentalChart[]>('/dental-charts'),
-          apiClient.get<ApiPreventiveCareRecord[]>('/preventive-care-records'),
-          apiClient.get<ApiRiskStratification[]>('/risk-stratifications'),
-        ]);
-
-        const schoolNameById = new Map(schools.map((s) => [s._id, s.school_name]));
-        const iptrsByStudent = new Map<string, ApiStudentIptr[]>();
-        for (const iptr of iptrs) {
-          const list = iptrsByStudent.get(iptr.student_id) ?? [];
-          list.push(iptr);
-          iptrsByStudent.set(iptr.student_id, list);
-        }
-        const chartsByIptr = new Map<string, ApiDentalChart[]>();
-        for (const c of charts) {
-          const list = chartsByIptr.get(c.iptr_id) ?? [];
-          list.push(c);
-          chartsByIptr.set(c.iptr_id, list);
-        }
-        const preventiveById = new Map(preventives.map((p) => [p._id, p]));
-        const riskByPreventiveId = new Map(riskStrats.map((r) => [r.preventive_id, r]));
-        const riskByIptr = new Map<string, ApiRiskStratification>();
-        for (const r of riskStrats) {
-          const preventive = preventiveById.get(r.preventive_id);
-          if (preventive) riskByIptr.set(preventive.iptr_id, r);
-        }
-
-        const rows: StudentRow[] = apiStudents.map((s) => {
-          const studentIptrs = iptrsByStudent.get(s._id) ?? [];
-          const allCharts = studentIptrs.flatMap((iptr) => chartsByIptr.get(iptr._id) ?? []);
-          const lastVisit = allCharts.length
-            ? allCharts.reduce((latest, c) => (c.date_charted > latest ? c.date_charted : latest), allCharts[0].date_charted)
-            : null;
-          const riskLevel = studentIptrs.map((iptr) => riskByIptr.get(iptr._id)).find(Boolean)?.risk_level ?? null;
-
-          return {
-            id: s._id,
-            name: s.full_name,
-            birthdate: s.birthday.slice(0, 10),
-            gender: s.sex,
-            grade: s.grade_level,
-            section: s.section,
-            school: schoolNameById.get(s.school_id) ?? 'Unknown School',
-            lastVisit,
-            oralStatus: deriveOralStatus(riskLevel),
-            riskLevel,
-          };
-        });
-
-        if (!cancelled) setStudents(rows);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load students');
-      } finally {
-        if (!cancelled) setLoading(false);
+      const schoolNameById = new Map(schools.map((s) => [s._id, s.school_name]));
+      const iptrsByStudent = new Map<string, ApiStudentIptr[]>();
+      for (const iptr of iptrs) {
+        const list = iptrsByStudent.get(iptr.student_id) ?? [];
+        list.push(iptr);
+        iptrsByStudent.set(iptr.student_id, list);
       }
-    })();
+      const chartsByIptr = new Map<string, ApiDentalChart[]>();
+      for (const c of charts) {
+        const list = chartsByIptr.get(c.iptr_id) ?? [];
+        list.push(c);
+        chartsByIptr.set(c.iptr_id, list);
+      }
+      const preventiveById = new Map(preventives.map((p) => [p._id, p]));
+      const riskByIptr = new Map<string, ApiRiskStratification>();
+      for (const r of riskStrats) {
+        const preventive = preventiveById.get(r.preventive_id);
+        if (preventive) riskByIptr.set(preventive.iptr_id, r);
+      }
 
-    return () => {
-      cancelled = true;
-    };
+      const rows: StudentRow[] = apiStudents.map((s) => {
+        const studentIptrs = iptrsByStudent.get(s._id) ?? [];
+        const allCharts = studentIptrs.flatMap((iptr) => chartsByIptr.get(iptr._id) ?? []);
+        const lastVisit = allCharts.length
+          ? allCharts.reduce((latest, c) => (c.date_charted > latest ? c.date_charted : latest), allCharts[0].date_charted)
+          : null;
+        const riskLevel = studentIptrs.map((iptr) => riskByIptr.get(iptr._id)).find(Boolean)?.risk_level ?? null;
+
+        return {
+          id: s._id,
+          name: s.full_name,
+          birthdate: s.birthday.slice(0, 10),
+          gender: s.sex,
+          grade: s.grade_level,
+          section: s.section,
+          school: schoolNameById.get(s.school_id) ?? 'Unknown School',
+          lastVisit,
+          oralStatus: deriveOralStatus(riskLevel),
+          riskLevel,
+        };
+      });
+
+      setStudents(rows);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load students');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  return { students, loading, error };
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  return { students, loading, error, reload };
 }

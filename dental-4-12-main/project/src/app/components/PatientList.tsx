@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { Plus, Eye, FileText, X, School as SchoolIcon, List, ChevronRight, Users, Upload, CheckCircle, AlertCircle } from 'lucide-react';
@@ -11,6 +11,8 @@ import { ListSearchInput } from './ListSearchInput';
 import { studentListTableStyles } from './StudentListTableStyles';
 import { addQueuedStudentId, getQueuedStudentIds } from '../utils/queueStorage';
 import { useStudents } from '../hooks/useStudents';
+import { apiClient, ApiError } from '../api/client';
+import type { ApiSchool } from '../api/types';
 
 const SCHOOLS = [
   'Bagong Tanyag Integrated School',
@@ -48,6 +50,9 @@ export const PatientList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [newPatient, setNewPatient] = useState({ firstName:'', lastName:'', middleName:'', birthdate:'', gender:'', grade:'', section:'', school:'', guardianName:'', guardianContact:'', address:'', philhealthNumber:'', philhealthStatus:'None', is4Ps:false, fourPsId:'', consentStatus:'pending' });
+  const [addPatientError, setAddPatientError] = useState<string | null>(null);
+  const [addingPatient, setAddingPatient] = useState(false);
+  const [schools, setSchools] = useState<ApiSchool[]>([]);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [bulkFile, setBulkFile] = useState<File | null>(null);
   const [bulkPreview, setBulkPreview] = useState<any[]>([]);
@@ -70,7 +75,51 @@ export const PatientList = () => {
     return '20 & above';
   };
 
-  const { students: allStudents, loading: studentsLoading } = useStudents();
+  const { students: allStudents, loading: studentsLoading, reload: reloadStudents } = useStudents();
+
+  useEffect(() => {
+    apiClient.get<ApiSchool[]>('/schools').then(setSchools).catch(() => {});
+  }, []);
+
+  const handleAddStudent = async () => {
+    setAddPatientError(null);
+    if (!newPatient.firstName || !newPatient.lastName || !newPatient.school || !newPatient.grade) {
+      setAddPatientError('Please fill in all required fields.');
+      return;
+    }
+    const school = schools.find((s) => s.school_name === newPatient.school);
+    if (!school) {
+      setAddPatientError('Selected school not found.');
+      return;
+    }
+    setAddingPatient(true);
+    try {
+      const full_name = [newPatient.firstName, newPatient.middleName, newPatient.lastName].filter(Boolean).join(' ');
+      await apiClient.post('/students', {
+        school_id: school._id,
+        full_name,
+        birthday: newPatient.birthdate,
+        sex: newPatient.gender,
+        address: newPatient.address,
+        grade_level: newPatient.grade,
+        section: newPatient.section,
+        guardian_name: newPatient.guardianName,
+        guardian_contact: newPatient.guardianContact,
+        philhealth_number: newPatient.philhealthNumber,
+        philhealth_status: newPatient.philhealthStatus,
+        is_4ps: newPatient.is4Ps,
+        fourps_id: newPatient.fourPsId,
+        consent_status: newPatient.consentStatus,
+      });
+      await reloadStudents();
+      setShowAddForm(false);
+      setNewPatient({ firstName:'', lastName:'', middleName:'', birthdate:'', gender:'', grade:'', section:'', school:'', guardianName:'', guardianContact:'', address:'', philhealthNumber:'', philhealthStatus:'None', is4Ps:false, fourPsId:'', consentStatus:'pending' });
+    } catch (err) {
+      setAddPatientError(err instanceof ApiError ? err.message : 'Failed to add student');
+    } finally {
+      setAddingPatient(false);
+    }
+  };
 
   // Filter by selected school context
   const schoolStudents = selectedSchool
@@ -410,15 +459,11 @@ export const PatientList = () => {
               <div className="flex items-center gap-3 pt-2"><input type="checkbox" id="is4ps" checked={newPatient.is4Ps} onChange={e => setNewPatient({...newPatient, is4Ps: e.target.checked})} className="w-4 h-4 rounded accent-blue-600" /><label htmlFor="is4ps" className="text-sm font-medium text-gray-700">4Ps / NHTS Member</label></div>
               {newPatient.is4Ps && <div><label className="block text-sm font-medium text-gray-700 mb-1">4Ps ID</label><input type="text" value={newPatient.fourPsId} onChange={e => setNewPatient({...newPatient, fourPsId: e.target.value})} placeholder="4PS-XXXXXXXX" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>}
               <div><label className="block text-sm font-medium text-gray-700 mb-1">Address</label><input type="text" value={newPatient.address} onChange={e => setNewPatient({...newPatient, address: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
+              {addPatientError && <p className="text-sm text-red-600">{addPatientError}</p>}
             </div>
             <div className="flex gap-3 p-6 border-t">
               <button onClick={() => setShowAddForm(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">Cancel</button>
-              <button onClick={() => {
-                if (!newPatient.firstName || !newPatient.lastName || !newPatient.school || !newPatient.grade) { alert('Please fill in all required fields.'); return; }
-                alert(`Student ${newPatient.firstName} ${newPatient.lastName} added successfully!`);
-                setShowAddForm(false);
-                setNewPatient({ firstName:'',lastName:'',middleName:'',birthdate:'',gender:'',grade:'',section:'',school:'',guardianName:'',guardianContact:'',address:'',philhealthNumber:'',philhealthStatus:'None',is4Ps:false,fourPsId:'',consentStatus:'pending' });
-              }} className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Add Student</button>
+              <button onClick={handleAddStudent} disabled={addingPatient} className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 text-sm font-medium">{addingPatient ? 'Adding…' : 'Add Student'}</button>
             </div>
           </div>
         </div>

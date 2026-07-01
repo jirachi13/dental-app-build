@@ -1,7 +1,7 @@
-# HANDOFF — Sprint 13 Complete
+# HANDOFF — Sprint 14 Complete
 
 ## Status
-Sprints 1-13 done and verified against the real MongoDB Atlas cluster.
+Sprints 1-14 done and verified against the real MongoDB Atlas cluster.
 - Sprint 1: Express MVC + MongoDB connection
 - Sprint 2: SCHOOL, USER, STUDENT, DENTIST, DENTAL_AIDE models
 - Sprint 3: STUDENT_IPTR, MEDICAL_HISTORY, DIETARY_SOCIAL_HABITS, ORAL_HEALTH_CONDITION models
@@ -15,6 +15,7 @@ Sprints 1-13 done and verified against the real MongoDB Atlas cluster.
 - Sprint 11: Appointment scheduling module wired to real API, plus new DentistRotation model (not in original ERD)
 - Sprint 12: RPC 2-visit tracking module wired to real API — no schema changes needed, PREVENTIVE_CARE_RECORD already covered it
 - Sprint 13: Dashboard (all 5 roles) + DOH Reports table wired to real data where genuinely computable; illustrative data kept only where honestly required (see notes below)
+- Sprint 14: found and fixed the real gap — PatientList's "Add New Student" form was still a fake alert(), never actually saving. Extended STUDENT with guardian/PhilHealth/4Ps/consent fields (real DOH IPTR data, not UI-invented) and wired the form to a real POST. Audited search/filter across all wired components — no bugs found, TypeScript already guarantees no stale field references.
 
 ## What exists now
 **Backend** (`dental-4-12-main/project/server/`):
@@ -107,14 +108,23 @@ Biggest "real vs. fake" gap of any sprint so far — scoped in two rounds of gri
 
 Verified end-to-end against the real Atlas cluster: replayed both the Dashboard aggregation logic and the DOH report field-mapping logic in Node against the live API — numbers matched seed data exactly (e.g. 4 students with hypertension, 5 with gingivitis, 5 Low-risk/OFC-exam, 10 with `dmf_score > 0` — all internally consistent with what `seedIptrDetails.ts` and earlier seed scripts actually created).
 
+## Sprint 14 notes
+- **STUDENT model extended**: `guardian_name`, `guardian_contact`, `philhealth_number`, `philhealth_status`, `is_4ps`, `fourps_id`, `consent_status` — not in the original ERD, but real DOH IPTR school-registration data the prototype's Add Student form already collected (same rationale as Sprint 11's `appointment_type`). `guardian_name`/`guardian_contact`/`philhealth_number`/`fourps_id` are encrypted (sensitive PII/ID, consistent with the existing encryption policy); `philhealth_status`/`is_4ps`/`consent_status` are not (need to stay queryable/filterable, same reasoning as other boolean/enum fields left unencrypted).
+- Verified end-to-end against the real cluster: created a student with all new fields via `POST /api/students`, confirmed `guardian_name`/`philhealth_number` are stored as real ciphertext in the raw collection, confirmed the `PUT` update path (the one with the Sprint 8 `findById`+`.save()` fix) works correctly on the new fields too.
+- `useStudents()` now exposes `reload()` so the UI can refresh after adding a student — same pattern as `useUsers()`/`useDentistRotations()`.
+- **Found `TreatmentLog.tsx` and `FollowUpAlerts.tsx` are both orphaned** — not referenced in `routes.tsx` or imported anywhere, genuinely unreachable dead code. Left un-wired per YAGNI; flagging in case they're meant to be wired into routing at some point rather than actually dead.
+- Audited search/filter across all wired list components (`PatientList`, `TreatmentRecords`, `DentalChartNav`, `DentalChartList`, `RPCTracking`, `AccountManagement`) — no bugs found. They're checked against strongly-typed hook return shapes (`StudentRow`, `RPCRow`, etc.), so a stale/renamed field reference would already be a TypeScript compile error; none exist.
+- `AccountManagement`'s "Edit" button is still a no-op `alert()` placeholder — flagged as a candidate for actual feature work (a real edit modal) rather than built unprompted, since it's new functionality, not a fix to something broken by the data-wiring sprints.
+
 ## Not done yet
 - RBAC not wired into CRUD routes — everything is reachable by anyone right now, logged in or not
 - `AuditTrail.tsx` still uses its own hardcoded array (intentionally, see above)
 - No OCR (Sprint 16), no real deployment yet (Sprint 17) — Vercel is linked/configured with all env vars but **a deployment from an early commit auto-deployed and is now stale** (per Vercel's own "Stale" status label) — auto-deploy on push doesn't seem to be triggering; user needs to check Vercel Settings → Git (production branch = main, auto-deploy toggle) or manually redeploy from the dashboard
 - `GET`/list responses include the encryption plugin's `__enc_<field>` boolean markers — harmless but cosmetically noisy, not cleaned up
-- Phase 3 plan revised in CLAUDE.md: real Excel IPTR data exists (not synthetic) — see CLAUDE.md's Phase 3 section and project memory for details
+- Phase 3 plan revised in CLAUDE.md: real Excel IPTR data exists (not synthetic) — see CLAUDE.md's Phase 3 section, docs/phase3-sprint-prompts.md, and project memory for details
 - Chapter 4/5 manuscript structure saved in project memory, not started (correctly deferred until build+deploy+eval+algo are done)
-- `AccountManagement`'s "Edit" button is still a no-op `alert()` placeholder — it always was (no edit form existed before Sprint 10 either), left as-is since building a new edit UI is feature work, not the "data only" swap Sprint 10 asked for
+- `AccountManagement`'s "Edit" button is still a no-op `alert()` placeholder (see Sprint 14 notes)
+- `TreatmentLog.tsx` and `FollowUpAlerts.tsx` are orphaned/unreachable — not wired into routing at all
 
 ## Next sprint
-Sprint 14 → UI fixes + search + filter. Do not start without explicit approval.
+Sprint 15 → Soft delete + audit logs. Do not start without explicit approval.

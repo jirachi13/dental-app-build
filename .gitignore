@@ -3,3 +3,7 @@ node_modules/
 .env.local
 dist/
 build/
+
+# Real student Excel data — holds until student-name anonymization is
+# confirmed with adviser per CLAUDE.md's Phase 3 privacy note.
+data/
