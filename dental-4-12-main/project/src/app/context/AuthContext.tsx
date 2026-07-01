@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { apiClient, ApiError } from '../api/client';
+import { saveUserCache, loadUserCache, clearUserCache } from '../offline/authCache';
 import type { ApiUser, ApiRole, ApiSchool } from '../api/types';
 
 interface User {
@@ -50,9 +51,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     (async () => {
       try {
         const apiUser = await apiClient.get<ApiUser>('/auth/me');
-        setUser(await resolveUser(apiUser));
-      } catch {
-        setUser(null);
+        const resolved = await resolveUser(apiUser);
+        setUser(resolved);
+        saveUserCache(resolved);
+      } catch (err) {
+        // A real 401 means the server checked and said you're logged out —
+        // trust it. A network error just means we couldn't ask, which isn't
+        // the same thing: if you were validly logged in before losing
+        // connectivity, don't lock you out of the app you were just using.
+        if (err instanceof ApiError) {
+          setUser(null);
+          clearUserCache();
+        } else {
+          setUser(loadUserCache());
+        }
       } finally {
         setLoading(false);
       }
@@ -62,11 +74,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
     try {
       const apiUser = await apiClient.post<ApiUser>('/auth/login', { email, password });
-      setUser(await resolveUser(apiUser));
+      const resolved = await resolveUser(apiUser);
+      setUser(resolved);
+      saveUserCache(resolved);
       setSelectedSchool(null); // reset school on login
       return { ok: true };
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Login failed';
+      const message = err instanceof ApiError ? err.message : 'No connection — can\'t log in while offline. If you were logged in before, reopen the app without reloading.';
       return { ok: false, error: message };
     }
   }, []);
@@ -74,6 +88,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = useCallback(async () => {
     await apiClient.post('/auth/logout').catch(() => {});
     setUser(null);
+    clearUserCache();
     setSelectedSchool(null);
   }, []);
 

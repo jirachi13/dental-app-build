@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiClient } from '../api/client';
+import { usePendingWritesFor } from './useOfflineQueue';
 import type {
   ApiStudent,
   ApiSchool,
@@ -20,6 +21,7 @@ export interface StudentRow {
   lastVisit: string | null;
   oralStatus: string;
   riskLevel: 'High' | 'Medium' | 'Low' | null;
+  pending?: boolean;
 }
 
 function deriveOralStatus(riskLevel: string | null): string {
@@ -31,8 +33,10 @@ function deriveOralStatus(riskLevel: string | null): string {
 
 export function useStudents() {
   const [students, setStudents] = useState<StudentRow[]>([]);
+  const [schools, setSchools] = useState<ApiSchool[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const pendingWrites = usePendingWritesFor('/students');
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -89,6 +93,7 @@ export function useStudents() {
       });
 
       setStudents(rows);
+      setSchools(schools);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load students');
@@ -101,5 +106,38 @@ export function useStudents() {
     reload();
   }, [reload]);
 
-  return { students, loading, error, reload };
+  // A pending write disappearing from the queue means it just synced —
+  // reload so the real server record (with its real _id) replaces the
+  // optimistic one instead of leaving a gap until the next natural reload.
+  const prevPendingCount = useRef(pendingWrites.length);
+  useEffect(() => {
+    if (pendingWrites.length < prevPendingCount.current) reload();
+    prevPendingCount.current = pendingWrites.length;
+  }, [pendingWrites.length, reload]);
+
+  // Merge queued (not-yet-synced) student creations in as optimistic rows,
+  // so staff see what they just entered while offline instead of it
+  // silently disappearing until sync completes.
+  const studentsWithPending = useMemo(() => {
+    const schoolNameById = new Map(schools.map((s) => [s._id, s.school_name]));
+    const pendingRows: StudentRow[] = pendingWrites.map((w) => {
+      const body = w.body as Partial<{ full_name: string; birthday: string; sex: string; grade_level: string; section: string; school_id: string }>;
+      return {
+        id: `pending-${w.id}`,
+        name: body.full_name ?? '(pending sync)',
+        birthdate: body.birthday?.slice(0, 10) ?? '',
+        gender: body.sex ?? '',
+        grade: body.grade_level ?? '',
+        section: body.section ?? '',
+        school: schoolNameById.get(body.school_id ?? '') ?? 'Unknown School',
+        lastVisit: null,
+        oralStatus: 'Not Yet Screened',
+        riskLevel: null,
+        pending: true,
+      };
+    });
+    return [...pendingRows, ...students];
+  }, [students, schools, pendingWrites]);
+
+  return { students: studentsWithPending, loading, error, reload };
 }

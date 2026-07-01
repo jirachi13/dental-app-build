@@ -448,28 +448,35 @@ export const PatientList = () => {
                     const age = calculateAge(student.birthdate);
                     const isQueued = queuedStudentIds.includes(student.id);
                     return (
-                      <tr key={student.id} onClick={() => navigate(`/dental-chart/${student.id}?tab=history`)} className={studentListTableStyles.row}>
-                        <td className={studentListTableStyles.primaryCell}>{formatStudentName(student.name)}</td>
+                      <tr key={student.id} onClick={() => { if (!student.pending) navigate(`/dental-chart/${student.id}?tab=history`); }} className={`${studentListTableStyles.row} ${student.pending ? 'opacity-70' : ''}`}>
+                        <td className={studentListTableStyles.primaryCell}>
+                          {formatStudentName(student.name)}
+                          {student.pending && (
+                            <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200">Pending sync</span>
+                          )}
+                        </td>
                         <GradeTableCell grade={student.grade} />
                         <td className={studentListTableStyles.secondaryCell}>{student.section}</td>
                         <td className={studentListTableStyles.secondaryCell}>{student.gender}</td>
                         <td className={studentListTableStyles.secondaryCell}>{age}</td>
                         <td className={studentListTableStyles.secondaryCell}>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (isQueued) return;
-                              setQueuedStudentIds(addQueuedStudentId(student.id));
-                            }}
-                            disabled={isQueued}
-                            className={`px-2.5 py-1 rounded text-xs font-semibold border transition-colors ${
-                              isQueued
-                                ? 'bg-green-100 text-green-700 border-green-200 cursor-default'
-                                : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-                            }`}
-                          >
-                            {isQueued ? 'Queued' : 'Queue for Charting'}
-                          </button>
+                          {!student.pending && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isQueued) return;
+                                setQueuedStudentIds(addQueuedStudentId(student.id));
+                              }}
+                              disabled={isQueued}
+                              className={`px-2.5 py-1 rounded text-xs font-semibold border transition-colors ${
+                                isQueued
+                                  ? 'bg-green-100 text-green-700 border-green-200 cursor-default'
+                                  : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                              }`}
+                            >
+                              {isQueued ? 'Queued' : 'Queue for Charting'}
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );

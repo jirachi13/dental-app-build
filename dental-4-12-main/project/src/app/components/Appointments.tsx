@@ -246,6 +246,9 @@ export const Appointments = () => {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          {a.pending && (
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">Pending sync</span>
+          )}
           <Link
             to="/dental-charts"
             className="w-7 h-7 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 flex items-center justify-center transition-colors"
@@ -254,7 +257,7 @@ export const Appointments = () => {
             <FileText className="w-3.5 h-3.5" />
           </Link>
           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusBadge(status)}`}>{status}</span>
-          {showActions && status === 'Scheduled' && (
+          {showActions && !a.pending && status === 'Scheduled' && (
             <>
               <button onClick={() => markStatus(a, 'Completed')}
                 className="w-7 h-7 rounded-full bg-green-100 hover:bg-green-200 text-green-700 flex items-center justify-center transition-colors" title="Mark Attended">
@@ -266,13 +269,13 @@ export const Appointments = () => {
               </button>
             </>
           )}
-          {showActions && status === 'In Progress' && (
+          {showActions && !a.pending && status === 'In Progress' && (
             <button onClick={() => markStatus(a, 'Completed')}
               className="w-7 h-7 rounded-full bg-green-100 hover:bg-green-200 text-green-700 flex items-center justify-center transition-colors" title="Mark Completed">
               <Check className="w-3.5 h-3.5" />
             </button>
           )}
-          {showActions && (status === 'Completed' || status === 'Missed') && (
+          {showActions && !a.pending && (status === 'Completed' || status === 'Missed') && (
             <button onClick={() => markStatus(a, 'Scheduled')}
               className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition-colors" title="Reset">
               <RotateCcw className="w-3 h-3" />

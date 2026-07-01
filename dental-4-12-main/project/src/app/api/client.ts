@@ -1,3 +1,6 @@
+import { enqueueWrite } from '../offline/db';
+import { notifyQueueChange } from '../offline/queueEvents';
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -45,9 +48,54 @@ async function request<T>(path: string, options: RequestInit = {}, isRetry = fal
   return res.json();
 }
 
+// Writes (POST/PUT/PATCH) queue to IndexedDB instead of failing when
+// there's no network — per CLAUDE.md's PWA/OFFLINE spec (FIFO, synced when
+// back online via queueProcessor.ts / Sprint 20's Workbox background sync).
+// GET is never queued: there's nothing to sync, and a failed read should
+// just fail so the UI can show cached/stale data as appropriate.
+// /auth/* is never queued either — logging in/out/refreshing requires a
+// real synchronous round trip (a JWT cookie can't be "synced later"); a
+// queued login would look like it succeeded without ever authenticating
+// anything. These just fail normally when offline, like a GET does.
+function isAuthPath(path: string): boolean {
+  return path.startsWith('/auth/');
+}
+
+async function writeRequest<T>(path: string, method: 'POST' | 'PUT' | 'PATCH', body?: unknown): Promise<T> {
+  if (isAuthPath(path)) {
+    return request<T>(path, { method, body: body ? JSON.stringify(body) : undefined });
+  }
+  if (!navigator.onLine) {
+    return queueWrite<T>(path, method, body);
+  }
+  try {
+    return await request<T>(path, { method, body: body ? JSON.stringify(body) : undefined });
+  } catch (err) {
+    // A real server rejection (validation error, 403, etc.) reached the
+    // server and should surface normally — only an actual network failure
+    // (fetch couldn't even complete) gets queued.
+    if (err instanceof ApiError) throw err;
+    return queueWrite<T>(path, method, body);
+  }
+}
+
+async function queueWrite<T>(path: string, method: 'POST' | 'PUT' | 'PATCH', body: unknown): Promise<T> {
+  const queued = await enqueueWrite({ endpoint: path, method, body });
+  notifyQueueChange();
+  // Synthetic optimistic response so calling code (which expects the
+  // created/updated record back) can proceed normally. Real hooks merge
+  // pending queue items into their lists using this same shape — see
+  // hooks/useOfflineQueue.ts.
+  return {
+    ...(typeof body === 'object' && body ? body : {}),
+    _id: `pending-${queued.id}`,
+    _pending: true,
+  } as T;
+}
+
 export const apiClient = {
   get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, body?: unknown) => request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
-  put: <T>(path: string, body?: unknown) => request<T>(path, { method: "PUT", body: body ? JSON.stringify(body) : undefined }),
-  patch: <T>(path: string, body?: unknown) => request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
+  post: <T>(path: string, body?: unknown) => writeRequest<T>(path, "POST", body),
+  put: <T>(path: string, body?: unknown) => writeRequest<T>(path, "PUT", body),
+  patch: <T>(path: string, body?: unknown) => writeRequest<T>(path, "PATCH", body),
 };
