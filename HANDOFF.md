@@ -326,5 +326,14 @@ Since real data isn't available yet, the user asked to build the swappable-algor
 ## Side-quest: AccountManagement Edit button wired (real, since Sprint 14)
 Was a no-op `alert()` placeholder. Now: clicking Edit opens a modal pre-filled with the user's current `full_name`/`email`/`role`/`school_id`, saving does a real `PUT /api/users/:id`. Confirmed safe against the live backend before wiring: `crudFactory`'s PUT strips `password_hash` from the body (defense in depth from Sprint 10's bug #7) and `findById` already excludes it (`select: false`) before `.save()`, so the response never leaks it and an edit can't accidentally touch the password. Verified directly: edited a real user (`aide@floral.com`), confirmed the response has no `password_hash`, confirmed their password still logs in correctly afterward. Password itself isn't editable here — that's a separate reset flow, not built (form has a note saying so).
 
+## Side-quest: PDF export for DOH Consolidated Report
+Added a "Download PDF" button (`Reports.tsx`, DOH Consolidated tab only) using `jsPDF` + `html2canvas` (new deps). Captures the full wide report table (beyond the visible scrolled viewport, via `html2canvas`'s `windowWidth`/`windowHeight` options) at 2x scale, renders it into an A4-landscape PDF, splitting across multiple pages if taller than one page. Filename: `DOH_Report_<School>_<Month><Year>.pdf`.
+
+**Deliberately did NOT add a CSV export for Internal Reports**, despite discussing it — checking the actual code first revealed `mockSessions`/`treatmentMatrix` variable names confirming Internal Reports is still largely mock/illustrative data (no real Referral/session-tracking model exists, per Sprint 13's original findings). Building an export button for fake numbers would create false confidence in a report meant for real City Health Office submission — skipped, not silently forgotten.
+
+**Tradeoff worth knowing**: `jsPDF`+`html2canvas` added real bundle weight — the PWA precache grew from ~1.5MB to ~2.3MB. Adds to the existing bundle-size side-quest item (see Not done yet, further up) rather than being a new separate problem.
+
+**Not yet visually verified in a real browser** — `tsc --noEmit` clean, `npm run build` succeeds, but whether the generated PDF actually looks right (full table visible, legible text, sensible page breaks) needs a real click-through the next time someone's at the app.
+
 ## Next sprint
 Sprint 21a is blocked until the real dental IPTR Excel files are located and added to `data/` (see above). Once that happens, Sprint 21a can proceed: clean/standardize into `/data/cleaned/dataset.csv` + `/data/cleaning-report.md`, dropping name columns per the resolved anonymization approach. Do not start Sprint 21a against the current `data/` contents (nutritional status data) — verify with a quick openpyxl header check first if unsure whether new files have actually landed.

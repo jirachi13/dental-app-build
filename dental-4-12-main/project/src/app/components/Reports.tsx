@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { FileSpreadsheet, FileText, Printer, AlertTriangle, AlertCircle, CheckCircle, Users, Calendar, X } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { FileSpreadsheet, FileText, Printer, Download, AlertTriangle, AlertCircle, CheckCircle, Users, Calendar, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import { getSchoolShortName } from '../utils/schoolColors';
 import { GradePill } from './GradePill';
 import { useDohReportData } from '../hooks/useDohReportData';
+import { exportElementToPdf } from '../utils/exportPdf';
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -216,6 +217,20 @@ export const Reports = () => {
   const [reportYear,  setReportYear]  = useState(2026);
   // Local school override — defaults to All Schools regardless of global context
   const [reportSchool, setReportSchool] = useState<string|null>(null);
+  const dohReportRef = useRef<HTMLDivElement>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (!dohReportRef.current) return;
+    setDownloadingPdf(true);
+    try {
+      const schoolPart = reportSchool ? getSchoolShortName(reportSchool).replace(/\s+/g, '_') : 'AllSchools';
+      const filename = `DOH_Report_${schoolPart}_${MONTHS[reportMonth - 1]}${reportYear}.pdf`;
+      await exportElementToPdf(dohReportRef.current, filename);
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
   const [internalSection, setInternalSection] = useState<'treatment'|'conditions'|'admin'>('treatment');
   const [periodType, setPeriodType] = useState<'monthly'|'biannual'|'annual'>('monthly');
   const [intGradeFilter, setIntGradeFilter] = useState('all');
@@ -287,6 +302,12 @@ export const Reports = () => {
             className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium whitespace-nowrap">
             <Printer className="w-4 h-4" /> Print
           </button>
+          {activeReportTab === 'doh' && (
+            <button onClick={handleDownloadPdf} disabled={downloadingPdf}
+              className="flex items-center gap-2 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-[#1E3A8A] disabled:opacity-60 text-sm font-medium whitespace-nowrap">
+              <Download className="w-4 h-4" /> {downloadingPdf ? 'Generating…' : 'Download PDF'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -316,7 +337,7 @@ export const Reports = () => {
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div ref={dohReportRef} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
               <table style={{borderCollapse:'collapse', fontSize:'10px', whiteSpace:'nowrap'}}>
                 {/* ── TITLE ── */}
