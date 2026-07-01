@@ -5,6 +5,7 @@ import { Search, Plus, X, CheckCircle, AlertCircle, Clock, Shield, School as Sch
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { getGradeColor } from '../utils/gradeColors';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
+import { useRPCTracking } from '../hooks/useRPCTracking';
 
 const SCHOOLS = [
   'Bagong Tanyag Integrated School',
@@ -12,24 +13,6 @@ const SCHOOLS = [
   'South Daang Hari Elementary School Main',
 ];
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
-
-const rpcRecords = [
-  { id:'1', studentName:'Juan Morales', birthdate:'2016-03-15', gender:'Male', school:'Bagong Tanyag Integrated School', grade:'Grade 4', section:'Sampaguita', visit1Date:'2026-01-15', visit1Status:'Completed', visit2Date:'2026-03-20', visit2Status:'Completed', daysUntilDue:0, status:'complete' },
-  { id:'2', studentName:'Maria Santos', birthdate:'2017-07-22', gender:'Female', school:'Bagong Tanyag Integrated School', grade:'Grade 3', section:'Jasmine', visit1Date:'2026-02-10', visit1Status:'Completed', visit2Date:null, visit2Status:'Pending', daysUntilDue:45, status:'pending' },
-  { id:'3', studentName:'Pedro Reyes', birthdate:'2014-11-08', gender:'Male', school:'South Daang Hari Elementary School Main', grade:'Grade 5', section:'Yakal', visit1Date:'2025-08-15', visit1Status:'Completed', visit2Date:null, visit2Status:'Pending', daysUntilDue:-30, status:'overdue' },
-  { id:'4', studentName:'Ana Garcia', birthdate:'2018-05-12', gender:'Female', school:'Bagong Tanyag Integrated School', grade:'Grade 2', section:'Rose', visit1Date:null, visit1Status:'Pending', visit2Date:null, visit2Status:'Pending', daysUntilDue:0, status:'not-started' },
-  { id:'5', studentName:'Carlos Mendoza', birthdate:'2013-09-30', gender:'Male', school:'Bagong Tanyag Elementary School Annex A', grade:'Grade 6', section:'Coral', visit1Date:'2026-03-01', visit1Status:'Completed', visit2Date:null, visit2Status:'Pending', daysUntilDue:90, status:'pending' },
-  { id:'6', studentName:'Sofia Reyes', birthdate:'2015-11-08', gender:'Female', school:'Bagong Tanyag Integrated School', grade:'Grade 5', section:'Sunflower', visit1Date:'2026-01-20', visit1Status:'Completed', visit2Date:'2026-03-25', visit2Status:'Completed', daysUntilDue:0, status:'complete' },
-  { id:'7', studentName:'Diego Lopez', birthdate:'2019-03-15', gender:'Male', school:'Bagong Tanyag Integrated School', grade:'Grade 1', section:'Sampaguita', visit1Date:null, visit1Status:'Pending', visit2Date:null, visit2Status:'Pending', daysUntilDue:0, status:'not-started' },
-  { id:'8', studentName:'Isabella Gomez', birthdate:'2017-04-18', gender:'Female', school:'Bagong Tanyag Elementary School Annex A', grade:'Grade 3', section:'Topaz', visit1Date:'2025-09-10', visit1Status:'Completed', visit2Date:null, visit2Status:'Pending', daysUntilDue:-15, status:'overdue' },
-  { id:'9', studentName:'Miguel Torres', birthdate:'2016-12-05', gender:'Male', school:'Bagong Tanyag Elementary School Annex A', grade:'Grade 4', section:'Opal', visit1Date:'2026-02-28', visit1Status:'Completed', visit2Date:null, visit2Status:'Pending', daysUntilDue:60, status:'pending' },
-  { id:'10', studentName:'Carmen Flores', birthdate:'2018-08-22', gender:'Female', school:'South Daang Hari Elementary School Main', grade:'Grade 2', section:'Acacia', visit1Date:'2026-01-10', visit1Status:'Completed', visit2Date:'2026-03-15', visit2Status:'Completed', daysUntilDue:0, status:'complete' },
-  { id:'11', studentName:'Lucia Diaz', birthdate:'2015-06-14', gender:'Female', school:'South Daang Hari Elementary School Main', grade:'Grade 5', section:'Lauan', visit1Date:null, visit1Status:'Pending', visit2Date:null, visit2Status:'Pending', daysUntilDue:0, status:'not-started' },
-  { id:'12', studentName:'Rafael Santos', birthdate:'2016-09-03', gender:'Male', school:'South Daang Hari Elementary School Main', grade:'Grade 4', section:'Kamagong', visit1Date:'2025-10-05', visit1Status:'Completed', visit2Date:null, visit2Status:'Pending', daysUntilDue:-45, status:'overdue' },
-  { id:'13', studentName:'Valentina Cruz', birthdate:'2017-02-28', gender:'Female', school:'South Daang Hari Elementary School Main', grade:'Grade 3', section:'Bamboo', visit1Date:'2026-03-05', visit1Status:'Completed', visit2Date:null, visit2Status:'Pending', daysUntilDue:120, status:'pending' },
-  { id:'14', studentName:'Jose Martinez', birthdate:'2013-09-30', gender:'Male', school:'Bagong Tanyag Elementary School Annex A', grade:'Grade 6', section:'Onyx', visit1Date:'2026-02-15', visit1Status:'Completed', visit2Date:'2026-04-10', visit2Status:'Completed', daysUntilDue:0, status:'complete' },
-  { id:'15', studentName:'Bea Aquino', birthdate:'2018-01-15', gender:'Female', school:'Bagong Tanyag Integrated School', grade:'Grade 2', section:'Dahlia', visit1Date:null, visit1Status:'Pending', visit2Date:null, visit2Status:'Pending', daysUntilDue:0, status:'not-started' },
-];
 
 
 const ViewToggle = ({ mode, onChange }: { mode: 'school' | 'list'; onChange: (m: 'school' | 'list') => void }) => (
@@ -46,6 +29,7 @@ const ViewToggle = ({ mode, onChange }: { mode: 'school' | 'list'; onChange: (m:
 export const RPCTracking = () => {
   const { selectedSchool } = useAuth();
   const navigate = useNavigate();
+  const { records: rpcRecords, loading, error } = useRPCTracking();
 
   const [drillSchool, setDrillSchool] = useState<string | null>(null);
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
@@ -87,7 +71,7 @@ export const RPCTracking = () => {
     if (statusFilter !== 'all' && r.status !== statusFilter) return false;
     if (searchTerm && !r.studentName.toLowerCase().includes(searchTerm.toLowerCase())) return false;
     return true;
-  }), [gradeFilter, genderFilter, ageGroupFilter, statusFilter, searchTerm]);
+  }), [schoolRecords, gradeFilter, sectionFilter, genderFilter, ageGroupFilter, statusFilter, searchTerm]);
 
   const hasActiveFilters = [gradeFilter, genderFilter, ageGroupFilter, statusFilter].some(f => f !== 'all') || searchTerm !== '';
   const clearFilters = () => { setGradeFilter('all'); setGenderFilter('all'); setAgeGroupFilter('all'); setStatusFilter('all'); setSearchTerm(''); };
@@ -124,8 +108,15 @@ export const RPCTracking = () => {
     return { name: school, total: records.length, complete, overdue: overdueCount };
   });
 
+  if (loading) {
+    return <div className="text-sm text-gray-500 p-8 text-center">Loading RPC records…</div>;
+  }
+
   return (
     <div className="space-y-4">
+      {error && (
+        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{error}</div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">RPC Records</h1>

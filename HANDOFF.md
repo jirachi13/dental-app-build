@@ -1,7 +1,7 @@
-# HANDOFF — Sprint 11 Complete
+# HANDOFF — Sprint 12 Complete
 
 ## Status
-Sprints 1-11 done and verified against the real MongoDB Atlas cluster.
+Sprints 1-12 done and verified against the real MongoDB Atlas cluster.
 - Sprint 1: Express MVC + MongoDB connection
 - Sprint 2: SCHOOL, USER, STUDENT, DENTIST, DENTAL_AIDE models
 - Sprint 3: STUDENT_IPTR, MEDICAL_HISTORY, DIETARY_SOCIAL_HABITS, ORAL_HEALTH_CONDITION models
@@ -13,6 +13,7 @@ Sprints 1-11 done and verified against the real MongoDB Atlas cluster.
 - Sprint 9: Inventoried all dummy frontend data (no code changes — see chat history for the full list)
 - Sprint 10: real auth wired end-to-end; 4 duplicated student-data arrays + AccountManagement consolidated into real API calls. AuditTrail deliberately left on dummy data (see below).
 - Sprint 11: Appointment scheduling module wired to real API, plus new DentistRotation model (not in original ERD)
+- Sprint 12: RPC 2-visit tracking module wired to real API — no schema changes needed, PREVENTIVE_CARE_RECORD already covered it
 
 ## What exists now
 **Backend** (`dental-4-12-main/project/server/`):
@@ -80,6 +81,14 @@ The biggest gap found: the ERD's APPOINTMENT is one student + one dentist + one 
 - Status updates on a session apply to all of its underlying Appointment records at once (`updateSessionStatus` does a `Promise.all` of individual PUTs) — verified both records flip status correctly.
 - Student/dentist pickers in the Create Appointment and Set Rotation modals now use real data (`useStudents()`, real `Dentist` list) instead of hardcoded 5-student arrays and free-text dentist name inputs.
 
+## Sprint 12 notes
+Much smaller than Sprint 11 — the ERD's PREVENTIVE_CARE_RECORD (visit_number 1/2, visit_date) already covered everything RPCTracking.tsx needed, no schema changes.
+- `hooks/useRPCTracking.ts` joins Student → StudentIptr → PreventiveCareRecord (visit 1 and visit 2), and computes status/daysUntilDue client-side: both visits done → `complete`; visit 1 only, within 150 days → `pending`; visit 1 only, past 150 days → `overdue`; no visits → `not-started`. The 150-day interval is the midpoint of the "4-6 month interval" already written in the UI's own subtitle text — not a new invented number.
+- **Encryption gotcha hit again**: a new seed script (`seedRpcVisit2.ts`) tried `Student.findOne({ full_name: "..." })` to look up a couple of already-seeded students by name, and got zero matches — `full_name` is encrypted (Sprint 8), so a plaintext-value DB query can't match the stored ciphertext. Fixed by fetching all students and filtering in JS after Mongoose decrypts on read. Worth remembering for any future script/query that filters by an encrypted field (full_name, address, contact_number, allergies, others, diagnosis, treatment_done).
+- Added `seed:rpc-visit2` script: backdates 2 already-seeded students' Visit 1 and adds a Visit 2 for one of them, so the RPC table has real examples of all 4 statuses (complete/pending/overdue/not-started) instead of everyone looking "pending."
+- Verified the exact status computation against the real API for all 18 students — matches expectations precisely (Aldrin Villanueva → complete, Trisha Santos → overdue, the 3 unscreened students → not-started, rest → pending).
+- This component is read-only (clicking a row navigates to the student's dental chart) — no create-form to wire, which is why this sprint was much smaller than 11.
+
 ## Not done yet
 - RBAC not wired into CRUD routes — everything is reachable by anyone right now, logged in or not
 - `AuditTrail.tsx` still uses its own hardcoded array (intentionally, see above)
@@ -90,4 +99,4 @@ The biggest gap found: the ERD's APPOINTMENT is one student + one dentist + one 
 - `AccountManagement`'s "Edit" button is still a no-op `alert()` placeholder — it always was (no edit form existed before Sprint 10 either), left as-is since building a new edit UI is feature work, not the "data only" swap Sprint 10 asked for
 
 ## Next sprint
-Sprint 12 → RPC 2-visit tracking module. Do not start without explicit approval.
+Sprint 13 → Dashboard + DOH reports module. Do not start without explicit approval.

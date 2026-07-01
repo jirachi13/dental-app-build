@@ -46,6 +46,8 @@ export interface ApiDentalChart {
 export interface ApiPreventiveCareRecord {
   _id: string;
   iptr_id: string;
+  visit_date: string;
+  visit_number: 1 | 2;
 }
 
 export interface ApiRiskStratification {
