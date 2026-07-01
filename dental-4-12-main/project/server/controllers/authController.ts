@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { User } from "../models/index.js";
-import { comparePassword } from "../utils/password.js";
+import { comparePassword, hashPassword } from "../utils/password.js";
+import { logAudit } from "../utils/auditLog.js";
 import {
   signAccessToken,
   signRefreshToken,
@@ -98,4 +99,40 @@ export async function me(req: Request, res: Response) {
     return;
   }
   res.json(user);
+}
+
+// Self-service password change -- distinct from userController's
+// admin-assisted resetPassword: this requires knowing the CURRENT password
+// (proves it's really the account owner), whereas the admin-assisted reset
+// exists precisely for when that's not possible.
+export async function changePassword(req: Request, res: Response) {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    res.status(400).json({ error: "currentPassword and newPassword are required" });
+    return;
+  }
+  if (String(newPassword).length < 8) {
+    res.status(400).json({ error: "Password must be at least 8 characters" });
+    return;
+  }
+
+  const user = await User.findById(req.user!.id).select("+password_hash");
+  if (!user) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  const matches = await comparePassword(currentPassword, user.password_hash);
+  if (!matches) {
+    res.status(401).json({ error: "Current password is incorrect" });
+    return;
+  }
+
+  user.password_hash = await hashPassword(newPassword);
+  await user.save();
+
+  await logAudit(user._id.toString(), "Changed Password", user._id.toString(), "User");
+
+  res.json({ success: true });
 }

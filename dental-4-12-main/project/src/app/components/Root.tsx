@@ -3,10 +3,11 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, Users, Calendar, Brain,
   ClipboardList, LogOut, Stethoscope, Shield,
-  Clipboard, FileBarChart, UserCog
+  Clipboard, FileBarChart, UserCog, KeyRound
 } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
+import { apiClient, ApiError } from '../api/client';
 
 // Fallback logo — replace with actual Barangay Tanyag logo file
 const logoImage = null;
@@ -19,6 +20,47 @@ export const Root = () => {
   useEffect(() => {
     if (!user) navigate('/login');
   }, [user, navigate]);
+
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changePasswordError, setChangePasswordError] = useState<string | null>(null);
+  const [changePasswordSuccess, setChangePasswordSuccess] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  const openChangePassword = () => {
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setChangePasswordError(null);
+    setChangePasswordSuccess(false);
+    setShowChangePassword(true);
+  };
+
+  const handleChangePassword = async () => {
+    setChangePasswordError(null);
+    if (newPassword.length < 8) {
+      setChangePasswordError('New password must be at least 8 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setChangePasswordError('New passwords do not match.');
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      await apiClient.patch('/auth/change-password', { currentPassword, newPassword });
+      setChangePasswordSuccess(true);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      setChangePasswordError(err instanceof ApiError ? err.message : 'Failed to change password');
+    } finally {
+      setChangingPassword(false);
+    }
+  };
 
   if (!user) return null;
 
@@ -151,6 +193,13 @@ export const Root = () => {
             </div>
           </div>
           <button
+            onClick={openChangePassword}
+            className="w-full flex items-center justify-center md:justify-start gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors mb-1"
+          >
+            <KeyRound className="w-5 h-5 flex-shrink-0" />
+            <span className="hidden md:block text-sm font-medium">Change Password</span>
+          </button>
+          <button
             onClick={handleLogout}
             className="w-full flex items-center justify-center md:justify-start gap-3 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
           >
@@ -166,6 +215,76 @@ export const Root = () => {
           <Outlet />
         </div>
       </main>
+
+      {/* Change Password Modal */}
+      {showChangePassword && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="p-6 border-b">
+              <h2 className="text-lg font-bold text-gray-900">Change Password</h2>
+            </div>
+            {changePasswordSuccess ? (
+              <div className="p-6 space-y-4">
+                <p className="text-sm text-green-700">Password changed successfully.</p>
+                <button
+                  onClick={() => setShowChangePassword(false)}
+                  className="w-full px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-[#1E3A8A] transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="p-6 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
+                    <input
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                    />
+                  </div>
+                  {changePasswordError && <p className="text-sm text-red-600">{changePasswordError}</p>}
+                </div>
+                <div className="flex gap-3 p-6 border-t">
+                  <button
+                    onClick={() => setShowChangePassword(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleChangePassword}
+                    disabled={changingPassword}
+                    className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-[#1E3A8A] disabled:opacity-60 transition-colors"
+                  >
+                    {changingPassword ? 'Changing…' : 'Change Password'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

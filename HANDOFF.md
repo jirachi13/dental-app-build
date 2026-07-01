@@ -410,7 +410,18 @@ The "Forgot password?" link on Login.tsx was a dead `href="#"` from the original
 
 Needed a backend restart to pick up the new route — the dev backend runs via plain `tsx server/local.ts`, not watch mode, so route changes don't hot-reload.
 
-`tsc --noEmit` clean (both `tsconfig.json` and `tsconfig.server.json`), `npm run build` succeeds. Not yet committed/pushed.
+`tsc --noEmit` clean (both `tsconfig.json` and `tsconfig.server.json`), `npm run build` succeeds. Committed (`515a90a1`), pushed, deployed to production, confirmed live.
+
+## Follow-up: self-service "Change Password" (closes the loop on admin-assisted reset)
+
+After building admin-assisted reset, realized there was no way for a user to change their own password afterward — no "My Account"/settings page existed anywhere in the app at all. That meant an admin-set password was permanent until another admin reset, and the System Admin would always know every user's current password unless they changed it themselves. Confirmed by user request, built as a direct follow-up.
+
+- **Backend**: new self-service (not admin-only) `PATCH /auth/change-password` endpoint (`authController.ts`'s `changePassword`). Distinct from the admin-assisted `resetPassword` — this one requires knowing the *current* password (proves it's really the account owner), whereas the admin reset exists precisely for when that's not possible. Validates length, logs to audit trail as "Changed Password".
+- **Frontend**: `Root.tsx`'s sidebar (where user info/Logout already live) gets a new "Change Password" button above Logout, opening a modal (current password, new password, confirm) — available to every role, not just System Admin.
+
+Needed the same backend restart as the reset-password endpoint (no watch mode). Verified directly against the real backend: wrong current password → 401 correctly rejected; correct flow changes the password and the new one immediately works for login; then reverted the test account's password back to its real value and confirmed login still works, leaving no side effects.
+
+`tsc --noEmit` clean (both configs), `npm run build` succeeds. Not yet committed/pushed.
 
 ## Next sprint
 Sprint 21a is blocked until the real dental IPTR Excel files are located and added to `data/` (see above). Once that happens, Sprint 21a can proceed: clean/standardize into `/data/cleaned/dataset.csv` + `/data/cleaning-report.md`, dropping name columns per the resolved anonymization approach. Do not start Sprint 21a against the current `data/` contents (nutritional status data) — verify with a quick openpyxl header check first if unsure whether new files have actually landed.
