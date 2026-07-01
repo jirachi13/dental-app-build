@@ -1,13 +1,13 @@
 import type { Request, Response } from "express";
-import { User } from "../models";
-import { comparePassword } from "../utils/password";
+import { User } from "../models/index.js";
+import { comparePassword } from "../utils/password.js";
 import {
   signAccessToken,
   signRefreshToken,
   verifyRefreshToken,
   ACCESS_COOKIE_MAX_AGE_MS,
   REFRESH_COOKIE_MAX_AGE_MS,
-} from "../utils/jwt";
+} from "../utils/jwt.js";
 
 const isProd = process.env.NODE_ENV === "production";
 

@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import { getModel } from "./shared/getModel";
-import { softDeleteFields } from "./shared/softDelete";
+import { getModel } from "./shared/getModel.js";
+import { softDeleteFields } from "./shared/softDelete.js";
 
 export const ROLES = ["system_admin", "dentist", "dental_aide", "school_admin", "bho_staff"] as const;
 

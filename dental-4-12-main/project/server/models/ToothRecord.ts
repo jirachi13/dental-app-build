@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { getModel } from "./shared/getModel";
+import { getModel } from "./shared/getModel.js";
 
 const toothRecordSchema = new mongoose.Schema({
   chart_id: { type: mongoose.Schema.Types.ObjectId, ref: "DentalChart", required: true },

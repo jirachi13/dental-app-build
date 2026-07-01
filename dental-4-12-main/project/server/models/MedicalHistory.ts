@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
-import { getModel } from "./shared/getModel";
+import { getModel } from "./shared/getModel.js";
 import { fieldEncryption } from "mongoose-field-encryption";
-import { fieldEncryptionOptions } from "./shared/fieldEncryption";
+import { fieldEncryptionOptions } from "./shared/fieldEncryption.js";
 
 const medicalHistorySchema = new mongoose.Schema(
   {

@@ -1,11 +1,11 @@
 import { Router } from "express";
-import { getHealth } from "../controllers/healthController";
-import { createUser } from "../controllers/userController";
-import { createCrudRouter } from "./crudFactory";
-import authRoutes from "./authRoutes";
-import { asyncHandler } from "../utils/asyncHandler";
-import { requireAuth, requireRole } from "../middleware/auth";
-import { ADMIN_ONLY, CLINICAL_WRITE_ROLES } from "../middleware/roleGroups";
+import { getHealth } from "../controllers/healthController.js";
+import { createUser } from "../controllers/userController.js";
+import { createCrudRouter } from "./crudFactory.js";
+import authRoutes from "./authRoutes.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
+import { ADMIN_ONLY, CLINICAL_WRITE_ROLES } from "../middleware/roleGroups.js";
 import {
   School,
   User,
@@ -24,7 +24,7 @@ import {
   Appointment,
   AuditTrail,
   DentistRotation,
-} from "../models";
+} from "../models/index.js";
 
 const router = Router();
 

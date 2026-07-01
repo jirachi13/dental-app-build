@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { connectDB } from "../config/db";
-import { StudentIptr, MedicalHistory, DietarySocialHabits, OralHealthCondition, RiskStratification, PreventiveCareRecord } from "../models";
+import { connectDB } from "../config/db.js";
+import { StudentIptr, MedicalHistory, DietarySocialHabits, OralHealthCondition, RiskStratification, PreventiveCareRecord } from "../models/index.js";
 import mongoose from "mongoose";
 
 // Deterministic pseudo-variety based on a string, so reruns are idempotent-ish

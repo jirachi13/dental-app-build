@@ -1,7 +1,7 @@
 import "dotenv/config";
-import { connectDB } from "../config/db";
-import { User } from "../models";
-import { hashPassword } from "../utils/password";
+import { connectDB } from "../config/db.js";
+import { User } from "../models/index.js";
+import { hashPassword } from "../utils/password.js";
 import mongoose from "mongoose";
 
 async function main() {

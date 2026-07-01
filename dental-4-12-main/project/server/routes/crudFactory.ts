@@ -1,9 +1,9 @@
 import { Router } from "express";
 import mongoose, { type Model } from "mongoose";
-import { asyncHandler } from "../utils/asyncHandler";
-import { requireAuth, requireRole } from "../middleware/auth";
-import { logAudit } from "../utils/auditLog";
-import { ALL_ROLES, ADMIN_ONLY } from "../middleware/roleGroups";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
+import { logAudit } from "../utils/auditLog.js";
+import { ALL_ROLES, ADMIN_ONLY } from "../middleware/roleGroups.js";
 
 const PROTECTED_FIELDS = ["_id", "isArchived", "archivedAt", "archivedBy", "created_at", "updated_at", "password_hash"];
 

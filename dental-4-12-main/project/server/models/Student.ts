@@ -1,8 +1,8 @@
 import mongoose from "mongoose";
-import { getModel } from "./shared/getModel";
+import { getModel } from "./shared/getModel.js";
 import { fieldEncryption } from "mongoose-field-encryption";
-import { softDeleteFields } from "./shared/softDelete";
-import { fieldEncryptionOptions } from "./shared/fieldEncryption";
+import { softDeleteFields } from "./shared/softDelete.js";
+import { fieldEncryptionOptions } from "./shared/fieldEncryption.js";
 
 const studentSchema = new mongoose.Schema(
   {

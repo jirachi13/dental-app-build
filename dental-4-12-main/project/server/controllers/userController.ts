@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
-import { User, ROLES } from "../models";
-import { hashPassword } from "../utils/password";
-import { logAudit } from "../utils/auditLog";
+import { User, ROLES } from "../models/index.js";
+import { hashPassword } from "../utils/password.js";
+import { logAudit } from "../utils/auditLog.js";
 
 export async function createUser(req: Request, res: Response) {
   const { full_name, email, role, school_id, password } = req.body;

@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { getModel } from "./shared/getModel";
+import { getModel } from "./shared/getModel.js";
 
 const oralHealthConditionSchema = new mongoose.Schema(
   {

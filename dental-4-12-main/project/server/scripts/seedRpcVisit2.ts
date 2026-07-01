@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { connectDB } from "../config/db";
-import { Student, StudentIptr, PreventiveCareRecord } from "../models";
+import { connectDB } from "../config/db.js";
+import { Student, StudentIptr, PreventiveCareRecord } from "../models/index.js";
 import mongoose from "mongoose";
 
 // Backdates a couple of already-seeded students' Visit 1 dates and adds Visit 2

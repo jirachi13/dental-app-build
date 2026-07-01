@@ -1,4 +1,4 @@
-import { AuditTrail } from "../models";
+import { AuditTrail } from "../models/index.js";
 
 // Fire-and-forget: an audit logging failure should never break the actual
 // user-facing operation it's logging.

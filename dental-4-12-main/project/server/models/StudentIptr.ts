@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import { getModel } from "./shared/getModel";
-import { softDeleteFields } from "./shared/softDelete";
+import { getModel } from "./shared/getModel.js";
+import { softDeleteFields } from "./shared/softDelete.js";
 
 const studentIptrSchema = new mongoose.Schema(
   {

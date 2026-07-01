@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { connectDB } from "../config/db";
-import { School, Student, StudentIptr, DentalChart, Dentist, PreventiveCareRecord, RiskStratification } from "../models";
+import { connectDB } from "../config/db.js";
+import { School, Student, StudentIptr, DentalChart, Dentist, PreventiveCareRecord, RiskStratification } from "../models/index.js";
 import mongoose from "mongoose";
 
 const STUDENTS = [

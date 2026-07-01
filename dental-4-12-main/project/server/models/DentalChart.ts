@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import { getModel } from "./shared/getModel";
-import { softDeleteFields } from "./shared/softDelete";
+import { getModel } from "./shared/getModel.js";
+import { softDeleteFields } from "./shared/softDelete.js";
 
 const dentalChartSchema = new mongoose.Schema({
   iptr_id: { type: mongoose.Schema.Types.ObjectId, ref: "StudentIptr", required: true },

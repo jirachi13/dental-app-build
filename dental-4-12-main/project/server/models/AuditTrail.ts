@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { getModel } from "./shared/getModel";
+import { getModel } from "./shared/getModel.js";
 
 const auditTrailSchema = new mongoose.Schema({
   user_id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },

@@ -1,7 +1,7 @@
 import "dotenv/config";
-import { connectDB } from "../config/db";
-import { School, User, Dentist, DentalAide } from "../models";
-import { hashPassword } from "../utils/password";
+import { connectDB } from "../config/db.js";
+import { School, User, Dentist, DentalAide } from "../models/index.js";
+import { hashPassword } from "../utils/password.js";
 import mongoose from "mongoose";
 
 const SCHOOLS = [
