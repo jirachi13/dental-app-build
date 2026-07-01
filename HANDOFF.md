@@ -1,7 +1,7 @@
-# HANDOFF — Sprint 20 Complete (Phase 2 Finished)
+# HANDOFF — ML Service Scaffold Built (Phase 3 partial, ahead of real data)
 
 ## Status
-Sprints 1-20 done locally, not yet deployed. **Production** (https://dental-app-build.vercel.app) is still running the Sprint 19 build — Sprint 20's GET caching / background sync / conflict handling only exist in local dev so far; redeploy when ready. **Phase 2 (Offline) is now complete.**
+Sprints 1-20 done and deployed live (https://dental-app-build.vercel.app). Sprint 21a (clean real Excel data) is **blocked** — see below — but the Strategy Pattern ML architecture normally built in Sprint 21e was built early, against placeholder data, at the user's explicit request. Do not confuse this with real trained models.
 - Sprint 1: Express MVC + MongoDB connection
 - Sprint 2: SCHOOL, USER, STUDENT, DENTIST, DENTAL_AIDE models
 - Sprint 3: STUDENT_IPTR, MEDICAL_HISTORY, DIETARY_SOCIAL_HABITS, ORAL_HEALTH_CONDITION models
@@ -288,5 +288,25 @@ Grill-me decisions locked in before building:
 - Conflict detection only compares fields the queued write itself touches — if a *different* field on the same record changed elsewhere, that's correctly not flagged (by design), but there's no broader "this whole record was touched by someone else" awareness beyond the specific fields in question
 - No dedicated UI page for reviewing conflicts outside the banner — works, but is a small inline panel, not a full audit view
 
+## Sprint 21a status — BLOCKED, real data mismatch found
+Attempted to start Sprint 21a (clean real Excel IPTR data). Anonymization is resolved (see CLAUDE.md's Privacy note — names dropped from the training pipeline entirely, no adviser sign-off needed). But when the actual Excel files in `data/` were opened and checked (via openpyxl, not assumed from filenames), **every one of them turned out to be Simplified Nutritional Status (SNS) reports** — Name, Birthday, Weight, Height, Sex, Age, BMI, Nutritional Status classification — not dental IPTR data. Zero DMF scores, zero oral health conditions, zero dietary/social habits, zero medical history, zero treatment records anywhere in ~46 files (6 top-level + everything under `NS 2026-2027 (BTIS)/`). User confirmed the real dental IPTR files exist separately and aren't in this repo yet. **Sprint 21a cannot actually run until those are added.** Full details in CLAUDE.md's Phase 3 section and project memory.
+
+## ML Strategy Pattern scaffold — built ahead of real data, at user's explicit request
+Since real data isn't available yet, the user asked to build the swappable-algorithm architecture now (normally Sprint 21e's job) using a small synthetic placeholder dataset, so it's ready to plug real data into the moment it arrives — not a shortcut around Sprint 21a-21d, just infrastructure prep.
+
+**What was built** (`/ml-service/`, repo root, sibling to `dental-4-12-main/`):
+- `algorithms/base.py` — `RiskClassifier` abstract base class (`train`, `predict`, `predict_proba`) every algorithm implements, so `predictor.py` never needs to know which one is active.
+- `algorithms/logistic_regression.py`, `decision_tree.py`, `random_forest.py`, `svm.py`, `xgboost_model.py` — all 5 algorithms from CLAUDE.md's ALGORITHMS TO COMPARE list, each a thin wrapper around the corresponding scikit-learn/xgboost estimator implementing `RiskClassifier`. `xgboost_model.py` internally label-encodes High/Medium/Low since XGBoost's sklearn wrapper needs numeric labels — encode/decode happens entirely inside that one file, invisible to callers.
+- `config.py` — `ACTIVE_ALGORITHM = "random_forest"`, a single string. Changing which algorithm runs is a one-line edit here, nothing else in the app needs to change (per CLAUDE.md: "Active algo in config.py only").
+- `predictor.py` — sole entry point (per CLAUDE.md: "Express calls predictor.py only," "Never call individual algo files directly"). `train()` fits the active algorithm, `predict_risk(features: dict)` returns `{risk_level, probabilities, algorithm}`. No other module imports from `algorithms/` directly.
+- `data/generate_dummy_data.py` + `data/dummy_train.csv` — 300 rows of **synthetic placeholder data**, clearly labeled as such in both files' docstrings/comments, using CLAUDE.md's own Sprint 21b risk-labeling rule (High: DMF>4 or periodontal disease; Medium: DMF 2-4 or gingivitis; Low: DMF 0-1, no major conditions) so labels are at least internally consistent with the eventual real pipeline. Weighted random generation to get a reasonable 3-class split (ended up ~50% Medium/28% High/22% Low) rather than uniform ranges which skewed almost entirely High.
+- `requirements.txt` — pandas, numpy, scikit-learn, xgboost, fastapi, uvicorn.
+
+**Verified**: ran `predictor.py` directly (trains Random Forest on the dummy data, predicts on a sample row, prints result) — works. Then swapped `config.ACTIVE_ALGORITHM` through all 5 values programmatically and re-ran training+prediction for each — all 5 algorithms trained and predicted successfully through the exact same `predictor.py` calls, proving the swap mechanism actually works, not just that the files exist. (SVM emitted a scikit-learn 1.9 deprecation warning about `probability=True` — still works, not blocking, worth revisiting whenever scikit-learn is upgraded.)
+
+**Explicitly NOT done / out of scope for this scaffold**: no real training data, no train/test or K-Fold evaluation (that's Sprint 21c, needs real data), no FastAPI HTTP endpoint wiring Express to this service yet (the user's confirmed scope was config/predictor/algorithms/dummy-data only), no saved/persisted model files (trains fresh in-memory every time `train()` is called). None of this should be treated as a working prediction feature — it's scaffolding proven to work mechanically, waiting for real data.
+
+**Environment note**: this session's Python/bash setup has a filesystem restriction where Python's own file-write calls (and even `python -m py_compile`, `cp`, `mkdir` via Bash) fail with `FileNotFoundError`/`No such file or directory` inside certain directories (`ml-service/data/`, also seen earlier with `.env` edits) — worked around by using the Write tool directly for file creation instead of Python/bash writes. `pip install` and directory creation via PowerShell's `New-Item` both work fine. Worth knowing if this comes up again in a future Python-heavy sprint.
+
 ## Next sprint
-Phase 2 (Offline) is complete. Phase 3 (Predictive Analytics — Python/ML) is next per CLAUDE.md's build phases, but Sprint 21a (clean real Excel IPTR data) requires adviser sign-off on student-name anonymization first (still pending, per `data/` being held gitignored). Do not start without explicit approval, and confirm the anonymization question is resolved first.
+Sprint 21a is blocked until the real dental IPTR Excel files are located and added to `data/` (see above). Once that happens, Sprint 21a can proceed: clean/standardize into `/data/cleaned/dataset.csv` + `/data/cleaning-report.md`, dropping name columns per the resolved anonymization approach. Do not start Sprint 21a against the current `data/` contents (nutritional status data) — verify with a quick openpyxl header check first if unsure whether new files have actually landed.

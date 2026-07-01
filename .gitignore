@@ -5,8 +5,15 @@ dist/
 build/
 
 # Real student Excel data — holds until student-name anonymization is
-# confirmed with adviser per CLAUDE.md's Phase 3 privacy note.
-data/
+# confirmed with adviser per CLAUDE.md's Phase 3 privacy note. Leading slash
+# scopes this to the repo-root data/ only — without it, this also matched
+# ml-service/data/ (synthetic placeholder data, meant to be tracked).
+/data/
 
 .vercel
 .env*
+
+# Python (ml-service/)
+__pycache__/
+*.pyc
+.venv/
