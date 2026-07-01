@@ -1,7 +1,7 @@
-# HANDOFF — Sprint 17 Complete (App Deployed Live)
+# HANDOFF — Sprint 18 Complete (PWA Review)
 
 ## Status
-Sprints 1-17 done. **App is live in production**: https://dental-app-build.vercel.app
+Sprints 1-18 done. **App is live in production**: https://dental-app-build.vercel.app
 - Sprint 1: Express MVC + MongoDB connection
 - Sprint 2: SCHOOL, USER, STUDENT, DENTIST, DENTAL_AIDE models
 - Sprint 3: STUDENT_IPTR, MEDICAL_HISTORY, DIETARY_SOCIAL_HABITS, ORAL_HEALTH_CONDITION models
@@ -20,6 +20,7 @@ Sprints 1-17 done. **App is live in production**: https://dental-app-build.verce
 - Sprint 15.5: manual OWASP Top 10 audit (forked, real code review not from memory) found 1 Critical + 3 High findings, all fixed and verified: real passwords committed to git (rotated + removed hardcoded values from source), CORS reflecting any origin with credentials (locked to an allowlist), deactivated users keeping access for up to 7 days via stale refresh tokens (now re-checks DB), and 3 vulnerable dependencies with public CVEs (patched, 0 vulnerabilities remaining). Medium/Low findings deferred — see notes below.
 - Sprint 16: Client-side OCR (Tesseract.js) for scanning paper DOH IPTR forms into the Add Student form, with PDF support (pdfjs-dist rasterization, multi-page merge) and confidence-flagged pre-fill (no field is ever silently trusted). Verified against a real Barangay Tanyag IPTR form PDF, not just synthetic text — found and fixed 2 real bugs in the process (see notes below).
 - Sprint 17: Deployed to Vercel production. Found and fixed 2 real deployment blockers (ESM import resolution, MongoDB Atlas IP allowlist) — neither was hypothetical, both were confirmed via actual failed production requests and logs, not assumed. Verified end-to-end against the live URL: login, session restore, and a real data endpoint all return 200.
+- Sprint 18: PWA service worker review (review-only, no code changes — user's explicit choice). Found the existing service worker (from the original Figma prototype, untouched since) precaches the static app shell + does `CacheFirst` for Google Fonts, but has zero offline UX beyond that — no API caching, no offline banner, no disabled-forms-when-offline. Also found 2 real bugs unrelated to Sprint 19/20 scope: `index.html` links to a dead `manifest.json` instead of the PWA plugin's generated manifest, and both manifests reference PWA icon files that don't exist anywhere in the repo. See notes below for the full findings and Sprint 19/20 recommendations.
 
 ## What exists now
 **Backend** (`dental-4-12-main/project/server/`):
@@ -206,5 +207,25 @@ Linked this environment to the existing Vercel project via `vercel login` + `ver
 - No custom domain configured — still on the `*.vercel.app` subdomain
 - PWA/offline (Phase 2, Sprints 18-20) not started — correctly deferred per CLAUDE.md's build phase order
 
+## Sprint 18 notes (PWA review — no code changes this sprint, by user's choice)
+
+**Current state, confirmed by reading `vite.config.ts`, the actual generated `dist/sw.js`/`dist/registerSW.js`/`dist/manifest.webmanifest` from a real build, and grepping `src/` for any offline-related code:**
+- `vite-plugin-pwa` in `generateSW` mode, `registerType: 'autoUpdate'` (silently updates in the background, no user prompt — reasonable for an internal staff tool, not a public app people might be mid-task in when it updates).
+- Precaches the static app shell: `index.html`, main JS/CSS bundle, `manifest.webmanifest`, `registerSW.js`. `NavigationRoute` is registered, so offline navigation to any SPA route still serves the cached shell — the *app itself* loads offline already.
+- `runtimeCaching` only covers `fonts.googleapis.com` (`CacheFirst`). **Zero caching for `/api/*`** — every data fetch (students, appointments, dashboards, everything) simply fails with no fallback when offline.
+- **No offline-detection code anywhere in `src/`** — no `navigator.onLine` usage, no offline banner, no disabling form submit buttons when offline. A user who loses connection mid-form-fill gets a silent failed `fetch()`, not a clear "you're offline" message. This is explicitly required by CLAUDE.md's PWA/OFFLINE section and hasn't been built yet — correctly deferred, since it depends on the IndexedDB queue (Sprint 19) to actually be useful (an offline banner alone, with nowhere to queue the blocked write, would just be a dead end).
+
+**2 real bugs found, unrelated to the Sprint 19/20 queue work, left unfixed per this sprint's review-only scope (user's choice) — flagging for a 1-line fix whenever convenient:**
+1. `index.html:5` links `<link rel="manifest" href="/manifest.json">` — a static file left over from the original Figma prototype (unchanged since the initial commit). `vite-plugin-pwa` generates its own `manifest.webmanifest` (configured in `vite.config.ts`, with the real FLORAL name/theme-color/icons) but nothing in `index.html` actually references it, so **the PWA plugin's manifest config has had zero effect since Sprint 1** — browsers read the stale prototype manifest instead.
+2. **Both manifests reference `/icon-192.png` and `/icon-512.png`, and neither file exists anywhere in the repo** (`public/` only has `manifest.json`, no icon files) — confirmed via `ls`, not assumed. "Add to Home Screen" would currently show a broken/missing icon. `vite.config.ts`'s `includeAssets: ['icon-192.png', 'icon-512.png']` also references these non-existent files.
+
+**Recommendation for Sprint 19 (IndexedDB + FIFO queue)**: needs a schema for queued writes (student creates, treatment records, appointment updates — whatever the offline-capable write set ends up being, per CLAUDE.md's scope) with at minimum: `id`, `endpoint`, `method`, `body`, `timestamp` (for FIFO ordering — CLAUDE.md: "oldest timestamp first"), and a `status` field so a failed sync can be distinguished from a pending one. CLAUDE.md's "stop queue if sync fails, never skip" rule means the queue processor must be strictly sequential (process oldest, wait for success/definitive failure, only then proceed) — not fire-and-forget in parallel.
+
+**Recommendation for Sprint 20 (Workbox sync + conflict handling)**: Workbox's Background Sync API (`workbox-background-sync`) is the natural fit for retry-on-reconnect, but needs a real decision on conflict handling first — e.g. what happens if a student record was edited by someone else (different device/tab) while this device was offline and queued its own edit to the same record. CLAUDE.md doesn't currently specify a resolution strategy (last-write-wins vs. reject-and-flag-for-manual-review) — worth a grill-me round before building, since Sprint 19 is already flagged as complex enough to need one.
+
+## Not done yet (Sprint 18 additions)
+- `index.html`'s dead manifest link + missing PWA icon files (see bugs #1/#2 above) — not fixed this sprint per its review-only scope, but both are quick, low-risk fixes whenever the user wants them done (either now as a follow-up, or bundled into Sprint 19/20)
+- No offline banner, no disabled-forms-when-offline, no API response caching — all correctly deferred to Sprint 19/20, not gaps in this sprint's own scope
+
 ## Next sprint
-Sprint 18 → PWA service worker review (Phase 2 start). Do not start without explicit approval.
+Sprint 19 → IndexedDB + FIFO queue (Phase 2 continues). This is in CLAUDE.md's complex-sprint list — use /grill-me first, including the conflict-handling question flagged above. Do not start without explicit approval.
