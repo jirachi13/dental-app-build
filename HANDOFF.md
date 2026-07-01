@@ -1,7 +1,7 @@
-# HANDOFF — Sprint 15.5 Complete
+# HANDOFF — Sprint 16 Complete
 
 ## Status
-Sprints 1-15.5 done and verified against the real MongoDB Atlas cluster.
+Sprints 1-16 done and verified against the real MongoDB Atlas cluster.
 - Sprint 1: Express MVC + MongoDB connection
 - Sprint 2: SCHOOL, USER, STUDENT, DENTIST, DENTAL_AIDE models
 - Sprint 3: STUDENT_IPTR, MEDICAL_HISTORY, DIETARY_SOCIAL_HABITS, ORAL_HEALTH_CONDITION models
@@ -18,6 +18,7 @@ Sprints 1-15.5 done and verified against the real MongoDB Atlas cluster.
 - Sprint 14: found and fixed the real gap — PatientList's "Add New Student" form was still a fake alert(), never actually saving. Extended STUDENT with guardian/PhilHealth/4Ps/consent fields (real DOH IPTR data, not UI-invented) and wired the form to a real POST. Audited search/filter across all wired components — no bugs found, TypeScript already guarantees no stale field references.
 - Sprint 15: RBAC finally wired into all 16 CRUD routes (was built in Sprint 7, unused until now — every route was open to anyone, logged in or not). Real audit-trail writes on every create/update/archive/restore. Discovered and fixed a critical consequence of this exact change: requireAuth now actually enforces the 15-minute access-token expiry, so added transparent 401-refresh-and-retry to the frontend API client — without it, the whole app would break every 15 minutes.
 - Sprint 15.5: manual OWASP Top 10 audit (forked, real code review not from memory) found 1 Critical + 3 High findings, all fixed and verified: real passwords committed to git (rotated + removed hardcoded values from source), CORS reflecting any origin with credentials (locked to an allowlist), deactivated users keeping access for up to 7 days via stale refresh tokens (now re-checks DB), and 3 vulnerable dependencies with public CVEs (patched, 0 vulnerabilities remaining). Medium/Low findings deferred — see notes below.
+- Sprint 16: Client-side OCR (Tesseract.js) for scanning paper DOH IPTR forms into the Add Student form, with PDF support (pdfjs-dist rasterization, multi-page merge) and confidence-flagged pre-fill (no field is ever silently trusted). Verified against a real Barangay Tanyag IPTR form PDF, not just synthetic text — found and fixed 2 real bugs in the process (see notes below).
 
 ## What exists now
 **Backend** (`dental-4-12-main/project/server/`):
@@ -162,5 +163,29 @@ Ran a forked subagent to do a real OWASP Top 10 review reading actual current co
 - A genuine UI/visual polish pass (empty states, skeleton loaders, inline form validation, mobile/tablet responsiveness, button-style consistency) has NOT been done — Sprint 14 fixed a functional bug (Add Student), not a visual audit. Flagged to the user as needing its own dedicated sprint if wanted.
 - Security Medium/Low findings from the Sprint 15.5 audit (see above) — deterministic encryption IV, no rate limiting, no password strength check, missing security headers, JWT algorithm pinning, email format validation
 
+## Sprint 16 notes
+Scope decided via grill-me before building: client-side OCR (not a server endpoint — keeps scanned images of minors' data off any backend until staff explicitly save the reviewed form), always show an editable pre-filled form with low-confidence fields flagged rather than ever auto-trusting OCR output, file upload only (JPG/PNG/PDF, no live camera capture).
+
+**What was built:**
+- `src/app/utils/iptrOcr.ts` — `extractIptrFields(file, onProgress)`: runs Tesseract.js (`createWorker` + `blocks: true` output to get word-level confidence, not the top-level `Tesseract.recognize()` convenience function which defaults `blocks: false`) against an uploaded image, or against every rasterized page of a PDF (via `pdfjs-dist`, scale 2x) with results merged — earlier pages win, later pages fill gaps a prior page didn't find. Extracts name (split into first/middle/last), birthdate, age, sex, address, contact number, grade, section via label-matching regex, computes per-field confidence from the OCR word list.
+- `PatientList.tsx` — new "Scan IPTR Form" button (dentist/dental_aide only, next to "Add Student") opens an upload modal → runs OCR with a progress spinner → opens the existing Add Student modal pre-filled, with any field under 70% confidence (`OCR_CONFIDENCE_THRESHOLD`) outlined in yellow with a "please verify" hint, plus a banner explaining nothing was auto-trusted. Added a `contactNumber` field to the Add Student form — STUDENT already had `contact_number` in the schema (Sprint 2) but the form never exposed it, so OCR had no target field for it.
+- `src/vite-env.d.ts` — added (`/// <reference types="vite/client" />`); didn't exist before, needed for the `?url` import used to load the pdf.js worker script as a Vite asset URL.
+- New deps: `tesseract.js`, `pdfjs-dist`.
+
+**2 real bugs found and fixed by testing against an actual scanned Barangay Tanyag IPTR form** (not synthetic test text — the user provided a real blank form PDF from the DOH IPTR "Individual Patient Treatment Record"):
+1. **Cross-field label bleeding**: the original label-matching regex captured everything up to the next newline as a field's value. Real paper forms print several fields on one line (`Patient's Name: ____ Birthday:__/__/__ Age: __ Sex: ____`), so e.g. "Sex:" was getting captured as the *value* for Name. Fixed by adding a shared `ALL_FIELD_LABELS` boundary list — every field's capture now stops at the next known label (same-line or not), not just at a newline. Also added `isPlaceholder()` to reject unfilled placeholder text (underscores, slashes, `mm/dd/yyyy`) as a real value.
+2. **Contact Number label mismatch**: the real form prints `Contact #:`, but the regex only matched "Contact No." / "Contact Number" — added `#` as a recognized suffix.
+
+**Confirmed gap in the real form vs. CLAUDE.md's OCR field list**: the actual Barangay Tanyag IPTR form has no Grade Level or Section field anywhere on it — only Patient's Name, Birthday, Age, Sex, Address, Occupation, Contact #, PhilHealth #, and 4Ps/NHTS. CLAUDE.md's OCR module spec lists grade level and section as extractable fields, but they don't exist on this document; they'd need to come from a separate school-registration source. Worth raising with the adviser — not something to silently paper over.
+
+**Known non-issue, deliberately left out (YAGNI)**: the same PDF's second page (dental charting grid) is scanned upside-down (180° rotated). Our OCR pipeline (rasterize → Tesseract, no orientation correction) would not read it correctly. Doesn't matter today since none of the 8 target fields are on that page and dental-chart OCR isn't in scope — flagged so it's not a surprise if chart-OCR is ever attempted later; would need Tesseract's OSD mode or a try-both-orientations heuristic at that point.
+
+**Verified**: `tsc --noEmit` clean on the frontend, `npm run build` succeeds, manually tested end-to-end via `npm run dev` + `tsx server/local.ts` against a real scanned form. No browser automation tool available in this environment, so the actual click-through was done by the user, not by an automated screenshot check — flagged honestly per this project's existing verification standard.
+
+## Not done yet (Sprint 16 additions)
+- OCR only extracts from image/PDF page 1 orientation as-scanned — no rotation auto-correction (see note above)
+- OCR extraction confirmed to not find grade_level/section on the real form (no bug, the field genuinely isn't on the paper form) — staff will need to fill grade/section manually every time until/unless a different data source is wired in
+- No filled (non-blank) real IPTR form has been tested yet — only confirmed correct behavior on a blank form (extracts nothing, no bleed) and label-boundary logic reasoned through code review; actual populated-field accuracy is unverified
+
 ## Next sprint
-Sprint 16 → OCR Tesseract.js IPTR scanning. Do not start without explicit approval.
+Sprint 17 → Deploy to Vercel (redeploy — an earlier auto-deploy is stale per Vercel's dashboard, per Sprint 15.5 notes). Do not start without explicit approval.

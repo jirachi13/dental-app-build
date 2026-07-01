@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Eye, FileText, X, School as SchoolIcon, List, ChevronRight, Users, Upload, CheckCircle, AlertCircle } from 'lucide-react';
+import { Plus, Eye, FileText, X, School as SchoolIcon, List, ChevronRight, Users, Upload, CheckCircle, AlertCircle, ScanLine } from 'lucide-react';
+import { extractIptrFields, OCR_CONFIDENCE_THRESHOLD, type IptrOcrFieldKey } from '../utils/iptrOcr';
 import { getGradeColor } from '../utils/gradeColors';
 import { formatStudentName } from '../utils/formatStudentName';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
@@ -49,10 +50,15 @@ export const PatientList = () => {
   const [ageGroupFilter, setAgeGroupFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newPatient, setNewPatient] = useState({ firstName:'', lastName:'', middleName:'', birthdate:'', gender:'', grade:'', section:'', school:'', guardianName:'', guardianContact:'', address:'', philhealthNumber:'', philhealthStatus:'None', is4Ps:false, fourPsId:'', consentStatus:'pending' });
+  const [newPatient, setNewPatient] = useState({ firstName:'', lastName:'', middleName:'', birthdate:'', gender:'', grade:'', section:'', school:'', guardianName:'', guardianContact:'', address:'', contactNumber:'', philhealthNumber:'', philhealthStatus:'None', is4Ps:false, fourPsId:'', consentStatus:'pending' });
   const [addPatientError, setAddPatientError] = useState<string | null>(null);
   const [addingPatient, setAddingPatient] = useState(false);
   const [schools, setSchools] = useState<ApiSchool[]>([]);
+  const [showOcrUpload, setShowOcrUpload] = useState(false);
+  const [ocrProcessing, setOcrProcessing] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [ocrError, setOcrError] = useState<string | null>(null);
+  const [ocrConfidences, setOcrConfidences] = useState<Partial<Record<IptrOcrFieldKey, number>>>({});
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [bulkFile, setBulkFile] = useState<File | null>(null);
   const [bulkPreview, setBulkPreview] = useState<any[]>([]);
@@ -101,6 +107,7 @@ export const PatientList = () => {
         birthday: newPatient.birthdate,
         sex: newPatient.gender,
         address: newPatient.address,
+        contact_number: newPatient.contactNumber,
         grade_level: newPatient.grade,
         section: newPatient.section,
         guardian_name: newPatient.guardianName,
@@ -113,12 +120,57 @@ export const PatientList = () => {
       });
       await reloadStudents();
       setShowAddForm(false);
-      setNewPatient({ firstName:'', lastName:'', middleName:'', birthdate:'', gender:'', grade:'', section:'', school:'', guardianName:'', guardianContact:'', address:'', philhealthNumber:'', philhealthStatus:'None', is4Ps:false, fourPsId:'', consentStatus:'pending' });
+      setNewPatient({ firstName:'', lastName:'', middleName:'', birthdate:'', gender:'', grade:'', section:'', school:'', guardianName:'', guardianContact:'', address:'', contactNumber:'', philhealthNumber:'', philhealthStatus:'None', is4Ps:false, fourPsId:'', consentStatus:'pending' });
+      setOcrConfidences({});
     } catch (err) {
       setAddPatientError(err instanceof ApiError ? err.message : 'Failed to add student');
     } finally {
       setAddingPatient(false);
     }
+  };
+
+  const handleOcrFile = async (file: File) => {
+    setOcrError(null);
+    setOcrProcessing(true);
+    setOcrProgress(0);
+    try {
+      const result = await extractIptrFields(file, setOcrProgress);
+      setNewPatient((prev) => ({
+        ...prev,
+        firstName: result.fields.firstName ?? prev.firstName,
+        middleName: result.fields.middleName ?? prev.middleName,
+        lastName: result.fields.lastName ?? prev.lastName,
+        birthdate: result.fields.birthdate ?? prev.birthdate,
+        gender: result.fields.gender ?? prev.gender,
+        address: result.fields.address ?? prev.address,
+        contactNumber: result.fields.contactNumber ?? prev.contactNumber,
+        grade: result.fields.grade ?? prev.grade,
+        section: result.fields.section ?? prev.section,
+      }));
+      setOcrConfidences(result.confidences);
+      setShowOcrUpload(false);
+      setShowAddForm(true);
+    } catch {
+      setOcrError('Could not read the image. Try a clearer photo or enter details manually.');
+    } finally {
+      setOcrProcessing(false);
+    }
+  };
+
+  const ocrFieldClass = (key: IptrOcrFieldKey) => {
+    const conf = ocrConfidences[key];
+    if (conf === undefined) return 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+    return conf < OCR_CONFIDENCE_THRESHOLD
+      ? 'w-full border-2 border-yellow-400 bg-yellow-50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500'
+      : 'w-full border border-green-300 bg-green-50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+  };
+
+  const ocrHint = (key: IptrOcrFieldKey) => {
+    const conf = ocrConfidences[key];
+    if (conf === undefined) return null;
+    return conf < OCR_CONFIDENCE_THRESHOLD
+      ? <span className="text-xs text-yellow-700 ml-1">⚠ scanned, please verify ({conf}%)</span>
+      : <span className="text-xs text-green-700 ml-1">✓ scanned ({conf}%)</span>;
   };
 
   // Filter by selected school context
@@ -239,9 +291,14 @@ export const PatientList = () => {
         </div>
         <div className="flex items-center gap-3">
 {canAddStudent && (
-            <button onClick={() => setShowAddForm(true)} className="flex items-center gap-2 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
-              <Plus className="w-4 h-4" /> Add Student
-            </button>
+            <>
+              <button onClick={() => { setOcrError(null); setShowOcrUpload(true); }} className="flex items-center gap-2 px-4 py-2 border border-[#1E40AF] text-[#1E40AF] rounded-lg hover:bg-blue-50 text-sm font-medium">
+                <ScanLine className="w-4 h-4" /> Scan IPTR Form
+              </button>
+              <button onClick={() => { setOcrConfidences({}); setShowAddForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                <Plus className="w-4 h-4" /> Add Student
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -429,40 +486,85 @@ export const PatientList = () => {
         </div>
       )}
 
+      {/* Scan IPTR Form Modal */}
+      {showOcrUpload && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h2 className="text-lg font-bold text-gray-900">Scan IPTR Form</h2>
+              <button onClick={() => setShowOcrUpload(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
+                <FileText className="w-3.5 h-3.5 inline mr-1" />
+                Upload a clear photo, scan (JPG/PNG), or PDF of the paper IPTR form. Name, birthday, age, sex, address, contact number, grade level, and section will be extracted automatically — you'll review and correct before saving.
+              </div>
+              {!ocrProcessing ? (
+                <div
+                  className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"
+                  onClick={() => document.getElementById('ocr-file-input')?.click()}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) handleOcrFile(file); }}
+                >
+                  <ScanLine className="w-8 h-8 text-gray-400 mx-auto mb-3" />
+                  <p className="text-sm text-gray-600 font-medium">Drop IPTR image here</p>
+                  <p className="text-xs text-gray-400 mt-1">or click to browse</p>
+                  <input id="ocr-file-input" type="file" accept="image/png,image/jpeg,image/jpg,application/pdf" className="hidden"
+                    onChange={e => { if (e.target.files?.[0]) handleOcrFile(e.target.files[0]); }} />
+                </div>
+              ) : (
+                <div className="p-8 text-center">
+                  <div className="w-10 h-10 border-4 border-blue-200 border-t-[#1E40AF] rounded-full animate-spin mx-auto mb-3" />
+                  <p className="text-sm text-gray-600 font-medium">Scanning form… {ocrProgress}%</p>
+                </div>
+              )}
+              {ocrError && <p className="text-sm text-red-600">{ocrError}</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Student Modal */}
       {showAddForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b">
               <h2 className="text-lg font-bold text-gray-900">Add New Student</h2>
-              <button onClick={() => setShowAddForm(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+              <button onClick={() => { setShowAddForm(false); setOcrConfidences({}); }} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-6 space-y-4">
+              {Object.keys(ocrConfidences).length > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700 flex items-start gap-2">
+                  <ScanLine className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  <span>Pre-filled from scanned IPTR form. Fields outlined in yellow had low scan confidence — double-check them before saving.</span>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label><input type="text" value={newPatient.lastName} onChange={e => setNewPatient({...newPatient, lastName: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label><input type="text" value={newPatient.firstName} onChange={e => setNewPatient({...newPatient, firstName: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">Last Name * {ocrHint('lastName')}</label><input type="text" value={newPatient.lastName} onChange={e => setNewPatient({...newPatient, lastName: e.target.value})} className={ocrFieldClass('lastName')} /></div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">First Name * {ocrHint('firstName')}</label><input type="text" value={newPatient.firstName} onChange={e => setNewPatient({...newPatient, firstName: e.target.value})} className={ocrFieldClass('firstName')} /></div>
               </div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Middle Name</label><input type="text" value={newPatient.middleName} onChange={e => setNewPatient({...newPatient, middleName: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
+              <div><label className="block text-sm font-medium text-gray-700 mb-1">Middle Name {ocrHint('middleName')}</label><input type="text" value={newPatient.middleName} onChange={e => setNewPatient({...newPatient, middleName: e.target.value})} className={ocrFieldClass('middleName')} /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Birthdate *</label><input type="date" value={newPatient.birthdate} onChange={e => setNewPatient({...newPatient, birthdate: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Gender *</label><select value={newPatient.gender} onChange={e => setNewPatient({...newPatient, gender: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="">Select</option><option>Male</option><option>Female</option></select></div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">Birthdate * {ocrHint('birthdate')}</label><input type="date" value={newPatient.birthdate} onChange={e => setNewPatient({...newPatient, birthdate: e.target.value})} className={ocrFieldClass('birthdate')} /></div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">Gender * {ocrHint('gender')}</label><select value={newPatient.gender} onChange={e => setNewPatient({...newPatient, gender: e.target.value})} className={ocrFieldClass('gender')}><option value="">Select</option><option>Male</option><option>Female</option></select></div>
               </div>
               <div><label className="block text-sm font-medium text-gray-700 mb-1">School *</label><select value={newPatient.school} onChange={e => setNewPatient({...newPatient, school: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="">Select School</option>{SCHOOLS.map(s => <option key={s}>{s}</option>)}</select></div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Grade *</label><select value={newPatient.grade} onChange={e => setNewPatient({...newPatient, grade: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="">Select Grade</option>{GRADES.map(g => <option key={g}>{g}</option>)}</select></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Section *</label><input type="text" value={newPatient.section} onChange={e => setNewPatient({...newPatient, section: e.target.value})} placeholder="e.g. Sampaguita" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">Grade * {ocrHint('grade')}</label><select value={newPatient.grade} onChange={e => setNewPatient({...newPatient, grade: e.target.value})} className={ocrFieldClass('grade')}><option value="">Select Grade</option>{GRADES.map(g => <option key={g}>{g}</option>)}</select></div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">Section * {ocrHint('section')}</label><input type="text" value={newPatient.section} onChange={e => setNewPatient({...newPatient, section: e.target.value})} placeholder="e.g. Sampaguita" className={ocrFieldClass('section')} /></div>
               </div>
+              <div><label className="block text-sm font-medium text-gray-700 mb-1">Contact Number {ocrHint('contactNumber')}</label><input type="text" value={newPatient.contactNumber} onChange={e => setNewPatient({...newPatient, contactNumber: e.target.value})} placeholder="09XX-XXX-XXXX" className={ocrFieldClass('contactNumber')} /></div>
               <div><label className="block text-sm font-medium text-gray-700 mb-1">Guardian Name *</label><input type="text" value={newPatient.guardianName} onChange={e => setNewPatient({...newPatient, guardianName: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
               <div><label className="block text-sm font-medium text-gray-700 mb-1">Guardian Contact</label><input type="text" value={newPatient.guardianContact} onChange={e => setNewPatient({...newPatient, guardianContact: e.target.value})} placeholder="09XX-XXX-XXXX" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
               <div><label className="block text-sm font-medium text-gray-700 mb-1">PhilHealth Number</label><input type="text" value={newPatient.philhealthNumber} onChange={e => setNewPatient({...newPatient, philhealthNumber: e.target.value})} placeholder="XX-XXXXXXXXX-X" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
               <div><label className="block text-sm font-medium text-gray-700 mb-1">PhilHealth Status</label><select value={newPatient.philhealthStatus} onChange={e => setNewPatient({...newPatient, philhealthStatus: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="None">None</option><option value="Principal">Principal</option><option value="Dependent">Dependent</option></select></div>
               <div className="flex items-center gap-3 pt-2"><input type="checkbox" id="is4ps" checked={newPatient.is4Ps} onChange={e => setNewPatient({...newPatient, is4Ps: e.target.checked})} className="w-4 h-4 rounded accent-blue-600" /><label htmlFor="is4ps" className="text-sm font-medium text-gray-700">4Ps / NHTS Member</label></div>
               {newPatient.is4Ps && <div><label className="block text-sm font-medium text-gray-700 mb-1">4Ps ID</label><input type="text" value={newPatient.fourPsId} onChange={e => setNewPatient({...newPatient, fourPsId: e.target.value})} placeholder="4PS-XXXXXXXX" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>}
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Address</label><input type="text" value={newPatient.address} onChange={e => setNewPatient({...newPatient, address: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
+              <div><label className="block text-sm font-medium text-gray-700 mb-1">Address {ocrHint('address')}</label><input type="text" value={newPatient.address} onChange={e => setNewPatient({...newPatient, address: e.target.value})} className={ocrFieldClass('address')} /></div>
               {addPatientError && <p className="text-sm text-red-600">{addPatientError}</p>}
             </div>
             <div className="flex gap-3 p-6 border-t">
-              <button onClick={() => setShowAddForm(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">Cancel</button>
+              <button onClick={() => { setShowAddForm(false); setOcrConfidences({}); }} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">Cancel</button>
               <button onClick={handleAddStudent} disabled={addingPatient} className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 text-sm font-medium">{addingPatient ? 'Adding…' : 'Add Student'}</button>
             </div>
           </div>
