@@ -54,6 +54,44 @@ export interface ApiRiskStratification {
   _id: string;
   preventive_id: string;
   risk_level: "High" | "Medium" | "Low";
+  dmf_score: number;
+  dmf_index: "DMF" | "dmf";
+}
+
+export interface ApiMedicalHistory {
+  _id: string;
+  iptr_id: string;
+  allergies: string;
+  diabetes_mellitus: boolean;
+  hypertension: boolean;
+  cardiovascular_disease: boolean;
+  thyroid_disorders: boolean;
+  hepatitis_disorders: boolean;
+  malignancy: boolean;
+  previous_hospitalization: boolean;
+  previous_surgical: boolean;
+  blood_transfusion: boolean;
+  tattoo: boolean;
+}
+
+export interface ApiDietarySocialHabits {
+  _id: string;
+  iptr_id: string;
+  sugar_beverages: boolean;
+  alcohol_drinker: boolean;
+  tobacco_user: boolean;
+  betel_nut_chewer: boolean;
+}
+
+export interface ApiOralHealthCondition {
+  _id: string;
+  iptr_id: string;
+  oral_hygiene: string;
+  gingivitis: boolean;
+  periodontal_disease: boolean;
+  debris: boolean;
+  calculus: boolean;
+  abnormal_growth: boolean;
 }
 
 export interface ApiTreatment {

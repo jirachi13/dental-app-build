@@ -39,6 +39,12 @@ import {
   RadialBar
 } from 'recharts';
 import { Link } from 'react-router';
+import { useEffect, useMemo, useState } from 'react';
+import { useStudents } from '../hooks/useStudents';
+import { useAppointments } from '../hooks/useAppointments';
+import { useRPCTracking } from '../hooks/useRPCTracking';
+import { apiClient } from '../api/client';
+import type { ApiUser, ApiTreatment, ApiStudentIptr } from '../api/types';
 
 export const Dashboard = () => {
   const { user, selectedSchool, setSelectedSchool } = useAuth();
@@ -56,6 +62,85 @@ export const Dashboard = () => {
     cyan: '#06B6D4',
     green: '#16A34A',
   };
+
+  const { students: allStudentsRaw, loading: studentsLoading } = useStudents();
+  const { sessions: allSessions, loading: appointmentsLoading } = useAppointments();
+  const { records: rpcRecords, loading: rpcLoading } = useRPCTracking();
+  const [users, setUsers] = useState<ApiUser[]>([]);
+  const [treatmentCount, setTreatmentCount] = useState(0);
+  const [iptrsByStudent, setIptrsByStudent] = useState<Map<string, string[]>>(new Map());
+  const [chartedIptrIds, setChartedIptrIds] = useState<Set<string>>(new Set());
+  const [extraLoading, setExtraLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const [apiUsers, treatments, iptrs, charts] = await Promise.all([
+        apiClient.get<ApiUser[]>('/users'),
+        apiClient.get<ApiTreatment[]>('/treatments'),
+        apiClient.get<ApiStudentIptr[]>('/student-iptrs'),
+        apiClient.get<{ iptr_id: string }[]>('/dental-charts'),
+      ]);
+      setUsers(apiUsers);
+      setTreatmentCount(treatments.length);
+      const byStudent = new Map<string, string[]>();
+      for (const i of iptrs) {
+        const list = byStudent.get(i.student_id) ?? [];
+        list.push(i._id);
+        byStudent.set(i.student_id, list);
+      }
+      setIptrsByStudent(byStudent);
+      setChartedIptrIds(new Set(charts.map((c) => c.iptr_id)));
+      setExtraLoading(false);
+    })();
+  }, []);
+
+  const loading = studentsLoading || appointmentsLoading || rpcLoading || extraLoading;
+
+  const allStudents = useMemo(
+    () => (selectedSchool ? allStudentsRaw.filter((s) => s.school === selectedSchool) : allStudentsRaw),
+    [allStudentsRaw, selectedSchool],
+  );
+  const todaySessions = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const sessions = selectedSchool ? allSessions.filter((s) => s.school === selectedSchool) : allSessions;
+    return sessions.filter((s) => s.date === today);
+  }, [allSessions, selectedSchool]);
+  const scopedRpc = useMemo(
+    () => (selectedSchool ? rpcRecords.filter((r) => r.school === selectedSchool) : rpcRecords),
+    [rpcRecords, selectedSchool],
+  );
+  const highRiskCount = allStudents.filter((s) => s.riskLevel === 'High').length;
+  const mediumRiskCount = allStudents.filter((s) => s.riskLevel === 'Medium').length;
+  const lowRiskCount = allStudents.filter((s) => s.riskLevel === 'Low').length;
+  const screenedCount = allStudents.filter((s) => s.riskLevel !== null).length;
+  const rpcCompletionRate = scopedRpc.length ? Math.round((scopedRpc.filter((r) => r.status === 'complete').length / scopedRpc.length) * 100) : 0;
+  const pendingChartsCount = allStudents.filter((s) => {
+    const iptrIds = iptrsByStudent.get(s.id) ?? [];
+    return iptrIds.length > 0 && !iptrIds.some((id) => chartedIptrIds.has(id));
+  }).length;
+  const rpcOverdueCount = scopedRpc.filter((r) => r.status === 'overdue').length;
+  const rpcPendingCount = scopedRpc.filter((r) => r.status === 'pending').length;
+
+  // Real appointment sessions for the current calendar week, bucketed by day + status.
+  const weekAppointmentsByDay = useMemo(() => {
+    const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    const scoped = selectedSchool ? allSessions.filter((s) => s.school === selectedSchool) : allSessions;
+    return DAY_LABELS.map((label, i) => {
+      const day = new Date(startOfWeek);
+      day.setDate(startOfWeek.getDate() + i);
+      const dateStr = day.toISOString().slice(0, 10);
+      const daySessions = scoped.filter((s) => s.date === dateStr);
+      return {
+        day: label,
+        completed: daySessions.filter((s) => s.status === 'Completed').length,
+        scheduled: daySessions.filter((s) => s.status === 'Scheduled' || s.status === 'In Progress').length,
+        cancelled: daySessions.filter((s) => s.status === 'Missed').length,
+      };
+    });
+  }, [allSessions, selectedSchool]);
 
   const StatCard = ({ icon: Icon, label, value, color, trend, progress, linkTo }: any) => {
     const content = (
@@ -122,13 +207,20 @@ export const Dashboard = () => {
     );
   };
 
+  if (loading) {
+    return <div className="text-sm text-gray-500 p-8 text-center">Loading dashboard…</div>;
+  }
+
   // ===== DENTIST DASHBOARD =====
   if (user?.role === 'dentist') {
     const riskDistributionData = [
-      { name: 'High Risk', value: 24, color: COLORS.red },
-      { name: 'Medium Risk', value: 58, color: COLORS.yellow },
-      { name: 'Low Risk', value: 138, color: COLORS.green },
+      { name: 'High Risk', value: highRiskCount, color: COLORS.red },
+      { name: 'Medium Risk', value: mediumRiskCount, color: COLORS.yellow },
+      { name: 'Low Risk', value: lowRiskCount, color: COLORS.green },
     ];
+    // Oral Health Trend (6-month) is intentionally left as illustrative data —
+    // it needs historical monthly snapshots we don't have yet, and fabricating
+    // fake history would be worse than clearly-labeled placeholder data.
 
     const oralHealthTrendData = [
       { month: 'Jan', decayed: 45, treated: 28, orallyFit: 127 },
@@ -158,23 +250,22 @@ export const Dashboard = () => {
           <StatCard
             icon={Users}
             label="Total Patients"
-            value="215"
+            value={String(allStudents.length)}
             color="text-blue-600"
-            trend="↑ 12 this month"
             linkTo="/patients"
           />
           <StatCard
             icon={Calendar}
             label="Today's Appointments"
-            value="7"
+            value={String(todaySessions.length)}
             color="text-cyan-600"
-            trend="Next: 9:00 AM"
+            trend={todaySessions[0] ? `Next: ${todaySessions[0].time}` : undefined}
             linkTo="/appointments"
           />
           <StatCard
             icon={AlertCircle}
             label="High-Risk Patients"
-            value="24"
+            value={String(highRiskCount)}
             color="text-red-600"
             trend="Needs validation"
             linkTo="/patients?risk=high"
@@ -182,14 +273,14 @@ export const Dashboard = () => {
           <StatCard
             icon={Shield}
             label="RPC Completion Rate"
-            value="87%"
+            value={`${rpcCompletionRate}%`}
             color="text-green-600"
-            progress={87}
+            progress={rpcCompletionRate}
             linkTo="/rpc"
           />
         </div>
 
-        {/* Charts Row: Risk Distribution (LEFT) + Oral Health Trend (RIGHT) */}
+        {/* Charts Row: Risk Distribution (LEFT) + Oral Health Trend (RIGHT, illustrative — see note above) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
             <h2 className="text-sm font-bold text-gray-900 mb-3">Risk Distribution</h2>
@@ -244,16 +335,10 @@ export const Dashboard = () => {
 
   // ===== DENTAL AIDE DASHBOARD =====
   if (user?.role === 'dental_aide') {
-    const appointmentsByStatusData = [
-      { day: 'Mon', completed: 12, scheduled: 8, cancelled: 2 },
-      { day: 'Tue', completed: 15, scheduled: 10, cancelled: 1 },
-      { day: 'Wed', completed: 10, scheduled: 12, cancelled: 3 },
-      { day: 'Thu', completed: 14, scheduled: 9, cancelled: 2 },
-      { day: 'Fri', completed: 16, scheduled: 11, cancelled: 1 },
-      { day: 'Sat', completed: 8, scheduled: 5, cancelled: 0 },
-      { day: 'Sun', completed: 5, scheduled: 3, cancelled: 1 },
-    ];
+    const appointmentsByStatusData = weekAppointmentsByDay;
 
+    // Pending Tasks has no backing model in the ERD (no Task entity) — left as
+    // illustrative data, consistent with the AuditTrail.tsx precedent.
     const tasksByPriorityData = [
       { priority: 'High', count: 12 },
       { priority: 'Medium', count: 28 },
@@ -279,30 +364,29 @@ export const Dashboard = () => {
           <StatCard
             icon={Calendar}
             label="Appointments Today"
-            value="12"
+            value={String(todaySessions.length)}
             color="text-blue-600"
             linkTo="/appointments"
           />
           <StatCard
             icon={FileText}
             label="Pending Charts"
-            value="8"
+            value={String(pendingChartsCount)}
             color="text-yellow-600"
             trend="to complete"
             linkTo="/dental-charts"
           />
           <StatCard
             icon={AlertCircle}
-            label="Follow-ups Due"
-            value="15"
+            label="RPC Follow-ups Overdue"
+            value={String(rpcOverdueCount)}
             color="text-red-600"
-            trend="this week"
-            linkTo="/patients"
+            linkTo="/rpc"
           />
           <StatCard
             icon={Shield}
             label="RPC Visits Pending"
-            value="23"
+            value={String(rpcPendingCount)}
             color="text-cyan-600"
             linkTo="/rpc"
           />
@@ -310,7 +394,7 @@ export const Dashboard = () => {
 
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Appointments by Status - Stacked Bar Chart */}
+          {/* Appointments by Status - Stacked Bar Chart (real, current week) */}
           <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
             <h2 className="text-sm font-bold text-gray-900 mb-3">Appointments by Status (This Week)</h2>
             <ResponsiveContainer width="100%" height={220} key="appt-status-container">
@@ -382,21 +466,29 @@ export const Dashboard = () => {
 
   // ===== SCHOOL ADMIN DASHBOARD =====
   if (user?.role === 'school_admin') {
+    const schoolName = user.schools?.[0];
+    const schoolStudents = schoolName ? allStudentsRaw.filter((s) => s.school === schoolName) : [];
+    const schoolScreenedCount = schoolStudents.filter((s) => s.riskLevel !== null).length;
+    const coveragePct = schoolStudents.length ? Math.round((schoolScreenedCount / schoolStudents.length) * 100) : 0;
+
     const screeningCoverageData = [
-      { name: 'Screened', value: 85, fill: COLORS.blue },
+      { name: 'Screened', value: coveragePct, fill: COLORS.blue },
     ];
 
     const oralHealthStatusData = [
-      { name: 'Orally Fit', value: 142, color: COLORS.green },
-      { name: 'Needs Treatment', value: 68, color: COLORS.red },
-      { name: 'Under Treatment', value: 45, color: COLORS.blue },
-      { name: 'Needs Follow-up', value: 32, color: COLORS.yellow },
+      { name: 'Orally Fit', value: schoolStudents.filter((s) => s.oralStatus === 'Orally Fit').length, color: COLORS.green },
+      { name: 'Needs Treatment', value: schoolStudents.filter((s) => s.oralStatus === 'Needs Treatment').length, color: COLORS.red },
+      { name: 'Under Treatment', value: schoolStudents.filter((s) => s.oralStatus === 'Under Treatment').length, color: COLORS.blue },
+      { name: 'Not Yet Screened', value: schoolStudents.filter((s) => s.oralStatus === 'Not Yet Screened').length, color: COLORS.yellow },
     ];
 
-    const upcomingEvents = [
-      { name: 'Bayanihan Dental Mission', date: '2026-04-20', school: 'Bagong Tanyag Integrated', students: 120 },
-      { name: 'Fluoride Application Day', date: '2026-04-25', school: 'Bagong Tanyag Integrated', students: 85 },
-    ];
+    const schoolSessions = schoolName ? allSessions.filter((s) => s.school === schoolName) : [];
+    const today = new Date().toISOString().slice(0, 10);
+    const upcomingEvents = schoolSessions
+      .filter((s) => s.type === 'Bayanihan Mission' && s.date >= today)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((s) => ({ name: s.type, date: s.date, school: s.school, students: s.studentCount }));
+    const nextUpcomingSession = [...schoolSessions].filter((s) => s.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0];
 
     return (
       <div className="space-y-4">
@@ -410,29 +502,29 @@ export const Dashboard = () => {
           <StatCard
             icon={Users}
             label="Students Enrolled"
-            value="320"
+            value={String(schoolStudents.length)}
             color="text-blue-600"
             linkTo="/reports"
           />
           <StatCard
             icon={CheckCircle}
             label="Students Screened"
-            value="272"
+            value={String(schoolScreenedCount)}
             color="text-green-600"
-            trend="85% coverage"
+            trend={`${coveragePct}% coverage`}
             linkTo="/reports"
           />
           <StatCard
             icon={Activity}
             label="Treatments Completed"
-            value="156"
+            value={String(treatmentCount)}
             color="text-cyan-600"
             linkTo="/reports"
           />
           <StatCard
             icon={Calendar}
             label="Upcoming Visits"
-            value="Apr 20"
+            value={nextUpcomingSession ? nextUpcomingSession.date : 'None scheduled'}
             color="text-yellow-600"
             linkTo="/appointments"
           />
@@ -461,7 +553,7 @@ export const Dashboard = () => {
                   key="screening-radial-bar"
                 />
                 <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="text-4xl font-bold fill-gray-900">
-                  85%
+                  {coveragePct}%
                 </text>
               </RadialBarChart>
             </ResponsiveContainer>
@@ -524,12 +616,23 @@ export const Dashboard = () => {
 
   // ===== BARANGAY HEALTH OFFICE DASHBOARD =====
   if (user?.role === 'bho_staff') {
-    const schoolComparisonData = [
-      { school: 'Bagong Tanyag Integrated', screened: 272, treated: 156, highRisk: 24 },
-      { school: 'Annex A', screened: 245, treated: 138, highRisk: 18 },
-      { school: 'South Daang Hari', screened: 298, treated: 175, highRisk: 28 },
-    ];
+    const SCHOOLS_SHORT: Record<string, string> = {
+      'Bagong Tanyag Integrated School': 'Bagong Tanyag Integrated',
+      'Bagong Tanyag Elementary School Annex A': 'Annex A',
+      'South Daang Hari Elementary School Main': 'South Daang Hari',
+    };
+    const schoolComparisonData = Object.entries(SCHOOLS_SHORT).map(([full, short]) => {
+      const students = allStudentsRaw.filter((s) => s.school === full);
+      return {
+        school: short,
+        screened: students.filter((s) => s.riskLevel !== null).length,
+        treated: 0, // no real Treatment records exist yet — see HANDOFF
+        highRisk: students.filter((s) => s.riskLevel === 'High').length,
+      };
+    });
 
+    // Monthly Program Coverage Trend is intentionally illustrative — needs
+    // historical monthly snapshots we don't have yet.
     const coverageTrendData = [
       { month: 'Jan', coverage: 65 },
       { month: 'Feb', coverage: 68 },
@@ -539,11 +642,27 @@ export const Dashboard = () => {
       { month: 'Jun', coverage: 82 },
     ];
 
-    const ageGroupData = [
-      { bracket: '0-5 years', total: 85, orallyFit: 58, needsTreatment: 27 },
-      { bracket: '6-14 years', total: 612, orallyFit: 378, needsTreatment: 234 },
-      { bracket: '15-19 years', total: 118, orallyFit: 82, needsTreatment: 36 },
-    ];
+    const bracketOf = (birthdate: string) => {
+      const age = new Date().getFullYear() - new Date(birthdate).getFullYear();
+      if (age <= 5) return '0-5 years';
+      if (age <= 14) return '6-14 years';
+      return '15-19 years';
+    };
+    const ageGroupData = ['0-5 years', '6-14 years', '15-19 years'].map((bracket) => {
+      const inBracket = allStudentsRaw.filter((s) => bracketOf(s.birthdate) === bracket);
+      return {
+        bracket,
+        total: inBracket.length,
+        orallyFit: inBracket.filter((s) => s.oralStatus === 'Orally Fit').length,
+        needsTreatment: inBracket.filter((s) => s.oralStatus === 'Needs Treatment').length,
+      };
+    });
+
+    const totalStudents = allStudentsRaw.length;
+    const totalScreened = allStudentsRaw.filter((s) => s.riskLevel !== null).length;
+    const programCoveragePct = totalStudents ? Math.round((totalScreened / totalStudents) * 100) : 0;
+    const orallyFitPct = totalStudents ? Math.round((allStudentsRaw.filter((s) => s.oralStatus === 'Orally Fit').length / totalStudents) * 100) : 0;
+    const schoolsParticipating = new Set(allStudentsRaw.map((s) => s.school)).size;
 
     return (
       <div className="space-y-4">
@@ -557,30 +676,30 @@ export const Dashboard = () => {
           <StatCard
             icon={Users}
             label="Total Students Served"
-            value="815"
+            value={String(totalStudents)}
             color="text-blue-600"
-            trend="across 3 schools"
+            trend={`across ${schoolsParticipating} schools`}
             linkTo="/reports"
           />
           <StatCard
             icon={Activity}
             label="Program Coverage"
-            value="82%"
+            value={`${programCoveragePct}%`}
             color="text-green-600"
-            progress={82}
+            progress={programCoveragePct}
             linkTo="/reports"
           />
           <StatCard
             icon={CheckCircle}
             label="Orally Fit"
-            value="63%"
+            value={`${orallyFitPct}%`}
             color="text-cyan-600"
             linkTo="/reports"
           />
           <StatCard
             icon={Shield}
             label="Schools Participating"
-            value="3 of 3"
+            value={`${schoolsParticipating} of 3`}
             color="text-gray-600"
             linkTo="/reports"
           />
@@ -642,7 +761,7 @@ export const Dashboard = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">{group.orallyFit}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">{group.needsTreatment}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {Math.round((group.orallyFit / group.total) * 100)}%
+                      {group.total ? Math.round((group.orallyFit / group.total) * 100) : 0}%
                     </td>
                   </tr>
                 ))}
@@ -656,6 +775,12 @@ export const Dashboard = () => {
 
   // ===== SYSTEM ADMIN DASHBOARD =====
   if (user?.role === 'system_admin') {
+    const activeUsersCount = users.filter((u) => !u.isArchived).length;
+    // Login activity, actions-by-module, and recent audit activity all need
+    // real audit-trail writes, which don't exist until Sprint 15 (AUDIT_TRAIL
+    // is deliberately read-only for now — same as AuditTrail.tsx). System
+    // uptime and failed-login tracking aren't measured anywhere either.
+    // Left as illustrative data, consistent with that precedent.
     const loginActivityData = [
       { day: 'Apr 4', logins: 45 },
       { day: 'Apr 5', logins: 52 },
@@ -694,7 +819,7 @@ export const Dashboard = () => {
           <StatCard
             icon={Users}
             label="Active Users"
-            value="28"
+            value={String(activeUsersCount)}
             color="text-blue-600"
             linkTo="/accounts"
           />

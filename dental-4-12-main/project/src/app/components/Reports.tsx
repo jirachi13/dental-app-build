@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { useAuth } from '../context/AuthContext';
 import { getSchoolShortName } from '../utils/schoolColors';
 import { GradePill } from './GradePill';
+import { useDohReportData } from '../hooks/useDohReportData';
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -23,9 +24,11 @@ const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grad
 // Summary age brackets (rightmost columns)
 const SUMMARY_BRACKETS = ['4 yrs & below','5-9 yrs','10-14 yrs','15-19 yrs','20 yrs & above'];
 
-// Mock value — returns 0 for most, a few non-zero for realism. Show blank if 0.
-const V = (grade: string, age: string, sex: 'M'|'F', field: string): number => {
-  // Only return non-zero for specific combinations to match real sparseness
+// Illustrative fallback for fields with no real backing yet (Services
+// Rendered has no schema at all; a few oral-health/DMF rows have no clean
+// real proxy either — see useDohReportData.ts for exactly which fields are
+// real vs. illustrative).
+const MOCK_V = (grade: string, age: string, sex: 'M'|'F', field: string): number => {
   const key = `${grade}|${age}|${sex}|${field}`;
   const sparse: Record<string,number> = {
     'Grade 4|5-9 yrs|M|examined': 1,
@@ -42,17 +45,6 @@ const V = (grade: string, age: string, sex: 'M'|'F', field: string): number => {
 
 // Cell display — blank if zero
 const cell = (v: number) => v === 0 ? '' : String(v);
-
-// Total across all grades/ages for a field+sex
-const sumAll = (field: string, sex: 'M'|'F') =>
-  GRADES.reduce((s, g) => s + GRADE_BRACKETS[g].ages.reduce((s2, a) => s2 + V(g, a, sex, field), 0), 0);
-
-const sumSummaryBracket = (field: string, sex: 'M'|'F', bracket: string) =>
-  GRADES.reduce((s, g) => {
-    const ages = GRADE_BRACKETS[g].ages;
-    if (ages.includes(bracket)) return s + V(g, bracket, sex, field);
-    return s;
-  }, 0);
 
 type RowDef =
   | { type: 'header'; label: string }
@@ -210,6 +202,15 @@ const getCount = (matrix: Record<string,GX>, key: string, grade: string, gender:
 
 export const Reports = () => {
   const { selectedSchool } = useAuth();
+  const { getRealCount, loading: dohLoading } = useDohReportData();
+  const V = (grade: string, age: string, sex: 'M'|'F', field: string): number =>
+    getRealCount(grade, age, sex, field) ?? MOCK_V(grade, age, sex, field);
+  const sumSummaryBracket = (field: string, sex: 'M'|'F', bracket: string) =>
+    GRADES.reduce((s, g) => {
+      const ages = GRADE_BRACKETS[g].ages;
+      if (ages.includes(bracket)) return s + V(g, bracket, sex, field);
+      return s;
+    }, 0);
   const [activeReportTab, setActiveReportTab] = useState<'doh'|'internal'>('doh');
   const [reportMonth, setReportMonth] = useState(4);
   const [reportYear,  setReportYear]  = useState(2026);
@@ -260,6 +261,10 @@ export const Reports = () => {
 
   const thBase = "text-center px-1 py-1 text-[9px] font-semibold border-r border-gray-200";
   const tdBase = "text-center px-1 py-1 font-mono border-r border-gray-100 text-[10px]";
+
+  if (dohLoading) {
+    return <div className="text-sm text-gray-500 p-8 text-center">Loading report data…</div>;
+  }
 
   return (
     <div className="space-y-4">

@@ -1,7 +1,7 @@
-# HANDOFF — Sprint 12 Complete
+# HANDOFF — Sprint 13 Complete
 
 ## Status
-Sprints 1-12 done and verified against the real MongoDB Atlas cluster.
+Sprints 1-13 done and verified against the real MongoDB Atlas cluster.
 - Sprint 1: Express MVC + MongoDB connection
 - Sprint 2: SCHOOL, USER, STUDENT, DENTIST, DENTAL_AIDE models
 - Sprint 3: STUDENT_IPTR, MEDICAL_HISTORY, DIETARY_SOCIAL_HABITS, ORAL_HEALTH_CONDITION models
@@ -14,6 +14,7 @@ Sprints 1-12 done and verified against the real MongoDB Atlas cluster.
 - Sprint 10: real auth wired end-to-end; 4 duplicated student-data arrays + AccountManagement consolidated into real API calls. AuditTrail deliberately left on dummy data (see below).
 - Sprint 11: Appointment scheduling module wired to real API, plus new DentistRotation model (not in original ERD)
 - Sprint 12: RPC 2-visit tracking module wired to real API — no schema changes needed, PREVENTIVE_CARE_RECORD already covered it
+- Sprint 13: Dashboard (all 5 roles) + DOH Reports table wired to real data where genuinely computable; illustrative data kept only where honestly required (see notes below)
 
 ## What exists now
 **Backend** (`dental-4-12-main/project/server/`):
@@ -89,6 +90,23 @@ Much smaller than Sprint 11 — the ERD's PREVENTIVE_CARE_RECORD (visit_number 1
 - Verified the exact status computation against the real API for all 18 students — matches expectations precisely (Aldrin Villanueva → complete, Trisha Santos → overdue, the 3 unscreened students → not-started, rest → pending).
 - This component is read-only (clicking a row navigates to the student's dental chart) — no create-form to wire, which is why this sprint was much smaller than 11.
 
+## Sprint 13 notes
+Biggest "real vs. fake" gap of any sprint so far — scoped in two rounds of grill-me before building, since Dashboard.tsx (5 role-specific views, 800 lines) and Reports.tsx (a full DOH report generator, 858 lines) had huge portions with no possible real backing yet.
+
+**Policy established** (extends the AuditTrail.tsx precedent from Sprint 10): wire what's genuinely computable from real data now; leave clearly-illustrative data only where it's honestly required — never fabricate fake historical trends or invent new models just to make a chart look wired.
+
+**What's real now:**
+- Dashboard: all 4 non-system-admin roles' KPI cards, risk/oral-health distributions, School Admin/BHO per-school aggregates, age-group breakdown — all computed from real `useStudents()`/`useAppointments()`/`useRPCTracking()` data plus a few direct fetches (`/api/users`, `/api/treatments`, `/api/student-iptrs`, `/api/dental-charts`). "Appointments by Status (This Week)" bucket chart is real too — it's not a historical trend, just today's/this-week's real Appointment records grouped by day, so it didn't need to be excluded like the monthly trend charts did.
+- Reports.tsx DOH table: `hooks/useDohReportData.ts` replaces the module-level `V()` mock lookup with one backed by real `MEDICAL_HISTORY`/`DIETARY_SOCIAL_HABITS`/`ORAL_HEALTH_CONDITION`/`RISK_STRATIFICATION` data for ~20 of the ~50 DOH row fields (Medical History section, Dietary/Social section, 4 of ~13 Oral Health Status fields, DMF/dmf totals, OFC-exam count), falling back to the original sparse mock (`MOCK_V`) for everything else. Because the whole table is driven through one lookup function, wiring it didn't require touching any of the table-generation JSX.
+- New seed script `seedIptrDetails.ts`: creates `MEDICAL_HISTORY`/`DIETARY_SOCIAL_HABITS`/`ORAL_HEALTH_CONDITION` records for all 18 demo students (these models existed since Sprint 3 but had zero seeded records until now) — deterministic pseudo-variety via a string hash so reruns don't duplicate.
+
+**What's still illustrative, and why:**
+- Dashboard: 6-month oral health trend, 7-day login activity, monthly coverage trend — all need historical time-series snapshots that don't exist (single current-state dataset, not months of history). "Pending Tasks"/"Pending Tasks by Priority" — no Task entity anywhere in the ERD. System Admin's login activity/actions-by-module/recent-audit/failed-logins/uptime — all blocked on Sprint 15's real audit-trail writes (same reason AuditTrail.tsx itself is still mocked) or simply unmeasurable (uptime).
+- Reports.tsx: the ~30-row "Services Rendered" section (tooth-count/head-count per procedure, fluoride doses, BOHC location, toothbrush drills) has **no backing model in the ERD at all** — not a seeding gap, a genuine schema gap, confirmed with the user as out of scope for this sprint. The entire separate "Internal Reports" tab (referrals, bulk treatment sessions, treatment/condition matrices) is in the same category — no Referral model, no session-level procedure/treated tracking — left fully on dummy data.
+- A handful of individual Oral Health Status / DMF rows (dentalCaries, edentulous, decayed/missing/filled component breakdown) also stayed mock — `RISK_STRATIFICATION` only stores a single `dmf_score` total, not the D/M/F component breakdown these specific rows need.
+
+Verified end-to-end against the real Atlas cluster: replayed both the Dashboard aggregation logic and the DOH report field-mapping logic in Node against the live API — numbers matched seed data exactly (e.g. 4 students with hypertension, 5 with gingivitis, 5 Low-risk/OFC-exam, 10 with `dmf_score > 0` — all internally consistent with what `seedIptrDetails.ts` and earlier seed scripts actually created).
+
 ## Not done yet
 - RBAC not wired into CRUD routes — everything is reachable by anyone right now, logged in or not
 - `AuditTrail.tsx` still uses its own hardcoded array (intentionally, see above)
@@ -99,4 +117,4 @@ Much smaller than Sprint 11 — the ERD's PREVENTIVE_CARE_RECORD (visit_number 1
 - `AccountManagement`'s "Edit" button is still a no-op `alert()` placeholder — it always was (no edit form existed before Sprint 10 either), left as-is since building a new edit UI is feature work, not the "data only" swap Sprint 10 asked for
 
 ## Next sprint
-Sprint 13 → Dashboard + DOH reports module. Do not start without explicit approval.
+Sprint 14 → UI fixes + search + filter. Do not start without explicit approval.

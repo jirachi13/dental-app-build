@@ -10,7 +10,8 @@
     "seed:admin": "tsx server/scripts/seedAdmin.ts",
     "seed:demo": "tsx server/scripts/seedDemo.ts",
     "seed:students": "tsx server/scripts/seedStudents.ts",
-    "seed:rpc-visit2": "tsx server/scripts/seedRpcVisit2.ts"
+    "seed:rpc-visit2": "tsx server/scripts/seedRpcVisit2.ts",
+    "seed:iptr-details": "tsx server/scripts/seedIptrDetails.ts"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
