@@ -439,7 +439,19 @@ Built `src/app/utils/exportCsv.ts` — a small shared `exportToCsv(rows, columns
 
 Verified all 4 with Playwright (real download events, not just code review): downloaded each CSV, confirmed correct headers, real data rows, and proper comma-escaping (e.g. `"Morales, Juan"` correctly quoted). Caught and fixed one real issue during verification — Students' "Last Visit" column showed a raw ISO timestamp (`2026-05-13T21:48:48.536Z`) instead of a clean date; fixed to show just the date portion.
 
-`tsc --noEmit` clean, `npm run build` succeeds. Not yet committed/pushed.
+`tsc --noEmit` clean, `npm run build` succeeds. Committed (`8874733d`), pushed, deployed, confirmed live.
+
+## Serious finding: AIAnalytics.tsx showed fully fabricated AI predictions with FAKE dentist validation records
+
+A user question ("do we still need mock data, fake info in the prod app?") triggered an audit of every component beyond Dashboard/Reports (already cleaned this session). Found `AIAnalytics.tsx` (nav label "Risk Classification", `/ai-analytics`, dentist-only, live in production) was the worst remaining offender by far: an entirely fabricated AI model banner ("Deep learning model trained on 50,000+ dental images with 94% accuracy") and 6 hardcoded fake students with fake `confidenceScore`, fake `aiDetectedConditions`, and — most seriously — **fake dentist validation records** (`validated: true, validatedBy: 'Dr. Maria Santos', validationStatus: 'approved'`), presenting fictional clinical sign-off as if it had actually happened. Since Phase 3 ML isn't built yet (Sprint 21a still blocked on real data), every dentist opening this page saw completely made-up "AI" output with a fake approval trail — directly undermining CLAUDE.md's core safety rule that a dentist must validate before any clinical action.
+
+The audit also flagged the same fake-patient-data pattern in DentalChart.tsx (fake nav list, treatment history, DMFT trend, referrals shown for every real student, not as a fallback), TreatmentLog.tsx, PatientProfile.tsx, and possibly FollowUpAlerts.tsx — **not yet fixed**, deliberately scoped to AIAnalytics.tsx first given it's the single worst instance (fake AI + fake validation, not just fake history). User chose to tackle these one at a time rather than one big sweep.
+
+**Fix**: replaced the entire page (filters, risk-scoring logic, fake student table) with an honest "Predictive Analytics Not Yet Available" empty state — nothing here could be "wired to real data" since no real predictions exist yet; fabricating anything less obviously fake would have been worse, not better.
+
+Verified with Playwright: page no longer contains any of the old fake names/claims, screenshot confirms clean empty-state rendering. `tsc --noEmit` clean, `npm run build` succeeds. Not yet committed/pushed.
+
+**Still pending, same audit**: DentalChart.tsx (needs its own dedicated look — also unclear whether the actual tooth-condition charting, separate from the fake history/DMFT/referrals arrays, is real or hardcoded), TreatmentLog.tsx, PatientProfile.tsx, FollowUpAlerts.tsx.
 
 ## Next sprint
 Sprint 21a is blocked until the real dental IPTR Excel files are located and added to `data/` (see above). Once that happens, Sprint 21a can proceed: clean/standardize into `/data/cleaned/dataset.csv` + `/data/cleaning-report.md`, dropping name columns per the resolved anonymization approach. Do not start Sprint 21a against the current `data/` contents (nutritional status data) — verify with a quick openpyxl header check first if unsure whether new files have actually landed.
