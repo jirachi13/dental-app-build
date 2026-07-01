@@ -28,6 +28,12 @@ export interface ApiStudent {
   contact_number?: string;
   grade_level: string;
   section: string;
+  guardian_name?: string;
+  guardian_contact?: string;
+  philhealth_number?: string;
+  philhealth_status?: 'None' | 'Principal' | 'Dependent';
+  is_4ps?: boolean;
+  fourps_id?: string;
   consent_status: "pending" | "complete";
   isArchived: boolean;
 }
@@ -36,12 +42,23 @@ export interface ApiStudentIptr {
   _id: string;
   student_id: string;
   school_year: string;
+  isArchived: boolean;
 }
 
 export interface ApiDentalChart {
   _id: string;
   iptr_id: string;
+  dentist_id: string;
   date_charted: string;
+  isArchived: boolean;
+}
+
+export interface ApiToothRecord {
+  _id: string;
+  chart_id: string;
+  tooth_number: number;
+  condition: string;
+  treatment_code?: string;
 }
 
 export interface ApiPreventiveCareRecord {
@@ -73,6 +90,7 @@ export interface ApiMedicalHistory {
   previous_surgical: boolean;
   blood_transfusion: boolean;
   tattoo: boolean;
+  others: string;
 }
 
 export interface ApiDietarySocialHabits {
@@ -82,6 +100,9 @@ export interface ApiDietarySocialHabits {
   alcohol_drinker: boolean;
   tobacco_user: boolean;
   betel_nut_chewer: boolean;
+  body_piercing: boolean;
+  nail_biting: boolean;
+  thumb_sucking: boolean;
 }
 
 export interface ApiOralHealthCondition {
@@ -93,15 +114,19 @@ export interface ApiOralHealthCondition {
   debris: boolean;
   calculus: boolean;
   abnormal_growth: boolean;
+  cleft_lip_palate: boolean;
+  others: string;
 }
 
 export interface ApiTreatment {
   _id: string;
   iptr_id: string;
+  dentist_id: string;
   diagnosis: string;
   treatment_done: string;
   remarks: string;
   date: string;
+  isArchived: boolean;
 }
 
 export interface ApiDentist {

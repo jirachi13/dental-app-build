@@ -1,47 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router';
-import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, TrendingUp, FileText, Plus, Pencil, ExternalLink, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, TrendingUp, FileText, Plus, Pencil, Trash2, Brain } from 'lucide-react';
 import { getGradeColor } from '../utils/gradeColors';
 import { useAuth } from '../context/AuthContext';
 import { GradePill } from './GradePill';
-
-// ─── Ordered patient nav list (matches DentalChartNav mockCharts order) ────────
-const patientNavList = [
-  { id: '1',  name: 'Juan Morales',        grade: 'Grade 4', section: 'Sampaguita' },
-  { id: '2',  name: 'Isabella Villanueva', grade: 'Grade 3', section: 'Jasmine'    },
-  { id: '3',  name: 'Aldrin Villanueva',   grade: 'Grade 2', section: 'Rose'       },
-  { id: '7',  name: 'Jose Martinez',       grade: 'Grade 6', section: 'Coral'      },
-  { id: '9',  name: 'Miguel Torres',       grade: 'Grade 4', section: 'Opal'       },
-  { id: '11', name: 'Pedro Reyes',         grade: 'Grade 5', section: 'Yakal'      },
-  { id: '13', name: 'Lucia Diaz',          grade: 'Grade 5', section: 'Lauan'      },
-  { id: '15', name: 'Valentina Cruz',      grade: 'Grade 3', section: 'Bamboo'     },
-  { id: '4',  name: 'Elena Morales',       grade: 'Grade 2', section: 'Dahlia'     },
-  { id: '8',  name: 'Carmen Flores',       grade: 'Grade 2', section: 'Diamond'    },
-];
-
-// ─── Mock patient data ────────────────────────────────────────────────────────
-const mockPatient = {
-  id: '1',
-  name: 'Juan Dela Cruz',
-  lastName: 'Dela Cruz',
-  firstName: 'Juan',
-  middleName: 'Santos',
-  birthday: '2016-03-15',
-  age: 10,
-  sex: 'Male',
-  address: 'Blk 12 Lot 5 Bagong Tanyag, Taguig City',
-  grade: 'Grade 4',
-  section: 'Sampaguita',
-  school: 'Bagong Tanyag Integrated School',
-  contactNumber: '09171234567',
-  philhealthNumber: '12-345678901-2',
-  philhealthStatus: 'Dependent',
-  is4Ps: false,
-  guardianName: 'Maria Dela Cruz',
-  guardianContact: '09171234567',
-  consentStatus: 'complete',
-  riskLevel: 'high',
-};
+import { useStudents } from '../hooks/useStudents';
+import { useAppointments } from '../hooks/useAppointments';
+import { useDentalChartData } from '../hooks/useDentalChartData';
+import { apiClient, ApiError } from '../api/client';
+import { toLocalDateString } from '../utils/localDate';
 
 // ─── FDI tooth layout ─────────────────────────────────────────────────────────
 const upperPermanent = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
@@ -52,7 +19,7 @@ const temporaryTeeth = new Set([...upperTemporary, ...lowerTemporary]);
 
 const conditionColors: Record<string, string> = {
   '✓': 'bg-green-50 border-green-400',
-  '√': 'bg-green-50 border-green-400',   // fallback alias
+  '√': 'bg-green-50 border-green-400',
   'D': 'bg-red-100 border-red-400',
   'd': 'bg-red-100 border-red-300',
   'M': 'bg-slate-200 border-slate-400',
@@ -72,96 +39,43 @@ const conditionColors: Record<string, string> = {
 };
 
 const ALL_SCHOOL_YEARS = ['2023-2024', '2024-2025', '2025-2026', '2026-2027', '2027-2028', '2028-2029', '2029-2030'];
+const SCHOOLS = ['Bagong Tanyag Integrated School', 'Bagong Tanyag Elementary School Annex A', 'South Daang Hari Elementary School Main'];
+const GRADES = ['Kinder', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10'];
 
 type ChartEntry = { condition: string; treatment: string };
-type MedicalHistory = {
-  dateExamined: string;
-  allergies: string;
-  hypertension: boolean;
-  diabetes: boolean;
-  bloodDisorders: boolean;
-  cardiovascular: boolean;
-  thyroid: boolean;
-  hepatitis: string;
-  malignancy: string;
-  hospitalization: string;
-  bloodTransfusion: string;
-  tattoo: boolean;
-  others: string;
+type MedicalHistoryDraft = {
+  allergies: string; hypertension: boolean; diabetes: boolean; bloodDisorders: boolean;
+  cardiovascular: boolean; thyroid: boolean; hepatitis: boolean; malignancy: boolean;
+  hospitalization: boolean; bloodTransfusion: boolean; tattoo: boolean; others: string;
 };
-type DietHistory = {
-  sugarSweetened: boolean;
-  alcoholDrinker: boolean;
-  tobaccoUser: boolean;
-  betelNut: boolean;
-  bodyPiercing: boolean;
-  nailBiting: boolean;
-  thumbsucking: boolean;
+type DietDraft = {
+  sugarSweetened: boolean; alcoholDrinker: boolean; tobaccoUser: boolean; betelNut: boolean;
+  bodyPiercing: boolean; nailBiting: boolean; thumbsucking: boolean;
 };
-type OralCondition = {
-  orallyFit: boolean;
-  dentalCaries: boolean;
-  gingivitis: boolean;
-  periodontal: boolean;
-  debris: boolean;
-  calculus: boolean;
-  abnormalGrowth: boolean;
-  cleftLipPalate: boolean;
-  edentulous: boolean;
-  others: string;
+type OralDraft = {
+  gingivitis: boolean; periodontal: boolean; debris: boolean; calculus: boolean;
+  abnormalGrowth: boolean; cleftLipPalate: boolean; oralHygiene: string; others: string;
 };
 
-const getTodayIsoDate = () => new Date().toISOString().split('T')[0];
-const formatDateStamp = (dateString?: string) => {
+const emptyMed = (): MedicalHistoryDraft => ({
+  allergies: '', hypertension: false, diabetes: false, bloodDisorders: false, cardiovascular: false,
+  thyroid: false, hepatitis: false, malignancy: false, hospitalization: false, bloodTransfusion: false,
+  tattoo: false, others: '',
+});
+const emptyDiet = (): DietDraft => ({
+  sugarSweetened: false, alcoholDrinker: false, tobaccoUser: false, betelNut: false,
+  bodyPiercing: false, nailBiting: false, thumbsucking: false,
+});
+const emptyOral = (): OralDraft => ({
+  gingivitis: false, periodontal: false, debris: false, calculus: false,
+  abnormalGrowth: false, cleftLipPalate: false, oralHygiene: '', others: '',
+});
+
+const formatDateStamp = (dateString?: string | null) => {
   if (!dateString) return 'No date stamp';
-  const date = new Date(`${dateString}T00:00:00`);
+  const date = new Date(dateString.length > 10 ? dateString : `${dateString}T00:00:00`);
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
-const createEmptyMedicalHistory = (): MedicalHistory => ({
-  dateExamined: getTodayIsoDate(),
-  allergies: '',
-  hypertension: false,
-  diabetes: false,
-  bloodDisorders: false,
-  cardiovascular: false,
-  thyroid: false,
-  hepatitis: '',
-  malignancy: '',
-  hospitalization: '',
-  bloodTransfusion: '',
-  tattoo: false,
-  others: '',
-});
-const createEmptyDietHistory = (): DietHistory => ({
-  sugarSweetened: false,
-  alcoholDrinker: false,
-  tobaccoUser: false,
-  betelNut: false,
-  bodyPiercing: false,
-  nailBiting: false,
-  thumbsucking: false,
-});
-const createEmptyOralCondition = (): OralCondition => ({
-  orallyFit: false,
-  dentalCaries: false,
-  gingivitis: false,
-  periodontal: false,
-  debris: false,
-  calculus: false,
-  abnormalGrowth: false,
-  cleftLipPalate: false,
-  edentulous: false,
-  others: '',
-});
-const reindexYearRecords = <T,>(records: Record<number, T>, removedIndex: number): Record<number, T> =>
-  Object.fromEntries(
-    Object.entries(records)
-      .filter(([key]) => Number(key) !== removedIndex)
-      .map(([key, value]) => {
-        const index = Number(key);
-        return [index > removedIndex ? index - 1 : index, value];
-      }),
-  ) as Record<number, T>;
 
 // ─── DMFT calculation ─────────────────────────────────────────────────────────
 const computeDMFT = (chart: Record<number, ChartEntry>) => {
@@ -181,8 +95,34 @@ const computeDMFT = (chart: Record<number, ChartEntry>) => {
       else if (c === 'DX') X++;
     }
   });
-  return { d, m, f, x, t: d+m+f+x, D, M, F, X, T: D+M+F+X };
+  return { d, m, f, x, t: d + m + f + x, D, M, F, X, T: D + M + F + X };
 };
+
+// Base44-exact condition codes: uppercase=permanent, lowercase=temporary (auto-applied)
+const conditionCodes = [
+  { code: '✓', label: 'Sound/Sealed', perm: '✓', temp: '✓' },
+  { code: 'D', label: 'Decayed', perm: 'D', temp: 'd' },
+  { code: 'M', label: 'Missing', perm: 'M', temp: 'm' },
+  { code: 'F', label: 'Filled', perm: 'F', temp: 'f' },
+  { code: 'DX', label: 'Indicated for Extr.', perm: 'DX', temp: 'dx' },
+  { code: 'Un', label: 'Unerupted', perm: 'Un', temp: 'un' },
+  { code: 'S', label: 'Supernumerary Tooth', perm: 'S', temp: 's' },
+  { code: 'JC', label: 'Jacket Crown', perm: 'JC', temp: 'jc' },
+  { code: 'P', label: 'Pontic', perm: 'P', temp: 'p' },
+];
+
+// Base44-exact treatment codes
+const treatmentCodes = [
+  { code: 'OEX', label: 'Oral Exam / Checkup' },
+  { code: 'FV', label: 'Fluoride Varnish' },
+  { code: 'PFS', label: 'Pit and Fissure Sealant' },
+  { code: 'OP', label: 'Oral Prophylaxis' },
+  { code: 'PF', label: 'Permanent Filling' },
+  { code: 'TF', label: 'Temporary Filling' },
+  { code: 'TR', label: 'Tooth Restoration (Pasta)' },
+  { code: 'X', label: 'Extraction' },
+  { code: 'SDF', label: 'Silver Diamine Fluoride' },
+];
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export const DentalChart = () => {
@@ -192,23 +132,19 @@ export const DentalChart = () => {
   const { user } = useAuth();
   const canEdit = user?.role === 'dentist';
   const canEditHistory = user?.role === 'dentist' || user?.role === 'dental_aide';
+  const canEditInfo = canEditHistory;
   const staffNameLabel = user?.role === 'dental_aide' ? 'Dental Aide' : 'Dentist';
 
-  const navIndex = patientNavList.findIndex(p => p.id === id);
-  const prevPatient = navIndex > 0 ? patientNavList[navIndex - 1] : null;
-  const nextPatient = navIndex < patientNavList.length - 1 ? patientNavList[navIndex + 1] : null;
+  const { students: allStudents } = useStudents();
+  const { sessions: appointmentSessions } = useAppointments();
+  const { student, schoolName, years, dentists, loading, error, reload } = useDentalChartData(id);
+  const currentDentist = dentists.find((d) => d.user_id === user?.id);
 
-  const navEntry = patientNavList.find(p => p.id === id);
-  const nameParts = navEntry ? navEntry.name.split(' ') : [mockPatient.firstName, mockPatient.lastName];
-  const resolvedPatient = {
-    ...mockPatient,
-    id: id ?? mockPatient.id,
-    firstName: nameParts[0],
-    lastName: nameParts.slice(1).join(' '),
-    name: navEntry?.name ?? mockPatient.name,
-    grade: navEntry?.grade ?? mockPatient.grade,
-    section: navEntry?.section ?? mockPatient.section,
-  };
+  // Real patient nav (sorted by name for a stable, predictable order)
+  const navList = useMemo(() => [...allStudents].sort((a, b) => a.name.localeCompare(b.name)), [allStudents]);
+  const navIndex = navList.findIndex((s) => s.id === id);
+  const prevPatient = navIndex > 0 ? navList[navIndex - 1] : null;
+  const nextPatient = navIndex >= 0 && navIndex < navList.length - 1 ? navList[navIndex + 1] : null;
 
   type TabKey = 'history' | 'chart' | 'appointments' | 'records' | 'treatments' | 'referrals' | 'ai';
   type IptrContext = 'default' | 'dental-queue' | 'risk' | 'treatment';
@@ -234,73 +170,77 @@ export const DentalChart = () => {
       : allTabs
   );
 
-  // ── Dental Records (DMFT by year) ────────────────────────────────────────
-  const dmftByYear = [
-    { year: '2023-2024', d:2, m:0, f:1, x:0, t:3, D:1, M:0, F:0, X:0, T:1, oralStatus:'Needs Treatment' },
-    { year: '2024-2025', d:1, m:1, f:2, x:0, t:4, D:2, M:0, F:1, X:0, T:3, oralStatus:'Under Treatment' },
-    { year: '2025-2026', d:1, m:0, f:2, x:1, t:4, D:3, M:0, F:1, X:1, T:5, oralStatus:'Needs Treatment' },
-  ];
+  const [selectedYear, setSelectedYear] = useState(0);
+  useEffect(() => {
+    // Default to the most recent school year once data loads.
+    if (years.length > 0) setSelectedYear(years.length - 1);
+  }, [years.length, id]);
 
-  // ── Treatment History ────────────────────────────────────────────────────
-  const [showAddTreatment, setShowAddTreatment] = useState(false);
-  const [showRiskModificationForm, setShowRiskModificationForm] = useState(false);
-  const [showAddReferral, setShowAddReferral] = useState(false);
-  const [referralForm, setReferralForm] = useState({ date: '', facility: '', reason: '', followUpDate: '' });
-  type Referral = { date: string; facility: string; reason: string; followUpDate: string; status: 'pending' | 'completed' | 'no-show' };
-  const [referrals, setReferrals] = useState<Referral[]>([
-    { date: '2026-03-15', facility: 'Taguig City Health Office', reason: 'Severe caries, abscess on tooth #36', followUpDate: '2026-04-15', status: 'pending' },
-  ]);
-  const treatmentHistory: { date:string; complaint:string; diagnosis:string; treatment:string; dentist:string; remarks:string; type:'regular'|'rpc'; rpcVisit?:number }[] = [
-    { date:'2026-03-20', complaint:'RPC Visit 2 — scheduled follow-up', diagnosis:'Post-prophylaxis check; gingivitis resolved', treatment:'Oral prophylaxis, scaling, fluoride varnish', dentist:'Dr. Maria Santos', remarks:'RPC cycle complete. Next regular visit in 6 months.', type:'rpc', rpcVisit:2 },
-    { date:'2026-03-10', complaint:'Toothache on lower right molar', diagnosis:'Deep caries on tooth #36', treatment:'Temporary filling; scheduled for extraction', dentist:'Dr. Maria Santos', remarks:'Avoid hard foods. Follow-up in 1 week.', type:'regular' },
-    { date:'2026-02-15', complaint:'Routine checkup', diagnosis:'Gingivitis, multiple caries', treatment:'Oral prophylaxis, fluoride varnish application', dentist:'Dr. Maria Santos', remarks:'Oral hygiene instruction given.', type:'regular' },
-    { date:'2026-01-15', complaint:'RPC Visit 1 — initial pre-care', diagnosis:'Moderate gingivitis; calculus deposits', treatment:'Oral prophylaxis, scaling, oral hygiene instruction', dentist:'Dr. Maria Santos', remarks:'Patient tolerated procedure well. Schedule Visit 2 in 6 weeks.', type:'rpc', rpcVisit:1 },
-    { date:'2025-11-20', complaint:'Bleeding gums', diagnosis:'Moderate gingivitis', treatment:'Scaling, oral hygiene instruction', dentist:'Dr. Ana Cruz', remarks:'Recommended twice-daily brushing.', type:'regular' },
-    { date:'2025-08-05', complaint:'Routine screening', diagnosis:'Dental caries (primary) — teeth 84, 85', treatment:'Fluoride varnish, SDF application', dentist:'Dr. Maria Santos', remarks:'Consent obtained. No adverse reactions.', type:'regular' },
-    { date:'2025-03-12', complaint:'Toothache', diagnosis:'Irreversible pulpitis — tooth #75', treatment:'Extraction of primary tooth #75', dentist:'Dr. Ana Cruz', remarks:'Post-extraction instruction given.', type:'regular' },
-  ];
-  const [activeYears, setActiveYears] = useState<string[]>(['2024-2025', '2025-2026']);
-  const [selectedYear, setSelectedYear] = useState(0); // index into activeYears
   const [selectedCondition, setSelectedCondition] = useState<string | null>(null);
   const [selectedTreatment, setSelectedTreatment] = useState<string | null>(null);
-  const [consentGiven, setConsentGiven] = useState(resolvedPatient.consentStatus === 'complete');
-  const [dataPrivacyAck, setDataPrivacyAck] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [patientInfo, setPatientInfo] = useState({ ...resolvedPatient });
-  const [draftInfo, setDraftInfo] = useState({ ...resolvedPatient });
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [editingInfo, setEditingInfo] = useState(false);
+  const [draftInfo, setDraftInfo] = useState<Partial<typeof student>>({});
+  const [infoSaving, setInfoSaving] = useState(false);
+  const [infoError, setInfoError] = useState<string | null>(null);
   const [isManagingYears, setIsManagingYears] = useState(false);
   const headerRowRef = useRef<HTMLDivElement | null>(null);
   const tabsRowRef = useRef<HTMLDivElement | null>(null);
   const [stickyOffsets, setStickyOffsets] = useState({ tabsTop: 0, yearTop: 0 });
 
-  // Per-year dental chart data
-  const [chartData, setChartData] = useState<Record<number, Record<number, ChartEntry>>>({
-    0: { 36: { condition: 'D', treatment: 'PF' }, 46: { condition: 'M', treatment: '' }, 11: { condition: '✓', treatment: 'FV' }, 16: { condition: 'F', treatment: '' } },
-    1: {},
-  });
+  const currentYearData = years[selectedYear];
 
-  // Per-year medical history
-  const [medHistory, setMedHistory] = useState<Record<number, MedicalHistory>>({
-    0: { dateExamined: '2025-03-10', allergies: '', hypertension: false, diabetes: false, bloodDisorders: false, cardiovascular: false, thyroid: false, hepatitis: '', malignancy: '', hospitalization: '', bloodTransfusion: '', tattoo: false, others: '' },
-    1: { dateExamined: '2026-03-10', allergies: '', hypertension: false, diabetes: false, bloodDisorders: false, cardiovascular: false, thyroid: false, hepatitis: '', malignancy: '', hospitalization: '', bloodTransfusion: '', tattoo: false, others: '' },
-  });
+  // Draft (editable) copies of the current year's real data -- initialized
+  // from real records when the selected year changes, persisted for real on
+  // Save. This mirrors the app's existing form pattern (local draft state,
+  // explicit save), just backed by real data instead of fake arrays.
+  const [draftChart, setDraftChart] = useState<Record<number, ChartEntry>>({});
+  const [draftMed, setDraftMed] = useState<MedicalHistoryDraft>(emptyMed());
+  const [draftDiet, setDraftDiet] = useState<DietDraft>(emptyDiet());
+  const [draftOral, setDraftOral] = useState<OralDraft>(emptyOral());
 
-  const [dietHistory, setDietHistory] = useState<Record<number, DietHistory>>({
-    0: { sugarSweetened: true, alcoholDrinker: false, tobaccoUser: false, betelNut: false, bodyPiercing: false, nailBiting: true, thumbsucking: false },
-    1: { sugarSweetened: false, alcoholDrinker: false, tobaccoUser: false, betelNut: false, bodyPiercing: false, nailBiting: false, thumbsucking: false },
-  });
+  useEffect(() => {
+    if (!currentYearData) {
+      setDraftChart({});
+      setDraftMed(emptyMed());
+      setDraftDiet(emptyDiet());
+      setDraftOral(emptyOral());
+      return;
+    }
+    const chart: Record<number, ChartEntry> = {};
+    for (const tr of currentYearData.toothRecords) {
+      chart[tr.tooth_number] = { condition: tr.condition, treatment: tr.treatment_code ?? '' };
+    }
+    setDraftChart(chart);
 
-  const [oralCondition, setOralCondition] = useState<Record<number, OralCondition>>({
-    0: { orallyFit: false, dentalCaries: true, gingivitis: false, periodontal: false, debris: true, calculus: false, abnormalGrowth: false, cleftLipPalate: false, edentulous: false, others: '' },
-    1: { orallyFit: false, dentalCaries: false, gingivitis: false, periodontal: false, debris: false, calculus: false, abnormalGrowth: false, cleftLipPalate: false, edentulous: false, others: '' },
-  });
+    const mh = currentYearData.medicalHistory;
+    setDraftMed(mh ? {
+      allergies: mh.allergies, hypertension: mh.hypertension, diabetes: mh.diabetes_mellitus,
+      bloodDisorders: false, cardiovascular: mh.cardiovascular_disease, thyroid: mh.thyroid_disorders,
+      hepatitis: mh.hepatitis_disorders, malignancy: mh.malignancy, hospitalization: mh.previous_hospitalization,
+      bloodTransfusion: mh.blood_transfusion, tattoo: mh.tattoo, others: mh.others,
+    } : emptyMed());
 
-  const currentChart = chartData[selectedYear] || {};
+    const dh = currentYearData.dietaryHabits;
+    setDraftDiet(dh ? {
+      sugarSweetened: dh.sugar_beverages, alcoholDrinker: dh.alcohol_drinker, tobaccoUser: dh.tobacco_user,
+      betelNut: dh.betel_nut_chewer, bodyPiercing: dh.body_piercing, nailBiting: dh.nail_biting, thumbsucking: dh.thumb_sucking,
+    } : emptyDiet());
+
+    const oc = currentYearData.oralCondition;
+    setDraftOral(oc ? {
+      gingivitis: oc.gingivitis, periodontal: oc.periodontal_disease, debris: oc.debris, calculus: oc.calculus,
+      abnormalGrowth: oc.abnormal_growth, cleftLipPalate: oc.cleft_lip_palate, oralHygiene: oc.oral_hygiene, others: oc.others,
+    } : emptyOral());
+  }, [selectedYear, currentYearData]);
+
+  const currentChart = draftChart;
   const dmft = computeDMFT(currentChart);
-  const gc = getGradeColor(patientInfo.grade);
-  const canEditInfo = user?.role === 'dentist' || user?.role === 'dental_aide';
+  const gc = getGradeColor(student?.grade_level ?? '');
   const computeAge = (birthday: string) => {
+    if (!birthday) return 0;
     const today = new Date();
     const birth = new Date(birthday);
     let age = today.getFullYear() - birth.getFullYear();
@@ -312,117 +252,152 @@ export const DentalChart = () => {
   const handleToothClick = (toothNumber: number) => {
     const isTemp = temporaryTeeth.has(toothNumber);
     if (selectedCondition) {
-      // Find the correct perm/temp variant from conditionCodes
-      const codeObj = conditionCodes.find(c => c.code === selectedCondition);
+      const codeObj = conditionCodes.find((c) => c.code === selectedCondition);
       const code = codeObj ? (isTemp ? codeObj.temp : codeObj.perm) : selectedCondition;
       const current = currentChart[toothNumber]?.condition;
-      setChartData(prev => ({
+      setDraftChart((prev) => ({
         ...prev,
-        [selectedYear]: {
-          ...prev[selectedYear],
-          [toothNumber]: {
-            ...prev[selectedYear]?.[toothNumber],
-            condition: current === code ? '' : code,
-            treatment: prev[selectedYear]?.[toothNumber]?.treatment || '',
-          },
-        },
+        [toothNumber]: { condition: current === code ? '' : code, treatment: prev[toothNumber]?.treatment || '' },
       }));
     } else if (selectedTreatment) {
       const current = currentChart[toothNumber]?.treatment;
-      setChartData(prev => ({
+      setDraftChart((prev) => ({
         ...prev,
-        [selectedYear]: {
-          ...prev[selectedYear],
-          [toothNumber]: {
-            ...prev[selectedYear]?.[toothNumber],
-            condition: prev[selectedYear]?.[toothNumber]?.condition || '',
-            treatment: current === selectedTreatment ? '' : selectedTreatment,
-          },
-        },
+        [toothNumber]: { condition: prev[toothNumber]?.condition || '', treatment: current === selectedTreatment ? '' : selectedTreatment },
       }));
     }
-  };
-
-  const updateMedField = (field: string, value: any) => {
-    setMedHistory(prev => ({ ...prev, [selectedYear]: { ...prev[selectedYear], [field]: value } }));
-  };
-  const updateDietField = (field: string, value: boolean) => {
-    setDietHistory(prev => ({ ...prev, [selectedYear]: { ...prev[selectedYear], [field]: value } }));
-  };
-  const updateOralField = (field: string, value: any) => {
-    setOralCondition(prev => ({ ...prev, [selectedYear]: { ...prev[selectedYear], [field]: value } }));
   };
 
   useEffect(() => {
     const measureStickyOffsets = () => {
       const headerHeight = headerRowRef.current?.offsetHeight ?? 0;
       const tabsHeight = tabsRowRef.current?.offsetHeight ?? 0;
-      setStickyOffsets({
-        tabsTop: headerHeight,
-        yearTop: headerHeight + tabsHeight,
-      });
+      setStickyOffsets({ tabsTop: headerHeight, yearTop: headerHeight + tabsHeight });
     };
-
     measureStickyOffsets();
-
     let resizeObserver: ResizeObserver | null = null;
     if (typeof ResizeObserver !== 'undefined') {
       resizeObserver = new ResizeObserver(measureStickyOffsets);
       if (headerRowRef.current) resizeObserver.observe(headerRowRef.current);
       if (tabsRowRef.current) resizeObserver.observe(tabsRowRef.current);
     }
-
     window.addEventListener('resize', measureStickyOffsets);
     return () => {
       resizeObserver?.disconnect();
       window.removeEventListener('resize', measureStickyOffsets);
     };
-  }, [activeTab, activeYears.length, editingInfo, referrals.length, saved]);
+  }, [activeTab, years.length, editingInfo, saved]);
 
   const getNextSchoolYear = () => {
-    const lastYear = activeYears[activeYears.length - 1];
+    if (years.length === 0) return ALL_SCHOOL_YEARS[0];
+    const lastYear = years[years.length - 1].iptr.school_year;
     const lastYearIndex = ALL_SCHOOL_YEARS.indexOf(lastYear);
     return lastYearIndex >= 0 ? ALL_SCHOOL_YEARS[lastYearIndex + 1] ?? null : null;
   };
 
-  const handleAddYear = () => {
+  const handleAddYear = async () => {
     const nextYear = getNextSchoolYear();
-    if (!nextYear) return;
-
-    const nextIndex = activeYears.length;
-    setActiveYears(prev => [...prev, nextYear]);
-    setChartData(prev => ({ ...prev, [nextIndex]: {} }));
-    setMedHistory(prev => ({ ...prev, [nextIndex]: createEmptyMedicalHistory() }));
-    setDietHistory(prev => ({ ...prev, [nextIndex]: createEmptyDietHistory() }));
-    setOralCondition(prev => ({ ...prev, [nextIndex]: createEmptyOralCondition() }));
-    setSelectedYear(nextIndex);
+    if (!nextYear || !id) return;
+    try {
+      await apiClient.post('/student-iptrs', { student_id: id, school_year: nextYear });
+      await reload();
+    } catch (err) {
+      setSaveError(err instanceof ApiError ? err.message : 'Failed to add school year');
+    }
   };
 
-  const handleDeleteYear = (yearIndex: number) => {
-    if (!canEdit || activeYears.length <= 1) return;
-
-    setActiveYears(prev => prev.filter((_, index) => index !== yearIndex));
-    setChartData(prev => reindexYearRecords(prev, yearIndex));
-    setMedHistory(prev => reindexYearRecords(prev, yearIndex));
-    setDietHistory(prev => reindexYearRecords(prev, yearIndex));
-    setOralCondition(prev => reindexYearRecords(prev, yearIndex));
-    setSelectedYear(prev => {
-      if (prev === yearIndex) return Math.max(0, yearIndex - 1);
-      return prev > yearIndex ? prev - 1 : prev;
-    });
+  const handleDeleteYear = async (yearIndex: number) => {
+    if (!canEdit || years.length <= 1) return;
+    const iptrId = years[yearIndex]?.iptr._id;
+    if (!iptrId) return;
+    try {
+      await apiClient.patch(`/student-iptrs/${iptrId}/archive`);
+      setSelectedYear((prev) => (prev === yearIndex ? Math.max(0, yearIndex - 1) : prev > yearIndex ? prev - 1 : prev));
+      await reload();
+    } catch (err) {
+      setSaveError(err instanceof ApiError ? err.message : 'Failed to remove school year');
+    }
   };
 
   useEffect(() => {
-    if (!canEdit) {
-      setIsManagingYears(false);
-    }
+    if (!canEdit) setIsManagingYears(false);
   }, [canEdit]);
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-    if (iptrContext === 'dental-queue') {
-      setTimeout(() => navigate('/ai-analytics'), 450);
+  // Persists the current year's chart + medical/diet/oral history for real.
+  const handleSave = async () => {
+    if (!currentYearData || !id) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      let chartId = currentYearData.dentalChart?._id;
+      if (!chartId) {
+        if (!currentDentist) throw new Error('No dentist record linked to your account.');
+        const created = await apiClient.post<{ _id: string }>('/dental-charts', {
+          iptr_id: currentYearData.iptr._id,
+          dentist_id: currentDentist._id,
+          date_charted: toLocalDateString(new Date()),
+        });
+        chartId = created._id;
+      }
+
+      const existingByTooth = new Map(currentYearData.toothRecords.map((tr) => [tr.tooth_number, tr]));
+      const toothWrites = Object.entries(draftChart)
+        // ToothRecord.condition is required (non-empty) on the backend --
+        // a tooth toggled back to "cleared" (empty string) has nothing
+        // valid to persist. Its local draft state just won't be sent; on
+        // reload it reverts to its last real saved value, if any, rather
+        // than crashing the save with a validation error.
+        .filter(([, entry]) => entry.condition !== '')
+        .filter(([toothStr, entry]) => {
+          const existing = existingByTooth.get(Number(toothStr));
+          return !existing || existing.condition !== entry.condition || (existing.treatment_code ?? '') !== entry.treatment;
+        })
+        .map(([toothStr, entry]) => {
+          const toothNumber = Number(toothStr);
+          const existing = existingByTooth.get(toothNumber);
+          const body = { chart_id: chartId, tooth_number: toothNumber, condition: entry.condition, treatment_code: entry.treatment };
+          return existing ? apiClient.put(`/tooth-records/${existing._id}`, body) : apiClient.post('/tooth-records', body);
+        });
+
+      const medBody = {
+        iptr_id: currentYearData.iptr._id,
+        allergies: draftMed.allergies, hypertension: draftMed.hypertension, diabetes_mellitus: draftMed.diabetes,
+        cardiovascular_disease: draftMed.cardiovascular, thyroid_disorders: draftMed.thyroid,
+        hepatitis_disorders: draftMed.hepatitis, malignancy: draftMed.malignancy,
+        previous_hospitalization: draftMed.hospitalization, previous_surgical: false,
+        blood_transfusion: draftMed.bloodTransfusion, tattoo: draftMed.tattoo, others: draftMed.others,
+      };
+      const medWrite = currentYearData.medicalHistory
+        ? apiClient.put(`/medical-histories/${currentYearData.medicalHistory._id}`, medBody)
+        : apiClient.post('/medical-histories', medBody);
+
+      const dietBody = {
+        iptr_id: currentYearData.iptr._id, sugar_beverages: draftDiet.sugarSweetened, alcohol_drinker: draftDiet.alcoholDrinker,
+        tobacco_user: draftDiet.tobaccoUser, betel_nut_chewer: draftDiet.betelNut, body_piercing: draftDiet.bodyPiercing,
+        nail_biting: draftDiet.nailBiting, thumb_sucking: draftDiet.thumbsucking,
+      };
+      const dietWrite = currentYearData.dietaryHabits
+        ? apiClient.put(`/dietary-social-habits/${currentYearData.dietaryHabits._id}`, dietBody)
+        : apiClient.post('/dietary-social-habits', dietBody);
+
+      const oralBody = {
+        iptr_id: currentYearData.iptr._id, oral_hygiene: draftOral.oralHygiene || 'Not assessed', gingivitis: draftOral.gingivitis,
+        periodontal_disease: draftOral.periodontal, debris: draftOral.debris, calculus: draftOral.calculus,
+        abnormal_growth: draftOral.abnormalGrowth, cleft_lip_palate: draftOral.cleftLipPalate, others: draftOral.others,
+      };
+      const oralWrite = currentYearData.oralCondition
+        ? apiClient.put(`/oral-health-conditions/${currentYearData.oralCondition._id}`, oralBody)
+        : apiClient.post('/oral-health-conditions', oralBody);
+
+      await Promise.all([...toothWrites, medWrite, dietWrite, oralWrite]);
+      await reload();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      if (iptrContext === 'dental-queue') setTimeout(() => navigate('/ai-analytics'), 450);
+    } catch (err) {
+      setSaveError(err instanceof ApiError ? err.message : 'Failed to save');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -431,6 +406,38 @@ export const DentalChart = () => {
       setActiveTab(visibleTabs[0]?.key ?? 'history');
     }
   }, [activeTab, visibleTabs]);
+
+  const handleToggleConsent = async (checked: boolean) => {
+    if (!id || !canEdit) return;
+    try {
+      await apiClient.put(`/students/${id}`, { consent_status: checked ? 'complete' : 'pending' });
+      await reload();
+    } catch (err) {
+      setSaveError(err instanceof ApiError ? err.message : 'Failed to update consent status');
+    }
+  };
+
+  const openEditInfo = () => {
+    if (!student) return;
+    setDraftInfo({ ...student });
+    setInfoError(null);
+    setEditingInfo(true);
+  };
+
+  const handleSaveInfo = async () => {
+    if (!id || !draftInfo) return;
+    setInfoSaving(true);
+    setInfoError(null);
+    try {
+      await apiClient.put(`/students/${id}`, draftInfo);
+      await reload();
+      setEditingInfo(false);
+    } catch (err) {
+      setInfoError(err instanceof ApiError ? err.message : 'Failed to update student info');
+    } finally {
+      setInfoSaving(false);
+    }
+  };
 
   const ToothButton = ({ num }: { num: number }) => {
     const data = currentChart[num];
@@ -450,61 +457,83 @@ export const DentalChart = () => {
     );
   };
 
-  const CheckRow = ({ label, field, value, onChange }: { label: string; field: string; value: boolean; onChange: (f: string, v: boolean) => void }) => (
-    <div className="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-0">
-      <span className="text-xs text-gray-700">{label}</span>
-      <div className="flex gap-3">
-        {activeYears.map((yr, idx) => (
-          <input key={idx} type="checkbox" checked={idx === selectedYear ? value : false}
-            onChange={e => canEdit && idx === selectedYear && onChange(field, e.target.checked)}
-            disabled={!canEdit}
-            className="w-4 h-4 rounded accent-blue-600 disabled:opacity-60 disabled:cursor-not-allowed" />
-        ))}
-      </div>
-    </div>
-  );
-
-  // Base44-exact condition codes: uppercase=permanent, lowercase=temporary (auto-applied)
-  const conditionCodes = [
-    { code: '✓', label: 'Sound/Sealed',           perm: '✓',  temp: '✓'  },
-    { code: 'D',  label: 'Decayed',                perm: 'D',  temp: 'd'  },
-    { code: 'M',  label: 'Missing',                perm: 'M',  temp: 'm'  },
-    { code: 'F',  label: 'Filled',                 perm: 'F',  temp: 'f'  },
-    { code: 'DX', label: 'Indicated for Extr.',    perm: 'DX', temp: 'dx' },
-    { code: 'Un', label: 'Unerupted',              perm: 'Un', temp: 'un' },
-    { code: 'S',  label: 'Supernumerary Tooth',    perm: 'S',  temp: 's'  },
-    { code: 'JC', label: 'Jacket Crown',           perm: 'JC', temp: 'jc' },
-    { code: 'P',  label: 'Pontic',                 perm: 'P',  temp: 'p'  },
-  ];
-
-  // Base44-exact treatment codes
-  const treatmentCodes = [
-    { code: 'OEX', label: 'Oral Exam / Checkup'      },
-    { code: 'FV',  label: 'Fluoride Varnish'        },
-    { code: 'PFS', label: 'Pit and Fissure Sealant'  },
-    { code: 'OP',  label: 'Oral Prophylaxis'         },
-    { code: 'PF',  label: 'Permanent Filling'        },
-    { code: 'TF',  label: 'Temporary Filling'        },
-    { code: 'TR',  label: 'Tooth Restoration (Pasta)' },
-    { code: 'X',   label: 'Extraction'               },
-    { code: 'SDF', label: 'Silver Diamine Fluoride'  },
-  ];
   const treatmentCodeCounts = treatmentCodes.reduce<Record<string, number>>((acc, code) => {
     acc[code.code] = Object.values(currentChart).filter((entry) => entry.treatment === code.code).length;
     return acc;
   }, {});
 
-  const med = medHistory[selectedYear] || {};
-  const diet = dietHistory[selectedYear] || {};
-  const oral = oralCondition[selectedYear] || {};
+  // Treatment History tab -- combined across all school years, most recent first.
+  const allTreatments = useMemo(
+    () => years.flatMap((y) => y.treatments).sort((a, b) => b.date.localeCompare(a.date)),
+    [years],
+  );
+  const dentistNameById = useMemo(() => new Map(dentists.map((d) => [d._id, `Dr. ${d.first_name} ${d.last_name}`])), [dentists]);
+
+  const [showAddTreatment, setShowAddTreatment] = useState(false);
+  const [treatmentForm, setTreatmentForm] = useState({ date: toLocalDateString(new Date()), diagnosis: '', treatmentDone: '', remarks: '' });
+  const [treatmentSaving, setTreatmentSaving] = useState(false);
+  const [treatmentError, setTreatmentError] = useState<string | null>(null);
+
+  const handleAddTreatment = async () => {
+    if (!currentYearData || !currentDentist) {
+      setTreatmentError('No dentist record linked to your account.');
+      return;
+    }
+    if (!treatmentForm.diagnosis || !treatmentForm.treatmentDone) {
+      setTreatmentError('Diagnosis and treatment done are required.');
+      return;
+    }
+    setTreatmentSaving(true);
+    setTreatmentError(null);
+    try {
+      await apiClient.post('/treatments', {
+        iptr_id: currentYearData.iptr._id,
+        dentist_id: currentDentist._id,
+        diagnosis: treatmentForm.diagnosis,
+        treatment_done: treatmentForm.treatmentDone,
+        remarks: treatmentForm.remarks,
+        date: treatmentForm.date,
+      });
+      await reload();
+      setTreatmentForm({ date: toLocalDateString(new Date()), diagnosis: '', treatmentDone: '', remarks: '' });
+      setShowAddTreatment(false);
+    } catch (err) {
+      setTreatmentError(err instanceof ApiError ? err.message : 'Failed to save treatment entry');
+    } finally {
+      setTreatmentSaving(false);
+    }
+  };
+
+  // Real upcoming appointments for this specific student.
+  const today = toLocalDateString(new Date());
+  const studentAppointments = useMemo(
+    () => appointmentSessions
+      .filter((s) => s.students.some((stu) => stu.id === id) && s.date >= today)
+      .sort((a, b) => a.date.localeCompare(b.date)),
+    [appointmentSessions, id, today],
+  );
+
   const showStickyYearBar = activeTab === 'history' || activeTab === 'chart';
   const backPath = iptrContext === 'risk' ? '/ai-analytics' : iptrContext === 'treatment' ? '/treatment-records' : '/dental-charts';
+
+  if (loading) {
+    return <div className="text-sm text-gray-500 p-8 text-center">Loading dental chart…</div>;
+  }
+  if (error || !student) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+        <p className="text-red-600">{error ?? 'Student not found.'}</p>
+        <Link to="/dental-charts" className="text-sm text-blue-600 hover:underline mt-2 inline-block">← Back to Dental Charts</Link>
+      </div>
+    );
+  }
+
+  const patientAge = computeAge(student.birthday);
 
   return (
     <div className="space-y-4 max-w-5xl mx-auto">
       {/* Sticky header row */}
       <div ref={headerRowRef} className="sticky top-0 z-40 bg-gray-50 pb-2">
-      {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0">
           <Link to={backPath} className="p-2 hover:bg-gray-100 rounded-lg shrink-0">
@@ -512,11 +541,10 @@ export const DentalChart = () => {
           </Link>
           <div className="min-w-0">
             <h1 className="text-lg font-bold text-gray-900">Individual Patient Treatment Record</h1>
-            <p className="text-xs text-gray-500">{patientInfo.lastName}, {patientInfo.firstName} · {patientInfo.grade} {patientInfo.section} · {patientInfo.sex} · {computeAge(patientInfo.birthday)} yrs</p>
+            <p className="text-xs text-gray-500">{student.full_name} · {student.grade_level} {student.section} · {student.sex} · {patientAge} yrs</p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {/* Patient navigation */}
           <div className="hidden sm:flex items-center gap-1 border border-gray-200 rounded-lg overflow-hidden">
             <button
               onClick={() => prevPatient && navigate(`/dental-chart/${prevPatient.id}`)}
@@ -529,7 +557,7 @@ export const DentalChart = () => {
             </button>
             <span className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-gray-500">
               <Users className="w-3 h-3" />
-              {navIndex >= 0 ? `${navIndex + 1}/${patientNavList.length}` : '—'}
+              {navIndex >= 0 ? `${navIndex + 1}/${navList.length}` : '—'}
             </span>
             <button
               onClick={() => nextPatient && navigate(`/dental-chart/${nextPatient.id}`)}
@@ -541,22 +569,26 @@ export const DentalChart = () => {
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
-          {/* Year navigation */}
-          <button onClick={() => setSelectedYear(Math.max(0, selectedYear - 1))} disabled={selectedYear === 0} className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-30">
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <span className="text-sm font-medium px-3 py-1.5 bg-blue-50 text-blue-800 rounded-lg">{activeYears[selectedYear]}</span>
-          <button onClick={() => setSelectedYear(Math.min(activeYears.length - 1, selectedYear + 1))} disabled={selectedYear === activeYears.length - 1} className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-30">
-            <ChevronRight className="w-4 h-4" />
-          </button>
-          {canEdit && (
-            <button onClick={handleSave} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${saved ? 'bg-green-600 text-white' : 'bg-blue-700 text-white hover:bg-blue-700'}`}>
+          {years.length > 0 && (
+            <>
+              <button onClick={() => setSelectedYear(Math.max(0, selectedYear - 1))} disabled={selectedYear === 0} className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-30">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-sm font-medium px-3 py-1.5 bg-blue-50 text-blue-800 rounded-lg">{years[selectedYear]?.iptr.school_year}</span>
+              <button onClick={() => setSelectedYear(Math.min(years.length - 1, selectedYear + 1))} disabled={selectedYear === years.length - 1} className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-30">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </>
+          )}
+          {canEdit && currentYearData && (
+            <button onClick={handleSave} disabled={saving} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-60 ${saved ? 'bg-green-600 text-white' : 'bg-blue-700 text-white hover:bg-blue-700'}`}>
               <Save className="w-4 h-4" />
-              {saved ? 'Saved!' : 'Save'}
+              {saving ? 'Saving…' : saved ? 'Saved!' : 'Save'}
             </button>
           )}
         </div>
       </div>
+      {saveError && <p className="text-xs text-red-600 mt-1">{saveError}</p>}
       </div>
 
       {/* Patient Info Card */}
@@ -566,73 +598,81 @@ export const DentalChart = () => {
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-gray-700">Edit Student Info</span>
               <div className="flex gap-2">
-                <button onClick={() => { setPatientInfo({ ...draftInfo }); setEditingInfo(false); }}
-                  className="px-3 py-1.5 text-sm bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700">Save</button>
-                <button onClick={() => { setDraftInfo({ ...patientInfo }); setEditingInfo(false); }}
-                  className="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
+                <button onClick={handleSaveInfo} disabled={infoSaving} className="px-3 py-1.5 text-sm bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{infoSaving ? 'Saving…' : 'Save'}</button>
+                <button onClick={() => setEditingInfo(false)} className="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
               </div>
             </div>
+            {infoError && <p className="text-xs text-red-600">{infoError}</p>}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
-              {[
-                { label: 'Last Name',   field: 'lastName'   },
-                { label: 'First Name',  field: 'firstName'  },
-                { label: 'Middle Name', field: 'middleName' },
-                { label: 'Contact',     field: 'contactNumber' },
-                { label: 'Guardian',    field: 'guardianName' },
-                { label: 'Guardian Contact', field: 'guardianContact' },
-                { label: 'PhilHealth No.', field: 'philhealthNumber' },
-              ].map(({ label, field }) => (
-                <div key={field}>
-                  <label className="block text-gray-500 font-medium mb-0.5">{label}</label>
-                  <input type="text" value={(draftInfo as any)[field]} onChange={e => setDraftInfo(p => ({ ...p, [field]: e.target.value }))}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs" />
-                </div>
-              ))}
+              <div className="md:col-span-2">
+                <label className="block text-gray-500 font-medium mb-0.5">Full Name</label>
+                <input type="text" value={draftInfo.full_name ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, full_name: e.target.value }))}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs" />
+              </div>
+              <div>
+                <label className="block text-gray-500 font-medium mb-0.5">Contact Number</label>
+                <input type="text" value={draftInfo.contact_number ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, contact_number: e.target.value }))}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs" />
+              </div>
+              <div>
+                <label className="block text-gray-500 font-medium mb-0.5">Guardian Name</label>
+                <input type="text" value={draftInfo.guardian_name ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, guardian_name: e.target.value }))}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs" />
+              </div>
+              <div>
+                <label className="block text-gray-500 font-medium mb-0.5">Guardian Contact</label>
+                <input type="text" value={draftInfo.guardian_contact ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, guardian_contact: e.target.value }))}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs" />
+              </div>
+              <div>
+                <label className="block text-gray-500 font-medium mb-0.5">PhilHealth No.</label>
+                <input type="text" value={draftInfo.philhealth_number ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, philhealth_number: e.target.value }))}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs" />
+              </div>
               <div>
                 <label className="block text-gray-500 font-medium mb-0.5">Birthday</label>
-                <input type="date" value={draftInfo.birthday} onChange={e => setDraftInfo(p => ({ ...p, birthday: e.target.value }))}
+                <input type="date" value={draftInfo.birthday?.slice(0, 10) ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, birthday: e.target.value }))}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs" />
               </div>
               <div>
                 <label className="block text-gray-500 font-medium mb-0.5">Sex</label>
-                <select value={draftInfo.sex} onChange={e => setDraftInfo(p => ({ ...p, sex: e.target.value }))}
+                <select value={draftInfo.sex ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, sex: e.target.value }))}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs bg-white">
                   <option>Male</option><option>Female</option>
                 </select>
               </div>
               <div>
                 <label className="block text-gray-500 font-medium mb-0.5">Grade</label>
-                <select value={draftInfo.grade} onChange={e => setDraftInfo(p => ({ ...p, grade: e.target.value }))}
+                <select value={draftInfo.grade_level ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, grade_level: e.target.value }))}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs bg-white">
-                  {['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6'].map(g => <option key={g}>{g}</option>)}
+                  {GRADES.map((g) => <option key={g}>{g}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-gray-500 font-medium mb-0.5">Section</label>
-                <input type="text" value={draftInfo.section} onChange={e => setDraftInfo(p => ({ ...p, section: e.target.value }))}
+                <input type="text" value={draftInfo.section ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, section: e.target.value }))}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs" />
               </div>
               <div>
                 <label className="block text-gray-500 font-medium mb-0.5">PhilHealth Status</label>
-                <select value={draftInfo.philhealthStatus} onChange={e => setDraftInfo(p => ({ ...p, philhealthStatus: e.target.value }))}
+                <select value={draftInfo.philhealth_status ?? 'None'} onChange={(e) => setDraftInfo((p) => ({ ...p, philhealth_status: e.target.value as 'None' | 'Principal' | 'Dependent' }))}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs bg-white">
-                  <option>Dependent</option><option>Member</option><option>None</option>
+                  <option>Dependent</option><option>Principal</option><option>None</option>
                 </select>
               </div>
               <div className="md:col-span-2">
                 <label className="block text-gray-500 font-medium mb-0.5">School</label>
-                <select value={draftInfo.school} onChange={e => setDraftInfo(p => ({ ...p, school: e.target.value }))}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs bg-white">
-                  {['Bagong Tanyag Integrated School','Bagong Tanyag Elementary School Annex A','South Daang Hari Elementary School Main'].map(s => <option key={s}>{s}</option>)}
+                <select value={schoolName} disabled className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs bg-gray-50 text-gray-500">
+                  {SCHOOLS.map((s) => <option key={s}>{s}</option>)}
                 </select>
               </div>
               <div className="md:col-span-3">
                 <label className="block text-gray-500 font-medium mb-0.5">Address</label>
-                <input type="text" value={draftInfo.address} onChange={e => setDraftInfo(p => ({ ...p, address: e.target.value }))}
+                <input type="text" value={draftInfo.address ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, address: e.target.value }))}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs" />
               </div>
               <div className="flex items-center gap-2">
-                <input type="checkbox" id="4ps" checked={draftInfo.is4Ps} onChange={e => setDraftInfo(p => ({ ...p, is4Ps: e.target.checked }))}
+                <input type="checkbox" id="4ps" checked={!!draftInfo.is_4ps} onChange={(e) => setDraftInfo((p) => ({ ...p, is_4ps: e.target.checked }))}
                   className="w-4 h-4 rounded accent-blue-600" />
                 <label htmlFor="4ps" className="text-gray-700 font-medium">4Ps Member</label>
               </div>
@@ -643,35 +683,34 @@ export const DentalChart = () => {
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-3">
                 <div style={{ backgroundColor: gc.light, color: gc.solid }} className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg">
-                  {patientInfo.firstName[0]}{patientInfo.lastName[0]}
+                  {student.full_name.split(' ').map((n) => n[0]).slice(0, 2).join('')}
                 </div>
                 <div>
-                  <div className="font-bold text-gray-900">{patientInfo.lastName}, {patientInfo.firstName} {patientInfo.middleName}</div>
-                  <div className="text-xs text-gray-500">{patientInfo.grade} • {patientInfo.section} • {patientInfo.sex} • Age {computeAge(patientInfo.birthday)}</div>
+                  <div className="font-bold text-gray-900">{student.full_name}</div>
+                  <div className="text-xs text-gray-500">{student.grade_level} • {student.section} • {student.sex} • Age {patientAge}</div>
                   <div className="flex items-center gap-2 mt-1">
-                    <GradePill grade={patientInfo.grade} />
-                    <span style={{ color: gc.solid }} className="text-xs font-medium">{patientInfo.section}</span>
-                    {patientInfo.is4Ps && <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">4Ps</span>}
+                    <GradePill grade={student.grade_level} />
+                    <span style={{ color: gc.solid }} className="text-xs font-medium">{student.section}</span>
+                    {student.is_4ps && <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">4Ps</span>}
                   </div>
                 </div>
               </div>
               {canEditInfo && (
-                <button onClick={() => { setDraftInfo({ ...patientInfo }); setEditingInfo(true); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">
+                <button onClick={openEditInfo} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">
                   <Pencil className="w-3 h-3" /> Edit
                 </button>
               )}
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
               {[
-                ['Birthday', patientInfo.birthday],
-                ['Age', `${computeAge(patientInfo.birthday)} years`],
-                ['Sex', patientInfo.sex],
-                ['Contact', patientInfo.contactNumber],
-                ['Address', patientInfo.address],
-                ['PhilHealth', `${patientInfo.philhealthNumber} (${patientInfo.philhealthStatus})`],
-                ['Guardian', patientInfo.guardianName],
-                ['Guardian Contact', patientInfo.guardianContact],
+                ['Birthday', student.birthday?.slice(0, 10)],
+                ['Age', `${patientAge} years`],
+                ['Sex', student.sex],
+                ['Contact', student.contact_number || '—'],
+                ['Address', student.address],
+                ['PhilHealth', `${student.philhealth_number || '—'} (${student.philhealth_status || 'None'})`],
+                ['Guardian', student.guardian_name || '—'],
+                ['Guardian Contact', student.guardian_contact || '—'],
               ].map(([label, val]) => (
                 <div key={label}>
                   <div className="text-gray-400 font-medium">{label}</div>
@@ -686,62 +725,40 @@ export const DentalChart = () => {
       {/* Tabs */}
       <div className="sticky z-30 bg-gray-50 space-y-0" style={{ top: stickyOffsets.tabsTop }}>
         <div className="bg-white rounded-xl border border-gray-200">
-          <div
-            ref={tabsRowRef}
-            className="rounded-t-xl border-b border-gray-200 bg-white"
-          >
+          <div ref={tabsRowRef} className="rounded-t-xl border-b border-gray-200 bg-white">
             <div className="overflow-x-auto">
             <div className="flex min-w-max">
-            {visibleTabs.map(tab => (
+            {visibleTabs.map((tab) => (
               <button key={tab.key} onClick={() => setActiveTab(tab.key as TabKey)}
                 className={`flex-shrink-0 px-4 py-3 text-sm font-medium transition-colors ${activeTab === tab.key ? 'border-b-2 border-blue-700 text-blue-700 bg-blue-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
-                {tab.key === 'referrals' && referrals.length > 0 ? (
-                  <span className="flex items-center gap-1.5">
-                    {tab.label}
-                    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-orange-500 text-white text-[10px] font-bold leading-none">
-                      {referrals.length}
-                    </span>
-                  </span>
-                ) : tab.label}
+                {tab.label}
               </button>
             ))}
             </div>
             </div>
           </div>
-          {showStickyYearBar && (
+          {showStickyYearBar && years.length > 0 && (
             <div className="border-t border-gray-100 bg-white px-4 pt-3">
               <div className="overflow-x-auto">
               <div className="flex items-center gap-0 min-w-max">
-              {activeYears.map((yr, idx) => {
-                const yrDmft = computeDMFT(chartData[idx] || {});
+              {years.map((y, idx) => {
+                const yrChart: Record<number, ChartEntry> = {};
+                for (const tr of y.toothRecords) yrChart[tr.tooth_number] = { condition: tr.condition, treatment: tr.treatment_code ?? '' };
+                const yrDmft = computeDMFT(yrChart);
                 const isActive = selectedYear === idx;
                 return (
-                  <div
-                    key={yr}
-                    className={`mr-1 flex flex-shrink-0 items-stretch border-b-2 ${isActive ? 'border-blue-700 bg-blue-50 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setSelectedYear(idx)}
-                      className="px-4 py-2.5 text-left text-xs font-medium transition-all"
-                    >
-                      <div>{yr}</div>
+                  <div key={y.iptr._id} className={`mr-1 flex flex-shrink-0 items-stretch border-b-2 ${isActive ? 'border-blue-700 bg-blue-50 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
+                    <button type="button" onClick={() => setSelectedYear(idx)} className="px-4 py-2.5 text-left text-xs font-medium transition-all">
+                      <div>{y.iptr.school_year}</div>
                       {activeTab === 'chart' && (
-                        <div style={{ fontSize: '10px', marginTop: '2px' }} className={isActive ? 'text-blue-600' : 'text-gray-400'}>
-                          DMFT: {yrDmft.T + yrDmft.t}
-                        </div>
+                        <div style={{ fontSize: '10px', marginTop: '2px' }} className={isActive ? 'text-blue-600' : 'text-gray-400'}>DMFT: {yrDmft.T + yrDmft.t}</div>
                       )}
                       <div style={{ fontSize: '10px', marginTop: '2px' }} className={isActive ? 'text-blue-600' : 'text-gray-400'}>
-                        {formatDateStamp(medHistory[idx]?.dateExamined)}
+                        {formatDateStamp(y.dentalChart?.date_charted)}
                       </div>
                     </button>
-                    {canEdit && isManagingYears && activeYears.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteYear(idx)}
-                        className="border-l border-gray-200 px-2 text-gray-400 transition-colors hover:bg-white hover:text-red-600"
-                        title={`Delete ${yr}`}
-                      >
+                    {canEdit && isManagingYears && years.length > 1 && (
+                      <button type="button" onClick={() => handleDeleteYear(idx)} className="border-l border-gray-200 px-2 text-gray-400 transition-colors hover:bg-white hover:text-red-600" title={`Remove ${y.iptr.school_year}`}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     )}
@@ -750,19 +767,12 @@ export const DentalChart = () => {
               })}
               {canEdit && (
                 <div className="ml-2 flex flex-shrink-0 items-center gap-2 py-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsManagingYears(prev => !prev)}
-                    className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors ${isManagingYears ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' : 'border border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}
-                  >
+                  <button type="button" onClick={() => setIsManagingYears((prev) => !prev)}
+                    className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors ${isManagingYears ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' : 'border border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}>
                     {isManagingYears ? 'Done' : 'Edit Years'}
                   </button>
                   {isManagingYears && !!getNextSchoolYear() && (
-                    <button
-                      type="button"
-                      onClick={handleAddYear}
-                      className="flex-shrink-0 px-3 py-2 text-xs text-gray-400 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-300 transition-all"
-                    >
+                    <button type="button" onClick={handleAddYear} className="flex-shrink-0 px-3 py-2 text-xs text-gray-400 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-300 transition-all">
                       + Add Year
                     </button>
                   )}
@@ -778,113 +788,89 @@ export const DentalChart = () => {
       {/* Tab Content */}
       <div className="bg-white rounded-xl border border-gray-200">
 
+        {years.length === 0 ? (
+          <div className="p-12 text-center text-gray-400">
+            <p className="text-sm">No IPTR school-year records yet for this student.</p>
+            {canEdit && <button onClick={handleAddYear} className="mt-3 px-4 py-2 bg-[#1E40AF] text-white rounded-lg text-sm font-medium hover:bg-blue-700">+ Start {getNextSchoolYear()}</button>}
+          </div>
+        ) : (
+        <>
         {/* ── TAB 1: History ── */}
         {activeTab === 'history' && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr>
-                  <th className="bg-gray-50 px-4 py-2.5 text-left font-semibold text-gray-600 border border-gray-200 min-w-[180px]">Field</th>
-                  {activeYears.map((yr, idx) => (
-                    <th
-                      key={yr}
-                      onClick={() => setSelectedYear(idx)}
-                      className={`px-3 py-2.5 text-center font-semibold border border-gray-200 min-w-[110px] cursor-pointer select-none ${idx === selectedYear ? 'bg-blue-100 text-blue-800' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
-                    >
-                      <div className="flex flex-col items-center gap-1">
-                        <span>{yr}</span>
-                        <span className={`text-[10px] font-medium ${idx === selectedYear ? 'text-blue-600' : 'text-gray-400'}`}>
-                          {formatDateStamp(medHistory[idx]?.dateExamined)}
-                        </span>
-                      </div>
-                    </th>
+          <div className="p-4 space-y-4">
+            <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${!canEditHistory ? 'opacity-60' : ''}`}>
+              <div>
+                <div className="text-xs font-bold text-gray-800 uppercase tracking-wide mb-2">Medical History</div>
+                <div className="space-y-1.5">
+                  {([
+                    ['Hypertension / CVA', 'hypertension'], ['Diabetes Mellitus', 'diabetes'],
+                    ['Cardiovascular / Heart Diseases', 'cardiovascular'], ['Thyroid Disorders', 'thyroid'],
+                    ['Hepatitis', 'hepatitis'], ['Malignancy', 'malignancy'],
+                    ['History of Hospitalization', 'hospitalization'], ['Blood Transfusion', 'bloodTransfusion'], ['Tattoo', 'tattoo'],
+                  ] as [string, keyof MedicalHistoryDraft][]).map(([label, field]) => (
+                    <label key={field} className="flex items-center justify-between text-xs text-gray-700 py-1 border-b border-gray-100 last:border-0">
+                      {label}
+                      <input type="checkbox" disabled={!canEditHistory} checked={!!draftMed[field]}
+                        onChange={(e) => setDraftMed((p) => ({ ...p, [field]: e.target.checked }))}
+                        className="w-4 h-4 rounded accent-teal-600 disabled:cursor-not-allowed" />
+                    </label>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {/* ── Medical History header ── */}
-                <tr><td colSpan={activeYears.length + 1} className="px-4 py-2 font-bold text-gray-800 uppercase tracking-wide text-[10px] bg-gray-100 border border-gray-200">Medical History</td></tr>
+                  <div className="pt-1">
+                    <label className="block text-xs text-gray-500 mb-1">Allergies</label>
+                    <input type="text" disabled={!canEditHistory} value={draftMed.allergies} onChange={(e) => setDraftMed((p) => ({ ...p, allergies: e.target.value }))}
+                      placeholder="—" className="w-full text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed" />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-bold text-gray-800 uppercase tracking-wide mb-2">Dietary Habits and Social History</div>
+                <div className="space-y-1.5">
+                  {([
+                    ['Sugar Sweetened Beverages/Food', 'sugarSweetened'], ['Alcohol Drinker', 'alcoholDrinker'],
+                    ['Tobacco User', 'tobaccoUser'], ['Betel Nut Chewer', 'betelNut'],
+                    ['Body Piercing', 'bodyPiercing'], ['Nail Biting', 'nailBiting'], ['Thumbsucking', 'thumbsucking'],
+                  ] as [string, keyof DietDraft][]).map(([label, field]) => (
+                    <label key={field} className="flex items-center justify-between text-xs text-gray-700 py-1 border-b border-gray-100 last:border-0">
+                      {label}
+                      <input type="checkbox" disabled={!canEditHistory} checked={!!draftDiet[field]}
+                        onChange={(e) => setDraftDiet((p) => ({ ...p, [field]: e.target.checked }))}
+                        className="w-4 h-4 rounded accent-teal-600 disabled:cursor-not-allowed" />
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
 
+            <div className={!canEdit ? 'opacity-60' : ''}>
+              <div className="text-xs font-bold text-gray-800 uppercase tracking-wide mb-2">
+                Oral Health Condition{!canEdit && <span className="ml-2 normal-case font-normal text-gray-400">(dentist only)</span>}
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1.5">
                 {([
-                  ['Allergies', 'allergies', 'text'],
-                  ['Hypertension / CVA', 'hypertension', 'check'],
-                  ['Diabetes Mellitus', 'diabetes', 'check'],
-                  ['Blood Disorders', 'bloodDisorders', 'check'],
-                  ['Cardiovascular / Heart Diseases', 'cardiovascular', 'check'],
-                  ['Thyroid Disorders', 'thyroid', 'check'],
-                  ['Hepatitis', 'hepatitis', 'text'],
-                  ['Malignancy', 'malignancy', 'text'],
-                  ['History of Hospitalization', 'hospitalization', 'text'],
-                  ['Blood Transfusion', 'bloodTransfusion', 'text'],
-                  ['Tattoo', 'tattoo', 'check'],
-                  ['Others', 'others', 'text'],
-                ] as [string,string,string][]).map(([label, field, type]) => (
-                  <tr key={field} className={`hover:bg-gray-50/50 ${!canEditHistory ? 'opacity-60' : ''}`}>
-                    <td className="sticky left-0 z-10 bg-white px-4 py-2 text-gray-700 border border-gray-200">{label}</td>
-                    {activeYears.map((yr, idx) => (
-                      <td key={yr} className={`px-2 py-2 text-center border border-gray-200 ${idx === selectedYear ? 'bg-blue-50/40' : ''}`}>
-                        {type === 'check'
-                          ? <input type="checkbox" disabled={!canEditHistory} checked={idx === selectedYear ? !!(med as any)[field] : false} onChange={e => idx === selectedYear && updateMedField(field, e.target.checked)} className="w-4 h-4 rounded accent-teal-600 disabled:cursor-not-allowed" />
-                          : <input type="text" disabled={!canEditHistory} value={idx === selectedYear ? ((med as any)[field] || '') : ''} onChange={e => idx === selectedYear && updateMedField(field, e.target.value)} placeholder="—" className="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 text-center focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent disabled:cursor-not-allowed" />
-                        }
-                      </td>
-                    ))}
-                  </tr>
+                  ['Gingivitis', 'gingivitis'], ['Periodontal Disease', 'periodontal'], ['Debris', 'debris'],
+                  ['Calculus', 'calculus'], ['Abnormal Growth', 'abnormalGrowth'], ['Cleft Lip / Palate', 'cleftLipPalate'],
+                ] as [string, keyof OralDraft][]).map(([label, field]) => (
+                  <label key={field} className="flex items-center justify-between text-xs text-gray-700 py-1 border-b border-gray-100">
+                    {label}
+                    <input type="checkbox" disabled={!canEdit} checked={!!draftOral[field]}
+                      onChange={(e) => setDraftOral((p) => ({ ...p, [field]: e.target.checked }))}
+                      className="w-4 h-4 rounded accent-teal-600 disabled:cursor-not-allowed" />
+                  </label>
                 ))}
-
-                {/* ── Dietary header ── */}
-                <tr><td colSpan={activeYears.length + 1} className="px-4 py-2 font-bold text-gray-800 uppercase tracking-wide text-[10px] bg-gray-100 border border-gray-200">Dietary Habits and Social History</td></tr>
-
-                {([
-                  ['Sugar Sweetened Beverages/Food', 'sugarSweetened'],
-                  ['Alcohol Drinker', 'alcoholDrinker'],
-                  ['Tobacco User', 'tobaccoUser'],
-                  ['Betel Nut Chewer', 'betelNut'],
-                  ['Body Piercing', 'bodyPiercing'],
-                  ['Nail Biting', 'nailBiting'],
-                  ['Thumbsucking', 'thumbsucking'],
-                ] as [string,string][]).map(([label, field]) => (
-                  <tr key={field} className={`hover:bg-gray-50/50 ${!canEditHistory ? 'opacity-60' : ''}`}>
-                    <td className="sticky left-0 z-10 bg-white px-4 py-2 text-gray-700 border border-gray-200">{label}</td>
-                    {activeYears.map((yr, idx) => (
-                      <td key={yr} className={`px-2 py-2 text-center border border-gray-200 ${idx === selectedYear ? 'bg-blue-50/40' : ''}`}>
-                        <input type="checkbox" disabled={!canEditHistory} checked={idx === selectedYear ? !!(diet as any)[field] : false} onChange={e => idx === selectedYear && updateDietField(field, e.target.checked)} className="w-4 h-4 rounded accent-teal-600 disabled:cursor-not-allowed" />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-
-                {/* ── Oral Health — dentist only ── */}
-                <tr><td colSpan={activeYears.length + 1} className="px-4 py-2 font-bold text-gray-800 uppercase tracking-wide text-[10px] bg-gray-100 border border-gray-200">
-                  Oral Health Condition{!canEdit && <span className="ml-2 normal-case font-normal text-gray-400">(dentist only)</span>}
-                </td></tr>
-
-                {([
-                  ['Orally Fit', 'orallyFit', 'check'],
-                  ['Dental Caries', 'dentalCaries', 'check'],
-                  ['Gingivitis', 'gingivitis', 'check'],
-                  ['Periodontal Disease', 'periodontal', 'check'],
-                  ['Debris', 'debris', 'check'],
-                  ['Calculus', 'calculus', 'check'],
-                  ['Abnormal Growth', 'abnormalGrowth', 'check'],
-                  ['Cleft Lip / Palate', 'cleftLipPalate', 'check'],
-                  ['Completely Edentulous', 'edentulous', 'check'],
-                  ['Others', 'others', 'text'],
-                ] as [string,string,string][]).map(([label, field, type]) => (
-                  <tr key={field} className={`hover:bg-gray-50/50 ${!canEdit ? 'opacity-60' : ''}`}>
-                    <td className="sticky left-0 z-10 bg-white px-4 py-2 text-gray-700 border border-gray-200">{label}</td>
-                    {activeYears.map((yr, idx) => (
-                      <td key={yr} className={`px-2 py-2 text-center border border-gray-200 ${idx === selectedYear ? 'bg-blue-50/40' : ''}`}>
-                        {type === 'check'
-                          ? <input type="checkbox" disabled={!canEdit} checked={idx === selectedYear ? !!(oral as any)[field] : false} onChange={e => idx === selectedYear && updateOralField(field, e.target.checked)} className="w-4 h-4 rounded accent-teal-600 disabled:cursor-not-allowed" />
-                          : <input type="text" disabled={!canEdit} value={idx === selectedYear ? ((oral as any)[field] || '') : ''} onChange={e => idx === selectedYear && updateOralField(field, e.target.value)} placeholder="—" className="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 text-center focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent disabled:cursor-not-allowed" />
-                        }
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Oral Hygiene</label>
+                  <input type="text" disabled={!canEdit} value={draftOral.oralHygiene} onChange={(e) => setDraftOral((p) => ({ ...p, oralHygiene: e.target.value }))}
+                    placeholder="e.g. Good, Fair, Poor" className="w-full text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Others</label>
+                  <input type="text" disabled={!canEdit} value={draftOral.others} onChange={(e) => setDraftOral((p) => ({ ...p, others: e.target.value }))}
+                    placeholder="—" className="w-full text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed" />
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -892,15 +878,14 @@ export const DentalChart = () => {
         {activeTab === 'chart' && (
           <div className="p-0 space-y-0">
             <div className="p-4 space-y-4">
-            {/* Code selector — edit only */}
             <div className={`bg-blue-50 rounded-xl p-4 ${!canEdit ? 'opacity-50 pointer-events-none select-none' : ''}`}>
-              {!canEdit && <p className="text-xs text-gray-500 mb-2 italic">View only — editing restricted to Dentist / Dental Aide</p>}
+              {!canEdit && <p className="text-xs text-gray-500 mb-2 italic">View only — editing restricted to Dentist</p>}
               <div className={`grid grid-cols-1 ${iptrContext === 'default' ? 'lg:grid-cols-2' : ''} gap-4`}>
                 {iptrContext !== 'treatment' && (
                 <div>
                   <div className="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">Condition Codes</div>
                   <div className="grid grid-cols-4 sm:grid-cols-5 gap-1.5">
-                    {conditionCodes.map(c => (
+                    {conditionCodes.map((c) => (
                       <button key={c.code} onClick={() => { setSelectedCondition(selectedCondition === c.code ? null : c.code); setSelectedTreatment(null); }}
                         className={`aspect-square min-h-[54px] rounded-lg border p-1.5 text-center transition-all flex flex-col items-center justify-center gap-1 ${selectedCondition === c.code ? 'bg-teal-600 text-white ring-2 ring-teal-300 border-teal-600' : 'bg-white border-gray-300 text-gray-700 hover:border-teal-400'}`}>
                         <div className="text-[13px] sm:text-[15px] font-bold font-mono leading-none">{c.perm}/{c.temp}</div>
@@ -914,7 +899,7 @@ export const DentalChart = () => {
                 <div>
                   <div className="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">Treatment Codes</div>
                   <div className="grid grid-cols-4 sm:grid-cols-5 gap-1.5">
-                    {treatmentCodes.map(t => (
+                    {treatmentCodes.map((t) => (
                       <button key={t.code} onClick={() => { setSelectedTreatment(selectedTreatment === t.code ? null : t.code); setSelectedCondition(null); }}
                         className={`aspect-square min-h-[54px] rounded-lg border p-1.5 text-center transition-all flex flex-col items-center justify-center gap-1 ${selectedTreatment === t.code ? 'bg-blue-600 text-white ring-2 ring-blue-300 border-blue-600' : 'bg-white border-gray-300 text-gray-700 hover:border-blue-400'}`}>
                         <span className="text-[13px] sm:text-[15px] font-bold font-mono leading-none">{t.code}</span>
@@ -928,54 +913,33 @@ export const DentalChart = () => {
               {(selectedCondition || selectedTreatment) && (
                 <div className="mt-3 flex items-center gap-2">
                   {selectedCondition && (() => {
-                    const c = conditionCodes.find(x => x.code === selectedCondition);
-                    return (
-                      <span className="text-xs font-semibold px-3 py-1 rounded-full bg-teal-100 text-teal-800">
-                        Applying: {c?.perm}/{c?.temp} — {c?.label} · Click teeth to apply
-                      </span>
-                    );
+                    const c = conditionCodes.find((x) => x.code === selectedCondition);
+                    return <span className="text-xs font-semibold px-3 py-1 rounded-full bg-teal-100 text-teal-800">Applying: {c?.perm}/{c?.temp} — {c?.label} · Click teeth to apply</span>;
                   })()}
-                  {selectedTreatment && (
-                    <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-100 text-blue-800">
-                      Applying treatment: {selectedTreatment} · Click teeth to apply
-                    </span>
-                  )}
+                  {selectedTreatment && <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-100 text-blue-800">Applying treatment: {selectedTreatment} · Click teeth to apply</span>}
                   <button onClick={() => { setSelectedCondition(null); setSelectedTreatment(null); }} className="text-xs text-gray-500 hover:text-gray-700 underline">Clear</button>
                 </div>
               )}
             </div>
 
-            {/* Odontogram */}
             <div className="bg-white rounded-xl border border-gray-200 p-4 overflow-x-auto">
               <div className="min-w-[680px] space-y-2.5">
-                {/* Upper permanent */}
+                <div className="flex justify-center gap-1">{upperPermanent.map((n) => <ToothButton key={n} num={n} />)}</div>
                 <div className="flex justify-center gap-1">
-                  {upperPermanent.map(n => <ToothButton key={n} num={n} />)}
-                </div>
-                {/* Upper temporary */}
-                <div className="flex justify-center gap-1">
-                  <div className="flex gap-1">{upperTemporary.slice(0, 5).map(n => <ToothButton key={n} num={n} />)}</div>
+                  <div className="flex gap-1">{upperTemporary.slice(0, 5).map((n) => <ToothButton key={n} num={n} />)}</div>
                   <div className="w-9" />
-                  <div className="flex gap-1">{upperTemporary.slice(5).map(n => <ToothButton key={n} num={n} />)}</div>
+                  <div className="flex gap-1">{upperTemporary.slice(5).map((n) => <ToothButton key={n} num={n} />)}</div>
                 </div>
-
-                {/* Divider */}
                 <div className="border-t-2 border-dashed border-gray-300 my-2" />
-
-                {/* Lower temporary */}
                 <div className="flex justify-center gap-1">
-                  <div className="flex gap-1">{lowerTemporary.slice(0, 5).map(n => <ToothButton key={n} num={n} />)}</div>
+                  <div className="flex gap-1">{lowerTemporary.slice(0, 5).map((n) => <ToothButton key={n} num={n} />)}</div>
                   <div className="w-9" />
-                  <div className="flex gap-1">{lowerTemporary.slice(5).map(n => <ToothButton key={n} num={n} />)}</div>
+                  <div className="flex gap-1">{lowerTemporary.slice(5).map((n) => <ToothButton key={n} num={n} />)}</div>
                 </div>
-                {/* Lower permanent */}
-                <div className="flex justify-center gap-1">
-                  {lowerPermanent.map(n => <ToothButton key={n} num={n} />)}
-                </div>
+                <div className="flex justify-center gap-1">{lowerPermanent.map((n) => <ToothButton key={n} num={n} />)}</div>
               </div>
             </div>
 
-            {/* DMFT Scores */}
             <div className="bg-gray-50 rounded-xl border border-gray-200 p-4">
               <div className="text-xs font-semibold text-gray-600 mb-3 uppercase tracking-wide">DMFT / dmft Scores (Auto-computed)</div>
               <div className="grid grid-cols-2 gap-6">
@@ -1016,65 +980,20 @@ export const DentalChart = () => {
               </div>
             </div>
 
-            {/* DMFT Progression Across Years */}
-            {activeYears.length > 1 && (
-              <div className="bg-white rounded-xl border border-gray-200 p-4">
-                <div className="text-xs font-semibold text-gray-600 mb-3 uppercase tracking-wide">DMFT Progression — All Years</div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-2 pr-4 text-gray-500 font-medium">School Year</th>
-                        <th className="text-center py-2 px-2 text-gray-500 font-medium">d</th>
-                        <th className="text-center py-2 px-2 text-gray-500 font-medium">m</th>
-                        <th className="text-center py-2 px-2 text-gray-500 font-medium">f</th>
-                        <th className="text-center py-2 px-2 text-blue-600 font-bold">dmft</th>
-                        <th className="text-center py-2 px-2 text-gray-500 font-medium">D</th>
-                        <th className="text-center py-2 px-2 text-gray-500 font-medium">M</th>
-                        <th className="text-center py-2 px-2 text-gray-500 font-medium">F</th>
-                        <th className="text-center py-2 px-2 text-red-600 font-bold">DMFT</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {activeYears.map((yr, idx) => {
-                        const sc = computeDMFT(chartData[idx] || {});
-                        const isActive = idx === selectedYear;
-                        return (
-                          <tr key={yr} onClick={() => setSelectedYear(idx)} className={`cursor-pointer border-b border-gray-100 last:border-0 transition-colors ${isActive ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
-                            <td className={`py-2 pr-4 font-medium ${isActive ? 'text-blue-700' : 'text-gray-700'}`}>{yr}</td>
-                            <td className="text-center py-2 px-2 font-mono">{sc.d}</td>
-                            <td className="text-center py-2 px-2 font-mono">{sc.m}</td>
-                            <td className="text-center py-2 px-2 font-mono">{sc.f}</td>
-                            <td className="text-center py-2 px-2 font-mono font-bold text-blue-700">{sc.t}</td>
-                            <td className="text-center py-2 px-2 font-mono">{sc.D}</td>
-                            <td className="text-center py-2 px-2 font-mono">{sc.M}</td>
-                            <td className="text-center py-2 px-2 font-mono">{sc.F}</td>
-                            <td className="text-center py-2 px-2 font-mono font-bold text-red-700">{sc.T}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="mt-2 text-[10px] text-gray-400">Click any row to switch to that year's chart</div>
-              </div>
-            )}
-
-            {/* Legend */}
             <div className="grid grid-cols-2 gap-4 text-xs">
               <div className="bg-gray-50 rounded-xl p-3">
                 <div className="font-semibold text-gray-600 mb-2 uppercase tracking-wide text-[10px]">Condition Codes</div>
                 <div className="space-y-1">
                   {[
-                    { codes:'✓/✓',   label:'Sound/Sealed',            bg:'bg-green-50'   },
-                    { codes:'D/d',   label:'Decayed',                  bg:'bg-red-100'    },
-                    { codes:'M/m',   label:'Missing',                  bg:'bg-slate-200'  },
-                    { codes:'F/f',   label:'Filled',                   bg:'bg-blue-100'   },
-                    { codes:'DX/dx', label:'Indicated for Extraction', bg:'bg-orange-100' },
-                    { codes:'Un/un', label:'Unerupted',                bg:'bg-purple-50'  },
-                    { codes:'S/s',   label:'Supernumerary Tooth',      bg:'bg-yellow-50'  },
-                    { codes:'JC/jc', label:'Jacket Crown',             bg:'bg-pink-50'    },
-                    { codes:'P/p',   label:'Pontic',                   bg:'bg-indigo-50'  },
+                    { codes: '✓/✓', label: 'Sound/Sealed', bg: 'bg-green-50' },
+                    { codes: 'D/d', label: 'Decayed', bg: 'bg-red-100' },
+                    { codes: 'M/m', label: 'Missing', bg: 'bg-slate-200' },
+                    { codes: 'F/f', label: 'Filled', bg: 'bg-blue-100' },
+                    { codes: 'DX/dx', label: 'Indicated for Extraction', bg: 'bg-orange-100' },
+                    { codes: 'Un/un', label: 'Unerupted', bg: 'bg-purple-50' },
+                    { codes: 'S/s', label: 'Supernumerary Tooth', bg: 'bg-yellow-50' },
+                    { codes: 'JC/jc', label: 'Jacket Crown', bg: 'bg-pink-50' },
+                    { codes: 'P/p', label: 'Pontic', bg: 'bg-indigo-50' },
                   ].map(({ codes, label, bg }) => (
                     <div key={codes} className="flex items-center gap-2">
                       <span className={`font-mono font-bold text-gray-700 text-[10px] px-1.5 py-0.5 rounded border border-gray-300 w-14 text-center ${bg}`}>{codes}</span>
@@ -1086,14 +1005,7 @@ export const DentalChart = () => {
               <div className="bg-gray-50 rounded-xl p-3">
                 <div className="font-semibold text-gray-600 mb-2 uppercase tracking-wide text-[10px]">Treatment Codes</div>
                 <div className="space-y-1">
-                  {[
-                    ['FV',  'Fluoride Varnish'],
-                    ['PFS', 'Pit and Fissure Sealant'],
-                    ['PF',  'Permanent Filling'],
-                    ['TF',  'Temporary Filling'],
-                    ['X',   'Extraction'],
-                    ['SDF', 'Silver Diamine Fluoride'],
-                  ].map(([code, label]) => (
+                  {[['FV', 'Fluoride Varnish'], ['PFS', 'Pit and Fissure Sealant'], ['PF', 'Permanent Filling'], ['TF', 'Temporary Filling'], ['X', 'Extraction'], ['SDF', 'Silver Diamine Fluoride']].map(([code, label]) => (
                     <div key={code} className="flex gap-2"><span className="font-mono font-bold text-blue-700 w-10">{code}</span><span className="text-gray-500">{label}</span></div>
                   ))}
                 </div>
@@ -1106,15 +1018,13 @@ export const DentalChart = () => {
         {/* ── TAB 3: Consent & Appointments ── */}
         {activeTab === 'appointments' && (
           <div className="p-4 space-y-4">
-            {/* Consent Summary */}
             <div className="bg-gray-50 rounded-xl p-4 w-48">
               <div className="text-xs text-gray-500 mb-1">Consent Status</div>
-              <div className={`text-sm font-bold ${consentGiven ? 'text-green-600' : 'text-gray-400'}`}>
-                {consentGiven ? 'Completed' : 'Pending'}
+              <div className={`text-sm font-bold ${student.consent_status === 'complete' ? 'text-green-600' : 'text-gray-400'}`}>
+                {student.consent_status === 'complete' ? 'Completed' : 'Pending'}
               </div>
             </div>
 
-            {/* Filipino Consent */}
             <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
               <div className="text-xs font-bold text-slate-700 mb-2">Pahintulot ng Pasyente / Magulang o Guardian</div>
               <p className="text-xs text-slate-600 leading-relaxed mb-4">
@@ -1133,54 +1043,56 @@ export const DentalChart = () => {
                 </div>
               </div>
               <label className={`flex items-center gap-2 mt-4 ${canEdit ? 'cursor-pointer' : 'cursor-default'}`}>
-                <input type="checkbox" checked={consentGiven} onChange={e => canEdit && setConsentGiven(e.target.checked)} disabled={!canEdit} className="w-4 h-4 rounded accent-blue-600 disabled:opacity-60 disabled:cursor-not-allowed" />
+                <input type="checkbox" checked={student.consent_status === 'complete'} onChange={(e) => canEdit && handleToggleConsent(e.target.checked)} disabled={!canEdit} className="w-4 h-4 rounded accent-blue-600 disabled:opacity-60 disabled:cursor-not-allowed" />
                 <span className="text-xs text-gray-700">Nakumpleto na ang pahintulot / Consent has been obtained</span>
               </label>
             </div>
 
-            {/* Data Privacy Act */}
             <div className="bg-blue-50 rounded-xl border border-blue-200 p-4">
               <div className="flex items-start gap-3">
                 <Shield className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                 <div>
                   <div className="text-xs font-bold text-blue-900 mb-1">Republic Act No. 10173 — Data Privacy Act of 2012</div>
-                  <p className="text-xs text-blue-700 leading-relaxed mb-3">
+                  <p className="text-xs text-blue-700 leading-relaxed">
                     Ang impormasyong nakolekta sa form na ito ay gagamitin lamang para sa mga layuning pangkalusugan ng Dental Health Program ng Barangay Tanyag, Lungsod ng Taguig. Ang inyong personal na impormasyon ay protektado ng Batas Republika Blg. 10173 o ang Data Privacy Act ng 2012. Ang inyong datos ay hindi ibabahagi sa anumang partido na walang pahintulot maliban kung kinakailangan ng batas.
                   </p>
-                  <label className={`flex items-center gap-2 ${canEdit ? 'cursor-pointer' : 'cursor-default'}`}>
-                    <input type="checkbox" checked={dataPrivacyAck} onChange={e => canEdit && setDataPrivacyAck(e.target.checked)} disabled={!canEdit} className="w-4 h-4 rounded accent-blue-600 disabled:opacity-60 disabled:cursor-not-allowed" />
-                    <span className="text-xs text-blue-800 font-medium">Kinikilala at sinasang-ayunan ko ang Data Privacy Act of 2012</span>
-                  </label>
                 </div>
               </div>
             </div>
 
-            {/* Upcoming Appointments placeholder */}
             <div className="bg-white rounded-xl border border-gray-200 p-4">
               <div className="flex items-center justify-between mb-3">
-                <div className="text-sm font-semibold text-gray-900">Appointments</div>
+                <div className="text-sm font-semibold text-gray-900">Upcoming Appointments</div>
                 <Link to="/appointments" className="text-xs text-blue-600 hover:underline">View all →</Link>
               </div>
-              <div className="space-y-2">
-                {[
-                  { date: '2026-04-20', time: '9:00 AM', type: 'Fluoride Application', status: 'Scheduled' },
-                  { date: '2026-05-15', time: '10:00 AM', type: 'Follow-up Checkup', status: 'Scheduled' },
-                ].map((apt, i) => (
-                  <div key={i} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                    <div>
-                      <div className="text-xs font-medium text-gray-900">{apt.type}</div>
-                      <div className="text-xs text-gray-500">{apt.date} at {apt.time}</div>
+              {studentAppointments.length === 0 ? (
+                <p className="text-xs text-gray-400 text-center py-4">No upcoming appointments scheduled.</p>
+              ) : (
+                <div className="space-y-2">
+                  {studentAppointments.map((apt) => (
+                    <div key={apt.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                      <div>
+                        <div className="text-xs font-medium text-gray-900">{apt.type}</div>
+                        <div className="text-xs text-gray-500">{apt.date} at {apt.time}</div>
+                      </div>
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{apt.status}</span>
                     </div>
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{apt.status}</span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* ── TAB 4: Dental Records ── */}
-        {activeTab === 'records' && (
+        {/* ── TAB 4: Dental Records (DMFT History) ── */}
+        {activeTab === 'records' && (() => {
+          const dmftByYear = years.map((y) => {
+            const chart: Record<number, ChartEntry> = {};
+            for (const tr of y.toothRecords) chart[tr.tooth_number] = { condition: tr.condition, treatment: tr.treatment_code ?? '' };
+            return { year: y.iptr.school_year, ...computeDMFT(chart) };
+          });
+          if (dmftByYear.length === 0) return <div className="p-8 text-center text-gray-400 text-sm">No records yet.</div>;
+          return (
           <div className="p-4 space-y-6">
             <h3 className="text-sm font-bold text-gray-900">DMFT Progression by School Year</h3>
             <div className="overflow-x-auto rounded-lg border border-gray-200">
@@ -1188,10 +1100,9 @@ export const DentalChart = () => {
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">School Year</th>
-                    {['d','m','f','x','dmft','D','M','F','X','DMFT'].map(h => (
-                      <th key={h} className={`px-2 py-2 text-center text-xs font-medium ${h==='dmft'||h==='DMFT' ? 'bg-gray-100 font-bold text-gray-800' : h===h.toLowerCase() ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'}`}>{h}</th>
+                    {['d', 'm', 'f', 'x', 'dmft', 'D', 'M', 'F', 'X', 'DMFT'].map((h) => (
+                      <th key={h} className={`px-2 py-2 text-center text-xs font-medium ${h === 'dmft' || h === 'DMFT' ? 'bg-gray-100 font-bold text-gray-800' : h === h.toLowerCase() ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'}`}>{h}</th>
                     ))}
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Oral Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -1208,9 +1119,6 @@ export const DentalChart = () => {
                       <td className="px-2 py-2 text-center text-xs text-blue-700">{row.F || ''}</td>
                       <td className="px-2 py-2 text-center text-xs text-orange-700">{row.X || ''}</td>
                       <td className="px-2 py-2 text-center text-xs font-bold text-gray-900 bg-gray-100">{row.T}</td>
-                      <td className="px-4 py-2">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${row.oralStatus==='Orally Fit'?'bg-green-100 text-green-800':row.oralStatus==='Under Treatment'?'bg-blue-100 text-blue-800':'bg-yellow-100 text-yellow-800'}`}>{row.oralStatus}</span>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1218,12 +1126,11 @@ export const DentalChart = () => {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { label:'Latest dmft (primary)',    value: dmftByYear[dmftByYear.length-1].t, color:'text-red-700 bg-red-50' },
-                { label:'Latest DMFT (permanent)',  value: dmftByYear[dmftByYear.length-1].T, color:'text-blue-700 bg-blue-50' },
-                { label:'Years tracked',            value: dmftByYear.length,                color:'text-gray-700 bg-gray-100' },
-                { label:'Trend', value: dmftByYear[dmftByYear.length-1].T > dmftByYear[0].T ? '↑ Worsening' : '↓ Improving',
-                  color: dmftByYear[dmftByYear.length-1].T > dmftByYear[0].T ? 'text-red-700 bg-red-50' : 'text-green-700 bg-green-50' },
-              ].map((kpi,i) => (
+                { label: 'Latest dmft (primary)', value: dmftByYear[dmftByYear.length - 1].t, color: 'text-red-700 bg-red-50' },
+                { label: 'Latest DMFT (permanent)', value: dmftByYear[dmftByYear.length - 1].T, color: 'text-blue-700 bg-blue-50' },
+                { label: 'Years tracked', value: dmftByYear.length, color: 'text-gray-700 bg-gray-100' },
+                { label: 'Trend', value: dmftByYear[dmftByYear.length - 1].T > dmftByYear[0].T ? '↑ Worsening' : '↓ Improving', color: dmftByYear[dmftByYear.length - 1].T > dmftByYear[0].T ? 'text-red-700 bg-red-50' : 'text-green-700 bg-green-50' },
+              ].map((kpi, i) => (
                 <div key={i} className={`rounded-lg p-3 ${kpi.color}`}>
                   <div className="text-xl font-bold">{kpi.value}</div>
                   <div className="text-xs mt-0.5 opacity-80">{kpi.label}</div>
@@ -1231,331 +1138,109 @@ export const DentalChart = () => {
               ))}
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* ── TAB 5: Treatment History ── */}
         {activeTab === 'treatments' && (
           <div className="p-4 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-gray-900">Treatment History</h3>
-              {canEdit && (
-                <button onClick={() => setShowAddTreatment(v => !v)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700">
+              {canEdit && currentYearData && (
+                <button onClick={() => setShowAddTreatment((v) => !v)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700">
                   <Plus className="w-3.5 h-3.5" /> Add Entry
                 </button>
               )}
             </div>
             {showAddTreatment && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                <p className="text-xs text-blue-700">Adding to school year: <strong>{currentYearData?.iptr.school_year}</strong></p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div><label className="block text-xs font-medium text-gray-700 mb-1">Visit Type</label>
-                    <select className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                      <option value="regular">Regular</option>
-                      <option value="rpc1">RPC Visit 1</option>
-                      <option value="rpc2">RPC Visit 2</option>
-                    </select>
-                  </div>
                   <div><label className="block text-xs font-medium text-gray-700 mb-1">Date</label>
-                    <input type="date" className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
+                    <input type="date" value={treatmentForm.date} onChange={(e) => setTreatmentForm((f) => ({ ...f, date: e.target.value }))} className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
                   <div><label className="block text-xs font-medium text-gray-700 mb-1">{staffNameLabel}</label>
                     <input type="text" value={user?.name ?? ''} readOnly className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-gray-50 cursor-default text-gray-700" /></div>
-                  <div className="md:col-span-2"><label className="block text-xs font-medium text-gray-700 mb-1">Chief Complaint</label>
-                    <input type="text" className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
                   <div><label className="block text-xs font-medium text-gray-700 mb-1">Diagnosis</label>
-                    <textarea rows={2} className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" /></div>
+                    <textarea rows={2} value={treatmentForm.diagnosis} onChange={(e) => setTreatmentForm((f) => ({ ...f, diagnosis: e.target.value }))} className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" /></div>
                   <div><label className="block text-xs font-medium text-gray-700 mb-1">Treatment Done</label>
-                    <textarea rows={2} className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" /></div>
+                    <textarea rows={2} value={treatmentForm.treatmentDone} onChange={(e) => setTreatmentForm((f) => ({ ...f, treatmentDone: e.target.value }))} className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" /></div>
                   <div className="md:col-span-2"><label className="block text-xs font-medium text-gray-700 mb-1">Remarks</label>
-                    <input type="text" className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
+                    <input type="text" value={treatmentForm.remarks} onChange={(e) => setTreatmentForm((f) => ({ ...f, remarks: e.target.value }))} className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
                 </div>
+                {treatmentError && <p className="text-xs text-red-600">{treatmentError}</p>}
                 <div className="flex gap-2">
-                  <button onClick={() => setShowAddTreatment(false)} className="px-4 py-1.5 text-sm bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700">Save</button>
+                  <button onClick={handleAddTreatment} disabled={treatmentSaving} className="px-4 py-1.5 text-sm bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{treatmentSaving ? 'Saving…' : 'Save'}</button>
                   <button onClick={() => setShowAddTreatment(false)} className="px-4 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
                 </div>
               </div>
             )}
-            {/* Desktop table */}
+            {allTreatments.length === 0 ? (
+              <p className="text-center text-gray-400 text-sm py-8">No treatment records yet.</p>
+            ) : (
+            <>
             <div className="hidden md:block overflow-x-auto rounded-lg border border-gray-200">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>{['Date','Type','Chief Complaint','Diagnosis','Treatment Done','Dentist','Remarks'].map(h=>(
+                  <tr>{['Date', 'Diagnosis', 'Treatment Done', 'Dentist', 'Remarks'].map((h) => (
                     <th key={h} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
                   ))}</tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 bg-white">
-                  {treatmentHistory.map((t,i)=>(
-                    <tr key={i} className={`hover:bg-gray-50 ${t.type==='rpc' ? 'bg-purple-50/30' : ''}`}>
-                      <td className="px-4 py-2 whitespace-nowrap font-medium text-gray-900 text-xs">{new Date(t.date).toLocaleDateString('en-PH',{year:'numeric',month:'short',day:'numeric'})}</td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        {t.type === 'rpc'
-                          ? <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">RPC Visit {t.rpcVisit}</span>
-                          : <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Regular</span>
-                        }
-                      </td>
-                      <td className="px-4 py-2 text-xs text-gray-900">{t.complaint}</td>
+                  {allTreatments.map((t) => (
+                    <tr key={t._id} className="hover:bg-gray-50">
+                      <td className="px-4 py-2 whitespace-nowrap font-medium text-gray-900 text-xs">{new Date(t.date).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
                       <td className="px-4 py-2 text-xs text-gray-900">{t.diagnosis}</td>
-                      <td className="px-4 py-2 text-xs text-gray-900">{t.treatment}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-700">{t.dentist}</td>
+                      <td className="px-4 py-2 text-xs text-gray-900">{t.treatment_done}</td>
+                      <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-700">{dentistNameById.get(t.dentist_id) ?? 'Unknown'}</td>
                       <td className="px-4 py-2 text-xs text-gray-500">{t.remarks}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            {/* Mobile cards */}
             <div className="md:hidden space-y-3">
-              {treatmentHistory.map((t,i)=>(
-                <div key={i} className={`rounded-lg border p-3 space-y-1.5 ${t.type==='rpc' ? 'bg-purple-50 border-purple-200' : 'bg-white border-gray-200'}`}>
+              {allTreatments.map((t) => (
+                <div key={t._id} className="rounded-lg border bg-white border-gray-200 p-3 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-gray-900 text-xs">{new Date(t.date).toLocaleDateString('en-PH',{year:'numeric',month:'short',day:'numeric'})}</span>
-                    <div className="flex items-center gap-2">
-                      {t.type === 'rpc'
-                        ? <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">RPC Visit {t.rpcVisit}</span>
-                        : <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Regular</span>
-                      }
-                      <span className="text-xs text-gray-500">{t.dentist}</span>
-                    </div>
+                    <span className="font-medium text-gray-900 text-xs">{new Date(t.date).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                    <span className="text-xs text-gray-500">{dentistNameById.get(t.dentist_id) ?? 'Unknown'}</span>
                   </div>
-                  <p className="text-xs text-gray-600"><span className="font-medium">CC:</span> {t.complaint}</p>
                   <p className="text-xs text-gray-600"><span className="font-medium">Dx:</span> {t.diagnosis}</p>
-                  <p className="text-xs text-gray-600"><span className="font-medium">Tx:</span> {t.treatment}</p>
+                  <p className="text-xs text-gray-600"><span className="font-medium">Tx:</span> {t.treatment_done}</p>
                   {t.remarks && <p className="text-xs text-gray-400 italic">{t.remarks}</p>}
-
                 </div>
               ))}
             </div>
-
+            </>
+            )}
           </div>
         )}
 
-        {/* ── TAB 6: Referrals ── */}
+        {/* ── TAB 6: Referrals — no Referral model exists in the ERD, so this
+             is an honest "not tracked" state rather than a form that implies
+             persistence that doesn't exist. ── */}
         {activeTab === 'referrals' && (
-          <div className="p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-gray-900">Referrals</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Patients referred to outside facilities for care beyond clinic capacity</p>
-              </div>
-              {canEdit && (
-                <button onClick={() => setShowAddReferral(v => !v)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-orange-300 text-orange-700 bg-orange-50 rounded-lg hover:bg-orange-100">
-                  <ExternalLink className="w-3.5 h-3.5" /> Issue Referral
-                </button>
-              )}
+          <div className="p-4">
+            <div className="text-center py-12 text-gray-400">
+              <FileText className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm font-medium text-gray-500">Referral Tracking Not Yet Available</p>
+              <p className="text-xs mt-1 max-w-sm mx-auto">There's no referral-tracking model in the system yet. Referrals to outside facilities should be noted in Treatment History remarks for now.</p>
             </div>
-
-            {showAddReferral && (
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 space-y-3">
-                <h4 className="text-xs font-semibold text-orange-800">New Referral</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div><label className="block text-xs font-medium text-gray-700 mb-1">Date</label>
-                    <input type="date" value={referralForm.date} onChange={e => setReferralForm(f => ({...f, date: e.target.value}))}
-                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400" /></div>
-                  <div><label className="block text-xs font-medium text-gray-700 mb-1">Refer To</label>
-                    <select value={referralForm.facility} onChange={e => setReferralForm(f => ({...f, facility: e.target.value}))}
-                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white">
-                      <option value="">Select facility...</option>
-                      <option>Taguig City Health Office</option>
-                      <option>Taguig District Hospital</option>
-                      <option>San Juan De Dios Hospital</option>
-                      <option>Specialist Clinic</option>
-                      <option>Other</option>
-                    </select></div>
-                  <div className="md:col-span-2"><label className="block text-xs font-medium text-gray-700 mb-1">Reason for Referral</label>
-                    <input type="text" value={referralForm.reason} onChange={e => setReferralForm(f => ({...f, reason: e.target.value}))}
-                      placeholder="e.g. Severe caries requiring extraction beyond clinic capacity"
-                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400" /></div>
-                  <div><label className="block text-xs font-medium text-gray-700 mb-1">Expected Follow-up Date</label>
-                    <input type="date" value={referralForm.followUpDate} onChange={e => setReferralForm(f => ({...f, followUpDate: e.target.value}))}
-                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400" /></div>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => {
-                    if (referralForm.date && referralForm.facility && referralForm.reason) {
-                      setReferrals(prev => [...prev, { ...referralForm, status: 'pending' }]);
-                      setReferralForm({ date: '', facility: '', reason: '', followUpDate: '' });
-                      setShowAddReferral(false);
-                    }
-                  }} className="px-4 py-1.5 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700">Save Referral</button>
-                  <button onClick={() => setShowAddReferral(false)} className="px-4 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
-                </div>
-              </div>
-            )}
-
-            {referrals.length === 0 && !showAddReferral ? (
-              <div className="text-center py-12 text-gray-400">
-                <ExternalLink className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">No referrals on record for this patient.</p>
-              </div>
-            ) : (
-              <div className="rounded-lg border border-orange-200 overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead className="bg-orange-50 border-b border-orange-200">
-                    <tr>
-                      {['Date','Facility','Reason','Follow-up','Status'].map(h => (
-                        <th key={h} className="text-left px-3 py-2 font-semibold text-orange-800">{h}</th>
-                      ))}
-                      {canEdit && <th className="px-3 py-2" />}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-orange-100 bg-white">
-                    {referrals.map((r, i) => (
-                      <tr key={i} className="hover:bg-orange-50/50">
-                        <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{r.date}</td>
-                        <td className="px-3 py-2.5 text-gray-700 font-medium">{r.facility}</td>
-                        <td className="px-3 py-2.5 text-gray-600 max-w-[220px]">{r.reason}</td>
-                        <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap">{r.followUpDate || '—'}</td>
-                        <td className="px-3 py-2.5">
-                          <span className={`px-2 py-0.5 rounded-full font-semibold capitalize ${
-                            r.status === 'completed' ? 'bg-green-100 text-green-700' :
-                            r.status === 'no-show'   ? 'bg-red-100 text-red-700' :
-                            'bg-yellow-100 text-yellow-700'
-                          }`}>{r.status}</span>
-                        </td>
-                        {canEdit && (
-                          <td className="px-3 py-2.5">
-                            <select value={r.status}
-                              onChange={e => setReferrals(prev => prev.map((x, j) => j === i ? {...x, status: e.target.value as Referral['status']} : x))}
-                              className="text-xs border border-gray-300 rounded px-1.5 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-orange-400">
-                              <option value="pending">Pending</option>
-                              <option value="completed">Completed</option>
-                              <option value="no-show">No-show</option>
-                            </select>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </div>
         )}
 
-        {/* ── TAB 7: AI Risk ── */}
+        {/* ── TAB 7: AI Risk — Phase 3 predictive analytics isn't built yet
+             (Sprint 21a blocked on real data), matching AIAnalytics.tsx's fix. ── */}
         {activeTab === 'ai' && (
-          <div className="p-4 space-y-4">
-            {/* Disclaimer */}
-            <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4">
-              <Shield className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-800 leading-relaxed">
-                <span className="font-semibold">AI Decision-Support Disclaimer: </span>
-                Predictions are generated by the FLORAL Oral Health Classifier and are intended to assist — not replace — clinical judgment. All risk assessments and treatment recommendations must be reviewed and validated by a licensed dentist before any clinical action is taken.
-              </p>
-            </div>
-
-            {/* Risk Prediction */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-purple-600" />
-                <h3 className="text-sm font-bold text-gray-900">Oral Health Risk Prediction</h3>
-                <span className="ml-auto text-xs text-gray-400">Model v2.3.1 · Confidence: 94%</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="px-3 py-1 rounded-full text-sm font-bold bg-red-100 text-red-700 border border-red-200">High Risk</span>
-                <div className="flex-1 bg-gray-200 rounded-full h-2">
-                  <div className="h-2 rounded-full bg-red-500" style={{ width: '94%' }} />
-                </div>
-                <span className="text-xs font-medium text-gray-700">94%</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <div className="text-gray-500 font-medium mb-1.5">Detected Conditions</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {['Severe Caries', 'Gingivitis', 'Poor Oral Hygiene'].map(c => (
-                      <span key={c} className="px-2 py-0.5 bg-red-100 text-red-800 rounded-full text-xs">{c}</span>
-                    ))}
-                  </div>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <div className="text-gray-500 font-medium mb-1.5">Risk Factors</div>
-                  <ul className="space-y-0.5 text-gray-700">
-                    {['DMFT score: 8','Untreated decayed teeth ≥ 3','DMFT increased ≥ 2 over time','Sugar habit','No preventive treatment recorded'].map(f => (
-                      <li key={f} className="flex items-start gap-1"><span className="text-red-400 mt-0.5">•</span>{f}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            {/* Treatment Recommendation */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-blue-600" />
-                <h3 className="text-sm font-bold text-gray-900">Recommended Treatment Plan</h3>
-              </div>
-              <div className="space-y-2 text-xs">
-                {[
-                  { tx: 'Oral exam and full dental check-up with dentist validation.', color: 'bg-blue-50 border-blue-200 text-blue-800' },
-                  { tx: 'Tooth restoration or extraction for severe caries on molars.', color: 'bg-red-50 border-red-200 text-red-800' },
-                  { tx: 'Fluoride varnish, pit and fissure sealant, and oral prophylaxis as preventive care.', color: 'bg-green-50 border-green-200 text-green-800' },
-                ].map((r, index) => (
-                  <div key={index} className={`rounded-lg border px-3 py-2 ${r.color}`}>
-                    {r.tx}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Validation */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
-              <h3 className="text-sm font-bold text-gray-900">Dentist Validation</h3>
-              <p className="text-xs text-gray-500">Review the AI prediction and treatment recommendation above, then record your clinical decision.</p>
-              {canEdit ? (
-                <div className="space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => navigate('/treatment-records')}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
-                  >
-                    ✓ Approve Prediction
-                  </button>
-                  <button
-                    onClick={() => setShowRiskModificationForm((v) => !v)}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
-                  >
-                    ✎ Approve with Modifications
-                  </button>
-                  <button className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium">
-                    ✕ Reject Prediction
-                  </button>
-                </div>
-                {showRiskModificationForm && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
-                    <h4 className="text-xs font-semibold text-blue-900">Treatment Modification Entry</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Date</label>
-                        <input type="date" className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Treatment Code</label>
-                        <select className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                          <option>OEX - Oral Exam / Dental Check-up</option>
-                          <option>FV - Topical Fluoride Varnish Application</option>
-                          <option>PFS - Pit and Fissure Sealant</option>
-                          <option>OP - Oral Prophylaxis</option>
-                          <option>TR - Tooth Restoration (Pasta)</option>
-                          <option>X - Tooth Extraction</option>
-                        </select>
-                      </div>
-                      <div className="md:col-span-2">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
-                        <textarea rows={2} className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => navigate('/treatment-records')} className="px-4 py-1.5 text-sm bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700">Save Modification</button>
-                      <button onClick={() => setShowRiskModificationForm(false)} className="px-4 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
-                    </div>
-                  </div>
-                )}
-                </div>
-              ) : (
-                <p className="text-xs text-gray-400 italic">Only the assigned dentist can validate AI predictions.</p>
-              )}
+          <div className="p-4">
+            <div className="text-center py-12 text-gray-400">
+              <Brain className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm font-medium text-gray-500">Predictive Analytics Not Yet Available</p>
+              <p className="text-xs mt-1 max-w-sm mx-auto">The risk classification model hasn't been trained yet — it requires real historical dental records, which are still being collected and cleaned.</p>
             </div>
           </div>
+        )}
+        </>
         )}
       </div>
     </div>
