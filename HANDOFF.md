@@ -577,3 +577,6 @@ Everything committed and pushed through `e047af11`; working tree clean except th
 
 ## Next sprint
 Sprint 21a-21d **against real data** is blocked until the real dental IPTR Excel files are located and added to `data/raw/` (current `data/` contents are nutritional-status reports — verify with a quick openpyxl header check before trusting new files). When they land, the whole pipeline is one command chain away: `clean_excel.py data/raw` → `build_features.py` → `run_experiments.py` → regenerate `algo-results.md`/`model-selection-rationale.md` → `train.py` → the UI's synthetic-data banner clears itself. Sprint 21g (dentist decision support: priority queue, bulk assessment, risk trends) remains unbuilt.
+
+## Backlog / TODO (not yet scheduled)
+- **Toggleable queue + bulk student selection**: make the queue toggleable, and add tick-box (checkbox) selection so multiple students can be chosen at once and added to the queue in bulk. Fits naturally with Sprint 21g's bulk-assessment work.
