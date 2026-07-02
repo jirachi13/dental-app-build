@@ -55,8 +55,13 @@ const FEATURE_LABELS: Record<string, string> = {
 };
 
 export const AIAnalytics = () => {
-  const { user } = useAuth();
-  const { candidates, loading, error, reload } = useRiskClassification();
+  const { user, selectedSchool } = useAuth();
+  const { candidates: allCandidates, loading, error, reload } = useRiskClassification();
+  // scope to the selected school context, same as every other tab
+  const candidates = useMemo(
+    () => (selectedSchool ? allCandidates.filter((c) => c.school === selectedSchool) : allCandidates),
+    [allCandidates, selectedSchool]
+  );
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [modelStatus, setModelStatus] = useState<ModelStatus | null>(null);
