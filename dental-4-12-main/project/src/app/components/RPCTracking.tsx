@@ -185,8 +185,8 @@ export const RPCTracking = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label:'Total Enrolled',         value: schoolRecords.length,    color:'text-blue-600',  bg:'bg-blue-50',  border:'border-blue-200'  },
-          { label:'Visit 1 Completed',      value: `${visit1Completed} (${Math.round(visit1Completed/rpcRecords.length*100)}%)`, color:'text-cyan-600', bg:'bg-cyan-50', border:'border-cyan-200' },
-          { label:'Both Visits Complete',   value: `${visit2Completed} (${Math.round(visit2Completed/rpcRecords.length*100)}%)`, color:'text-green-600', bg:'bg-green-50', border:'border-green-200' },
+          { label:'Visit 1 Completed',      value: `${visit1Completed} (${schoolRecords.length ? Math.round(visit1Completed/schoolRecords.length*100) : 0}%)`, color:'text-cyan-600', bg:'bg-cyan-50', border:'border-cyan-200' },
+          { label:'Both Visits Complete',   value: `${visit2Completed} (${schoolRecords.length ? Math.round(visit2Completed/schoolRecords.length*100) : 0}%)`, color:'text-green-600', bg:'bg-green-50', border:'border-green-200' },
           { label:'Overdue',                value: overdue,               color:'text-red-600',   bg:'bg-red-50',   border:'border-red-200'   },
         ].map((c,i) => (
           <div key={i} className={`${c.bg} border ${c.border} rounded-xl p-4`}>

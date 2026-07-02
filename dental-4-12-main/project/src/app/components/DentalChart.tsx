@@ -129,7 +129,7 @@ export const DentalChart = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user, selectedSchool } = useAuth();
   const canEdit = user?.role === 'dentist';
   const canEditHistory = user?.role === 'dentist' || user?.role === 'dental_aide';
   const canEditInfo = canEditHistory;
@@ -140,8 +140,11 @@ export const DentalChart = () => {
   const { student, schoolName, years, dentists, loading, error, reload } = useDentalChartData(id);
   const currentDentist = dentists.find((d) => d.user_id === user?.id);
 
-  // Real patient nav (sorted by name for a stable, predictable order)
-  const navList = useMemo(() => [...allStudents].sort((a, b) => a.name.localeCompare(b.name)), [allStudents]);
+  // Real patient nav (school-scoped like every list page, sorted by name for a stable, predictable order)
+  const navList = useMemo(
+    () => (selectedSchool ? allStudents.filter((s) => s.school === selectedSchool) : [...allStudents]).sort((a, b) => a.name.localeCompare(b.name)),
+    [allStudents, selectedSchool],
+  );
   const navIndex = navList.findIndex((s) => s.id === id);
   const prevPatient = navIndex > 0 ? navList[navIndex - 1] : null;
   const nextPatient = navIndex >= 0 && navIndex < navList.length - 1 ? navList[navIndex + 1] : null;
@@ -1130,7 +1133,8 @@ export const DentalChart = () => {
                 { label: 'Latest dmft (primary)', value: dmftByYear[dmftByYear.length - 1].t, color: 'text-red-700 bg-red-50' },
                 { label: 'Latest DMFT (permanent)', value: dmftByYear[dmftByYear.length - 1].T, color: 'text-blue-700 bg-blue-50' },
                 { label: 'Years tracked', value: dmftByYear.length, color: 'text-gray-700 bg-gray-100' },
-                { label: 'Trend', value: dmftByYear[dmftByYear.length - 1].T > dmftByYear[0].T ? '↑ Worsening' : '↓ Improving', color: dmftByYear[dmftByYear.length - 1].T > dmftByYear[0].T ? 'text-red-700 bg-red-50' : 'text-green-700 bg-green-50' },
+                // A trend needs 2+ years; equal values are Stable, not Improving (DMFT is cumulative)
+                { label: 'Trend', value: dmftByYear.length < 2 ? '—' : dmftByYear[dmftByYear.length - 1].T > dmftByYear[0].T ? '↑ Worsening' : dmftByYear[dmftByYear.length - 1].T < dmftByYear[0].T ? '↓ Improving' : 'Stable', color: dmftByYear.length >= 2 && dmftByYear[dmftByYear.length - 1].T > dmftByYear[0].T ? 'text-red-700 bg-red-50' : dmftByYear.length >= 2 && dmftByYear[dmftByYear.length - 1].T < dmftByYear[0].T ? 'text-green-700 bg-green-50' : 'text-gray-700 bg-gray-100' },
               ].map((kpi, i) => (
                 <div key={i} className={`rounded-lg p-3 ${kpi.color}`}>
                   <div className="text-xl font-bold">{kpi.value}</div>

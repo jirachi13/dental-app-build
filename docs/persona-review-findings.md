@@ -61,13 +61,43 @@ Overall posture is **strong for the threat model** (internal tool, ~10 staff): h
 
 ---
 
+## Independent seat verification (2026-07-03, two fresh subagents, blind to the findings above)
+
+Two seats (dentist, thesis professor) re-toured production independently without reading this doc. They **confirmed every P1 above** and added new findings:
+
+**New from the dentist seat:**
+| # | Sev | Finding | Status |
+|---|-----|---------|--------|
+| D7 | **P1** | DMFT History "Trend" tile claimed "↓ Improving" from a single data point (and for equal values) — `last.T > first.T ? Worsening : Improving`. Clinically wrong: no trend from one point, and DMFT is cumulative. | **FIXED in Sprint A** (`DentalChart.tsx:1136` — needs 2+ years, equal = Stable, single year = "—") |
+| D8 | **P1→data** | Aldrin Villanueva's risk history shows a clinically impossible DMF 5→0 drop feeding an "Improving" trend. Root cause: **data artifact, not a code bug** — the seeded High/DMF-5 stratification plus a real validated assessment (DMF 0 from his empty chart) created during earlier verification runs. The Risk-page trend *code* was checked and is correct (requires 2+ assessments, has Stable). Cleanup of the seeded-vs-real mix is a data task, listed for Sprint B. |
+| D9 | **P2** | "2 appointments total" header vs tabs summing to 1: a past-dated session still marked "Scheduled" appeared in **no tab at all** (Today/Upcoming/Completed/Missed all exclude it) while the header counted it. | **FIXED in Sprint A** (`Appointments.tsx` — past unmarked sessions now surface in Missed, where the mark-Completed/Missed actions live) |
+| D10 | **P2** | "Generate Risk Assessment" clicked on an already-assessed student showed no visible change for 12s — suspected missing/too-brief loading feedback. Unconfirmed root cause; belongs with the skeleton-loading work. |
+| D11 | **P2** | New Appointment modal doesn't close on Escape (verified). Sprint C candidate. |
+| D12 | **P3** | RPC recall rule reads ambiguous on screen: header says "4–6 month interval" but due dates use the fixed 150-day midpoint (a documented Sprint 12 decision, not a bug). Fix is a label tweak ("~5 months (midpoint of the 4–6 month window)"). Early Visit 2 (2 months) gets no "early" flag. |
+| D13 | **P3** | Reports month picker also defaults to April 2026. Deliberately NOT changed in Sprint A: the seeded report data lives in April, so defaulting to the current month would render an empty DOH table on open — decide together with demo staging. |
+| D14 | **P3** | Completed appointment card shows time only ("11:11"), no date. |
+| D15 | **P3** | No mixed-dentition sanity hint (5-year-old with permanent tooth 11 charted "D" accepted silently); DMFT table's t/T total columns unlabeled. Clinical-polish backlog. |
+
+**New from the thesis-professor seat** (scorecard: Obj 1/2/4 + charting + RPC **DELIVERED**, Obj 3 predictive **PARTIAL** — pipeline works, model self-labeled synthetic):
+| # | Sev | Finding | Status |
+|---|-----|---------|--------|
+| T6 | **P1** | The synthetic-data banner on the Risk page **self-refutes the thesis title at defense** if real-data training isn't done by then. Not a code bug — it's the honest banner doing its job — but the defense narrative must be either "retrained on real data" or a disciplined "pipeline validated, encoding in progress" story. Reinforces the real-data blocker's urgency. |
+| T7 | **P1** | "Show me the 8,000 records": manuscript cites ~8,000 students; live system shows 19. Seed a defensible volume (or prepare the exact explanation) before defense. Test student removed (Sprint A). |
+| T8 | **P2** | Sidebar "Dental Charts" and "Treatment" both open on empty filtered views ("0 queued students" / "0 records found") — two flagship modules look dead to a panelist even though charts exist inside IPTRs. Change default view or pre-stage queue data (Sprint B candidate; overlaps D5 empty-state copy). |
+| T9 | **P2** | Demo-scripting: risk validation dead-ends on students without an RPC visit (correct architecture, bad improv) — script the demo on a student with Visit 1 recorded. Prediction latency up to 20s on cold start; rehearse narration over waits (nav settles 4–6s/page). |
+| T10 | **P3** | `/ai-analytics` URL visible in the address bar; manuscript never says "AI" (nav label "Risk Classification" is fine). Cosmetic route rename possible in Sprint B; low value. |
+
+**Corrections the independent pass produced**: my single-reviewer doc missed D7/D9 entirely (both wrong-information bugs — exactly the class the independent seats were hired for), and the professor's scorecard framing (deliver-vs-promise per objective) is stronger defense prep than my checklist. Both seats' full reports are preserved in the session transcript; the strengths lists above match this doc's positives.
+
 ## Ranked fix worklist (each needs approval; sized for small sprints)
 
-**Sprint A — wrong-information bugs (small, ~4 files):**
-1. D1 RPC tile denominators → `schoolRecords.length`
-2. D2 calendar initial month → `new Date()`
-3. D3 chart nav scoped to selected school
-4. D4 archive "NoDate, Test" via admin flow (data change, not code)
+**Sprint A — wrong-information bugs — ✅ DONE 2026-07-03 (expanded with D7/D9 from the independent seats):**
+1. ✅ D1 RPC tile denominators → `schoolRecords.length`
+2. ✅ D2 calendar initial month → current month
+3. ✅ D3 chart nav scoped to selected school
+4. ✅ D4 "NoDate, Test" soft-archived in prod with audit entry (via direct DB mirroring the archive route — admin API login 401'd because `.env`'s `SEED_ADMIN_PASSWORD` is stale post-rotation; update it)
+5. ✅ D7 DMFT trend requires 2+ years, equal = Stable
+6. ✅ D9 past unmarked appointments surface in Missed tab
 
 **Sprint B — identity & first impressions (small):**
 5. T1/U1/U2 one tagline everywhere + login recolored to app blue

@@ -600,6 +600,21 @@ The "drop SVM?" question is settled — user chose the full set: LR, Decision Tr
 ## Next sprint
 Sprint 21a-21d **against real data** is blocked until the real dental IPTR Excel files are located and added to `data/raw/` (current `data/` contents are nutritional-status reports — verify with a quick openpyxl header check before trusting new files). When they land, the whole pipeline is one command chain away: `clean_excel.py data/raw` → `build_features.py` → `run_experiments.py` → regenerate `algo-results.md`/`model-selection-rationale.md` → `train.py` → the UI's synthetic-data banner clears itself. With 21g done, Phase 3 build work is complete pending real data.
 
+## Independent persona seats + Sprint A (2026-07-03)
+Two fresh subagents (dentist seat, thesis-professor seat) independently re-toured production blind to the earlier findings — confirmed all prior P1s and found new ones, merged into `docs/persona-review-findings.md` (see its "Independent seat verification" section, incl. the professor's promise-vs-delivery scorecard: everything DELIVERED except predictive = PARTIAL pending real data).
+
+**Sprint A DONE** (wrong-information bugs, expanded from 4 to 6 items):
+- RPC stat-tile %s now use school-scoped denominator with zero-guard (`RPCTracking.tsx`)
+- Appointments calendar opens on the current month, not hardcoded April 2026 (`Appointments.tsx`)
+- Dental-chart prev/next patient nav now scoped to `selectedSchool` (`DentalChart.tsx`)
+- DMFT History "Trend" tile: needs 2+ years ("—" for one), equal values = "Stable" — no more fake "Improving" from a single data point (`DentalChart.tsx`, found by the independent dentist seat)
+- Past-dated sessions still "Scheduled" were in NO tab while counted in the header total — now surface in the Missed tab where the mark actions live (`Appointments.tsx`, independent dentist seat)
+- "NoDate, Test" student soft-archived in prod with a proper AuditTrail entry. Done via direct DB ops mirroring the archive route because **`.env`'s `SEED_ADMIN_PASSWORD` is stale** (admin API login 401s — the 2026-07-02 rotation was never written back to `.env`; user should update it).
+
+Known false positives re-confirmed this session (impeccable hook): all `gray-on-color` flags in DentalChart.tsx/Appointments.tsx are active/inactive ternary branches — gray renders only on the white/plain background.
+
+New Sprint B/C candidates from the independent seats (in the findings doc): Dental Charts + Treatment default to empty filtered views (looks dead to a panelist), Escape doesn't close the New Appointment modal, RPC "4–6 month" label vs 150-day midpoint wording, Reports month picker April default (deliberately NOT changed — seeded report data lives in April; decide with demo staging), risk-page loading feedback, Aldrin's seeded-vs-real DMF 5→0 history cleanup, defense demo script notes (validate only students with an RPC visit; 8,000-records question).
+
 ## Backlog / TODO (not yet scheduled)
 - **Email API for 2FA + password resets** (user, 2026-07-02): use a free-tier transactional email service (e.g. Resend or Brevo — free tiers are ample for ~5 staff) for two-factor login codes and password-reset links; upgradeable later. New feature — needs its own sprint (touches auth flow, USER model, email templates); do not start without approval.
 - ~~**Persona review panel**~~ **DONE (2026-07-03)** — full strict review complete: 10 tour screenshots analyzed + fresh read-only production probes (wrong-password state, mobile 390px, a11y DOM checks, timing re-measure 9.6s cold) + every suspected bug verified in source. **Findings: `docs/persona-review-findings.md`** — 4 P1s (RPC tile % uses all-schools denominator `RPCTracking.tsx:188`, calendar hardcoded to April 2026 `Appointments.tsx:41`, chart prev/next nav unscoped across schools `DentalChart.tsx:144`, school selection lost on any refresh/deep-link) plus test student "NoDate, Test" in prod, 3 conflicting product taglines (login page doesn't match thesis title), red login button vs blue app design system, DOH report label typos (Transfussion/Scalling/Flouride — VERIFY against paper form before fixing), and a ranked 3-sprint fix worklist at the end of the doc — **each fix sprint needs approval**. Probe script kept: `dental-4-12-main/project/probe_strict.mjs`.

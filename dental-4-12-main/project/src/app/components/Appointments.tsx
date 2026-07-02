@@ -38,7 +38,7 @@ export const Appointments = () => {
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showRotationModal, setShowRotationModal] = useState(false);
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 3, 1));
+  const [currentDate, setCurrentDate] = useState(() => { const now = new Date(); return new Date(now.getFullYear(), now.getMonth(), 1); });
 
   // Create appointment form
   const [formSchool, setFormSchool] = useState('');
@@ -176,7 +176,8 @@ export const Appointments = () => {
   const todayAppts = appointments.filter(a => a.date === TODAY);
   const upcomingAppts = appointments.filter(a => a.date > TODAY && getStatus(a) === 'Scheduled');
   const completedAppts = appointments.filter(a => getStatus(a) === 'Completed');
-  const missedAppts = appointments.filter(a => getStatus(a) === 'Missed');
+  // Past-dated sessions never marked Completed/Missed would otherwise appear in no tab at all
+  const missedAppts = appointments.filter(a => getStatus(a) === 'Missed' || (a.date < TODAY && getStatus(a) === 'Scheduled'));
 
   const filteredAppointments = appointments.filter(a => {
     if (gradeFilter !== 'all' && a.grade !== gradeFilter) return false;
