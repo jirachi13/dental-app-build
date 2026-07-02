@@ -1,4 +1,4 @@
-# HANDOFF — ML Service Scaffold Built (Phase 3 partial, ahead of real data)
+# HANDOFF — Phase 3 pipeline dry-run complete on SYNTHETIC data (Sprints 21a-21f exercised end-to-end; real data still blocked)
 
 ## Status
 Sprints 1-20 done and deployed live (https://dental-app-build.vercel.app). Sprint 21a (clean real Excel data) is **blocked** — see below — but the Strategy Pattern ML architecture normally built in Sprint 21e was built early, against placeholder data, at the user's explicit request. Do not confuse this with real trained models.
@@ -515,5 +515,49 @@ Verified with Playwright: screenshotted both expanded and collapsed states (clea
 
 `tsc --noEmit` clean, `npm run build` succeeds. Not yet committed/pushed.
 
+## Phase 3 FULL dry-run on SYNTHETIC data — Sprints 21a-21f pipeline exercised end-to-end (real data still blocked)
+
+Real dental IPTR Excel files are STILL not in the repo (`data/` remains SNS nutritional reports). At the user's request, the **entire Phase 3 pipeline was built and run end-to-end against a generated synthetic dataset** so that when real data arrives, only the data swap + re-run remains. Every artifact is prominently labeled synthetic; **every number must be regenerated from real data before defense**. This extends the earlier "ML Strategy Pattern scaffold" section — that scaffold is now a full working pipeline.
+
+**Synthetic source data**: `ml-service/data/generate_synthetic_excel.py` generates 8,000 records as deliberately-messy Excel files in `data/raw-synthetic/` (inconsistent column names/order, mixed date formats, misspelled condition values — mimicking the real files' known problems, so the cleaner is exercised realistically). `data/` is gitignored, so the generated raw/cleaned/processed CSVs are reproducible-not-committed; the generator script is committed.
+
+**Sprint 21a machinery** (`ml-service/pipeline/clean_excel.py`): reads every `.xlsx` in the input dir (originals never modified), maps varying column names onto canonical IPTR fields via a `COLUMN_SYNONYMS` table (real files' unknown headers just need new entries there), normalizes dates/booleans/sex/grade, **drops all name columns entirely** (per the resolved privacy approach — rows identified by generated `student_id` placeholder), dedupes, writes `data/cleaned/dataset.csv` + `data/cleaning-report.md`.
+
+**Sprint 21b machinery** (`ml-service/pipeline/build_features.py`): cleaned CSV → `data/processed/ml_dataset.csv` with exactly the 13 feature columns `predictor.py` expects (dmf_score, decayed/missing/filled counts, gingivitis, periodontal_disease, debris, calculus, abnormal_growth, sugar_beverages, tobacco_user, age, sex) + risk_level label; encoder metadata saved to `ml-service/encoders/encoders.json`.
+
+**Sprint 21c** (`ml-service/experiments/run_experiments.py` → `docs/algo-results.md`): all 5 algorithms × both methods (80/20 holdout + Stratified K-Fold k=5), `random_state=42` throughout (deterministic). Synthetic-data results: **Logistic Regression won on K-Fold F1 = 0.7444 ± 0.0126** (SVM 0.7399, DT 0.7284, XGB 0.7097, RF 0.7069). All five show |Δ F1| < 0.007 between methods — stable, non-overfitting (itself the Chapter 4 discussion point CLAUDE.md describes). Charts generated: `docs/decision-tree.png`, `docs/feature-importance.png`, `docs/confusion-matrices/<algo>.png` (5 files).
+
+**Sprint 21d** (`docs/model-selection-rationale.md`): the Chapter 4 Section 4.2 structure — why F1, why K-Fold primary, ranked table, LR selected. `ml-service/config.py` → `ACTIVE_ALGORITHM = "logistic_regression"`. Both documents open with a synthetic-data notice; the winner may genuinely change on real data.
+
+**Sprint 21e — model persistence + serving + Express integration**:
+- `ml-service/train.py` — (re)trains the active algorithm, persists to `ml-service/active/model.pkl` (committed — small LR bundle) with honest metadata (algorithm, trained_at, n_records, `synthetic_data: true`). This is the retrain entry point when real data lands.
+- `ml-service/evaluate.py` — quick health check of the persisted model against a labeled CSV, without re-running the full experiment suite.
+- `ml-service/predictor.py` extended: `load_model()` (loads the persisted bundle instead of training in-memory), `model_info()`, `predict_risk()` returning per-class probabilities. Still the sole entry point per CLAUDE.md.
+- `ml-service/main.py` — FastAPI serving layer (`GET /health`, `POST /predict` with strict pydantic range validation). Express is the only intended caller. Optional `X-API-Key` auth via `ML_SERVICE_API_KEY` env (unset = open, for local dev). Run: `uvicorn main:app --port 8000` from `ml-service/`.
+- `server/routes/predictionRoutes.ts` (Express) — `GET /api/predictions/status` (model info for the UI's honesty banner / service-down state) and `POST /api/predictions/assess` (whitelists the 13 feature keys, proxies to FastAPI, 503 on unreachable, 502 on rejection). **dentist + system_admin only**; every generated assessment audit-logged as "Generated Risk Prediction". `ML_SERVICE_URL` env (default `http://localhost:8000`).
+- `src/app/api/client.ts` — `/predictions/*` added to the never-queued paths (like `/auth/*`): a "synced later" risk prediction is meaningless.
+- `server/dnsFix.ts` + import in `local.ts` — permanent workaround for this machine's Node 24 + Atlas SRV-lookup failure (`dns.setServers()` preload; see project memory — local dev only, production unaffected).
+
+**Sprint 21f — Risk Classification UI** (`AIAnalytics.tsx` rewritten from the honest empty state into the real page, +459 lines; new `hooks/useRiskClassification.ts`):
+- Student picker (search + list) → feature inputs **auto-populated from the student's real records** (tooth records → DMF/D/M/F counts, oral health conditions, dietary habits, age/sex) → "Generate Risk Assessment" → model card with risk badge, confidence, per-class probability bars, top contributing factors, suggested recommendation.
+- **Dentist validation required before anything persists**: accept-or-override radio (override picks a different level), clinical notes textarea **required** (save button disabled until filled), saving writes a real `RiskStratification` (`validated_by_dentist: true`, `validated_at`, recommendation) linked to the student's preventive-care record. Risk History section shows prior stratifications with "Dentist-validated" vs "Not validated" labels.
+- Two permanent honesty banners: "AI-assisted screening, not a diagnosis…" (mirrors the API's own disclaimer field) and a yellow "trained on synthetic placeholder data" warning driven by the model metadata's `synthetic_data` flag — the banner disappears by itself once a real-data model is trained.
+- `types.ts`: `ApiRiskStratification` gained `recommendation`/`validated_by_dentist`/`validated_at` (fields existed on the backend model since Sprint 5, were missing from the frontend type).
+
+## Session-resume notes (2026-07-02) — recovery, security fixes, end-to-end verification
+
+The previous session was accidentally closed mid-Sprint-21f before HANDOFF/commit. This session recovered the state from the working tree and finished the sprint loop:
+
+**Two credential leaks caught before commit**:
+1. `verify_risk_ui.mjs` had the dentist's real production password hardcoded (the same class of Critical finding as Sprint 15.5's seed-script passwords). Now reads `DENTIST_PASSWORD` from env and exits with a clear error if unset.
+2. A stray `cookies.txt` (libcurl jar from manual API testing — happened to be empty) deleted and gitignored globally.
+
+**End-to-end verification run and PASSED** (`verify_risk_ui.mjs`, Playwright against all three live local servers — uvicorn:8000 + Express:4000 + Vite:5173): login as dentist → school select → generate assessment for Aldrin Villanueva (Medium 70.9%, real feature auto-population visible) → save blocked until clinical notes entered → validated save succeeds → Risk History shows the Dentist-validated entry. Backend persistence independently confirmed via direct API query: exactly one `RiskStratification` with `validated_by_dentist: true` and the matching recommendation text. Two real script bugs fixed to get there: (a) the school card shows the abbreviated name "BT Integrated School", not the full name the script expected; (b) `page.goto('/ai-analytics')` does a full reload, which loses the in-memory selected-school state and bounces to `/select-school` (known app quirk) — switched to clicking the sidebar link. `tsc --noEmit` clean on both tsconfigs.
+
+**Deliberately NOT committed**: `.claude/`, `.codex/`, `.agents/` (three copies of a locally-installed skill package — machine-local tooling, not project code; left untracked).
+
+## Production deployment gap — ML service has no host yet (open decision)
+`main.py`'s docstring references a `render.yaml` that was never created. The deployed Vercel app has no `ML_SERVICE_URL`, so production's `/api/predictions/status` returns 503 and the Risk Classification page shows its service-unavailable state (handled gracefully — nothing breaks). To make predictions work in production, the Python FastAPI service needs a host (Render free tier was the working assumption — requires creating a Render account, deploying `ml-service/`, then setting `ML_SERVICE_URL` + a shared `ML_SERVICE_API_KEY` on both Vercel and Render). Reasonable to defer until the model is trained on real data — a synthetic-data model arguably shouldn't be live in production at all.
+
 ## Next sprint
-Sprint 21a is blocked until the real dental IPTR Excel files are located and added to `data/` (see above). Once that happens, Sprint 21a can proceed: clean/standardize into `/data/cleaned/dataset.csv` + `/data/cleaning-report.md`, dropping name columns per the resolved anonymization approach. Do not start Sprint 21a against the current `data/` contents (nutritional status data) — verify with a quick openpyxl header check first if unsure whether new files have actually landed.
+Sprint 21a-21d **against real data** is blocked until the real dental IPTR Excel files are located and added to `data/raw/` (current `data/` contents are nutritional-status reports — verify with a quick openpyxl header check before trusting new files). When they land, the whole pipeline is one command chain away: `clean_excel.py data/raw` → `build_features.py` → `run_experiments.py` → regenerate `algo-results.md`/`model-selection-rationale.md` → `train.py` → the UI's synthetic-data banner clears itself. Sprint 21g (dentist decision support: priority queue, bulk assessment, risk trends) remains unbuilt.

@@ -3,6 +3,7 @@ import { getHealth } from "../controllers/healthController.js";
 import { createUser, resetPassword } from "../controllers/userController.js";
 import { createCrudRouter } from "./crudFactory.js";
 import authRoutes from "./authRoutes.js";
+import predictionRoutes from "./predictionRoutes.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { ADMIN_ONLY, CLINICAL_WRITE_ROLES } from "../middleware/roleGroups.js";
@@ -30,6 +31,9 @@ const router = Router();
 
 router.get("/health", getHealth);
 router.use("/auth", authRoutes);
+// Predictive analytics (Sprint 21e) — proxies to the Python ML service;
+// dentist + system_admin only, every assessment audit-logged.
+router.use("/predictions", predictionRoutes);
 
 // Non-clinical / org-management models — System Admin manages accounts,
 // schools, and staff records; everyone authenticated can still read them

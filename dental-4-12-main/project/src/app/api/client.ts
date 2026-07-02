@@ -57,12 +57,14 @@ async function request<T>(path: string, options: RequestInit = {}, isRetry = fal
 // real synchronous round trip (a JWT cookie can't be "synced later"); a
 // queued login would look like it succeeded without ever authenticating
 // anything. These just fail normally when offline, like a GET does.
-function isAuthPath(path: string): boolean {
-  return path.startsWith('/auth/');
+// /predictions/* is a live RPC to the ML service, not a data write — a
+// "synced later" risk prediction is meaningless, so it's never queued either.
+function isNeverQueuedPath(path: string): boolean {
+  return path.startsWith('/auth/') || path.startsWith('/predictions');
 }
 
 async function writeRequest<T>(path: string, method: 'POST' | 'PUT' | 'PATCH', body?: unknown): Promise<T> {
-  if (isAuthPath(path)) {
+  if (isNeverQueuedPath(path)) {
     return request<T>(path, { method, body: body ? JSON.stringify(body) : undefined });
   }
   if (!navigator.onLine) {

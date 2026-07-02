@@ -72,8 +72,11 @@ export interface ApiRiskStratification {
   _id: string;
   preventive_id: string;
   risk_level: "High" | "Medium" | "Low";
+  recommendation: string;
   dmf_score: number;
   dmf_index: "DMF" | "dmf";
+  validated_by_dentist: boolean;
+  validated_at: string | null;
 }
 
 export interface ApiMedicalHistory {

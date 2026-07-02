@@ -7,4 +7,7 @@ choice anywhere else.
 """
 
 # One of: "logistic_regression", "decision_tree", "random_forest", "svm", "xgboost"
-ACTIVE_ALGORITHM = "random_forest"
+# Sprint 21d: Logistic Regression won on K-Fold F1 (0.7444) — see
+# docs/model-selection-rationale.md. NOTE: selected on SYNTHETIC data;
+# re-run experiments and revisit once real IPTR data is available.
+ACTIVE_ALGORITHM = "logistic_regression"

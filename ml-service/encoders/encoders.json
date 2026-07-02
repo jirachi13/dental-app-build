@@ -1,0 +1,13 @@
+{
+  "generated": "2026-07-02T07:31:31",
+  "sex": {
+    "M": 1,
+    "F": 0
+  },
+  "risk_levels": [
+    "High",
+    "Medium",
+    "Low"
+  ],
+  "boolean_null_policy": "null means not-ticked, encoded as 0"
+}

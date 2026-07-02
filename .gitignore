@@ -17,3 +17,10 @@ build/
 __pycache__/
 *.pyc
 .venv/
+
+# curl session-cookie files from manual API testing — never commit
+cookies.txt
+
+# Claude Code local session state — machine-specific, never shared
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
