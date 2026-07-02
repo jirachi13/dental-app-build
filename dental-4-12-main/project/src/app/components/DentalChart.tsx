@@ -884,7 +884,8 @@ export const DentalChart = () => {
                 {iptrContext !== 'treatment' && (
                 <div>
                   <div className="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">Condition Codes</div>
-                  <div className="grid grid-cols-4 sm:grid-cols-5 gap-1.5">
+                  {/* solo (full-width) group flows to more columns so buttons keep the same size as the paired two-column layout */}
+                  <div className={`grid gap-1.5 ${iptrContext === 'dental-queue' ? 'grid-cols-4 sm:grid-cols-6 lg:grid-cols-9' : 'grid-cols-4 sm:grid-cols-5'}`}>
                     {conditionCodes.map((c) => (
                       <button key={c.code} onClick={() => { setSelectedCondition(selectedCondition === c.code ? null : c.code); setSelectedTreatment(null); }}
                         className={`aspect-square min-h-[54px] rounded-lg border p-1.5 text-center transition-all flex flex-col items-center justify-center gap-1 ${selectedCondition === c.code ? 'bg-teal-600 text-white ring-2 ring-teal-300 border-teal-600' : 'bg-white border-gray-300 text-gray-700 hover:border-teal-400'}`}>
@@ -898,7 +899,7 @@ export const DentalChart = () => {
                 {iptrContext !== 'dental-queue' && (
                 <div>
                   <div className="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">Treatment Codes</div>
-                  <div className="grid grid-cols-4 sm:grid-cols-5 gap-1.5">
+                  <div className={`grid gap-1.5 ${iptrContext === 'treatment' ? 'grid-cols-4 sm:grid-cols-6 lg:grid-cols-9' : 'grid-cols-4 sm:grid-cols-5'}`}>
                     {treatmentCodes.map((t) => (
                       <button key={t.code} onClick={() => { setSelectedTreatment(selectedTreatment === t.code ? null : t.code); setSelectedCondition(null); }}
                         className={`aspect-square min-h-[54px] rounded-lg border p-1.5 text-center transition-all flex flex-col items-center justify-center gap-1 ${selectedTreatment === t.code ? 'bg-blue-600 text-white ring-2 ring-blue-300 border-blue-600' : 'bg-white border-gray-300 text-gray-700 hover:border-blue-400'}`}>
