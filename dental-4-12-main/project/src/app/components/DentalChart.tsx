@@ -1229,14 +1229,16 @@ export const DentalChart = () => {
           </div>
         )}
 
-        {/* ── TAB 7: AI Risk — Phase 3 predictive analytics isn't built yet
-             (Sprint 21a blocked on real data), matching AIAnalytics.tsx's fix. ── */}
+        {/* ── TAB 7: AI Risk — the full assessment workflow (generate, validate,
+             save) lives on the dedicated Risk Classification page (Sprint 21f);
+             this tab just points there rather than duplicating that UI. ── */}
         {activeTab === 'ai' && (
           <div className="p-4">
             <div className="text-center py-12 text-gray-400">
               <Brain className="w-8 h-8 mx-auto mb-2 opacity-30" />
-              <p className="text-sm font-medium text-gray-500">Predictive Analytics Not Yet Available</p>
-              <p className="text-xs mt-1 max-w-sm mx-auto">The risk classification model hasn't been trained yet — it requires real historical dental records, which are still being collected and cleaned.</p>
+              <p className="text-sm font-medium text-gray-500">Risk assessments live on the Risk Classification page</p>
+              <p className="text-xs mt-1 max-w-sm mx-auto">Generate, validate, and save AI-assisted risk assessments for this student from the dedicated page. The current model is trained on synthetic placeholder data until real IPTR records are available.</p>
+              <Link to="/ai-analytics" className="inline-block mt-4 px-4 py-2 bg-[#1E40AF] hover:bg-blue-700 text-white text-sm rounded-lg">Open Risk Classification</Link>
             </div>
           </div>
         )}
