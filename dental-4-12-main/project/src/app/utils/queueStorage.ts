@@ -14,8 +14,9 @@ export const getQueuedStudentIds = (): string[] => {
   try {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) throw new Error('Invalid queued student payload');
-    const normalized = normalizeIds(parsed);
-    return normalized.length > 0 ? normalized : [...DEFAULT_QUEUED_IDS];
+    // an explicitly emptied queue stays empty — the demo seed only applies
+    // when the key has never been written (un-queueing is a real feature now)
+    return normalizeIds(parsed);
   } catch {
     window.localStorage.setItem(QUEUED_STUDENT_IDS_KEY, JSON.stringify(DEFAULT_QUEUED_IDS));
     return [...DEFAULT_QUEUED_IDS];

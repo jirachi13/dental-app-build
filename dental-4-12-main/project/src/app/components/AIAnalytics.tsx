@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  AlertTriangle, Brain, CheckCircle2, ChevronRight, Loader2, Minus,
+  AlertTriangle, Brain, CheckCircle2, ChevronRight, ListOrdered, Loader2, Minus,
   Search, ShieldCheck, TrendingDown, TrendingUp,
 } from 'lucide-react';
 import { apiClient, ApiError } from '../api/client';
@@ -11,6 +11,11 @@ import { useRiskClassification, type RiskCandidate } from '../hooks/useRiskClass
 // via POST /api/predictions/assess (Express → FastAPI → predictor.py); a
 // dentist MUST validate before anything is saved as clinical data
 // (RISK_STRATIFICATION with validated_by_dentist), per CLAUDE.md's core rule.
+//
+// Sprint 21g — dentist decision support on top of 21f: risk overview tiles,
+// priority-ordered student queue, and bulk assessment (predictions generated
+// for many students at once, each audit-logged server-side). Validation stays
+// strictly per-student through the same dentist panel — bulk never saves.
 
 interface PredictionResult {
   risk_level: 'High' | 'Medium' | 'Low';
@@ -65,6 +70,15 @@ export const AIAnalytics = () => {
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  // Sprint 21g — priority queue + bulk assessment state
+  const [sortMode, setSortMode] = useState<'priority' | 'name'>('priority');
+  const [gradeFilter, setGradeFilter] = useState('all');
+  const [sectionFilter, setSectionFilter] = useState('all');
+  const [riskFilter, setRiskFilter] = useState('all');
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+  const [bulkResults, setBulkResults] = useState<Record<string, PredictionResult>>({});
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+  const [bulkFailed, setBulkFailed] = useState<number>(0);
 
   const isDentist = user?.role === 'dentist';
 
@@ -75,22 +89,117 @@ export const AIAnalytics = () => {
       .catch(() => setServiceDown(true));
   }, []);
 
-  const filtered = useMemo(
-    () =>
-      candidates.filter((c) =>
-        c.name.toLowerCase().includes(searchTerm.toLowerCase())),
-    [candidates, searchTerm]
+  // Priority order for the queue: validated High first, then Medium, then
+  // students with no assessment yet (ranked by DMF — highest clinical
+  // uncertainty x severity), then Low. Ties break on DMF score descending.
+  const priorityRank = (c: RiskCandidate) => {
+    const latest = c.history[c.history.length - 1];
+    if (!latest) return 2.5; // unassessed sits between Medium (2) and Low (3)
+    return { High: 1, Medium: 2, Low: 3 }[latest.riskLevel];
+  };
+
+  const gradeOptions = useMemo(
+    () => [...new Set(candidates.map((c) => c.grade))].sort(),
+    [candidates]
   );
+  const sectionOptions = useMemo(
+    () =>
+      [...new Set(
+        candidates.filter((c) => gradeFilter === 'all' || c.grade === gradeFilter).map((c) => c.section)
+      )].sort(),
+    [candidates, gradeFilter]
+  );
+
+  const filtered = useMemo(() => {
+    const list = candidates.filter((c) => {
+      if (!c.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+      if (gradeFilter !== 'all' && c.grade !== gradeFilter) return false;
+      if (sectionFilter !== 'all' && c.section !== sectionFilter) return false;
+      if (riskFilter !== 'all') {
+        const latest = c.history[c.history.length - 1];
+        if (riskFilter === 'Unassessed' ? !!latest : latest?.riskLevel !== riskFilter) return false;
+      }
+      return true;
+    });
+    if (sortMode === 'name') return list.sort((a, b) => a.name.localeCompare(b.name));
+    return list.sort(
+      (a, b) => priorityRank(a) - priorityRank(b) || b.features.dmf_score - a.features.dmf_score
+    );
+  }, [candidates, searchTerm, sortMode, gradeFilter, sectionFilter, riskFilter]);
+
+  // Risk overview tiles — latest assessment per student + trend counts
+  const overview = useMemo(() => {
+    const counts = { High: 0, Medium: 0, Low: 0, unassessed: 0, worsening: 0, improving: 0 };
+    const order = { Low: 0, Medium: 1, High: 2 };
+    for (const c of candidates) {
+      const latest = c.history[c.history.length - 1];
+      if (!latest) { counts.unassessed++; continue; }
+      counts[latest.riskLevel]++;
+      if (c.history.length >= 2) {
+        const delta = order[latest.riskLevel] - order[c.history[c.history.length - 2].riskLevel];
+        if (delta > 0) counts.worsening++;
+        else if (delta < 0) counts.improving++;
+      }
+    }
+    return counts;
+  }, [candidates]);
+
   const selected: RiskCandidate | null =
     candidates.find((c) => c.id === selectedId) ?? null;
 
   const selectStudent = (id: string) => {
     setSelectedId(id);
-    setPrediction(null);
+    // a bulk-generated prediction for this student flows straight into the
+    // normal assessment card so validation works identically
+    const cached = bulkResults[id] ?? null;
+    setPrediction(cached);
+    if (cached) setOverrideLevel(cached.risk_level);
     setPredictError(null);
     setSaveMessage(null);
     setNotes('');
     setDecision('accept');
+  };
+
+  const toggleChecked = (id: string) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const runBulkAssessment = async () => {
+    const ids = filtered.filter((c) => checkedIds.has(c.id)).map((c) => c.id);
+    if (ids.length === 0) return;
+    setBulkProgress({ done: 0, total: ids.length });
+    setBulkFailed(0);
+    const results: Record<string, PredictionResult> = {};
+    let failed = 0;
+    // sequential on purpose: the free-tier ML service handles one request at a
+    // time gracefully, and progress stays honest
+    for (const [i, id] of ids.entries()) {
+      const candidate = candidates.find((c) => c.id === id);
+      if (!candidate) continue;
+      try {
+        results[id] = await apiClient.post<PredictionResult>('/predictions/assess', {
+          student_id: id,
+          features: candidate.features,
+        });
+      } catch {
+        failed++;
+      }
+      setBulkProgress({ done: i + 1, total: ids.length });
+    }
+    setBulkResults((prev) => ({ ...prev, ...results }));
+    setBulkFailed(failed);
+    setBulkProgress(null);
+    setCheckedIds(new Set());
+    // if the currently open student was in the batch, surface their result
+    if (selectedId && results[selectedId]) {
+      setPrediction(results[selectedId]);
+      setOverrideLevel(results[selectedId].risk_level);
+    }
   };
 
   const generate = async () => {
@@ -137,6 +246,10 @@ export const AIAnalytics = () => {
       setSaveMessage(`Validated assessment saved: ${finalLevel} risk.`);
       setPrediction(null);
       setNotes('');
+      setBulkResults((prev) => {
+        const { [selected.id]: _validated, ...rest } = prev;
+        return rest;
+      });
       reload();
     } catch {
       setSaveMessage('Failed to save the validated assessment.');
@@ -194,10 +307,28 @@ export const AIAnalytics = () => {
       ) : error ? (
         <div className="text-red-500 text-sm py-12 text-center">{error}</div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Student picker */}
+        <>
+          {/* Risk overview — latest assessment per student (Sprint 21g) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {([
+              { label: 'High Risk', value: overview.High, cls: 'text-red-600' },
+              { label: 'Medium Risk', value: overview.Medium, cls: 'text-yellow-600' },
+              { label: 'Low Risk', value: overview.Low, cls: 'text-green-600' },
+              { label: 'Unassessed', value: overview.unassessed, cls: 'text-gray-500' },
+              { label: 'Worsening', value: overview.worsening, cls: 'text-red-600' },
+              { label: 'Improving', value: overview.improving, cls: 'text-green-600' },
+            ] as const).map((t) => (
+              <div key={t.label} className="bg-white rounded-xl border border-gray-200 p-4">
+                <span className="text-sm text-gray-600">{t.label}</span>
+                <p className={`text-xl font-bold mt-1 ${t.cls}`}>{t.value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Student picker / priority queue */}
           <div className="bg-white rounded-xl border border-gray-200 flex flex-col max-h-[70vh]">
-            <div className="p-3 border-b border-gray-200">
+            <div className="p-3 border-b border-gray-200 space-y-2">
               <div className="relative">
                 <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
@@ -207,6 +338,62 @@ export const AIAnalytics = () => {
                   className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+              <div className="flex flex-wrap gap-1.5">
+                <select
+                  value={gradeFilter}
+                  onChange={(e) => { setGradeFilter(e.target.value); setSectionFilter('all'); }}
+                  className="text-xs border border-gray-300 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  aria-label="Filter by grade"
+                >
+                  <option value="all">All Grades</option>
+                  {gradeOptions.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+                <select
+                  value={sectionFilter}
+                  onChange={(e) => setSectionFilter(e.target.value)}
+                  className="text-xs border border-gray-300 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  aria-label="Filter by section"
+                >
+                  <option value="all">All Sections</option>
+                  {sectionOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <select
+                  value={riskFilter}
+                  onChange={(e) => setRiskFilter(e.target.value)}
+                  className="text-xs border border-gray-300 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  aria-label="Filter by risk level"
+                >
+                  <option value="all">All Risk Levels</option>
+                  <option>High</option>
+                  <option>Medium</option>
+                  <option>Low</option>
+                  <option>Unassessed</option>
+                </select>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  onClick={() => setSortMode(sortMode === 'priority' ? 'name' : 'priority')}
+                  className="flex items-center gap-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-lg px-2.5 py-1.5 hover:bg-gray-50"
+                >
+                  <ListOrdered className="w-3.5 h-3.5" />
+                  {sortMode === 'priority' ? 'Priority order' : 'Name order'}
+                </button>
+                <button
+                  onClick={runBulkAssessment}
+                  disabled={checkedIds.size === 0 || bulkProgress !== null || serviceDown}
+                  className="flex items-center gap-1.5 text-xs font-medium text-white bg-[#1E40AF] hover:bg-blue-700 disabled:bg-gray-300 rounded-lg px-2.5 py-1.5"
+                >
+                  {bulkProgress ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Brain className="w-3.5 h-3.5" />}
+                  {bulkProgress
+                    ? `Assessing ${bulkProgress.done}/${bulkProgress.total}…`
+                    : `Assess Selected (${checkedIds.size})`}
+                </button>
+              </div>
+              {bulkFailed > 0 && (
+                <p className="text-xs text-red-600">
+                  {bulkFailed} assessment{bulkFailed > 1 ? 's' : ''} failed — re-select those students and try again.
+                </p>
+              )}
             </div>
             <div className="overflow-y-auto divide-y divide-gray-100">
               {filtered.length === 0 && (
@@ -215,28 +402,52 @@ export const AIAnalytics = () => {
               {filtered.map((c) => {
                 const latest = c.history[c.history.length - 1];
                 return (
-                  <button
+                  <div
                     key={c.id}
-                    onClick={() => selectStudent(c.id)}
-                    className={`w-full text-left px-4 py-3 flex items-center justify-between hover:bg-gray-50 ${
+                    className={`flex items-center gap-2 px-3 py-3 hover:bg-gray-50 ${
                       c.id === selectedId ? 'bg-blue-50' : ''
                     }`}
                   >
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium text-gray-900 truncate">{c.name}</div>
-                      <div className="text-xs text-gray-500 truncate">
-                        {c.school} · Grade {c.grade}-{c.section}
+                    <input
+                      type="checkbox"
+                      checked={checkedIds.has(c.id)}
+                      onChange={() => toggleChecked(c.id)}
+                      disabled={bulkProgress !== null}
+                      className="shrink-0 w-4 h-4 accent-[#1E40AF]"
+                      aria-label={`Select ${c.name} for bulk assessment`}
+                    />
+                    <button
+                      onClick={() => selectStudent(c.id)}
+                      className="flex-1 min-w-0 text-left flex items-center justify-between"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-gray-900 truncate">{c.name}</div>
+                        <div className="text-xs text-gray-500 truncate">
+                          {c.school} · Grade {c.grade}-{c.section}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-2">
-                      {latest && (
-                        <span className={`text-xs px-2 py-0.5 rounded-full border ${RISK_BADGE[latest.riskLevel]}`}>
-                          {latest.riskLevel}
-                        </span>
-                      )}
-                      <ChevronRight className="w-4 h-4 text-gray-300" />
-                    </div>
-                  </button>
+                      <div className="flex items-center gap-2 shrink-0 ml-2">
+                        {bulkResults[c.id] && (
+                          <span
+                            className="text-xs px-2 py-0.5 rounded-full border bg-blue-100 text-blue-700 border-blue-200"
+                            title={`Model predicted ${bulkResults[c.id].risk_level} — open to review and validate`}
+                          >
+                            {bulkResults[c.id].risk_level} · review
+                          </span>
+                        )}
+                        {latest ? (
+                          <span className={`text-xs px-2 py-0.5 rounded-full border ${RISK_BADGE[latest.riskLevel]}`}>
+                            {latest.riskLevel}
+                          </span>
+                        ) : (
+                          <span className="text-xs px-2 py-0.5 rounded-full border bg-gray-100 text-gray-500 border-gray-200">
+                            Unassessed
+                          </span>
+                        )}
+                        <ChevronRight className="w-4 h-4 text-gray-300" />
+                      </div>
+                    </button>
+                  </div>
                 );
               })}
             </div>
@@ -445,7 +656,8 @@ export const AIAnalytics = () => {
               </>
             )}
           </div>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

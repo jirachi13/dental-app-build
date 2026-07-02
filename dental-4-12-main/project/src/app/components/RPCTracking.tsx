@@ -268,7 +268,7 @@ export const RPCTracking = () => {
             </tbody>
           </table>
         </div>
-        <div className="px-4 py-3 border-t border-gray-100 text-sm text-gray-500">Showing {filtered.length} of {rpcRecords.length} records</div>
+        <div className="px-4 py-3 border-t border-gray-100 text-sm text-gray-500">Showing {filtered.length} of {schoolRecords.length} records</div>
       </div>
 
     </div>}

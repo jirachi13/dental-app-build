@@ -12,7 +12,7 @@ import { GradePill } from './GradePill';
 import { GradeTableCell } from './GradeTableCell';
 import { ListSearchInput } from './ListSearchInput';
 import { studentListTableStyles } from './StudentListTableStyles';
-import { addQueuedStudentId, getQueuedStudentIds } from '../utils/queueStorage';
+import { addQueuedStudentId, getQueuedStudentIds, removeQueuedStudentId, setQueuedStudentIds as persistQueuedStudentIds } from '../utils/queueStorage';
 import { useStudents } from '../hooks/useStudents';
 import { apiClient, ApiError } from '../api/client';
 import type { ApiSchool } from '../api/types';
@@ -66,6 +66,24 @@ export const PatientList = () => {
   const [bulkPreview, setBulkPreview] = useState<any[]>([]);
   const [bulkStep, setBulkStep] = useState<'upload'|'preview'|'done'>('upload');
   const [queuedStudentIds, setQueuedStudentIds] = useState<string[]>(() => getQueuedStudentIds());
+  // tick-box selection for queueing several students at once
+  const [tickedIds, setTickedIds] = useState<Set<string>>(new Set());
+
+  const toggleTicked = (id: string) => {
+    setTickedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const queueTicked = () => {
+    const merged = [...new Set([...getQueuedStudentIds(), ...tickedIds])];
+    persistQueuedStudentIds(merged);
+    setQueuedStudentIds(merged);
+    setTickedIds(new Set());
+  };
 
   const calculateAge = (birthdate: string) => {
     const today = new Date(); const birth = new Date(birthdate);
@@ -466,6 +484,11 @@ export const PatientList = () => {
                   <X className="w-3 h-3" /> Clear All
                 </button>
               )}
+              {tickedIds.size > 0 && (
+                <button onClick={queueTicked} className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-[#1E40AF] hover:bg-blue-700 rounded-lg ml-auto">
+                  Queue Selected ({tickedIds.size})
+                </button>
+              )}
             </div>
           </div>
 
@@ -475,6 +498,18 @@ export const PatientList = () => {
               <table className={studentListTableStyles.table}>
                 <thead className={studentListTableStyles.head}>
                   <tr>
+                    <th className={studentListTableStyles.headerCell}>
+                      <input
+                        type="checkbox"
+                        aria-label="Select all visible students for queueing"
+                        checked={filtered.length > 0 && filtered.every(s => s.pending || tickedIds.has(s.id))}
+                        onChange={(e) => {
+                          if (e.target.checked) setTickedIds(new Set(filtered.filter(s => !s.pending).map(s => s.id)));
+                          else setTickedIds(new Set());
+                        }}
+                        className="w-4 h-4 accent-[#1E40AF] align-middle"
+                      />
+                    </th>
                     <th className={studentListTableStyles.headerCell}>Student</th>
                     <th className={studentListTableStyles.headerCell}>Grade</th>
                     <th className={studentListTableStyles.headerCell}>Section</th>
@@ -485,12 +520,23 @@ export const PatientList = () => {
                 </thead>
                 <tbody className={studentListTableStyles.body}>
                   {filtered.length === 0 ? (
-                    <tr><td colSpan={6} className={studentListTableStyles.emptyCell}>No students match the selected filters.</td></tr>
+                    <tr><td colSpan={7} className={studentListTableStyles.emptyCell}>No students match the selected filters.</td></tr>
                   ) : filtered.map(student => {
                     const age = calculateAge(student.birthdate);
                     const isQueued = queuedStudentIds.includes(student.id);
                     return (
                       <tr key={student.id} onClick={() => { if (!student.pending) navigate(`/dental-chart/${student.id}?tab=history`); }} className={`${studentListTableStyles.row} ${student.pending ? 'opacity-70' : ''}`}>
+                        <td className={studentListTableStyles.secondaryCell} onClick={(e) => e.stopPropagation()}>
+                          {!student.pending && (
+                            <input
+                              type="checkbox"
+                              aria-label={`Select ${formatStudentName(student.name)} for queueing`}
+                              checked={tickedIds.has(student.id)}
+                              onChange={() => toggleTicked(student.id)}
+                              className="w-4 h-4 accent-[#1E40AF] align-middle"
+                            />
+                          )}
+                        </td>
                         <td className={studentListTableStyles.primaryCell}>
                           {formatStudentName(student.name)}
                           {student.pending && (
@@ -506,17 +552,18 @@ export const PatientList = () => {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (isQueued) return;
-                                setQueuedStudentIds(addQueuedStudentId(student.id));
+                                setQueuedStudentIds(
+                                  isQueued ? removeQueuedStudentId(student.id) : addQueuedStudentId(student.id)
+                                );
                               }}
-                              disabled={isQueued}
+                              title={isQueued ? 'Remove from charting queue' : 'Add to charting queue'}
                               className={`px-2.5 py-1 rounded text-xs font-semibold border transition-colors ${
                                 isQueued
-                                  ? 'bg-green-100 text-green-700 border-green-200 cursor-default'
+                                  ? 'bg-green-100 text-green-700 border-green-200 hover:bg-red-50 hover:text-red-700 hover:border-red-200'
                                   : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
                               }`}
                             >
-                              {isQueued ? 'Queued' : 'Queue for Charting'}
+                              {isQueued ? 'Queued ✓' : 'Queue for Charting'}
                             </button>
                           )}
                         </td>
@@ -528,7 +575,7 @@ export const PatientList = () => {
             </div>
             {filtered.length > 0 && (
               <div className={studentListTableStyles.footer}>
-                Showing {filtered.length} of {allStudents.length} students
+                Showing {filtered.length} of {schoolStudents.length} students{selectedSchool ? ` at ${getSchoolShortName(selectedSchool)}` : ''}
               </div>
             )}
           </div>
