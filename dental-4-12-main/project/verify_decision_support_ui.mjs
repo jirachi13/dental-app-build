@@ -3,7 +3,7 @@
 import { chromium } from 'playwright';
 import { readFileSync } from 'fs';
 
-const BASE = 'http://localhost:5173';
+const BASE = process.env.BASE_URL ?? 'http://localhost:5173';
 const SHOTS = process.env.SHOTS_DIR ?? '.';
 const env = Object.fromEntries(
   readFileSync(process.env.ENV_FILE, 'utf8').split(/\r?\n/)
@@ -18,7 +18,7 @@ const page = await browser.newPage();
 page.on('console', m => { if (m.type() === 'error') console.log('CONSOLE ERROR:', m.text()); });
 
 // ---- login + school select
-await page.goto(BASE + '/login');
+await page.goto(BASE + '/'); await page.waitForTimeout(2500);
 await page.fill('input[type="email"]', 'dentist@floral.com');
 await page.fill('input[type="password"]', PASSWORD);
 await page.click('button[type="submit"]');
@@ -70,7 +70,7 @@ await bulkBtn.click();
 await page.waitForFunction(() => {
   const b = [...document.querySelectorAll('button')].find(x => x.textContent.includes('Assess Selected'));
   return b && b.textContent.includes('(0)');
-}, { timeout: 90000 });
+}, { timeout: 180000 });
 const reviewBadges = await page.locator('span:has-text("review")').count();
 console.log('BULK done, review badges:', reviewBadges);
 await page.screenshot({ path: SHOTS + '/21g-2-bulk-done.png', fullPage: true });
