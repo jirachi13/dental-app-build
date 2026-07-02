@@ -609,7 +609,7 @@ Two fresh subagents (dentist seat, thesis-professor seat) independently re-toure
 - Dental-chart prev/next patient nav now scoped to `selectedSchool` (`DentalChart.tsx`)
 - DMFT History "Trend" tile: needs 2+ years ("—" for one), equal values = "Stable" — no more fake "Improving" from a single data point (`DentalChart.tsx`, found by the independent dentist seat)
 - Past-dated sessions still "Scheduled" were in NO tab while counted in the header total — now surface in the Missed tab where the mark actions live (`Appointments.tsx`, independent dentist seat)
-- "NoDate, Test" student soft-archived in prod with a proper AuditTrail entry. Done via direct DB ops mirroring the archive route because **`.env`'s `SEED_ADMIN_PASSWORD` is stale** (admin API login 401s — the 2026-07-02 rotation was never written back to `.env`; user should update it).
+- "NoDate, Test" student soft-archived in prod with a proper AuditTrail entry. Done via direct DB ops mirroring the archive route because `.env`'s `SEED_ADMIN_PASSWORD` was stale (the 2026-07-02 rotation was never written back to `.env`). **RESOLVED same day**: admin password rotated again (bcrypt(12) hash set directly + "Reset Password" audit entry), `.env` updated, production login verified 200. New value shown to the user in chat only, never committed.
 
 Known false positives re-confirmed this session (impeccable hook): all `gray-on-color` flags in DentalChart.tsx/Appointments.tsx are active/inactive ternary branches — gray renders only on the white/plain background.
 
