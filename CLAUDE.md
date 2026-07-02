@@ -172,7 +172,7 @@ Capstone Thesis — Build Phase — Group 404 — AY 2025-2026
 
 Primary feature: DMF/dmf index score. Metric priority: F1 score. Generate a visual decision tree for Chapter 4.
 
-**Open question for adviser**: 5 algorithms is thorough but adds work. SVM is the hardest to explain to a non-technical panel and often performs similarly to Random Forest on medical data. Safe minimum = LR + Decision Tree + RF + XGBoost (drop SVM). Strong set = all 5. Ask adviser whether they prefer more algorithms or deeper analysis of fewer — not yet decided.
+**DECIDED (2026-07-02)**: run ALL 5 algorithms — user's call, no adviser input needed. SVM stays in the Chapter 4 comparison. (Historical context: dropping SVM was considered because it's hardest to explain to a non-technical panel and often performs similarly to RF on medical data — if the panel asks, that trade-off was weighed and thoroughness won.)
 
 ### EVALUATION METHODS
 Compare both:

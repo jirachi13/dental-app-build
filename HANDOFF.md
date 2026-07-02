@@ -594,6 +594,9 @@ Deployed via `npx vercel --prod` from `dental-4-12-main/project` (remember: git 
 - **Render cold start can 503 the first bulk request** after the ML service has been idle — the UI handles it ("N assessments failed — re-select and try again") and the retry works once warm. Expected free-tier behavior, no action taken; verify script now waits 180s to tolerate it.
 Also from this session: Vercel Analytics was added then reverted at user request (never went live; see earlier section). Verify script is now portable: `BASE_URL` env override, enters via `/` (deep-link entry no longer needed but kept), reads `SEED_DENTIST_PASSWORD` from `.env`.
 
+## Decision: run ALL 5 algorithms (user, 2026-07-02)
+The "drop SVM?" question is settled — user chose the full set: LR, Decision Tree, Random Forest, SVM, XGBoost. No adviser input needed; all 5 were always trained by the experiment runner anyway, so this only confirms SVM's column stays in the Chapter 4 comparison table (5 algorithms × 2 evaluation methods = 10 result sets). CLAUDE.md's "Open question for adviser" paragraph is superseded by this decision.
+
 ## Next sprint
 Sprint 21a-21d **against real data** is blocked until the real dental IPTR Excel files are located and added to `data/raw/` (current `data/` contents are nutritional-status reports — verify with a quick openpyxl header check before trusting new files). When they land, the whole pipeline is one command chain away: `clean_excel.py data/raw` → `build_features.py` → `run_experiments.py` → regenerate `algo-results.md`/`model-selection-rationale.md` → `train.py` → the UI's synthetic-data banner clears itself. With 21g done, Phase 3 build work is complete pending real data.
 
