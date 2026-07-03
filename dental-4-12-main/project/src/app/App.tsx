@@ -3,6 +3,7 @@ import { RouterProvider } from 'react-router';
 import { router } from './routes';
 import { AuthProvider } from './context/AuthContext';
 import { OfflineBanner } from './components/OfflineBanner';
+import { UpdateToast } from './components/UpdateToast';
 import { initQueueProcessor } from './offline/queueProcessor';
 
 export default function App() {
@@ -13,6 +14,7 @@ export default function App() {
   return (
     <AuthProvider>
       <OfflineBanner />
+      <UpdateToast />
       <RouterProvider router={router} />
     </AuthProvider>
   );

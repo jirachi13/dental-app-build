@@ -11,7 +11,12 @@ import { processQueue } from './app/offline/queueProcessor';
 
 declare const self: ServiceWorkerGlobalScope;
 
-self.skipWaiting();
+// No unconditional skipWaiting(): the new SW waits until the user clicks
+// "Refresh" on the update toast (UpdateToast.tsx sends SKIP_WAITING). An
+// auto-activating SW left open tabs running stale assets with no cue.
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
 clientsClaim();
 
 precacheAndRoute(self.__WB_MANIFEST);
