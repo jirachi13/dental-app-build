@@ -1,5 +1,12 @@
 # HANDOFF — Phase 3 pipeline dry-run complete on SYNTHETIC data (Sprints 21a-21f exercised end-to-end; real data still blocked)
 
+## Scoped beautify DONE (2026-07-03, commit e11615b2, deployed + live-verified)
+Deliberately scoped subset of the backlogged "UI beautify pass" (budget-conscious; the full /impeccable audit remains parked for a fresh session):
+- New `components/Skeleton.tsx` — pulsing placeholders inside the app's existing card shells (white/rounded-xl/border-gray-200) so layout doesn't jump when data lands. Anti-slop respected: no new colors, no spinners, structure mirrors the real pages.
+- Wired into the 3 pages with text loaders: Dashboard (header+KPI grid+chart cards), Students (header+table), Risk Classification (tiles+table). DentalChartNav/DentalChartList/TreatmentRecords/Appointments still have text loaders — include in the full beautify pass.
+- Risk result card now shows "generated HH:MM:SS" (persona finding D10 — the Generate button already had spinner+disabled, the real gap was identical re-runs looking like nothing happened).
+Verified live: dashboard + students skeletons captured mid-load in production (screenshot checked — clean), content replaces them correctly; risk page loaded too fast to catch (cached data) but uses the same components.
+
 ## Sprint C DONE (2026-07-03, commit ac5d3c24, deployed + live-verified)
 Friction + a11y fixes from the persona review:
 - **School selection persists across reloads/deep-links** (`AuthContext.tsx`: localStorage `selected-school`, stored per user id and validated against their school list on restore). Single-school accounts (dentist, aide, school_admin) auto-select and never see the picker; the sidebar Switch button still opens it. Logout keeps the stored school (same person, same machine); a different user id ignores it.

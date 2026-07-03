@@ -111,7 +111,7 @@ Two seats (dentist, thesis professor) re-toured production independently without
 9. ✅ U6 login labels associated (htmlFor/id), sidebar collapse chevron aria-label
 10. ✅ D11 Escape closes the New Appointment / Set Rotation modals
 
-**Already backlogged, priority confirmed by this review:** skeleton loaders (beautify pass), PWA update toast, code-splitting/cold-paint, deterministic IV research pass.
+**Already backlogged, priority confirmed by this review:** ~~skeleton loaders~~ ✅ done 2026-07-03 (U3 + D10, commit e11615b2 — Dashboard/Students/Risk skeletons + assessment timestamp; remaining pages' text loaders go in the full beautify pass), PWA update toast, code-splitting/cold-paint, deterministic IV research pass.
 **Needs user verification first:** T3 report typos vs the paper DOH form.
 
 ## Verification notes (honesty)
