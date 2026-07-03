@@ -17,6 +17,7 @@ import {
   ArrowRight,
   ArrowLeft
 } from 'lucide-react';
+import { SkeletonPageHeader, SkeletonStatGrid, SkeletonChartCards } from './Skeleton';
 import { getGradeColor } from '../utils/gradeColors';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
 import { toLocalDateString } from '../utils/localDate';
@@ -232,7 +233,13 @@ export const Dashboard = () => {
   };
 
   if (loading) {
-    return <div className="text-sm text-gray-500 p-8 text-center">Loading dashboard…</div>;
+    return (
+      <div className="space-y-4" aria-busy="true" aria-label="Loading dashboard">
+        <SkeletonPageHeader />
+        <SkeletonStatGrid />
+        <SkeletonChartCards />
+      </div>
+    );
   }
 
   // ===== DENTIST DASHBOARD =====

@@ -9,6 +9,7 @@ import { getGradeColor } from '../utils/gradeColors';
 import { formatStudentName } from '../utils/formatStudentName';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
 import { GradePill } from './GradePill';
+import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { GradeTableCell } from './GradeTableCell';
 import { ListSearchInput } from './ListSearchInput';
 import { studentListTableStyles } from './StudentListTableStyles';
@@ -335,7 +336,12 @@ export const PatientList = () => {
   };
 
   if (studentsLoading) {
-    return <div className="text-sm text-gray-500 p-8 text-center">Loading students…</div>;
+    return (
+      <div className="space-y-4" aria-busy="true" aria-label="Loading students">
+        <SkeletonPageHeader />
+        <SkeletonTable rows={7} />
+      </div>
+    );
   }
 
   return (

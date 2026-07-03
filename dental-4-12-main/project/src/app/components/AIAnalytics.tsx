@@ -6,6 +6,7 @@ import {
 import { apiClient, ApiError } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useRiskClassification, type RiskCandidate } from '../hooks/useRiskClassification';
+import { SkeletonStatGrid, SkeletonTable } from './Skeleton';
 
 // Sprint 21f — Risk Classification UI. Predictions come from the ML service
 // via POST /api/predictions/assess (Express → FastAPI → predictor.py); a
@@ -68,6 +69,8 @@ export const AIAnalytics = () => {
   const [serviceDown, setServiceDown] = useState(false);
   const [predicting, setPredicting] = useState(false);
   const [prediction, setPrediction] = useState<PredictionResult | null>(null);
+  // Shown on the result card so re-generating visibly changes something
+  const [generatedAt, setGeneratedAt] = useState<Date | null>(null);
   const [predictError, setPredictError] = useState<string | null>(null);
   // validation panel state
   const [decision, setDecision] = useState<'accept' | 'override'>('accept');
@@ -158,6 +161,7 @@ export const AIAnalytics = () => {
     // normal assessment card so validation works identically
     const cached = bulkResults[id] ?? null;
     setPrediction(cached);
+    setGeneratedAt(cached ? new Date() : null);
     if (cached) setOverrideLevel(cached.risk_level);
     setPredictError(null);
     setSaveMessage(null);
@@ -218,6 +222,7 @@ export const AIAnalytics = () => {
         features: selected.features,
       });
       setPrediction(result);
+      setGeneratedAt(new Date());
       setOverrideLevel(result.risk_level);
     } catch (err) {
       setPredictError(
@@ -308,7 +313,10 @@ export const AIAnalytics = () => {
       )}
 
       {loading ? (
-        <div className="text-gray-400 text-sm py-12 text-center">Loading student data…</div>
+        <div className="space-y-4" aria-busy="true" aria-label="Loading student data">
+          <SkeletonStatGrid count={4} />
+          <SkeletonTable rows={5} />
+        </div>
       ) : error ? (
         <div className="text-red-500 text-sm py-12 text-center">{error}</div>
       ) : (
@@ -508,7 +516,10 @@ export const AIAnalytics = () => {
                   <div className="bg-white rounded-xl border border-gray-200 p-4">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="font-semibold text-gray-900">Model Assessment</h3>
-                      <span className="text-xs text-gray-400">{prediction.algorithm}</span>
+                      <span className="text-xs text-gray-400">
+                        {prediction.algorithm}
+                        {generatedAt && ` · generated ${generatedAt.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`}
+                      </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-3 mb-4">
                       <span className={`text-sm font-semibold px-3 py-1 rounded-full border ${RISK_BADGE[prediction.risk_level]}`}>
