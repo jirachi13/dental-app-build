@@ -44,7 +44,8 @@ import { useStudents } from '../hooks/useStudents';
 import { useAppointments } from '../hooks/useAppointments';
 import { useRPCTracking } from '../hooks/useRPCTracking';
 import { apiClient } from '../api/client';
-import type { ApiUser, ApiTreatment, ApiStudentIptr, ApiAuditTrail } from '../api/types';
+import type { ApiUser, ApiTreatment, ApiStudentIptr, ApiAuditTrail, ApiRiskStratification } from '../api/types';
+import { treatmentCodes } from './DentalChart';
 
 export const Dashboard = () => {
   const { user, selectedSchool, setSelectedSchool } = useAuth();
@@ -71,6 +72,11 @@ export const Dashboard = () => {
   const [iptrsByStudent, setIptrsByStudent] = useState<Map<string, string[]>>(new Map());
   const [chartedIptrIds, setChartedIptrIds] = useState<Set<string>>(new Set());
   const [auditEntries, setAuditEntries] = useState<ApiAuditTrail[]>([]);
+  const [toothRecords, setToothRecords] = useState<{ chart_id: string; treatment_code?: string }[]>([]);
+  const [riskStrats, setRiskStrats] = useState<ApiRiskStratification[]>([]);
+  const [chartIptrById, setChartIptrById] = useState<Map<string, string>>(new Map());
+  const [iptrStudentById, setIptrStudentById] = useState<Map<string, string>>(new Map());
+  const [preventiveIptrById, setPreventiveIptrById] = useState<Map<string, string>>(new Map());
   const [extraLoading, setExtraLoading] = useState(true);
 
   useEffect(() => {
@@ -83,12 +89,15 @@ export const Dashboard = () => {
         // setExtraLoading(false) never ran. Only fetch them for the role
         // that actually needs them (System Admin dashboard only) and has
         // permission.
-        const [apiUsers, treatments, iptrs, charts, audits] = await Promise.all([
+        const [apiUsers, treatments, iptrs, charts, audits, teeth, risks, preventives] = await Promise.all([
           user?.role === 'system_admin' ? apiClient.get<ApiUser[]>('/users') : Promise.resolve([]),
           apiClient.get<ApiTreatment[]>('/treatments'),
           apiClient.get<ApiStudentIptr[]>('/student-iptrs'),
-          apiClient.get<{ iptr_id: string }[]>('/dental-charts'),
+          apiClient.get<{ _id: string; iptr_id: string }[]>('/dental-charts'),
           user?.role === 'system_admin' ? apiClient.get<ApiAuditTrail[]>('/audit-trails') : Promise.resolve([]),
+          apiClient.get<{ chart_id: string; treatment_code?: string }[]>('/tooth-records'),
+          apiClient.get<ApiRiskStratification[]>('/risk-stratifications'),
+          apiClient.get<{ _id: string; iptr_id: string }[]>('/preventive-care-records'),
         ]);
         setUsers(apiUsers);
         setTreatmentCount(treatments.length);
@@ -101,6 +110,11 @@ export const Dashboard = () => {
         setIptrsByStudent(byStudent);
         setChartedIptrIds(new Set(charts.map((c) => c.iptr_id)));
         setAuditEntries(audits);
+        setToothRecords(teeth);
+        setRiskStrats(risks);
+        setChartIptrById(new Map(charts.map((c) => [c._id, c.iptr_id])));
+        setIptrStudentById(new Map(iptrs.map((i) => [i._id, i.student_id])));
+        setPreventiveIptrById(new Map(preventives.map((p) => [p._id, p.iptr_id])));
       } catch (err) {
         // Defense in depth: even if something else in this block fails,
         // never leave the dashboard stuck on the loading screen forever.
@@ -137,6 +151,57 @@ export const Dashboard = () => {
   }).length;
   const rpcOverdueCount = scopedRpc.filter((r) => r.status === 'overdue').length;
   const rpcPendingCount = scopedRpc.filter((r) => r.status === 'pending').length;
+
+  // School lookup for records that reach a student via chart→iptr or preventive→iptr chains
+  const studentSchoolById = useMemo(
+    () => new Map(allStudentsRaw.map((s) => [s.id, s.school])),
+    [allStudentsRaw],
+  );
+
+  // Procedures actually recorded on dental charts (ToothRecord.treatment_code), school-scoped
+  const procedureBreakdown = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const t of toothRecords) {
+      if (!t.treatment_code) continue;
+      const studentId = iptrStudentById.get(chartIptrById.get(t.chart_id) ?? '');
+      if (selectedSchool && (!studentId || studentSchoolById.get(studentId) !== selectedSchool)) continue;
+      counts.set(t.treatment_code, 1 + (counts.get(t.treatment_code) ?? 0));
+    }
+    return [...counts.entries()]
+      .map(([code, count]) => ({ code, label: treatmentCodes.find((c) => c.code === code)?.label ?? code, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [toothRecords, chartIptrById, iptrStudentById, studentSchoolById, selectedSchool]);
+
+  // Dentist-validated risk assessments grouped by month (validated_at is the only
+  // real date on RISK_STRATIFICATION — unvalidated ones have no date, so they're
+  // honestly excluded rather than given a fabricated one)
+  const assessmentsByMonth = useMemo(() => {
+    const byMonth = new Map<string, { High: number; Medium: number; Low: number }>();
+    for (const r of riskStrats) {
+      if (!r.validated_at) continue;
+      const studentId = iptrStudentById.get(preventiveIptrById.get(r.preventive_id) ?? '');
+      if (selectedSchool && (!studentId || studentSchoolById.get(studentId) !== selectedSchool)) continue;
+      const month = r.validated_at.slice(0, 7); // YYYY-MM
+      const bucket = byMonth.get(month) ?? { High: 0, Medium: 0, Low: 0 };
+      bucket[r.risk_level]++;
+      byMonth.set(month, bucket);
+    }
+    return [...byMonth.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, c]) => ({
+        month: new Date(month + '-02').toLocaleDateString('en-PH', { month: 'short', year: '2-digit' }),
+        ...c,
+      }));
+  }, [riskStrats, preventiveIptrById, iptrStudentById, studentSchoolById, selectedSchool]);
+
+  // RPC follow-ups needing attention: overdue first, then due within 60 days
+  const upcomingFollowUps = useMemo(() => {
+    const due = scopedRpc.filter(
+      (r) => r.status === 'overdue' || (r.status === 'pending' && r.daysUntilDue <= 60),
+    );
+    // daysUntilDue is negative when overdue, so ascending = most overdue first
+    return due.sort((a, b) => a.daysUntilDue - b.daysUntilDue).slice(0, 6);
+  }, [scopedRpc]);
 
   // Real appointment sessions for the current calendar week, bucketed by day + status.
   const weekAppointmentsByDay = useMemo(() => {
@@ -329,6 +394,109 @@ export const Dashboard = () => {
             {/* No historical monthly snapshots exist yet to compute a real
                 trend from -- an honest empty state, not fabricated numbers. */}
             <NoDataYet message="No historical trend data yet. This chart will populate once monthly snapshots begin accumulating." />
+          </div>
+        </div>
+
+        {/* Charts Row 2: RPC funnel + procedures — both computed from real records */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="bg-white p-4 rounded-xl border border-gray-200">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-bold text-gray-900">RPC Two-Visit Funnel</h2>
+              <Link to="/rpc" className="text-xs text-[#1E40AF] hover:underline">RPC Tracking →</Link>
+            </div>
+            {scopedRpc.length === 0 ? (
+              <NoDataYet message="No enrolled students yet." />
+            ) : (
+              <div className="space-y-3">
+                {/* One measure at deepening stages: sequential single-hue ramp, light→dark */}
+                {[
+                  { label: 'Enrolled', value: scopedRpc.length, color: '#60A5FA' },
+                  { label: 'Visit 1 completed', value: scopedRpc.filter((r) => r.visit1Status === 'Completed').length, color: '#3B82F6' },
+                  { label: 'Both visits completed', value: scopedRpc.filter((r) => r.visit2Status === 'Completed').length, color: '#1E40AF' },
+                ].map((step) => (
+                  <div key={step.label}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-gray-600">{step.label}</span>
+                      <span className="font-medium text-gray-900">{step.value} ({Math.round((step.value / scopedRpc.length) * 100)}%)</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-3">
+                      <div className="h-3 rounded-full" style={{ width: `${(step.value / scopedRpc.length) * 100}%`, backgroundColor: step.color }} />
+                    </div>
+                  </div>
+                ))}
+                <p className="text-xs text-gray-500 pt-1">
+                  {rpcOverdueCount > 0 ? `${rpcOverdueCount} student${rpcOverdueCount !== 1 ? 's' : ''} overdue for Visit 2` : 'No students overdue for Visit 2'}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-gray-200">
+            <h2 className="text-sm font-bold text-gray-900 mb-3">Procedures Performed</h2>
+            {procedureBreakdown.length === 0 ? (
+              <NoDataYet message="No procedures recorded on dental charts yet." />
+            ) : (
+              <div className="space-y-2.5">
+                {procedureBreakdown.slice(0, 6).map((p) => (
+                  <div key={p.code} className="flex items-center gap-2">
+                    <span className="text-xs text-gray-600 w-40 truncate shrink-0" title={p.label}>{p.label}</span>
+                    <div className="flex-1 bg-gray-100 rounded-full h-2.5">
+                      <div className="h-2.5 rounded-full bg-[#1E40AF]" style={{ width: `${(p.count / procedureBreakdown[0].count) * 100}%` }} />
+                    </div>
+                    <span className="text-xs font-medium text-gray-900 w-6 text-right shrink-0">{p.count}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Charts Row 3: validated assessments over time + follow-ups due */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="bg-white p-4 rounded-xl border border-gray-200">
+            <h2 className="text-sm font-bold text-gray-900 mb-3">Validated Risk Assessments by Month</h2>
+            {assessmentsByMonth.length === 0 ? (
+              <NoDataYet message="No dentist-validated assessments yet — validated assessments will chart here by month." />
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={assessmentsByMonth}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12 }} width={28} />
+                  <Tooltip />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  {/* Risk levels use the app's established status colors; white strokes
+                      give the 2px segment gap, legend + tooltip carry identity beyond color */}
+                  <Bar dataKey="High" stackId="risk" fill={COLORS.red} stroke="#fff" strokeWidth={2} />
+                  <Bar dataKey="Medium" stackId="risk" fill={COLORS.yellow} stroke="#fff" strokeWidth={2} />
+                  <Bar dataKey="Low" stackId="risk" fill={COLORS.green} stroke="#fff" strokeWidth={2} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-gray-200">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-bold text-gray-900">RPC Follow-ups Due</h2>
+              <Link to="/rpc" className="text-xs text-[#1E40AF] hover:underline">View all →</Link>
+            </div>
+            {upcomingFollowUps.length === 0 ? (
+              <NoDataYet message="No follow-ups overdue or due within 60 days." />
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {upcomingFollowUps.map((r) => (
+                  <div key={r.id} className="flex items-center justify-between py-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{r.studentName}</p>
+                      <p className="text-xs text-gray-500">{r.grade} · {r.section}</p>
+                    </div>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${r.status === 'overdue' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                      {r.status === 'overdue' ? `${Math.abs(r.daysUntilDue)}d overdue` : `due in ${r.daysUntilDue}d`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

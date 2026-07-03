@@ -112,7 +112,7 @@ const conditionCodes = [
 ];
 
 // Base44-exact treatment codes
-const treatmentCodes = [
+export const treatmentCodes = [
   { code: 'OEX', label: 'Oral Exam / Checkup' },
   { code: 'FV', label: 'Fluoride Varnish' },
   { code: 'PFS', label: 'Pit and Fissure Sealant' },
