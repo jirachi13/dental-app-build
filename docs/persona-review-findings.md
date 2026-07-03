@@ -105,10 +105,11 @@ Two seats (dentist, thesis professor) re-toured production independently without
 7. ✅ T8 Dental Charts opens on Full List when queue empty; root cause was also the legacy demo queue seed (5 phantom IDs auto-seeded into fresh browsers) — removed entirely, old browsers self-heal (non-ObjectId ids dropped on read)
 8. ✅ Dental Charts + Treatment Full Lists school-scoped (were showing all 18 students across 3 schools; found during live verification)
 
-**Sprint C — friction (medium):**
-7. N1 persist school selection + auto-skip for single-school accounts
-8. S2 silence expected pre-auth 401s
-9. U6 label/aria fixes
+**Sprint C — friction — ✅ DONE 2026-07-03 (commit ac5d3c24, deployed + live-verified):**
+7. ✅ N1 school selection persists (localStorage, per-user, validated against their school list); single-school accounts auto-select and skip the picker entirely (Switch button still opens it on demand)
+8. ✅ S2 pre-auth `/me` probe skipped via session hint — zero console errors on a fresh login page (verified live)
+9. ✅ U6 login labels associated (htmlFor/id), sidebar collapse chevron aria-label
+10. ✅ D11 Escape closes the New Appointment / Set Rotation modals
 
 **Already backlogged, priority confirmed by this review:** skeleton loaders (beautify pass), PWA update toast, code-splitting/cold-paint, deterministic IV research pass.
 **Needs user verification first:** T3 report typos vs the paper DOH form.

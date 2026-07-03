@@ -1,5 +1,13 @@
 # HANDOFF — Phase 3 pipeline dry-run complete on SYNTHETIC data (Sprints 21a-21f exercised end-to-end; real data still blocked)
 
+## Sprint C DONE (2026-07-03, commit ac5d3c24, deployed + live-verified)
+Friction + a11y fixes from the persona review:
+- **School selection persists across reloads/deep-links** (`AuthContext.tsx`: localStorage `selected-school`, stored per user id and validated against their school list on restore). Single-school accounts (dentist, aide, school_admin) auto-select and never see the picker; the sidebar Switch button still opens it. Logout keeps the stored school (same person, same machine); a different user id ignores it.
+- **Pre-auth 401 console noise eliminated**: `/auth/me` only fires when a `has-session` localStorage hint exists (set on login/successful restore, cleared on logout or a real 401). Fresh login page now logs zero console errors (verified live). Offline session-restore path unchanged.
+- Escape closes the New Appointment / Set Rotation modals.
+- a11y: login inputs get htmlFor/id label association; sidebar collapse chevron gets aria-label.
+Live-verified: login lands directly on `/` (no school picker), `/patients` deep-link reload stays put with 6 rows rendered, Escape closes modal, Switch still shows picker. Verification gotcha for future scripts: login+auto-school-resolution can take >5s on cold start — wait for the sidebar selector, not a fixed sleep.
+
 ## Sprint B DONE (2026-07-03, commits 8b8a1410 → 44b203c8, deployed + live-verified)
 Identity & first-impression fixes from the persona review (`docs/persona-review-findings.md` worklist updated in place):
 - One tagline everywhere: "Dental Health Record Management System" (Login said "School Dental Clinic Management System", sidebar said "Dental Health System"); FLORAL casing on login; Sign In button recolored red → app blue #1E40AF (red BT logo circle kept — consistent brand mark app-wide)
