@@ -1,5 +1,24 @@
 # HANDOFF — Phase 3 pipeline dry-run complete on SYNTHETIC data (Sprints 21a-21f exercised end-to-end; real data still blocked)
 
+## NEXT SPRINT PLAN — PWA update toast (scoped by Fable 2026-07-04, execute on Opus)
+**Goal**: after a deploy, users get a "new version available → Refresh" toast instead of silently running stale UI until a hard refresh (user-hit problem, backlog item). Touches the service worker → Phase 2 rules apply: offline write queue MUST be re-tested after.
+
+**Root cause context**: `src/sw.ts:14` calls `self.skipWaiting()` unconditionally + `vite.config.ts` has `registerType: 'autoUpdate'` — new SW takes over immediately but open tabs keep old assets until reload, so users see stale UI with no cue.
+
+**Steps (exact)**:
+1. `vite.config.ts`: change `registerType: 'autoUpdate'` → `'prompt'`.
+2. `src/sw.ts`: replace the unconditional `self.skipWaiting()` (line 14) with a message listener so the waiting SW only activates when the user clicks Refresh:
+   `self.addEventListener('message', (event) => { if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting(); });`
+   Keep `clientsClaim()` as-is.
+3. New `src/app/components/UpdateToast.tsx`: use `useRegisterSW` from `virtual:pwa-register/react` (ships with vite-plugin-pwa, no new dep). When `needRefresh` is true render a fixed bottom-right toast (z-50), styled to the design system: white `rounded-xl border border-gray-200 shadow-lg p-4`, text "A new version of FLORAL is available.", blue button `bg-[#1E40AF] hover:bg-blue-700 text-white rounded-lg px-3 py-1.5 text-sm` labeled "Refresh" calling `updateServiceWorker(true)`, plus a gray X dismiss that sets needRefresh false. No animation library — match OfflineBanner's plainness.
+4. Mount `<UpdateToast />` in `App.tsx` next to `<OfflineBanner />`. Check `src/vite-env.d.ts` — may need `/// <reference types="vite-plugin-pwa/react" />` for the virtual module types.
+5. Typecheck both tsconfigs + `npm run build`.
+6. **Local verification (required, use `npm run preview` — SW never runs in vite dev)**: build+preview+`npm run dev:server`, load app, then change any visible string, rebuild, reload once → toast should appear (the reload fetches the new SW which now waits) → click Refresh → new string visible. Then **re-test the offline queue** (Phase 2 rule): DevTools offline → add a student → pending badge + amber banner appear → back online → syncs. Delete any test student created (archive via UI as admin, never hard delete) or use an obviously-named throwaway and archive it.
+7. Deploy `npx vercel --prod` (git push does NOT auto-deploy). Note: THIS deploy still auto-applies for existing users (their current SW is the old autoUpdate one); the toast behavior starts with the NEXT deploy after this one — say so in HANDOFF when closing the sprint.
+8. Update HANDOFF (mark backlog item done) + commit per sprint loop.
+
+**Success criteria**: toast appears on new-version-waiting, Refresh applies it, dismiss leaves old version running; offline queue still works end-to-end; tsc + build clean.
+
 ## Code-splitting sprint DONE (2026-07-03, commit d830fa43, deployed + live-verified)
 - OCR path (tesseract.js + pdfjs) now dynamic-imported inside PatientList's `handleOcrFile` — only staff who actually scan a form download it. `utils/iptrOcrShared.ts` holds the threshold/types the UI needs at render time; `iptrOcr.ts` re-exports them so nothing else changes.
 - **Main bundle 1,412KB → 957KB; SW precache 2,539KB → 2,055KB** (OCR chunk excluded from precache via `globIgnores` — precaching it would negate the split). pdf.worker (1.25MB, .mjs) was never precached and stays on-demand.
