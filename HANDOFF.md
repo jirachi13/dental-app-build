@@ -1,5 +1,15 @@
 # HANDOFF — Phase 3 pipeline dry-run complete on SYNTHETIC data (Sprints 21a-21f exercised end-to-end; real data still blocked)
 
+## Sprint B DONE (2026-07-03, commits 8b8a1410 → 44b203c8, deployed + live-verified)
+Identity & first-impression fixes from the persona review (`docs/persona-review-findings.md` worklist updated in place):
+- One tagline everywhere: "Dental Health Record Management System" (Login said "School Dental Clinic Management System", sidebar said "Dental Health System"); FLORAL casing on login; Sign In button recolored red → app blue #1E40AF (red BT logo circle kept — consistent brand mark app-wide)
+- Placeholders `floral.ph` → `floral.com` (Login + AccountManagement); "Role is auto-detected" removed from login
+- Dashboard High-Risk card caption only renders when count > 0 (was green "Needs validation" under a 0)
+- Dental Charts: opens on Full List when the queue is empty + honest empty-queue copy. Root cause discovered during live verify: **queueStorage's legacy demo seed was still auto-injecting 5 phantom IDs ("1","3",…) into every fresh browser**, forcing a dead Queued view — seed removed entirely (backlog item done), and `normalizeIds` drops non-24-hex ids so browsers with the old seed self-heal
+- Treatment List: honest empty copy when no students at the school have treatments
+- **Dental Charts + Treatment Full Lists were never school-scoped** (showed all 18 students across 3 schools while every other list scopes) — found during live verification, fixed with the standard `selectedSchool` filter
+All verified against production with Playwright: 6 school-scoped rows, correct empty copy on both pages, blue login button (computed rgb(30,64,175)), tagline/casing/placeholder/role-hint all confirmed, legacy-seed browser simulated and self-heals.
+
 ## Status
 Sprints 1-20 done and deployed live (https://dental-app-build.vercel.app). Sprint 21a (clean real Excel data) is **blocked** — see below — but the Strategy Pattern ML architecture normally built in Sprint 21e was built early, against placeholder data, at the user's explicit request. Do not confuse this with real trained models.
 - Sprint 1: Express MVC + MongoDB connection

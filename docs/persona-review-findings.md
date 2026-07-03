@@ -99,9 +99,11 @@ Two seats (dentist, thesis professor) re-toured production independently without
 5. ✅ D7 DMFT trend requires 2+ years, equal = Stable
 6. ✅ D9 past unmarked appointments surface in Missed tab
 
-**Sprint B — identity & first impressions (small):**
-5. T1/U1/U2 one tagline everywhere + login recolored to app blue
-6. U5 placeholder domain, N4 drop role hint, D5 empty-state copy, U4 caption logic
+**Sprint B — identity & first impressions — ✅ DONE 2026-07-03 (expanded):**
+5. ✅ T1/U1/U2 one tagline everywhere ("Dental Health Record Management System"), FLORAL casing, login button recolored to app blue
+6. ✅ U5 placeholder domains → floral.com, N4 role hint removed, D5 honest empty-queue/empty-treatment copy, U4 caption only when high-risk count > 0
+7. ✅ T8 Dental Charts opens on Full List when queue empty; root cause was also the legacy demo queue seed (5 phantom IDs auto-seeded into fresh browsers) — removed entirely, old browsers self-heal (non-ObjectId ids dropped on read)
+8. ✅ Dental Charts + Treatment Full Lists school-scoped (were showing all 18 students across 3 schools; found during live verification)
 
 **Sprint C — friction (medium):**
 7. N1 persist school selection + auto-skip for single-school accounts
