@@ -7,6 +7,7 @@ import { ListSearchInput } from './ListSearchInput';
 import { studentListTableStyles } from './StudentListTableStyles';
 import { getQueuedStudentIds } from '../utils/queueStorage';
 import { useStudents } from '../hooks/useStudents';
+import { useAuth } from '../context/AuthContext';
 
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 
@@ -37,7 +38,13 @@ export const DentalChartNav = () => {
   const [ageGroupFilter, setAgeGroupFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const queuedStudentIds = useMemo(() => getQueuedStudentIds(), []);
-  const { students: mockPatients, loading: studentsLoading } = useStudents();
+  const { selectedSchool } = useAuth();
+  const { students: allStudents, loading: studentsLoading } = useStudents();
+  // School-scoped like every other list page
+  const mockPatients = useMemo(
+    () => (selectedSchool ? allStudents.filter((s) => s.school === selectedSchool) : allStudents),
+    [allStudents, selectedSchool],
+  );
 
   const sourcePatients = useMemo(
     () => (viewMode === 'queued' ? mockPatients.filter((p) => queuedStudentIds.includes(p.id)) : mockPatients),

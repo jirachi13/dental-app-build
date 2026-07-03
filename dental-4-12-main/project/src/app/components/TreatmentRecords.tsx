@@ -6,6 +6,7 @@ import { GradeTableCell } from './GradeTableCell';
 import { ListSearchInput } from './ListSearchInput';
 import { studentListTableStyles } from './StudentListTableStyles';
 import { useStudents } from '../hooks/useStudents';
+import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
 import type { ApiStudentIptr, ApiTreatment } from '../api/types';
 
@@ -37,7 +38,13 @@ export const TreatmentRecords = () => {
   const [ageGroupFilter, setAgeGroupFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { students: mockPatients, loading: studentsLoading } = useStudents();
+  const { selectedSchool } = useAuth();
+  const { students: allStudents, loading: studentsLoading } = useStudents();
+  // School-scoped like every other list page
+  const mockPatients = useMemo(
+    () => (selectedSchool ? allStudents.filter((s) => s.school === selectedSchool) : allStudents),
+    [allStudents, selectedSchool],
+  );
   const [treatmentIds, setTreatmentIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
