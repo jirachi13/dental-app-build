@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Plus, Eye, FileText, X, School as SchoolIcon, List, ChevronRight, Users, Upload, CheckCircle, AlertCircle, ScanLine, Download } from 'lucide-react';
 import { exportToCsv } from '../utils/exportCsv';
 import { toLocalDateString } from '../utils/localDate';
-import { extractIptrFields, OCR_CONFIDENCE_THRESHOLD, type IptrOcrFieldKey } from '../utils/iptrOcr';
+import { OCR_CONFIDENCE_THRESHOLD, type IptrOcrFieldKey } from '../utils/iptrOcrShared';
 import { getGradeColor } from '../utils/gradeColors';
 import { formatStudentName } from '../utils/formatStudentName';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
@@ -25,16 +25,6 @@ const SCHOOLS = [
 ];
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 
-const ViewToggle = ({ mode, onChange }: { mode: 'school' | 'list'; onChange: (m: 'school' | 'list') => void }) => (
-  <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-    <button onClick={() => onChange('school')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${mode === 'school' ? 'bg-white text-[#1E40AF] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-      <SchoolIcon className="w-4 h-4" /> School View
-    </button>
-    <button onClick={() => onChange('list')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${mode === 'list' ? 'bg-white text-[#1E40AF] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-      <List className="w-4 h-4" /> List View
-    </button>
-  </div>
-);
 
 export const PatientList = () => {
   const navigate = useNavigate();
@@ -165,6 +155,9 @@ export const PatientList = () => {
     setOcrProcessing(true);
     setOcrProgress(0);
     try {
+      // Dynamic import keeps tesseract.js + pdfjs-dist (~1.5MB) out of the
+      // main bundle — only staff who actually scan a form download them
+      const { extractIptrFields } = await import('../utils/iptrOcr');
       const result = await extractIptrFields(file, setOcrProgress);
       setNewPatient((prev) => ({
         ...prev,
@@ -369,109 +362,8 @@ export const PatientList = () => {
         </div>
       </div>
 
-      {false && (
-        <div className="space-y-4">
-          <Breadcrumb />
-
-          {/* Level 1 — Grades (school already selected from context) */}
-          {false && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {schoolData.map(s => (
-                <SchoolCard key={s.name} school={s.name} count={s.count} onClick={() => {}} />
-              ))}
-            </div>
-          )}
-
-          {/* Level 2 — Grades */}
-          {!selectedGrade && (
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-gray-700">Select Grade — {selectedSchool}</p>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {gradesForSchool.map(grade => {
-                  const gc = getGradeColor(grade);
-                  const count = allStudents.filter(s => s.school === selectedSchool && s.grade === grade).length;
-                  return (
-                    <button key={grade} onClick={() => setSelectedGrade(grade)}
-                      style={{ backgroundColor: gc.light, borderColor: gc.solid }}
-                      className="flex items-center justify-between p-4 rounded-xl border-2 hover:shadow-md transition-all group">
-                      <div>
-                        <GradePill grade={grade} />
-                        <div className="text-xs text-gray-500 mt-0.5">{count} students</div>
-                      </div>
-                      <ChevronRight style={{ color: gc.solid }} className="w-4 h-4" />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Level 3 — Sections */}
-          {selectedGrade && !selectedSection && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                <GradePill grade={selectedGrade} />
-                <span>Select Section</span>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {sectionsForGrade.map(section => {
-                  const gc = getGradeColor(selectedGrade);
-                  const count = allStudents.filter(s => s.school === selectedSchool && s.grade === selectedGrade && s.section === section).length;
-                  return (
-                    <button key={section} onClick={() => setSelectedSection(section)}
-                      className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-200 hover:border-[#1E40AF] hover:shadow-md transition-all group">
-                      <div>
-                        <div className="font-semibold text-gray-900 text-sm">{section}</div>
-                        <div style={{ color: gc.solid }} className="text-xs font-medium mt-0.5">{count} students</div>
-                      </div>
-                      <Users className="w-4 h-4 text-gray-400 group-hover:text-[#1E40AF]" />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Level 4 — Students in section */}
-          {selectedGrade && selectedSection && (
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                <span className="text-sm font-semibold text-gray-700">{selectedSection} — {studentsForSection.length} students</span>
-              </div>
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="text-left px-4 py-3 font-semibold text-gray-700">Student</th>
-                    <th className="text-left px-4 py-3 font-semibold text-gray-700">Last Visit</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {studentsForSection.map(student => (
-                    <tr key={student.id} onClick={() => navigate(`/dental-chart/${student.id}?tab=history`)} className="hover:bg-gray-50 cursor-pointer">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-semibold text-xs flex-shrink-0">
-                            {student.name.split(' ').map((n: string) => n[0]).join('').slice(0,2)}
-                          </div>
-                          <span className="font-medium text-gray-900">{formatStudentName(student.name)}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-gray-600">{student.gender}</td>
-                      <td className="px-4 py-3 text-gray-600">{calculateAge(student.birthdate) ?? '—'}</td>
-                      <td className="px-4 py-3">{riskBadge(student.riskLevel)}</td>
-                      <td className="px-4 py-3">{statusBadge(student.oralStatus)}</td>
-                      <td className="px-4 py-3 text-gray-500">{student.lastVisit}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* LIST VIEW */}
-      {true && (
         <div className="space-y-4">
           {/* Filters */}
           <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
@@ -586,7 +478,6 @@ export const PatientList = () => {
             )}
           </div>
         </div>
-      )}
 
       {/* Scan IPTR Form Modal */}
       {showOcrUpload && (

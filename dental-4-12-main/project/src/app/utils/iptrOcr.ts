@@ -4,9 +4,11 @@ import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 
-// Confidence below this threshold gets flagged in the UI for manual review.
-// Never trusted silently — see CLAUDE.md OCR MODULE spec.
-export const OCR_CONFIDENCE_THRESHOLD = 70;
+// Threshold + types live in iptrOcrShared.ts so the UI can import them
+// without dragging tesseract/pdfjs into the main bundle.
+import type { IptrOcrFieldKey, IptrOcrResult } from './iptrOcrShared';
+export { OCR_CONFIDENCE_THRESHOLD } from './iptrOcrShared';
+export type { IptrOcrFieldKey, IptrOcrResult } from './iptrOcrShared';
 
 // Tesseract.js can only read raster images, so every page of a PDF (front
 // and back of the paper form both matter) is rendered to a canvas first.
@@ -26,17 +28,6 @@ async function rasterizePdfPages(file: File): Promise<HTMLCanvasElement[]> {
     canvases.push(canvas);
   }
   return canvases;
-}
-
-export type IptrOcrFieldKey =
-  | 'firstName' | 'lastName' | 'middleName' | 'birthdate' | 'age' | 'gender'
-  | 'address' | 'contactNumber' | 'grade' | 'section';
-
-export interface IptrOcrResult {
-  fields: Partial<Record<IptrOcrFieldKey, string>>;
-  confidences: Partial<Record<IptrOcrFieldKey, number>>;
-  rawText: string;
-  overallConfidence: number;
 }
 
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
