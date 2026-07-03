@@ -40,6 +40,19 @@ export const Appointments = () => {
   const [showRotationModal, setShowRotationModal] = useState(false);
   const [currentDate, setCurrentDate] = useState(() => { const now = new Date(); return new Date(now.getFullYear(), now.getMonth(), 1); });
 
+  // Escape closes whichever modal is open (a mis-click otherwise traps the user)
+  useEffect(() => {
+    if (!showCreateModal && !showRotationModal) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowCreateModal(false);
+        setShowRotationModal(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showCreateModal, showRotationModal]);
+
   // Create appointment form
   const [formSchool, setFormSchool] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('');

@@ -27,6 +27,47 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Survives reloads/deep-links (school choice used to live only in memory, so
+// every refresh bounced users back to the select-school screen).
+const SCHOOL_KEY = 'selected-school';
+// Set after a successful login/restore. When absent we skip the /auth/me
+// probe entirely — an unauthenticated probe just 401s and litters the console.
+const SESSION_HINT_KEY = 'has-session';
+
+function loadStoredSchool(userId: string, schools: string[]): string | null {
+  try {
+    const raw = window.localStorage.getItem(SCHOOL_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    // Only honor a value stored by this same user that still names one of
+    // their schools (guards against shared machines and renamed schools).
+    return parsed && parsed.userId === userId && schools.includes(parsed.school) ? parsed.school : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeSchool(userId: string, school: string | null) {
+  try {
+    if (school === null) window.localStorage.removeItem(SCHOOL_KEY);
+    else window.localStorage.setItem(SCHOOL_KEY, JSON.stringify({ userId, school }));
+  } catch {
+    // storage unavailable (private mode etc.) — selection just won't persist
+  }
+}
+
+// Restore the stored choice, or auto-select for single-school accounts so
+// they never have to click through a one-card selection screen.
+function initialSchoolFor(user: User): string | null {
+  const stored = loadStoredSchool(user.id, user.schools);
+  if (stored) return stored;
+  if (user.schools.length === 1) {
+    storeSchool(user.id, user.schools[0]);
+    return user.schools[0];
+  }
+  return null;
+}
+
 async function resolveUser(apiUser: ApiUser): Promise<User> {
   const allSchools = await apiClient.get<ApiSchool[]>('/schools');
   const schools = apiUser.school_id
@@ -45,15 +86,22 @@ async function resolveUser(apiUser: ApiUser): Promise<User> {
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedSchool, setSelectedSchool] = useState<string | null>(null);
+  const [selectedSchool, setSelectedSchoolState] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
+      if (!window.localStorage.getItem(SESSION_HINT_KEY)) {
+        // Never logged in from this browser (or logged out) — don't probe
+        // /auth/me just to receive a 401.
+        setLoading(false);
+        return;
+      }
       try {
         const apiUser = await apiClient.get<ApiUser>('/auth/me');
         const resolved = await resolveUser(apiUser);
         setUser(resolved);
         saveUserCache(resolved);
+        setSelectedSchoolState(initialSchoolFor(resolved));
       } catch (err) {
         // A real 401 means the server checked and said you're logged out —
         // trust it. A network error just means we couldn't ask, which isn't
@@ -62,8 +110,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (err instanceof ApiError) {
           setUser(null);
           clearUserCache();
+          window.localStorage.removeItem(SESSION_HINT_KEY);
         } else {
-          setUser(loadUserCache());
+          const cached = loadUserCache();
+          setUser(cached);
+          if (cached) setSelectedSchoolState(initialSchoolFor(cached));
         }
       } finally {
         setLoading(false);
@@ -71,13 +122,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     })();
   }, []);
 
+  const setSelectedSchool = useCallback(
+    (school: string | null) => {
+      setSelectedSchoolState(school);
+      if (user) storeSchool(user.id, school);
+    },
+    [user],
+  );
+
   const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
     try {
       const apiUser = await apiClient.post<ApiUser>('/auth/login', { email, password });
       const resolved = await resolveUser(apiUser);
       setUser(resolved);
       saveUserCache(resolved);
-      setSelectedSchool(null); // reset school on login
+      window.localStorage.setItem(SESSION_HINT_KEY, '1');
+      setSelectedSchoolState(initialSchoolFor(resolved));
       return { ok: true };
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'No connection — can\'t log in while offline. If you were logged in before, reopen the app without reloading.';
@@ -89,7 +149,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await apiClient.post('/auth/logout').catch(() => {});
     setUser(null);
     clearUserCache();
-    setSelectedSchool(null);
+    window.localStorage.removeItem(SESSION_HINT_KEY);
+    setSelectedSchoolState(null);
+    // deliberately keep SCHOOL_KEY: logging back in on the same machine
+    // shouldn't re-ask a question the user already answered
   }, []);
 
   return (
