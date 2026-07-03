@@ -132,7 +132,7 @@ export const TreatmentRecords = () => {
             </thead>
             <tbody className={studentListTableStyles.body}>
               {filtered.length === 0 ? (
-                <tr><td colSpan={5} className={studentListTableStyles.emptyCell}>No treatment records match the selected filters.</td></tr>
+                <tr><td colSpan={5} className={studentListTableStyles.emptyCell}>{viewMode === 'treatment' && !hasActiveFilters ? 'No students with treatment records at this school yet — switch to Full List to browse all students.' : 'No treatment records match the selected filters.'}</td></tr>
               ) : filtered.map(t => {
                 const age = calculateAge(t.birthdate);
                 return (

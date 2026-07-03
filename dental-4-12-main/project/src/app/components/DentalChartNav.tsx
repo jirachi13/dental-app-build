@@ -29,7 +29,8 @@ const getAgeGroup = (age: number) => {
 
 export const DentalChartNav = () => {
   const navigate = useNavigate();
-  const [viewMode, setViewMode] = useState<'queued' | 'full'>('queued');
+  // Open on Full List when nothing is queued — an empty default view reads as a dead page
+  const [viewMode, setViewMode] = useState<'queued' | 'full'>(() => (getQueuedStudentIds().length ? 'queued' : 'full'));
   const [gradeFilter, setGradeFilter] = useState('all');
   const [sectionFilter, setSectionFilter] = useState('all');
   const [genderFilter, setGenderFilter] = useState('all');
@@ -130,7 +131,7 @@ export const DentalChartNav = () => {
             </thead>
             <tbody className={studentListTableStyles.body}>
               {filtered.length === 0 ? (
-                <tr><td colSpan={5} className={studentListTableStyles.emptyCell}>No dental charts match the selected filters.</td></tr>
+                <tr><td colSpan={5} className={studentListTableStyles.emptyCell}>{viewMode === 'queued' && queuedStudentIds.length === 0 ? 'No students queued for charting yet — use "Queue for Charting" on the Students page, or switch to Full List.' : 'No dental charts match the selected filters.'}</td></tr>
               ) : filtered.map(p => {
                 const age = calculateAge(p.birthdate);
                 return (

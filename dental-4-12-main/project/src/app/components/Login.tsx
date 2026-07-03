@@ -41,8 +41,8 @@ export const Login = () => {
               </div>
             )}
           </div>
-          <h1 className="text-2xl font-bold text-[#1E40AF] mb-1">Floral</h1>
-          <p className="text-sm text-gray-600">School Dental Clinic Management System</p>
+          <h1 className="text-2xl font-bold text-[#1E40AF] mb-1">FLORAL</h1>
+          <p className="text-sm text-gray-600">Dental Health Record Management System</p>
           <p className="text-xs text-gray-500 mt-0.5">Barangay Tanyag, Taguig City</p>
         </div>
 
@@ -60,7 +60,7 @@ export const Login = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent text-sm"
-                  placeholder="your.email@floral.ph"
+                  placeholder="your.email@floral.com"
                   required
                 />
               </div>
@@ -91,10 +91,7 @@ export const Login = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-xs">
-              <div className="text-gray-500">Role is auto-detected from account</div>
-              <span className="text-gray-500">Forgot password? Contact your System Admin.</span>
-            </div>
+            <p className="text-xs text-gray-500 text-right">Forgot password? Contact your System Admin.</p>
 
             {error && (
               <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
@@ -105,7 +102,7 @@ export const Login = () => {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full bg-[#E31E24] hover:bg-[#c71a1f] disabled:opacity-60 text-white font-medium py-2 rounded-lg transition-colors text-sm"
+              className="w-full bg-[#1E40AF] hover:bg-blue-700 disabled:opacity-60 text-white font-medium py-2 rounded-lg transition-colors text-sm"
             >
               {submitting ? 'Signing in…' : 'Sign In'}
             </button>

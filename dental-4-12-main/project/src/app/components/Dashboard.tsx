@@ -271,7 +271,7 @@ export const Dashboard = () => {
             label="High-Risk Patients"
             value={String(highRiskCount)}
             color="text-red-600"
-            trend="Needs validation"
+            trend={highRiskCount > 0 ? 'review in Risk Classification' : undefined}
             linkTo="/patients?risk=high"
           />
           <StatCard

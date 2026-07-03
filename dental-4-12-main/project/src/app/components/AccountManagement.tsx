@@ -176,7 +176,7 @@ export const AccountManagement = () => {
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                placeholder="juan.delacruz@floral.ph"
+                placeholder="juan.delacruz@floral.com"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
               />
             </div>

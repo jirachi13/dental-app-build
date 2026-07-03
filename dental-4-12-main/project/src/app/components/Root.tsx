@@ -176,7 +176,7 @@ export const Root = () => {
             )}
             <div className={collapsed ? 'hidden' : 'hidden md:block'}>
               <div className="text-lg font-bold text-[#1E40AF]">FLORAL</div>
-              <div className="text-xs text-gray-500 leading-tight">Dental Health System</div>
+              <div className="text-xs text-gray-500 leading-tight">Dental Health Record Management System</div>
             </div>
           </div>
         </div>
