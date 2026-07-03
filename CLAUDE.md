@@ -10,6 +10,18 @@ Capstone Thesis — Build Phase — Group 404 — AY 2025-2026
 - Save sprint summary as HANDOFF.md after each sprint
 - Use concise responses, no filler, no pleasantries
 
+## DOC ROLES + SELF-MAINTENANCE (adopted 2026-07-04)
+- CLAUDE.md = rules/specs/decisions that constrain every session. It self-improves by REPLACEMENT: when a decision supersedes a line here, rewrite or delete that line the same turn — never just append. This file is injected into every session's context, so bloat here taxes everything.
+- HANDOFF.md = state journal (what happened, current status). Narrative goes here, never into CLAUDE.md.
+- Every ~5 sprints, do a CLAUDE.md hygiene pass: delete superseded lines, compress resolved sagas to one-liners, verify build-phase status markers.
+
+## MODEL STRATEGY (adopted 2026-07-04)
+- Split by work type, not one model for everything:
+  - **Fable** (judgment work): sprint scoping/grill-me, plans written into HANDOFF, code review, audits/persona reviews, ambiguous debugging, thesis/defense reasoning, and any sprint where the ambiguity can't be predicted up front (e.g. real-data 21a cleaning).
+  - **Opus** (well-specified execution): implementing a plan with exact file:line targets, wiring documented patterns, seed scripts, mechanical UI passes.
+- Recipe per sprint: Fable scopes + writes the plan into HANDOFF → user runs /model opus to implement → back to Fable only if Opus stalls or for final review. The plan left in HANDOFF must be precise enough to execute without re-deriving intent — that precision is what makes the split safe.
+- Claude cannot switch its own model; when the current work crosses into the other model's territory, SAY SO and let the user run /model.
+
 ## BEHAVIOR RULES
 - Think before coding, ask if unclear
 - Simplicity first, no overengineering
@@ -220,7 +232,7 @@ Current student data is only the Sprint 10 demo seeder (18 records) — far too 
 
 ## BUILD PHASES
 
-**Phase 1 — Foundation (BUILD NOW):**
+**Phase 1 — Foundation (DONE — deployed to production):**
 - Sprint 1 → Express MVC + MongoDB connection
 - Sprint 2 → SCHOOL, USER, STUDENT, DENTIST, DENTAL_AIDE models
 - Sprint 3 → STUDENT_IPTR, MEDICAL_HISTORY, DIETARY_SOCIAL_HABITS, ORAL_HEALTH_CONDITION models
@@ -240,16 +252,16 @@ Current student data is only the Sprint 10 demo seeder (18 records) — far too 
 - Sprint 16 → OCR Tesseract.js IPTR scanning
 - Sprint 17 → Deploy to Vercel
 
-**Phase 2 — Offline (AFTER Phase 1):**
+**Phase 2 — Offline (DONE):**
 - Sprint 18 → PWA service worker review
 - Sprint 19 → IndexedDB + FIFO queue
 - Sprint 20 → Workbox sync + conflict handling
 
-**Phase 3 — Algo (AFTER Phase 2):**
+**Phase 3 — Algo (BUILD DONE on synthetic data 21a-21g; re-run against REAL data still blocked — see Sample size caveat):**
 **REVISED — real Excel IPTR data available, no synthetic dataset needed. Full detailed task breakdown for every sprint below is in `/docs/phase3-sprint-prompts.md` — treat that file as authoritative, this is just the index. Each sprint requires explicit review/approval before the next starts.**
 - Sprint 21a → Clean + standardize real Excel files from /data/raw/ → /data/cleaned/dataset.csv + /data/cleaning-report.md. Work on copies only — never modify original Excel files. Drop `full_name`/any name column entirely during cleaning — not needed for training, use `student_id` (or a generated placeholder) as the row identifier instead (see Privacy note above — resolved, not a blocker).
 - Sprint 21b → Feature engineering directly from cleaned CSV → /data/processed/ml_dataset.csv (DMF index calc, risk labels, missing-value imputation, class distribution check)
-- Sprint 21c → Train/Test (80/20) + Stratified K-Fold (k=5) experiments, all 5 algorithms (see ALGORITHMS TO COMPARE — pending adviser input on full 5 vs. dropping SVM), results to /docs/algo-results.md, decision tree + feature importance charts, confusion matrices
+- Sprint 21c → Train/Test (80/20) + Stratified K-Fold (k=5) experiments, all 5 algorithms (DECIDED 2026-07-02: all 5 run, SVM stays), results to /docs/algo-results.md, decision tree + feature importance charts, confusion matrices
 - Sprint 21d → Select and justify winner by K-Fold F1 → /docs/model-selection-rationale.md (becomes Chapter 4 Section 4.2)
 - Sprint 21e → Integrate winner via Strategy Pattern (/ml-service/, predictor.py as sole entry point, config.py for active model)
 - Sprint 21f → Risk classification UI — High/Medium/Low, dentist validation required before any clinical action, logged to AUDIT_TRAIL
@@ -270,8 +282,7 @@ For Chapter 4: real IPTR records from Barangay Tanyag school dental clinics were
 **Start:**
 - Read HANDOFF.md if exists
 - /compact if resuming
-- /model opus
-- /effort ultracode
+- Pick model per MODEL STRATEGY above (Fable to scope/plan/review, Opus to execute a written plan)
 
 Complex sprints use /grill-me first: Sprints 1, 2, 7, 8, 16, 19, 21
 
