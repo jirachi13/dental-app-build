@@ -1,5 +1,12 @@
 # HANDOFF — Phase 3 pipeline dry-run complete on SYNTHETIC data (Sprints 21a-21f exercised end-to-end; real data still blocked)
 
+## Code-splitting sprint DONE (2026-07-03, commit d830fa43, deployed + live-verified)
+- OCR path (tesseract.js + pdfjs) now dynamic-imported inside PatientList's `handleOcrFile` — only staff who actually scan a form download it. `utils/iptrOcrShared.ts` holds the threshold/types the UI needs at render time; `iptrOcr.ts` re-exports them so nothing else changes.
+- **Main bundle 1,412KB → 957KB; SW precache 2,539KB → 2,055KB** (OCR chunk excluded from precache via `globIgnores` — precaching it would negate the split). pdf.worker (1.25MB, .mjs) was never precached and stays on-demand.
+- Deleted dead code from PatientList (~110 lines): unused ViewToggle component + the `{false && …}` school-view block (unreachable since list view was hardcoded on); the `{true && (` wrapper unwrapped.
+- Live-verified: OCR chunk does NOT load during normal browsing, loads on file drop, OCR runs (blank 1px PNG → form opens with nothing extracted, expected), students page intact (6 rows).
+- Remaining bundle candidates if ever needed: jspdf chunk (390KB, already split), recharts in main bundle.
+
 ## Scoped beautify DONE (2026-07-03, commit e11615b2, deployed + live-verified)
 Deliberately scoped subset of the backlogged "UI beautify pass" (budget-conscious; the full /impeccable audit remains parked for a fresh session):
 - New `components/Skeleton.tsx` — pulsing placeholders inside the app's existing card shells (white/rounded-xl/border-gray-200) so layout doesn't jump when data lands. Anti-slop respected: no new colors, no spinners, structure mirrors the real pages.
