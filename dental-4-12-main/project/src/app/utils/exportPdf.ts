@@ -23,16 +23,23 @@ export async function exportDohReportToPdf(element: HTMLElement, filename: strin
     import('html2canvas-pro'),
   ]);
 
-  const SCALE = 3; // higher-res so zooming into the PDF stays sharp
+  // Browsers cap canvas dimensions (~16384px/side); overflowing it silently
+  // clips the right/bottom edge — which cropped the SUMMARY columns at SCALE 3
+  // on this wide table. Cap the scale so neither dimension exceeds MAX_DIM,
+  // using SCALE 3 for sharpness when it fits and backing off when it doesn't.
+  const fullW = element.scrollWidth;
+  const fullH = element.scrollHeight;
+  const MAX_DIM = 16000;
+  const SCALE = Math.max(1, Math.min(3, MAX_DIM / fullW, MAX_DIM / fullH));
   const canvas = await html2canvas(element, {
     scale: SCALE,
     // width/height (not just windowWidth/windowHeight) are required to capture
     // beyond the element's on-screen, viewport-constrained size — without them
     // columns past the visible width were cropped.
-    width: element.scrollWidth,
-    height: element.scrollHeight,
-    windowWidth: element.scrollWidth,
-    windowHeight: element.scrollHeight,
+    width: fullW,
+    height: fullH,
+    windowWidth: fullW,
+    windowHeight: fullH,
     useCORS: true,
   });
   if (!(canvas.width > 0) || !(canvas.height > 0)) return;
