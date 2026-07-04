@@ -8,7 +8,9 @@ Auth: if the ML_SERVICE_API_KEY env var is set, requests must send it in the
 X-API-Key header (Express holds the same secret). Unset = open, for local dev.
 
 Run locally:   uvicorn main:app --port 8000        (from ml-service/)
-Deploy:        see render.yaml at the repo root.
+Deploy:        Render web service configured via dashboard (root dir
+               ml-service, start: uvicorn main:app --host 0.0.0.0
+               --port $PORT); auto-deploys on push to main. See README.md.
 """
 
 import os
