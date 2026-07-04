@@ -1,5 +1,18 @@
 # HANDOFF — Phase 3 pipeline dry-run complete on SYNTHETIC data (Sprints 21a-21f exercised end-to-end; real data still blocked)
 
+## Sprint 24 IN PROGRESS — DOH Consolidated Report: Excel export + PDF column-band pagination (2026-07-05, Opus)
+**Decision locked with user**: do BOTH — add an Excel (.xlsx) export (the robust "Excel-like" fix) AND fix the PDF to paginate columns legibly. Excel is delivered first (this is the real fix; reuses Sprint 22 exceljs plumbing). PDF banding is deliverable 2.
+
+**Problem**: the DOH Consolidated Report is a 77-column cross-tab (1 sticky Indicator label col + 76 data cols: Kinder 6, Grade 1 ten, Grades 2–6 ten each = 50, Summary 10). Current PDF (`exportPdf.ts`) screenshots the whole table and scales the full width onto ONE landscape page → ~3.6mm/col → illegible. Rows already paginate vertically fine; width is the whole issue.
+
+**Data source (verified, single source of truth — do NOT recompute differently)**: all values come from `V(grade,age,sex,field)` (= `getRealCount(...) ?? 0`, from `useDohReportData`). Grade Total M/F = `ages.reduce((s,a)=>s+V(g,a,sex,field),0)` (Reports.tsx:433-434). Summary M/F = `sumSummaryBracket(field,sex,bracket)` = sum across grades having that bracket (Reports.tsx:162-167, 444-445). Structure consts: `GRADES` (Kinder–Grade 6), `GRADE_BRACKETS`, `SUMMARY_BRACKETS`, `DOH_ROWS` (Reports.tsx:16-109).
+
+**Deliverable 1 — Excel (.xlsx) [DONE 2026-07-05, not yet deployed]**: `src/app/utils/exportDohXlsx.ts` built + wired into Reports.tsx (green "Download Excel" button, `downloadingExcel` state, `handleDownloadExcel`). Verified via Node round-trip (`scratchpad/verify_doh_xlsx.mjs`): 77 columns, merged 3-tier headers at correct addresses, grade-total = sum-over-ages, summary placement, frozen panes xSplit1/ySplit5, landscape + printTitlesColumn A:A. tsc clean; build clean (exceljs stays its own 940KB chunk, precache unchanged at 2085 KiB). Implementation notes: exceljs dynamic-imported (same pattern as `exportXlsx.ts`, stays out of SW precache via existing `globIgnores: '**/exceljs*.js'`). Rebuild the matrix with 3-tier merged header (grade→age→M/F), Indicator col merged down rows 3-5, header rows for section groups, blank-on-zero cells, grade Total + Summary computed by the exact formulas above. Freeze panes `xSplit:1, ySplit:5` (pin Indicator col + headers). Print setup landscape + `printTitlesColumn:'A:A'` + `printTitlesRow:'1:5'` so Excel repeats the Indicator col/headers and bands columns across printed pages. New "Download Excel" button beside "Download PDF" (doh tab only, FileSpreadsheet icon already imported). File `DOH_Consolidated_<school>_<Month><Year>.xlsx`.
+
+**Deliverable 2 — PDF column-band pagination [NOT STARTED]**: replace the "scale all 77 cols onto one page" logic with column bands that keep each grade whole and repeat the Indicator col: `[Kinder+G1+G2] · [G3+G4+G5] · [G6+Summary]` (~26/30/20 data cols, each fits one legible landscape page; rows still paginate vertically within a band). Implement by rendering a hidden per-band DOM table (Indicator col + grade subset) and html2canvas-ing each band → its own page. Keep the generic `exportElementToPdf` intact for other reports.
+
+**Verify**: Excel — merged headers + frozen panes correct, values match on-screen for a known school/month, print-preview shows banded pages with Indicator col repeated. PDF — ~3 pages, no grade split, Indicator col on each page, legible. tsc clean; build watching precache size.
+
 ## Session 2026-07-05 — model-strategy pivot + strays + resend cooldown (all Opus, pushed to main)
 Short session on a tight context budget; no full sprint opened. Commits: `cf4b7e4b`, `164351c9`, `a463824c`, `2487f7b5` — all on `main`.
 

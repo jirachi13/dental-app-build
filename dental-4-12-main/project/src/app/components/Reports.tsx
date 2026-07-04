@@ -6,6 +6,7 @@ import { getSchoolShortName } from '../utils/schoolColors';
 import { GradePill } from './GradePill';
 import { useDohReportData } from '../hooks/useDohReportData';
 import { exportElementToPdf } from '../utils/exportPdf';
+import { exportDohReportToXlsx } from '../utils/exportDohXlsx';
 import { apiClient } from '../api/client';
 import type { ApiTreatment } from '../api/types';
 import { useStudents } from '../hooks/useStudents';
@@ -172,6 +173,7 @@ export const Reports = () => {
   const [reportSchool, setReportSchool] = useState<string|null>(null);
   const dohReportRef = useRef<HTMLDivElement>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [downloadingExcel, setDownloadingExcel] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [realTreatmentCount, setRealTreatmentCount] = useState(0);
   const { students: realStudents } = useStudents();
@@ -199,6 +201,28 @@ export const Reports = () => {
       setDownloadError(err instanceof Error ? err.message : 'Failed to generate PDF');
     } finally {
       setDownloadingPdf(false);
+    }
+  };
+
+  const handleDownloadExcel = async () => {
+    setDownloadingExcel(true);
+    setDownloadError(null);
+    try {
+      const schoolPart = reportSchool ? getSchoolShortName(reportSchool).replace(/\s+/g, '_') : 'AllSchools';
+      await exportDohReportToXlsx({
+        grades: GRADES,
+        gradeBrackets: GRADE_BRACKETS,
+        summaryBrackets: SUMMARY_BRACKETS,
+        rows: DOH_ROWS,
+        getCell: (g, a, s, f) => V(g, a, s, f),
+        school: reportSchool ? getSchoolShortName(reportSchool) : 'All Schools',
+        monthYear: `${MONTHS[reportMonth - 1]} ${reportYear}`,
+        filename: `DOH_Consolidated_${schoolPart}_${MONTHS[reportMonth - 1]}${reportYear}.xlsx`,
+      });
+    } catch (err) {
+      setDownloadError(err instanceof Error ? err.message : 'Failed to generate Excel');
+    } finally {
+      setDownloadingExcel(false);
     }
   };
   const [internalSection, setInternalSection] = useState<'treatment'|'conditions'|'admin'>('treatment');
@@ -276,6 +300,12 @@ export const Reports = () => {
             <button onClick={handleDownloadPdf} disabled={downloadingPdf}
               className="flex items-center gap-2 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 text-sm font-medium whitespace-nowrap">
               <Download className="w-4 h-4" /> {downloadingPdf ? 'Generating…' : 'Download PDF'}
+            </button>
+          )}
+          {activeReportTab === 'doh' && (
+            <button onClick={handleDownloadExcel} disabled={downloadingExcel}
+              className="flex items-center gap-2 px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 disabled:opacity-60 text-sm font-medium whitespace-nowrap">
+              <FileSpreadsheet className="w-4 h-4" /> {downloadingExcel ? 'Generating…' : 'Download Excel'}
             </button>
           )}
         </div>
