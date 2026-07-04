@@ -483,10 +483,12 @@ export const Reports = () => {
                   })}
                 </tbody>
               </table>
-            </div>
-            <div className="px-4 py-2 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-400">
-              <span>Prepared by: Dr. Maria Santos, Dentist · Barangay Tanyag Dental Clinic</span>
-              <span>{MONTHS[reportMonth-1]} {reportYear}</span>
+              {/* Footer lives INSIDE the ref'd (captured) div so it appears in
+                  the PDF; min-w-full makes it span the full table width. */}
+              <div className="min-w-full px-4 py-2 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-400">
+                <span>Prepared by: Dr. Maria Santos, Dentist · Barangay Tanyag Dental Clinic</span>
+                <span>{MONTHS[reportMonth-1]} {reportYear}</span>
+              </div>
             </div>
           </div>
         </div>
