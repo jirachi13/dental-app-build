@@ -484,8 +484,10 @@ export const Reports = () => {
                 </tbody>
               </table>
               {/* Footer lives INSIDE the ref'd (captured) div so it appears in
-                  the PDF; min-w-full makes it span the full table width. */}
-              <div className="min-w-full px-4 py-2 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-400">
+                  the PDF. sticky left-0 keeps it from scrolling horizontally
+                  with the table on screen (same trick as the Indicator column),
+                  and it still renders at the left in the capture (scrollLeft 0). */}
+              <div className="sticky left-0 bg-white px-4 py-2 border-t border-gray-100 flex items-center justify-between gap-4 text-[10px] text-gray-400">
                 <span>Prepared by: Dr. Maria Santos, Dentist · Barangay Tanyag Dental Clinic</span>
                 <span>{MONTHS[reportMonth-1]} {reportYear}</span>
               </div>
