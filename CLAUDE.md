@@ -271,7 +271,7 @@ For Chapter 4: real IPTR records from Barangay Tanyag school dental clinics were
 
 **Phase 4 — Post-review backlog (numbered 2026-07-04; each needs approval, sprint loop applies):**
 - Sprint 21a-d (real data) → re-run clean→features→experiments→select against real IPTR Excel files once located (keeps its original number; the only remaining Phase 3 work)
-- Sprint 22 → Multi-format export: .xlsx picker on existing Export buttons (SheetJS via dynamic import — protect the code-split bundle win); sketch in HANDOFF backlog
+- Sprint 22 → DONE 2026-07-04: Export dropdown (CSV/.xlsx) on all 4 list exports; exceljs dynamic-imported + precache-excluded; uuid pinned via npm override (audit stays 0); Word left out (no use case)
 - Sprint 23 → Full UI beautify pass via /impeccable (remaining text loaders, transitions, toast consistency, focus states; anti-slop rules in HANDOFF backlog apply)
 - Sprint 24 → DOH Consolidated Report PDF fix (77-column crop; needs column-pagination design decision first — scope on Fable)
 - Sprint 25 → Email API for 2FA + password-reset links (Resend/Brevo free tier; touches auth flow + USER model — scope on Fable)
