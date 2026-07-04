@@ -1,5 +1,8 @@
 # HANDOFF — Phase 3 pipeline dry-run complete on SYNTHETIC data (Sprints 21a-21f exercised end-to-end; real data still blocked)
 
+## Sprint 27 DONE — README (2026-07-04, executed on Opus)
+Root `README.md` created: what/architecture table, prerequisites, env-var table (names + purposes only, no values), 3-process local run guide (incl. the Node 24 DNS workaround note and the vite-preview-for-SW rule), seed scripts with the encrypted-field query gotcha, the E2E verification approach + script inventory + hard-won verification lessons, deployment (git push ≠ deploy; `npx vercel --prod`; Render auto-deploy + retrain flow), privacy summary, and a docs map. Docs-only — no app code, no deploy needed. The user-facing pieces (demo credentials etc.) deliberately excluded — credentials live only in .env/DB.
+
 ## Sprint 22 DONE — multi-format export (2026-07-04, commit 033414bd, deployed + live-verified, executed on Opus)
 - New `ExportMenu.tsx` ("Export" button + CSV/Excel dropdown, Escape/click-outside close) replaces the four "Export CSV" buttons (Students, Appointments, Audit Trail, RPC). New `exportXlsx.ts` shares `exportToCsv`'s exact `(rows, columns, filename)` contract — each page's handler just branches on format with one shared columns array.
 - **exceljs** added, dynamic-imported (main bundle unchanged at ~967KB) and excluded from SW precache via `globIgnores: '**/exceljs*.js'` (without it the 940KB chunk pushed precache 2,055→2,988KB — caught during build, now 2,070KB).
