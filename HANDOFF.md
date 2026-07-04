@@ -1,6 +1,7 @@
 # HANDOFF — Phase 3 pipeline dry-run complete on SYNTHETIC data (Sprints 21a-21f exercised end-to-end; real data still blocked)
 
-## Sprint 24 IN PROGRESS — DOH Consolidated Report: Excel export + PDF column-band pagination (2026-07-05, Opus)
+## Sprint 24 DONE — DOH Consolidated Report: Excel export + single zoomable PDF (2026-07-05, Opus, deployed + user-verified)
+**Final outcome**: Excel (.xlsx) export added (the clean print/analyze artifact) + PDF reworked into a single high-res zoomable whole-report page (the on-screen snapshot). The column-band PDF approach was tried and abandoned mid-sprint (see iteration log below) — user preferred one zoomable image. All follow-up crops fixed (summary right-edge clip = canvas-size limit → scale cap; missing footer → moved inside captured element; footer horizontal-scroll on screen → sticky left-0). Commits: 33561947, 7de7554a, 8b100709, 5773f3df, 73199a55, 0276f25a, a2865fe4.
 **Decision locked with user**: do BOTH — add an Excel (.xlsx) export (the robust "Excel-like" fix) AND fix the PDF to paginate columns legibly. Excel is delivered first (this is the real fix; reuses Sprint 22 exceljs plumbing). PDF banding is deliverable 2.
 
 **Problem**: the DOH Consolidated Report is a 77-column cross-tab (1 sticky Indicator label col + 76 data cols: Kinder 6, Grade 1 ten, Grades 2–6 ten each = 50, Summary 10). Current PDF (`exportPdf.ts`) screenshots the whole table and scales the full width onto ONE landscape page → ~3.6mm/col → illegible. Rows already paginate vertically fine; width is the whole issue.
