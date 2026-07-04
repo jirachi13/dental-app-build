@@ -16,6 +16,7 @@ Capstone Thesis — Build Phase — Group 404 — AY 2025-2026
 - Every ~5 sprints, do a CLAUDE.md hygiene pass: delete superseded lines, compress resolved sagas to one-liners, verify build-phase status markers.
 
 ## MODEL STRATEGY (adopted 2026-07-04)
+- **SUPERSEDED 2026-07-04: assume OPUS-ONLY going forward.** Fable becomes usage-credit-based on 2026-07-07 and the Pro plan carries no credits; the current Fable allotment is already spent (resets Thu Jul 9, after the Jul 7 cutover), so Fable is effectively unavailable from here on. Run everything — scoping, plans, reviews, and the former "Fable-throughout" sprints (24, 26) — on Opus, taking extra care on judgment-heavy/risky parts (esp. Sprint 26 encryption IV data-loss risk). The split below is retained for reference only. (Verify Pro-has-no-credits on the billing page before treating this as final.)
 - Split by work type, not one model for everything:
   - **Fable** (judgment work): sprint scoping/grill-me, plans written into HANDOFF, code review, audits/persona reviews, ambiguous debugging, thesis/defense reasoning, and any sprint where the ambiguity can't be predicted up front (e.g. real-data 21a cleaning).
   - **Opus** (well-specified execution): implementing a plan with exact file:line targets, wiring documented patterns, seed scripts, mechanical UI passes.
@@ -273,9 +274,9 @@ For Chapter 4: real IPTR records from Barangay Tanyag school dental clinics were
 - Sprint 21a-d (real data) → re-run clean→features→experiments→select against real IPTR Excel files once located (keeps its original number; the only remaining Phase 3 work)
 - Sprint 22 → DONE 2026-07-04: Export dropdown (CSV/.xlsx) on all 4 list exports; exceljs dynamic-imported + precache-excluded; uuid pinned via npm override (audit stays 0); Word left out (no use case)
 - Sprint 23 → Full UI beautify pass via /impeccable (remaining text loaders, transitions, toast consistency, focus states; anti-slop rules in HANDOFF backlog apply)
-- Sprint 24 → DOH Consolidated Report PDF fix (77-column crop; needs column-pagination design decision first — scope on Fable)
+- Sprint 24 → DOH Consolidated Report PDF fix (77-column crop; needs column-pagination design decision first — scope on Opus, was Fable)
 - Sprint 25 → DONE 2026-07-04: opt-in email 2FA (confirmation-gated enable — a test code must round-trip the mailbox before 2FA can lock an account) + self-service reset links, via Brevo (BREVO_API_KEY/BREVO_SENDER_EMAIL in .env + Vercel). 21-check E2E passed; no account has 2FA enabled yet — enable per account in Account Management once real staff emails are set
-- Sprint 26 → Deterministic encryption IV fix (research mongoose-field-encryption's IV mechanism first — real-data-loss risk; Fable throughout)
+- Sprint 26 → Deterministic encryption IV fix (research mongoose-field-encryption's IV mechanism first — real-data-loss risk; Opus, was Fable-throughout — take extra care given the risk)
 - Sprint 27 → DONE 2026-07-04: root README.md (architecture, env vars, run/seed/test/deploy guides, privacy notes, doc map) distilled from HANDOFF; no secrets included
 - Small strays (bundle into any sprint): RPC interval label wording + early-Visit-2 flag, appointment card date display, mixed-dentition hint + t/T column labels, other roles' dashboard upgrades
 - User-only items (no sprint): locate real IPTR files, verify DOH form typo spellings (Transfussion/Scalling/Flouride) against paper form, decide Reports April-default month
