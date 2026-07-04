@@ -1,6 +1,19 @@
-interface CsvColumn<T> {
+export interface ExportColumn<T> {
   label: string;
   value: (row: T) => string | number | null | undefined;
+}
+type CsvColumn<T> = ExportColumn<T>;
+
+// Shared browser-download helper (also used by exportXlsx.ts)
+export function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 // Escapes a field for CSV per RFC 4180 -- wraps in quotes and doubles any
@@ -21,13 +34,5 @@ export function exportToCsv<T>(rows: T[], columns: CsvColumn<T>[], filename: str
   // non-ASCII characters (relevant for Filipino names/addresses).
   const csv = '﻿' + [header, ...lines].join('\r\n');
 
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), filename);
 }

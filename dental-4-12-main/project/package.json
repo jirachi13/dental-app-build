@@ -13,6 +13,11 @@
     "seed:rpc-visit2": "tsx server/scripts/seedRpcVisit2.ts",
     "seed:iptr-details": "tsx server/scripts/seedIptrDetails.ts"
   },
+  "overrides": {
+    "exceljs": {
+      "uuid": "^11.1.1"
+    }
+  },
   "dependencies": {
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
@@ -55,6 +60,7 @@
     "date-fns": "3.6.0",
     "dotenv": "16.4.5",
     "embla-carousel-react": "8.6.0",
+    "exceljs": "^4.4.0",
     "express": "^4.22.2",
     "express-rate-limit": "^8.5.2",
     "helmet": "^8.2.0",

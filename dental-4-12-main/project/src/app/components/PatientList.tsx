@@ -2,7 +2,9 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { Plus, Eye, FileText, X, School as SchoolIcon, List, ChevronRight, Users, Upload, CheckCircle, AlertCircle, ScanLine, Download } from 'lucide-react';
-import { exportToCsv } from '../utils/exportCsv';
+import { exportToCsv, type ExportColumn } from '../utils/exportCsv';
+import { exportToXlsx } from '../utils/exportXlsx';
+import { ExportMenu, type ExportFormat } from './ExportMenu';
 import { toLocalDateString } from '../utils/localDate';
 import { OCR_CONFIDENCE_THRESHOLD, type IptrOcrFieldKey } from '../utils/iptrOcrShared';
 import { getGradeColor } from '../utils/gradeColors';
@@ -256,24 +258,23 @@ export const PatientList = () => {
 
   // Exports exactly what's currently visible (respects active filters) --
   // excludes not-yet-synced offline rows since they don't have a real ID yet.
-  const handleExportCsv = () => {
+  const handleExport = (format: ExportFormat) => {
     const rows = filtered.filter((s) => !s.pending);
-    exportToCsv(
-      rows,
-      [
-        { label: 'Name', value: (s) => formatStudentName(s.name) },
-        { label: 'Birthdate', value: (s) => s.birthdate },
-        { label: 'Gender', value: (s) => s.gender },
-        { label: 'Grade', value: (s) => s.grade },
-        { label: 'Section', value: (s) => s.section },
-        { label: 'School', value: (s) => s.school },
-        { label: 'Risk Level', value: (s) => s.riskLevel ?? 'Not Screened' },
-        { label: 'Oral Status', value: (s) => s.oralStatus },
-        { label: 'Last Visit', value: (s) => s.lastVisit?.slice(0, 10) ?? '' },
-        { label: 'Consent Status', value: (s) => s.consentStatus },
-      ],
-      `students_${toLocalDateString(new Date())}.csv`,
-    );
+    const columns: ExportColumn<(typeof rows)[number]>[] = [
+      { label: 'Name', value: (s) => formatStudentName(s.name) },
+      { label: 'Birthdate', value: (s) => s.birthdate },
+      { label: 'Gender', value: (s) => s.gender },
+      { label: 'Grade', value: (s) => s.grade },
+      { label: 'Section', value: (s) => s.section },
+      { label: 'School', value: (s) => s.school },
+      { label: 'Risk Level', value: (s) => s.riskLevel ?? 'Not Screened' },
+      { label: 'Oral Status', value: (s) => s.oralStatus },
+      { label: 'Last Visit', value: (s) => s.lastVisit?.slice(0, 10) ?? '' },
+      { label: 'Consent Status', value: (s) => s.consentStatus },
+    ];
+    const base = `students_${toLocalDateString(new Date())}`;
+    if (format === 'xlsx') void exportToXlsx(rows, columns, `${base}.xlsx`, 'Students');
+    else exportToCsv(rows, columns, `${base}.csv`);
   };
 
   const riskBadge = (level: string) => {
@@ -346,9 +347,7 @@ export const PatientList = () => {
           <p className="text-sm text-gray-500 mt-0.5">{schoolStudents.length} students{selectedSchool ? '' : ' across 3 schools'}</p>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={handleExportCsv} className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
-            <Download className="w-4 h-4" /> Export CSV
-          </button>
+          <ExportMenu onExport={handleExport} />
 {canAddStudent && (
             <>
               <button onClick={() => { setOcrError(null); setShowOcrUpload(true); }} className="flex items-center gap-2 px-4 py-2 border border-[#1E40AF] text-[#1E40AF] rounded-lg hover:bg-blue-50 text-sm font-medium">

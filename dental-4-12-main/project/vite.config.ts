@@ -30,10 +30,10 @@ export default defineConfig({
       },
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        // The OCR chunk (tesseract.js + pdfjs, dynamic-imported) is fetched
-        // on demand by the few staff who scan forms — precaching it would
-        // make every visitor download it on install anyway.
-        globIgnores: ['**/iptrOcr-*.js'],
+        // Dynamic-imported heavy chunks are fetched on demand by the few
+        // staff who use those features — precaching them would make every
+        // visitor download them on install anyway.
+        globIgnores: ['**/iptrOcr-*.js', '**/exceljs*.js'],
       },
     }),
   ],

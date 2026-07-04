@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Search, Filter, Calendar, Download } from 'lucide-react';
 import { useAuditTrail } from '../hooks/useAuditTrail';
-import { exportToCsv } from '../utils/exportCsv';
+import { exportToCsv, type ExportColumn } from '../utils/exportCsv';
+import { exportToXlsx } from '../utils/exportXlsx';
+import { ExportMenu, type ExportFormat } from './ExportMenu';
 import { toLocalDateString } from '../utils/localDate';
 
 export const AuditTrail = () => {
@@ -42,18 +44,17 @@ export const AuditTrail = () => {
     return d.toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
   };
 
-  const handleExportCsv = () => {
-    exportToCsv(
-      filteredLogs,
-      [
-        { label: 'Timestamp', value: (log) => formatTimestamp(log.timestamp) },
-        { label: 'User', value: (log) => log.user },
-        { label: 'Action', value: (log) => log.action },
-        { label: 'Module', value: (log) => log.module },
-        { label: 'Record ID', value: (log) => log.affectedRecordId },
-      ],
-      `audit_trail_${toLocalDateString(new Date())}.csv`,
-    );
+  const handleExport = (format: ExportFormat) => {
+    const columns: ExportColumn<(typeof filteredLogs)[number]>[] = [
+      { label: 'Timestamp', value: (log) => formatTimestamp(log.timestamp) },
+      { label: 'User', value: (log) => log.user },
+      { label: 'Action', value: (log) => log.action },
+      { label: 'Module', value: (log) => log.module },
+      { label: 'Record ID', value: (log) => log.affectedRecordId },
+    ];
+    const base = `audit_trail_${toLocalDateString(new Date())}`;
+    if (format === 'xlsx') void exportToXlsx(filteredLogs, columns, `${base}.xlsx`, 'Audit Trail');
+    else exportToCsv(filteredLogs, columns, `${base}.csv`);
   };
 
   if (loading) {
@@ -77,9 +78,7 @@ export const AuditTrail = () => {
           <h1 className="text-2xl font-bold text-gray-900">Audit Trail</h1>
           <p className="text-gray-600 mt-1">{filteredLogs.length} activity logs</p>
         </div>
-        <button onClick={handleExportCsv} className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
-          <Download className="w-4 h-4" /> Export CSV
-        </button>
+        <ExportMenu onExport={handleExport} />
       </div>
 
       {/* Filters */}

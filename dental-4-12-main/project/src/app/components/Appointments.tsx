@@ -10,7 +10,9 @@ import { useDentistRotations } from '../hooks/useDentistRotations';
 import { useStudents } from '../hooks/useStudents';
 import { apiClient } from '../api/client';
 import { toLocalDateString } from '../utils/localDate';
-import { exportToCsv } from '../utils/exportCsv';
+import { exportToCsv, type ExportColumn } from '../utils/exportCsv';
+import { exportToXlsx } from '../utils/exportXlsx';
+import { ExportMenu, type ExportFormat } from './ExportMenu';
 import type { ApiSchool } from '../api/types';
 
 const SCHOOLS = [
@@ -201,22 +203,22 @@ export const Appointments = () => {
     return true;
   });
 
-  const handleExportCsv = () => {
-    exportToCsv(
-      filteredAppointments.filter((a) => !a.pending),
-      [
-        { label: 'Date', value: (a) => a.date },
-        { label: 'Time', value: (a) => a.time },
-        { label: 'School', value: (a) => a.school },
-        { label: 'Grade', value: (a) => a.grade },
-        { label: 'Section', value: (a) => a.section },
-        { label: 'Students', value: (a) => a.studentCount },
-        { label: 'Type', value: (a) => a.type },
-        { label: 'Status', value: (a) => getStatus(a) },
-        { label: 'Dentist', value: (a) => a.dentist },
-      ],
-      `appointments_${toLocalDateString(new Date())}.csv`,
-    );
+  const handleExport = (format: ExportFormat) => {
+    const rows = filteredAppointments.filter((a) => !a.pending);
+    const columns: ExportColumn<(typeof rows)[number]>[] = [
+      { label: 'Date', value: (a) => a.date },
+      { label: 'Time', value: (a) => a.time },
+      { label: 'School', value: (a) => a.school },
+      { label: 'Grade', value: (a) => a.grade },
+      { label: 'Section', value: (a) => a.section },
+      { label: 'Students', value: (a) => a.studentCount },
+      { label: 'Type', value: (a) => a.type },
+      { label: 'Status', value: (a) => getStatus(a) },
+      { label: 'Dentist', value: (a) => a.dentist },
+    ];
+    const base = `appointments_${toLocalDateString(new Date())}`;
+    if (format === 'xlsx') void exportToXlsx(rows, columns, `${base}.xlsx`, 'Appointments');
+    else exportToCsv(rows, columns, `${base}.csv`);
   };
 
   // Calendar helpers
@@ -336,10 +338,7 @@ export const Appointments = () => {
           <p className="text-sm text-gray-500 mt-0.5">{appointments.length} appointment{appointments.length !== 1 ? 's' : ''} total</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={handleExportCsv}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
-            <Download className="w-4 h-4" /> Export CSV
-          </button>
+          <ExportMenu onExport={handleExport} />
           <button onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
             <Plus className="w-4 h-4" /> New Appointment

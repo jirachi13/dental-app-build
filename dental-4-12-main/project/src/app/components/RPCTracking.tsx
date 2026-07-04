@@ -6,7 +6,9 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { getGradeColor } from '../utils/gradeColors';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
 import { useRPCTracking } from '../hooks/useRPCTracking';
-import { exportToCsv } from '../utils/exportCsv';
+import { exportToCsv, type ExportColumn } from '../utils/exportCsv';
+import { exportToXlsx } from '../utils/exportXlsx';
+import { ExportMenu, type ExportFormat } from './ExportMenu';
 import { toLocalDateString } from '../utils/localDate';
 
 const SCHOOLS = [
@@ -78,23 +80,22 @@ export const RPCTracking = () => {
   const hasActiveFilters = [gradeFilter, genderFilter, ageGroupFilter, statusFilter].some(f => f !== 'all') || searchTerm !== '';
   const clearFilters = () => { setGradeFilter('all'); setGenderFilter('all'); setAgeGroupFilter('all'); setStatusFilter('all'); setSearchTerm(''); };
 
-  const handleExportCsv = () => {
-    exportToCsv(
-      filtered,
-      [
-        { label: 'Student Name', value: (r) => r.studentName },
-        { label: 'Gender', value: (r) => r.gender },
-        { label: 'School', value: (r) => r.school },
-        { label: 'Grade', value: (r) => r.grade },
-        { label: 'Section', value: (r) => r.section },
-        { label: 'Visit 1 Date', value: (r) => r.visit1Date ?? '' },
-        { label: 'Visit 1 Status', value: (r) => r.visit1Status },
-        { label: 'Visit 2 Date', value: (r) => r.visit2Date ?? '' },
-        { label: 'Visit 2 Status', value: (r) => r.visit2Status },
-        { label: 'Overall Status', value: (r) => r.status },
-      ],
-      `rpc_records_${toLocalDateString(new Date())}.csv`,
-    );
+  const handleExport = (format: ExportFormat) => {
+    const columns: ExportColumn<(typeof filtered)[number]>[] = [
+      { label: 'Student Name', value: (r) => r.studentName },
+      { label: 'Gender', value: (r) => r.gender },
+      { label: 'School', value: (r) => r.school },
+      { label: 'Grade', value: (r) => r.grade },
+      { label: 'Section', value: (r) => r.section },
+      { label: 'Visit 1 Date', value: (r) => r.visit1Date ?? '' },
+      { label: 'Visit 1 Status', value: (r) => r.visit1Status },
+      { label: 'Visit 2 Date', value: (r) => r.visit2Date ?? '' },
+      { label: 'Visit 2 Status', value: (r) => r.visit2Status },
+      { label: 'Overall Status', value: (r) => r.status },
+    ];
+    const base = `rpc_records_${toLocalDateString(new Date())}`;
+    if (format === 'xlsx') void exportToXlsx(filtered, columns, `${base}.xlsx`, 'RPC Records');
+    else exportToCsv(filtered, columns, `${base}.csv`);
   };
 
   const visit1Completed = schoolRecords.filter(r => r.visit1Status === 'Completed').length;
@@ -143,9 +144,7 @@ export const RPCTracking = () => {
           <h1 className="text-2xl font-bold text-gray-900">RPC Records</h1>
           <p className="text-sm text-gray-500">Routine Preventive Care — Fluoride application tracking (4–6 month interval)</p>
         </div>
-        <button onClick={handleExportCsv} className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
-          <Download className="w-4 h-4" /> Export CSV
-        </button>
+        <ExportMenu onExport={handleExport} />
       </div>
 
       {false && (
