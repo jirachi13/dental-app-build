@@ -1,5 +1,23 @@
 # HANDOFF — Phase 3 pipeline dry-run complete on SYNTHETIC data (Sprints 21a-21f exercised end-to-end; real data still blocked)
 
+## Session 2026-07-05 — model-strategy pivot + strays + resend cooldown (all Opus, pushed to main)
+Short session on a tight context budget; no full sprint opened. Commits: `cf4b7e4b`, `164351c9`, `a463824c`, `2487f7b5` — all on `main`.
+
+- **MODEL STRATEGY → Opus-only (commit 164351c9).** Fable becomes usage-credit-based on **2026-07-07**; the user's **Pro plan carries no credits** and the current Fable allotment resets **Thu Jul 9** (after the Jul 7 cutover) — so Fable is effectively unavailable going forward. CLAUDE.md's MODEL STRATEGY marked SUPERSEDED (run everything on Opus), and the "Fable-throughout" holds lifted off **Sprint 24** (PDF pagination) and **Sprint 26** (encryption IV — still take extra care, data-loss risk). Same note mirrored into persistent memory `feedback_model_strategy.md`. Caveat recorded: confirm Pro-has-no-credits on the billing page before treating as final.
+
+- **Appointment card date fix (commit cf4b7e4b).** `Appointments.tsx` upcoming cards showed the day via string-split (local) but the month via `new Date("YYYY-MM-DD")` (UTC parse) → month label could roll back a day and disagree with the day number at month boundaries in any TZ behind UTC. Fixed by parsing local midnight (`+ 'T00:00:00'`).
+
+- **Four small strays (commit a463824c).**
+  - Reports: month/year selector already existed; only the **default** was hardcoded April 2026 → now defaults to the **current** month/year (`Reports.tsx:169-170`).
+  - RPC: interval label reworded to *"Visit 2 due 4–6 months after Visit 1"*; new **early-Visit-2 flag** — `useRPCTracking.ts` now computes the Visit1→Visit2 gap and sets `earlyVisit2` when <120 days (`RPC_MIN_INTERVAL_DAYS`, the 4-month lower bound of the 4–6mo window); surfaced as an amber "early" chip in the Visit 2 cell.
+  - DentalChart: **mixed-dentition hint** under the DMFT progression table explaining lowercase (d m f x · dmft = primary/deciduous) vs uppercase (D M F X · DMFT = permanent).
+  - tsc clean.
+
+- **60s resend cooldown (commit 2487f7b5).** Both the 2FA login code and the forgot-password link previously fired a Brevo email on every request. Added a shared `withinCooldown()` helper in `authController.ts` reusing the existing `otp_expires` / `reset_token_expires` fields (no schema change): a code/link issued <60s ago is reused instead of re-sent. Forgot-password still returns the same generic 200 when throttled (no enumeration leak). tsc clean. Timers now: OTP 10min, reset link 30min, cooldown 60s — all within standard ranges.
+  - **2FA clarification for defense**: this 2FA is NOT device-aware — when enabled it emails a code on EVERY login, not just new/unrecognized devices. "Challenge only on new device" would need trusted-device tokens and does not exist.
+
+- **Parked (not done this session):** pre-existing `gray-on-color` impeccable findings at `Appointments.tsx:380` and several in `DentalChart.tsx` (736–908) — fold into Sprint 23 beautify. "Other roles' dashboard upgrades" stray is NOT small (punted). DOH typo spellings (Transfussion/Scalling/Flouride) remain user-only (needs paper-form check).
+
 ## Sprint 25 DONE — email 2FA + password reset (2026-07-04, commit 7ba44831, deployed + verified, executed on Opus per the plan below)
 All 7 plan steps built as written. Key facts for future sessions:
 - **No account has 2FA enabled yet** — it's opt-in via Account Management → Edit → Two-Factor Authentication → "Enable (send code)" (only completes after the emailed test code is entered back, so a dead mailbox can never lock an account). Demo accounts keep logging in exactly as before (prod-verified: dentist login 200 with cookies, no twofa_required).
