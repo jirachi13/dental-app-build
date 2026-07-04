@@ -92,53 +92,67 @@ export async function exportDohReportToPdf(element: HTMLElement, filename: strin
     const indPx = indW * SCALE;
     const bandLPx = band.left * SCALE;
     const bandWPx = (band.right - band.left) * SCALE;
+    const width = Math.round(indPx + bandWPx);
+    if (!(width > 0)) continue; // degenerate measurement — skip (never divide by 0)
     const comp = document.createElement('canvas');
-    comp.width = Math.round(indPx + bandWPx);
+    comp.width = width;
     comp.height = canvas.height;
     const ctx = comp.getContext('2d');
     if (!ctx) continue;
+    // JPEG has no alpha; paint white first so gaps render white, not black.
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, comp.width, comp.height);
     // Indicator column (canvas x 0..indPx) → left of the page.
     ctx.drawImage(canvas, 0, 0, indPx, comp.height, 0, 0, indPx, comp.height);
     // Band's grade columns → right after the Indicator column.
     ctx.drawImage(canvas, bandLPx, 0, bandWPx, comp.height, indPx, 0, bandWPx, comp.height);
 
-    const imgData = comp.toDataURL('image/png');
-    const imgWidthMm = pageWidthMm;
-    const imgHeightMm = (comp.height * imgWidthMm) / comp.width;
-    let heightLeft = imgHeightMm;
-    let position = 0;
     if (!firstPage) pdf.addPage();
     firstPage = false;
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidthMm, imgHeightMm);
-    heightLeft -= pageHeightMm;
-    while (heightLeft > 0) {
-      position -= pageHeightMm;
-      pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidthMm, imgHeightMm);
-      heightLeft -= pageHeightMm;
-    }
+    // JPEG (not PNG): jsPDF's PNG path is very slow (JS-side re-parse) and was
+    // freezing the tab with 3 large band images. JPEG addImage is fast + small.
+    placeStripPages(pdf, comp.toDataURL('image/jpeg', 0.95), comp, pageWidthMm, pageHeightMm);
   }
 
   pdf.save(filename);
 }
 
 function placeFullImage(
-  pdf: { addImage: (...a: unknown[]) => void; addPage: () => void },
+  pdf: PdfLike,
   canvas: HTMLCanvasElement,
   pageWidthMm: number,
   pageHeightMm: number,
 ): void {
-  const imgData = canvas.toDataURL('image/png');
+  if (!(canvas.width > 0)) return;
+  const white = document.createElement('canvas');
+  white.width = canvas.width;
+  white.height = canvas.height;
+  const ctx = white.getContext('2d');
+  if (!ctx) return;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, white.width, white.height);
+  ctx.drawImage(canvas, 0, 0);
+  placeStripPages(pdf, white.toDataURL('image/jpeg', 0.95), white, pageWidthMm, pageHeightMm);
+}
+
+type PdfLike = { addImage: (...a: unknown[]) => void; addPage: () => void };
+
+// Places one tall image across as many vertical pages as needed. Guards against
+// a non-finite page height (bad measurement) ever spinning an infinite addPage
+// loop — the cause of the reported tab freeze class — via a hard page cap.
+function placeStripPages(
+  pdf: PdfLike,
+  imgData: string,
+  canvas: HTMLCanvasElement,
+  pageWidthMm: number,
+  pageHeightMm: number,
+): void {
   const imgWidthMm = pageWidthMm;
   const imgHeightMm = (canvas.height * imgWidthMm) / canvas.width;
-  let heightLeft = imgHeightMm;
-  let position = 0;
-  pdf.addImage(imgData, 'PNG', 0, position, imgWidthMm, imgHeightMm);
-  heightLeft -= pageHeightMm;
-  while (heightLeft > 0) {
-    position -= pageHeightMm;
-    pdf.addPage();
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidthMm, imgHeightMm);
-    heightLeft -= pageHeightMm;
+  if (!Number.isFinite(imgHeightMm) || imgHeightMm <= 0) return;
+  const totalPages = Math.min(Math.ceil(imgHeightMm / pageHeightMm), 100); // cap: safety
+  for (let p = 0; p < totalPages; p++) {
+    if (p > 0) pdf.addPage();
+    pdf.addImage(imgData, 'JPEG', 0, -p * pageHeightMm, imgWidthMm, imgHeightMm);
   }
 }
