@@ -269,6 +269,17 @@ Current student data is only the Sprint 10 demo seeder (18 records) — far too 
 
 For Chapter 4: real IPTR records from Barangay Tanyag school dental clinics were used as training data after cleaning and standardization — stronger than a synthetic dataset, note this in the manuscript.
 
+**Phase 4 — Post-review backlog (numbered 2026-07-04; each needs approval, sprint loop applies):**
+- Sprint 21a-d (real data) → re-run clean→features→experiments→select against real IPTR Excel files once located (keeps its original number; the only remaining Phase 3 work)
+- Sprint 22 → Multi-format export: .xlsx picker on existing Export buttons (SheetJS via dynamic import — protect the code-split bundle win); sketch in HANDOFF backlog
+- Sprint 23 → Full UI beautify pass via /impeccable (remaining text loaders, transitions, toast consistency, focus states; anti-slop rules in HANDOFF backlog apply)
+- Sprint 24 → DOH Consolidated Report PDF fix (77-column crop; needs column-pagination design decision first — scope on Fable)
+- Sprint 25 → Email API for 2FA + password-reset links (Resend/Brevo free tier; touches auth flow + USER model — scope on Fable)
+- Sprint 26 → Deterministic encryption IV fix (research mongoose-field-encryption's IV mechanism first — real-data-loss risk; Fable throughout)
+- Sprint 27 → Docs: README + run/test/deploy guides extracted from HANDOFF
+- Small strays (bundle into any sprint): RPC interval label wording + early-Visit-2 flag, appointment card date display, mixed-dentition hint + t/T column labels, other roles' dashboard upgrades
+- User-only items (no sprint): locate real IPTR files, verify DOH form typo spellings (Transfussion/Scalling/Flouride) against paper form, decide Reports April-default month
+
 **Before Defense:**
 - Encode real IPTR paper records to CSV
 - Replace synthetic dataset
