@@ -450,7 +450,7 @@ export const Appointments = () => {
               <div key={a.id} className="flex items-center gap-4 px-4 py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50">
                 <div className="text-center min-w-[48px]">
                   <div className="text-lg font-bold text-[#1E40AF]">{a.date.split('-')[2]}</div>
-                  <div className="text-xs text-gray-400">{new Date(a.date).toLocaleString('default', { month: 'short' })}</div>
+                  <div className="text-xs text-gray-400">{new Date(a.date + 'T00:00:00').toLocaleString('default', { month: 'short' })}</div>
                 </div>
                 <div className="flex-1 min-w-0">
                   <AppointmentCard a={a} showActions />
