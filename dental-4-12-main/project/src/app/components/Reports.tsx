@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { getSchoolShortName } from '../utils/schoolColors';
 import { GradePill } from './GradePill';
 import { useDohReportData } from '../hooks/useDohReportData';
-import { exportElementToPdf } from '../utils/exportPdf';
+import { exportDohReportToPdf } from '../utils/exportPdf';
 import { exportDohReportToXlsx } from '../utils/exportDohXlsx';
 import { apiClient } from '../api/client';
 import type { ApiTreatment } from '../api/types';
@@ -196,7 +196,7 @@ export const Reports = () => {
     try {
       const schoolPart = reportSchool ? getSchoolShortName(reportSchool).replace(/\s+/g, '_') : 'AllSchools';
       const filename = `DOH_Report_${schoolPart}_${MONTHS[reportMonth - 1]}${reportYear}.pdf`;
-      await exportElementToPdf(dohReportRef.current, filename);
+      await exportDohReportToPdf(dohReportRef.current, filename);
     } catch (err) {
       setDownloadError(err instanceof Error ? err.message : 'Failed to generate PDF');
     } finally {
@@ -364,7 +364,7 @@ export const Reports = () => {
 
                   {/* ── ROW 1: GRADE HEADERS ── */}
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    <th rowSpan={3} className="sticky left-0 bg-gray-50 z-20 text-left px-2 py-1 border-r border-gray-300 text-[10px] font-semibold text-gray-600 min-w-[240px]">
+                    <th data-doh="indicator" rowSpan={3} className="sticky left-0 bg-gray-50 z-20 text-left px-2 py-1 border-r border-gray-300 text-[10px] font-semibold text-gray-600 min-w-[240px]">
                       Indicator
                     </th>
                     {GRADES.map(g => {
@@ -372,13 +372,13 @@ export const Reports = () => {
                       // Each bracket has 2 sex cols + 2 total cols
                       const colSpanCount = bracketCount * 2 + 2;
                       return (
-                        <th key={g} colSpan={colSpanCount}
+                        <th key={g} data-doh="grade" colSpan={colSpanCount}
                           className={`${thBase} bg-blue-50 text-blue-800 border-r-2 border-blue-200`}>
                           {GRADE_BRACKETS[g].label}
                         </th>
                       );
                     })}
-                    <th colSpan={sumCols.length}
+                    <th data-doh="summary" colSpan={sumCols.length}
                       className={`${thBase} bg-purple-50 text-purple-800`}>
                       SUMMARY
                     </th>
