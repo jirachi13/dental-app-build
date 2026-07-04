@@ -10,6 +10,7 @@ import { exportToCsv, type ExportColumn } from '../utils/exportCsv';
 import { exportToXlsx } from '../utils/exportXlsx';
 import { ExportMenu, type ExportFormat } from './ExportMenu';
 import { toLocalDateString } from '../utils/localDate';
+import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 
 const SCHOOLS = [
   'Bagong Tanyag Integrated School',
@@ -131,7 +132,12 @@ export const RPCTracking = () => {
   });
 
   if (loading) {
-    return <div className="text-sm text-gray-500 p-8 text-center">Loading RPC records…</div>;
+    return (
+      <div className="space-y-4">
+        <SkeletonPageHeader />
+        <SkeletonTable rows={8} />
+      </div>
+    );
   }
 
   return (
