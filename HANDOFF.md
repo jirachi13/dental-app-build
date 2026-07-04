@@ -1,6 +1,14 @@
 # HANDOFF — Phase 3 pipeline dry-run complete on SYNTHETIC data (Sprints 21a-21f exercised end-to-end; real data still blocked)
 
-## NEXT SPRINT PLAN — Sprint 25: email 2FA + password-reset links (scoped 2026-07-04, Opus-executable)
+## Sprint 25 DONE — email 2FA + password reset (2026-07-04, commit 7ba44831, deployed + verified, executed on Opus per the plan below)
+All 7 plan steps built as written. Key facts for future sessions:
+- **No account has 2FA enabled yet** — it's opt-in via Account Management → Edit → Two-Factor Authentication → "Enable (send code)" (only completes after the emailed test code is entered back, so a dead mailbox can never lock an account). Demo accounts keep logging in exactly as before (prod-verified: dentist login 200 with cookies, no twofa_required).
+- Login page now has a real "Forgot password?" flow → `/auth/forgot-password` (always generic 200 — no account enumeration) → emailed link → `/reset-password` page. Old "contact your System Admin" admin-assisted reset still exists as the fallback for accounts without a real mailbox.
+- Security posture: only sha256 hashes stored (never plaintext codes/tokens), OTP 10-min/single-use, reset token 30-min/single-use, per-route rate limiters (separate instances so one office IP isn't starved), twofa fields in crudFactory PROTECTED_FIELDS, `/twofa/` + `/auth/*` never offline-queued, everything audit-logged (Enabled/Disabled 2FA, 2FA Login, Reset Password via Email).
+- **Verified**: `verify_twofa.mjs` (kept in project root — DB-assisted, plants sha256 of known codes so no inbox needed) — 21/21 PASS against real backend+Atlas, incl. RBAC 403 for non-admins and old-password death after reset. Prod smoke: /reset-password 200, forgot-password generic 200, normal login unaffected.
+- Reminder: rotate the Brevo API key at turnover (it passed through chat); swap account emails to real staff mailboxes at turnover then enable 2FA per account.
+
+## ~~NEXT SPRINT PLAN~~ (executed above) — Sprint 25: email 2FA + password-reset links (scoped 2026-07-04, Opus-executable)
 **Decisions locked with user**: provider = Brevo (free 300/day, sender verified via user's own email, no domain needed); 2FA = **opt-in per account** (demo accounts' @floral.com emails are NOT real mailboxes — enforcing globally would lock everyone out; user will put their own email on protected accounts for now and swap to real staff emails at turnover via Account Management); both 2FA AND reset links in one sprint (shared plumbing). `BREVO_API_KEY` already in local `.env`; **`BREVO_SENDER_EMAIL` still needed** (the sender address the user verified in Brevo) + both vars must be added to Vercel production before deploy.
 
 **Build order (safe-if-interrupted: nothing enforces 2FA until step 5):**

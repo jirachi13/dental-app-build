@@ -274,7 +274,7 @@ For Chapter 4: real IPTR records from Barangay Tanyag school dental clinics were
 - Sprint 22 → DONE 2026-07-04: Export dropdown (CSV/.xlsx) on all 4 list exports; exceljs dynamic-imported + precache-excluded; uuid pinned via npm override (audit stays 0); Word left out (no use case)
 - Sprint 23 → Full UI beautify pass via /impeccable (remaining text loaders, transitions, toast consistency, focus states; anti-slop rules in HANDOFF backlog apply)
 - Sprint 24 → DOH Consolidated Report PDF fix (77-column crop; needs column-pagination design decision first — scope on Fable)
-- Sprint 25 → Email API for 2FA + password-reset links (Resend/Brevo free tier; touches auth flow + USER model — scope on Fable)
+- Sprint 25 → DONE 2026-07-04: opt-in email 2FA (confirmation-gated enable — a test code must round-trip the mailbox before 2FA can lock an account) + self-service reset links, via Brevo (BREVO_API_KEY/BREVO_SENDER_EMAIL in .env + Vercel). 21-check E2E passed; no account has 2FA enabled yet — enable per account in Account Management once real staff emails are set
 - Sprint 26 → Deterministic encryption IV fix (research mongoose-field-encryption's IV mechanism first — real-data-loss risk; Fable throughout)
 - Sprint 27 → DONE 2026-07-04: root README.md (architecture, env vars, run/seed/test/deploy guides, privacy notes, doc map) distilled from HANDOFF; no secrets included
 - Small strays (bundle into any sprint): RPC interval label wording + early-Visit-2 flag, appointment card date display, mixed-dentition hint + t/T column labels, other roles' dashboard upgrades
