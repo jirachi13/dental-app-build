@@ -14,6 +14,7 @@ import { exportToCsv, type ExportColumn } from '../utils/exportCsv';
 import { exportToXlsx } from '../utils/exportXlsx';
 import { ExportMenu, type ExportFormat } from './ExportMenu';
 import type { ApiSchool } from '../api/types';
+import { SkeletonPageHeader, SkeletonStatGrid, SkeletonTable } from './Skeleton';
 
 const SCHOOLS = [
   'Bagong Tanyag Integrated School',
@@ -323,7 +324,13 @@ export const Appointments = () => {
   };
 
   if (appointmentsLoading || rotationsLoading) {
-    return <div className="text-sm text-gray-500 p-8 text-center">Loading appointments…</div>;
+    return (
+      <div className="space-y-4">
+        <SkeletonPageHeader />
+        <SkeletonStatGrid count={4} />
+        <SkeletonTable rows={6} />
+      </div>
+    );
   }
 
   return (
