@@ -1,6 +1,7 @@
 import { createBrowserRouter, useParams } from "react-router";
 import { RootLayout } from "./components/RootLayout";
 import { Login } from "./components/Login";
+import { ResetPassword } from "./components/ResetPassword";
 import { SchoolSelect } from "./components/SchoolSelect";
 import { Dashboard } from "./components/Dashboard";
 import { PatientList } from "./components/PatientList";
@@ -18,6 +19,7 @@ const DentalChartKeyed = () => { const { id } = useParams(); return <DentalChart
 
 export const router = createBrowserRouter([
   { path: "/login", Component: Login },
+  { path: "/reset-password", Component: ResetPassword },
   { path: "/select-school", Component: SchoolSelect },
   {
     path: "/",

@@ -19,11 +19,68 @@ export const AccountManagement = () => {
   const [editError, setEditError] = useState<string | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
 
+  // 2FA management (Sprint 25). Enable is confirmation-gated server-side:
+  // initiate emails a code to the account's address, confirm proves the
+  // mailbox is real before 2FA can lock anyone out.
+  const [twofaStep, setTwofaStep] = useState<'idle' | 'code-sent'>('idle');
+  const [twofaCode, setTwofaCode] = useState('');
+  const [twofaBusy, setTwofaBusy] = useState(false);
+  const [twofaMessage, setTwofaMessage] = useState<string | null>(null);
+  const editingUser = users.find((u) => u.id === editingUserId) ?? null;
+
   const openEdit = (user: (typeof users)[number]) => {
     const school = schools.find((s) => s.school_name === user.school);
     setEditForm({ full_name: user.name, email: user.email, role: user.role, school_id: school?._id ?? '' });
     setEditError(null);
+    setTwofaStep('idle');
+    setTwofaCode('');
+    setTwofaMessage(null);
     setEditingUserId(user.id);
+  };
+
+  const handleTwofaInitiate = async () => {
+    if (!editingUserId) return;
+    setTwofaBusy(true);
+    setTwofaMessage(null);
+    try {
+      const res = await apiClient.post<{ message: string }>(`/users/${editingUserId}/twofa/initiate`, {});
+      setTwofaStep('code-sent');
+      setTwofaMessage(res.message);
+    } catch (err) {
+      setTwofaMessage(err instanceof ApiError ? err.message : 'Failed to send the confirmation code');
+    } finally {
+      setTwofaBusy(false);
+    }
+  };
+
+  const handleTwofaConfirm = async () => {
+    if (!editingUserId || !twofaCode) return;
+    setTwofaBusy(true);
+    try {
+      await apiClient.post(`/users/${editingUserId}/twofa/confirm`, { code: twofaCode });
+      setTwofaStep('idle');
+      setTwofaCode('');
+      setTwofaMessage('Two-factor authentication enabled.');
+      await reload();
+    } catch (err) {
+      setTwofaMessage(err instanceof ApiError ? err.message : 'Failed to confirm the code');
+    } finally {
+      setTwofaBusy(false);
+    }
+  };
+
+  const handleTwofaDisable = async () => {
+    if (!editingUserId) return;
+    setTwofaBusy(true);
+    try {
+      await apiClient.post(`/users/${editingUserId}/twofa/disable`, {});
+      setTwofaMessage('Two-factor authentication disabled.');
+      await reload();
+    } catch (err) {
+      setTwofaMessage(err instanceof ApiError ? err.message : 'Failed to disable 2FA');
+    } finally {
+      setTwofaBusy(false);
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -446,6 +503,59 @@ export const AccountManagement = () => {
                 </select>
               </div>
               <p className="text-xs text-gray-500">Password isn't changed here — use the Reset Password action instead.</p>
+
+              {/* Two-factor authentication */}
+              <div className="border border-gray-200 rounded-lg p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Two-Factor Authentication</p>
+                    <p className="text-xs text-gray-500">
+                      {editingUser?.twofaEnabled
+                        ? 'Enabled — login requires an emailed code.'
+                        : 'Off. Enabling sends a test code to the account email that must be entered here first — this proves the mailbox is real before 2FA can lock the account.'}
+                    </p>
+                  </div>
+                  {editingUser?.twofaEnabled ? (
+                    <button
+                      onClick={handleTwofaDisable}
+                      disabled={twofaBusy}
+                      className="shrink-0 px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-60"
+                    >
+                      Disable
+                    </button>
+                  ) : twofaStep === 'idle' ? (
+                    <button
+                      onClick={handleTwofaInitiate}
+                      disabled={twofaBusy}
+                      className="shrink-0 px-3 py-1.5 text-sm border border-[#1E40AF] text-[#1E40AF] rounded-lg hover:bg-blue-50 disabled:opacity-60"
+                    >
+                      {twofaBusy ? 'Sending…' : 'Enable (send code)'}
+                    </button>
+                  ) : null}
+                </div>
+                {!editingUser?.twofaEnabled && twofaStep === 'code-sent' && (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={twofaCode}
+                      onChange={(e) => setTwofaCode(e.target.value.replace(/\D/g, ''))}
+                      placeholder="6-digit code"
+                      className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                    />
+                    <button
+                      onClick={handleTwofaConfirm}
+                      disabled={twofaBusy || twofaCode.length !== 6}
+                      className="px-3 py-1.5 text-sm bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
+                    >
+                      {twofaBusy ? 'Confirming…' : 'Confirm'}
+                    </button>
+                  </div>
+                )}
+                {twofaMessage && <p className="text-xs text-gray-600">{twofaMessage}</p>}
+              </div>
+
               {editError && <p className="text-sm text-red-600">{editError}</p>}
             </div>
             <div className="flex gap-3 p-6 border-t">

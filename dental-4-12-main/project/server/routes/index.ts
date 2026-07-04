@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getHealth } from "../controllers/healthController.js";
-import { createUser, resetPassword } from "../controllers/userController.js";
+import { createUser, resetPassword, initiateTwofa, confirmTwofa, disableTwofa } from "../controllers/userController.js";
 import { createCrudRouter } from "./crudFactory.js";
 import authRoutes from "./authRoutes.js";
 import predictionRoutes from "./predictionRoutes.js";
@@ -47,6 +47,12 @@ router.post("/users", requireAuth, requireRole(...ADMIN_ONLY), asyncHandler(crea
 // PROTECTED_FIELD there (can't be set via the generic update), and this
 // needs bcrypt hashing the generic router doesn't do.
 router.patch("/users/:id/reset-password", requireAuth, requireRole(...ADMIN_ONLY), asyncHandler(resetPassword));
+// 2FA management (admin-only, intercepted like reset-password — the twofa
+// fields are PROTECTED_FIELDS in the generic router). Enable is
+// confirmation-gated: initiate emails a code, confirm proves the mailbox.
+router.post("/users/:id/twofa/initiate", requireAuth, requireRole(...ADMIN_ONLY), asyncHandler(initiateTwofa));
+router.post("/users/:id/twofa/confirm", requireAuth, requireRole(...ADMIN_ONLY), asyncHandler(confirmTwofa));
+router.post("/users/:id/twofa/disable", requireAuth, requireRole(...ADMIN_ONLY), asyncHandler(disableTwofa));
 router.use("/users", createCrudRouter(User, { readRoles: ADMIN_ONLY, writeRoles: ADMIN_ONLY }));
 router.use("/dentists", createCrudRouter(Dentist, { writeRoles: ADMIN_ONLY }));
 router.use("/dental-aides", createCrudRouter(DentalAide, { writeRoles: ADMIN_ONLY }));

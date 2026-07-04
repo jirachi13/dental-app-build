@@ -13,6 +13,9 @@ interface User {
 
 interface LoginResult {
   ok: boolean;
+  // Password was correct but the account requires an emailed code —
+  // the UI must show the OTP step; no session exists yet.
+  twofaRequired?: boolean;
   error?: string;
 }
 
@@ -22,6 +25,7 @@ interface AuthContextType {
   selectedSchool: string | null;
   setSelectedSchool: (school: string | null) => void;
   login: (email: string, password: string) => Promise<LoginResult>;
+  verifyOtp: (email: string, code: string) => Promise<LoginResult>;
   logout: () => Promise<void>;
 }
 
@@ -130,20 +134,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     [user],
   );
 
+  const completeLogin = useCallback(async (apiUser: ApiUser) => {
+    const resolved = await resolveUser(apiUser);
+    setUser(resolved);
+    saveUserCache(resolved);
+    window.localStorage.setItem(SESSION_HINT_KEY, '1');
+    setSelectedSchoolState(initialSchoolFor(resolved));
+  }, []);
+
   const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
     try {
-      const apiUser = await apiClient.post<ApiUser>('/auth/login', { email, password });
-      const resolved = await resolveUser(apiUser);
-      setUser(resolved);
-      saveUserCache(resolved);
-      window.localStorage.setItem(SESSION_HINT_KEY, '1');
-      setSelectedSchoolState(initialSchoolFor(resolved));
+      const data = await apiClient.post<ApiUser | { twofa_required: true }>('/auth/login', { email, password });
+      if ('twofa_required' in data) {
+        return { ok: false, twofaRequired: true };
+      }
+      await completeLogin(data);
       return { ok: true };
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'No connection — can\'t log in while offline. If you were logged in before, reopen the app without reloading.';
       return { ok: false, error: message };
     }
-  }, []);
+  }, [completeLogin]);
+
+  const verifyOtp = useCallback(async (email: string, code: string): Promise<LoginResult> => {
+    try {
+      const apiUser = await apiClient.post<ApiUser>('/auth/verify-otp', { email, code });
+      await completeLogin(apiUser);
+      return { ok: true };
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : 'No connection — try again when back online.';
+      return { ok: false, error: message };
+    }
+  }, [completeLogin]);
 
   const logout = useCallback(async () => {
     await apiClient.post('/auth/logout').catch(() => {});
@@ -156,7 +178,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, selectedSchool, setSelectedSchool, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, selectedSchool, setSelectedSchool, login, verifyOtp, logout }}>
       {children}
     </AuthContext.Provider>
   );

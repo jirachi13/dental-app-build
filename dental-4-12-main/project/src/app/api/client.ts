@@ -59,8 +59,10 @@ async function request<T>(path: string, options: RequestInit = {}, isRetry = fal
 // anything. These just fail normally when offline, like a GET does.
 // /predictions/* is a live RPC to the ML service, not a data write — a
 // "synced later" risk prediction is meaningless, so it's never queued either.
+// /twofa/ management is a live email round-trip (send code / confirm code) —
+// queueing it offline would fake success without any code ever being sent.
 function isNeverQueuedPath(path: string): boolean {
-  return path.startsWith('/auth/') || path.startsWith('/predictions');
+  return path.startsWith('/auth/') || path.startsWith('/predictions') || path.includes('/twofa/');
 }
 
 async function writeRequest<T>(path: string, method: 'POST' | 'PUT' | 'PATCH', body?: unknown): Promise<T> {

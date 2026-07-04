@@ -19,6 +19,7 @@ export interface UserRow {
   roleLabel: string;
   school: string;
   status: 'Active' | 'Inactive';
+  twofaEnabled: boolean;
   pending?: boolean;
 }
 
@@ -46,6 +47,7 @@ export function useUsers() {
           roleLabel: ROLE_LABELS[u.role] ?? u.role,
           school: u.school_id ? (schoolNameById.get(u.school_id) ?? 'Unknown School') : 'All Schools',
           status: u.isArchived ? 'Inactive' : 'Active',
+          twofaEnabled: u.twofa_enabled === true,
         })),
       );
       setSchools(apiSchools);
@@ -85,6 +87,7 @@ export function useUsers() {
         roleLabel: body.role ? (ROLE_LABELS[body.role] ?? body.role) : 'Pending',
         school: body.school_id ? (schoolNameById.get(body.school_id) ?? 'Unknown School') : 'All Schools',
         status: 'Active',
+        twofaEnabled: false,
         pending: true,
       };
     });

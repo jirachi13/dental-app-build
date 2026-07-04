@@ -1,7 +1,9 @@
 import type { Request, Response } from "express";
+import { createHash, randomBytes, randomInt } from "node:crypto";
 import { User } from "../models/index.js";
 import { comparePassword, hashPassword } from "../utils/password.js";
 import { logAudit } from "../utils/auditLog.js";
+import { sendEmail, otpEmailHtml, resetEmailHtml } from "../utils/mailer.js";
 import {
   signAccessToken,
   signRefreshToken,
@@ -11,6 +13,8 @@ import {
 } from "../utils/jwt.js";
 
 const isProd = process.env.NODE_ENV === "production";
+
+const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
 
 const baseCookieOptions = {
   httpOnly: true,
@@ -41,6 +45,25 @@ export async function login(req: Request, res: Response) {
   const matches = await comparePassword(password, user.password_hash);
   if (!matches) {
     res.status(401).json({ error: "Invalid credentials" });
+    return;
+  }
+
+  // 2FA-enabled accounts get a one-time emailed code instead of cookies —
+  // the session only exists after /auth/verify-otp succeeds.
+  if (user.twofa_enabled) {
+    const code = String(randomInt(100000, 1000000));
+    user.otp_hash = sha256(code);
+    user.otp_expires = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+    const { subject, html } = otpEmailHtml(code);
+    const sent = await sendEmail(user.email, subject, html);
+    if (!sent) {
+      // Email layer down: fail closed but honestly — the user can't complete
+      // 2FA, so don't pretend a code is on its way.
+      res.status(503).json({ error: "Could not send the verification code. Try again shortly." });
+      return;
+    }
+    res.json({ twofa_required: true });
     return;
   }
 
@@ -133,6 +156,103 @@ export async function changePassword(req: Request, res: Response) {
   await user.save();
 
   await logAudit(user._id.toString(), "Changed Password", user._id.toString(), "User");
+
+  res.json({ success: true });
+}
+
+// Completes a 2FA login: checks the emailed code, then issues the same
+// cookie pair a normal login would.
+export async function verifyOtp(req: Request, res: Response) {
+  const { email, code } = req.body;
+  if (!email || !code) {
+    res.status(400).json({ error: "Email and code are required" });
+    return;
+  }
+
+  const user = await User.findOne({ email: String(email).toLowerCase().trim(), isArchived: false }).select(
+    "+otp_hash",
+  );
+  const valid =
+    user &&
+    user.twofa_enabled &&
+    user.otp_hash &&
+    user.otp_expires &&
+    user.otp_expires > new Date() &&
+    user.otp_hash === sha256(String(code).trim());
+  if (!valid) {
+    res.status(401).json({ error: "Invalid or expired code" });
+    return;
+  }
+
+  // Single-use: clear before issuing the session
+  user.otp_hash = null;
+  user.otp_expires = null;
+  user.last_login = new Date();
+
+  const payload = { sub: user._id.toString(), role: user.role, school_id: user.school_id?.toString() ?? null };
+  setAuthCookies(res, signAccessToken(payload), signRefreshToken(payload));
+  await user.save();
+
+  await logAudit(user._id.toString(), "2FA Login", user._id.toString(), "User");
+
+  const safeUser = await User.findById(user._id);
+  res.json(safeUser);
+}
+
+// Self-service reset, step 1. ALWAYS responds with the same generic 200 so
+// the endpoint can't be used to probe which emails have accounts.
+export async function forgotPassword(req: Request, res: Response) {
+  const { email } = req.body;
+  if (!email) {
+    res.status(400).json({ error: "Email is required" });
+    return;
+  }
+
+  const user = await User.findOne({ email: String(email).toLowerCase().trim(), isArchived: false });
+  if (user) {
+    const token = randomBytes(32).toString("hex");
+    user.reset_token_hash = sha256(token);
+    user.reset_token_expires = new Date(Date.now() + 30 * 60 * 1000);
+    await user.save();
+    const origin =
+      typeof req.headers.origin === "string" && req.headers.origin
+        ? req.headers.origin
+        : process.env.APP_URL ?? "https://dental-app-build.vercel.app";
+    const { subject, html } = resetEmailHtml(`${origin}/reset-password?token=${token}`);
+    await sendEmail(user.email, subject, html);
+  }
+
+  res.json({ message: "If that email has an account, a reset link is on its way." });
+}
+
+// Self-service reset, step 2: the emailed link's token proves ownership.
+export async function resetPassword(req: Request, res: Response) {
+  const { token, password } = req.body;
+  if (!token || !password) {
+    res.status(400).json({ error: "Token and password are required" });
+    return;
+  }
+  if (String(password).length < 8) {
+    res.status(400).json({ error: "Password must be at least 8 characters" });
+    return;
+  }
+
+  const user = await User.findOne({
+    reset_token_hash: sha256(String(token)),
+    reset_token_expires: { $gt: new Date() },
+    isArchived: false,
+  }).select("+reset_token_hash");
+  if (!user) {
+    res.status(401).json({ error: "Invalid or expired reset link. Request a new one." });
+    return;
+  }
+
+  user.password_hash = await hashPassword(String(password));
+  user.reset_token_hash = null;
+  user.reset_token_expires = null;
+  await user.save();
+
+  await logAudit(user._id.toString(), "Reset Password via Email", user._id.toString(), "User");
 
   res.json({ success: true });
 }

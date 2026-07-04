@@ -5,7 +5,12 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import { logAudit } from "../utils/auditLog.js";
 import { ALL_ROLES, ADMIN_ONLY } from "../middleware/roleGroups.js";
 
-const PROTECTED_FIELDS = ["_id", "isArchived", "archivedAt", "archivedBy", "created_at", "updated_at", "password_hash"];
+const PROTECTED_FIELDS = [
+  "_id", "isArchived", "archivedAt", "archivedBy", "created_at", "updated_at",
+  "password_hash",
+  // 2FA/reset fields are managed only by their dedicated endpoints
+  "twofa_enabled", "otp_hash", "otp_expires", "reset_token_hash", "reset_token_expires",
+];
 
 function sanitizeBody(body: Record<string, unknown>) {
   const clean = { ...body };

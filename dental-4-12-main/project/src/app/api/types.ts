@@ -8,6 +8,7 @@ export interface ApiUser {
   email: string;
   is_enrolled: boolean;
   last_login: string | null;
+  twofa_enabled?: boolean;
   isArchived: boolean;
 }
 

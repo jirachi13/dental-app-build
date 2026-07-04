@@ -20,6 +20,13 @@ const userSchema = new mongoose.Schema(
     password_hash: { type: String, required: true, select: false },
     is_enrolled: { type: Boolean, default: false },
     last_login: { type: Date, default: null },
+    // ERD deviation (Sprint 25, like email/password_hash before): email 2FA +
+    // self-service reset. Only hashes are stored — never plaintext codes/tokens.
+    twofa_enabled: { type: Boolean, default: false },
+    otp_hash: { type: String, default: null, select: false },
+    otp_expires: { type: Date, default: null },
+    reset_token_hash: { type: String, default: null, select: false },
+    reset_token_expires: { type: Date, default: null },
     ...softDeleteFields,
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },

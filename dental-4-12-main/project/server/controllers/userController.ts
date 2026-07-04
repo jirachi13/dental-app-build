@@ -1,7 +1,11 @@
 import type { Request, Response } from "express";
+import { createHash, randomInt } from "node:crypto";
 import { User, ROLES } from "../models/index.js";
 import { hashPassword } from "../utils/password.js";
 import { logAudit } from "../utils/auditLog.js";
+import { sendEmail, otpEmailHtml } from "../utils/mailer.js";
+
+const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
 
 export async function createUser(req: Request, res: Response) {
   const { full_name, email, role, school_id, password } = req.body;
@@ -64,4 +68,79 @@ export async function resetPassword(req: Request, res: Response) {
   await logAudit(req.user!.id, "Reset Password", user._id.toString(), "User");
 
   res.status(200).json({ success: true });
+}
+
+// 2FA enablement is confirmation-gated: enabling sends a test code to the
+// account's email that must be entered back — this proves the mailbox is
+// real BEFORE 2FA can lock the account (demo accounts have fake @floral.com
+// emails; enabling 2FA on one without this check would be a lockout).
+export async function initiateTwofa(req: Request, res: Response) {
+  const user = await User.findById(req.params.id);
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  if (user.twofa_enabled) {
+    res.status(400).json({ error: "Two-factor authentication is already enabled" });
+    return;
+  }
+
+  const code = String(randomInt(100000, 1000000));
+  user.otp_hash = sha256(code);
+  user.otp_expires = new Date(Date.now() + 10 * 60 * 1000);
+  await user.save();
+
+  const { subject, html } = otpEmailHtml(code);
+  const sent = await sendEmail(user.email, subject, html);
+  if (!sent) {
+    res.status(503).json({ error: "Could not send the confirmation code to this email. Check the address and try again." });
+    return;
+  }
+
+  res.json({ message: `Confirmation code sent to ${user.email}` });
+}
+
+export async function confirmTwofa(req: Request, res: Response) {
+  const { code } = req.body;
+  if (!code) {
+    res.status(400).json({ error: "code is required" });
+    return;
+  }
+
+  const user = await User.findById(req.params.id).select("+otp_hash");
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  const valid = user.otp_hash && user.otp_expires && user.otp_expires > new Date() && user.otp_hash === sha256(String(code).trim());
+  if (!valid) {
+    res.status(401).json({ error: "Invalid or expired code" });
+    return;
+  }
+
+  user.twofa_enabled = true;
+  user.otp_hash = null;
+  user.otp_expires = null;
+  await user.save();
+
+  await logAudit(req.user!.id, "Enabled 2FA", user._id.toString(), "User");
+
+  res.json({ success: true });
+}
+
+export async function disableTwofa(req: Request, res: Response) {
+  const user = await User.findById(req.params.id);
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  user.twofa_enabled = false;
+  user.otp_hash = null;
+  user.otp_expires = null;
+  await user.save();
+
+  await logAudit(req.user!.id, "Disabled 2FA", user._id.toString(), "User");
+
+  res.json({ success: true });
 }
