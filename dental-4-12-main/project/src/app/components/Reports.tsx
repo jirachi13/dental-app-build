@@ -166,8 +166,8 @@ export const Reports = () => {
       return s;
     }, 0);
   const [activeReportTab, setActiveReportTab] = useState<'doh'|'internal'>('doh');
-  const [reportMonth, setReportMonth] = useState(4);
-  const [reportYear,  setReportYear]  = useState(2026);
+  const [reportMonth, setReportMonth] = useState(new Date().getMonth() + 1);
+  const [reportYear,  setReportYear]  = useState(new Date().getFullYear());
   // Local school override — defaults to All Schools regardless of global context
   const [reportSchool, setReportSchool] = useState<string|null>(null);
   const dohReportRef = useRef<HTMLDivElement>(null);

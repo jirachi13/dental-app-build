@@ -4,6 +4,9 @@ import type { ApiStudent, ApiSchool, ApiStudentIptr, ApiPreventiveCareRecord } f
 
 // "4-6 month interval" per the RPC module description — 150 days is the midpoint.
 const RPC_INTERVAL_DAYS = 150;
+// Lower bound of the 4–6 month window (~4 months). Visit 2 done sooner than this
+// is flagged as early — done before the recommended minimum spacing.
+const RPC_MIN_INTERVAL_DAYS = 120;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 export interface RPCRow {
@@ -20,6 +23,7 @@ export interface RPCRow {
   visit2Status: 'Completed' | 'Pending';
   daysUntilDue: number;
   status: 'complete' | 'pending' | 'overdue' | 'not-started';
+  earlyVisit2: boolean;
 }
 
 export function useRPCTracking() {
@@ -63,8 +67,13 @@ export function useRPCTracking() {
 
           let status: RPCRow['status'] = 'not-started';
           let daysUntilDue = 0;
+          let earlyVisit2 = false;
           if (visit1 && visit2) {
             status = 'complete';
+            const gapDays = Math.floor(
+              (new Date(visit2.visit_date).getTime() - new Date(visit1.visit_date).getTime()) / MS_PER_DAY,
+            );
+            earlyVisit2 = gapDays >= 0 && gapDays < RPC_MIN_INTERVAL_DAYS;
           } else if (visit1) {
             const daysSinceVisit1 = Math.floor((now - new Date(visit1.visit_date).getTime()) / MS_PER_DAY);
             daysUntilDue = RPC_INTERVAL_DAYS - daysSinceVisit1;
@@ -85,6 +94,7 @@ export function useRPCTracking() {
             visit2Status: visit2 ? 'Completed' : 'Pending',
             daysUntilDue,
             status,
+            earlyVisit2,
           };
         });
 

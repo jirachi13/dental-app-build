@@ -142,7 +142,7 @@ export const RPCTracking = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">RPC Records</h1>
-          <p className="text-sm text-gray-500">Routine Preventive Care — Fluoride application tracking (4–6 month interval)</p>
+          <p className="text-sm text-gray-500">Routine Preventive Care — Fluoride application tracking (Visit 2 due 4–6 months after Visit 1)</p>
         </div>
         <ExportMenu onExport={handleExport} />
       </div>
@@ -258,7 +258,7 @@ export const RPCTracking = () => {
                       <span className="text-gray-500 text-xs ml-1">{r.section}</span>
                     </td>
                     <td className="px-4 py-3">{r.visit1Date ? <span className="text-green-700 text-xs flex items-center gap-1"><CheckCircle className="w-3 h-3"/>{r.visit1Date}</span> : <span className="text-gray-400 text-xs">Not done</span>}</td>
-                    <td className="px-4 py-3">{r.visit2Date ? <span className="text-green-700 text-xs flex items-center gap-1"><CheckCircle className="w-3 h-3"/>{r.visit2Date}</span> : <span className="text-gray-400 text-xs">Not done</span>}</td>
+                    <td className="px-4 py-3">{r.visit2Date ? <span className="text-green-700 text-xs flex items-center gap-1"><CheckCircle className="w-3 h-3"/>{r.visit2Date}{r.earlyVisit2 && <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold" title="Visit 2 recorded less than 4 months after Visit 1">early</span>}</span> : <span className="text-gray-400 text-xs">Not done</span>}</td>
                     <td className="px-4 py-3"><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${sc.bg} ${sc.color}`}>{sc.label}</span></td>
                     <td className="px-4 py-3 text-sm">{r.status==='overdue'?<span className="text-red-600 font-semibold">{Math.abs(r.daysUntilDue)}d overdue</span>:r.daysUntilDue>0?<span className="text-blue-600">{r.daysUntilDue}d</span>:<span className="text-gray-400">—</span>}</td>
                   </tr>

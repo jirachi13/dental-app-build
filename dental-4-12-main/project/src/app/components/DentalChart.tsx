@@ -1098,7 +1098,10 @@ export const DentalChart = () => {
           if (dmftByYear.length === 0) return <div className="p-8 text-center text-gray-400 text-sm">No records yet.</div>;
           return (
           <div className="p-4 space-y-6">
-            <h3 className="text-sm font-bold text-gray-900">DMFT Progression by School Year</h3>
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-gray-900">DMFT Progression by School Year</h3>
+              <p className="text-xs text-gray-500">Lowercase (d m f x · dmft) = primary / deciduous teeth; uppercase (D M F X · DMFT) = permanent teeth. A child with both present is in mixed dentition.</p>
+            </div>
             <div className="overflow-x-auto rounded-lg border border-gray-200">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
