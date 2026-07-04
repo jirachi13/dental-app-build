@@ -9,150 +9,52 @@
 // can't parse ("Attempting to parse an unsupported color function").
 // html2canvas-pro is a maintained fork with oklch/lab/lch support.
 
-// The DOH Consolidated Report is 77 columns wide — scaling that whole width
-// onto one landscape page (the naive whole-image approach, kept as the marker
-// fallback in placeFullImage below) makes every column ~3.6mm and illegible.
-// This variant paginates HORIZONTALLY into column bands:
-// it captures the full table once, then for each band draws a page that starts
-// with the frozen "Indicator" column and appends only that band's grade
-// columns, so each page's columns are big enough to read and no grade is split.
-//
-// The report table must mark its header cells: the Indicator <th> with
-// data-doh="indicator", each grade <th> with data-doh="grade", and the SUMMARY
-// <th> with data-doh="summary". Without those markers it falls back to the
-// single-image behavior above.
+// The DOH Consolidated Report is 77 columns wide. Rather than paginate it
+// (which either shrinks columns illegibly or splits rows across pages), the PDF
+// is a single high-resolution image of the WHOLE report on one page sized to
+// the table. Any PDF viewer can zoom into it and it stays crisp up to the
+// capture resolution (SCALE). For a clean *printed* report the Excel export is
+// the right tool (it bands columns across pages); this PDF is the on-screen,
+// zoomable snapshot. To print it on standard paper, use the viewer's
+// "Fit to page" (whole thing, small) or "Poster/Tile" (split across sheets).
 export async function exportDohReportToPdf(element: HTMLElement, filename: string): Promise<void> {
   const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
     import('jspdf'),
     import('html2canvas-pro'),
   ]);
 
-  const SCALE = 2;
+  const SCALE = 3; // higher-res so zooming into the PDF stays sharp
   const canvas = await html2canvas(element, {
     scale: SCALE,
+    // width/height (not just windowWidth/windowHeight) are required to capture
+    // beyond the element's on-screen, viewport-constrained size — without them
+    // columns past the visible width were cropped.
     width: element.scrollWidth,
     height: element.scrollHeight,
     windowWidth: element.scrollWidth,
     windowHeight: element.scrollHeight,
     useCORS: true,
   });
+  if (!(canvas.width > 0) || !(canvas.height > 0)) return;
 
-  const pageWidthMm = 297; // A4 landscape
-  const pageHeightMm = 210;
-  const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-
-  const table = element.querySelector('table');
-  const indicatorTh = element.querySelector('[data-doh="indicator"]') as HTMLElement | null;
-  const gradeThs = Array.from(element.querySelectorAll('[data-doh="grade"]')) as HTMLElement[];
-  const summaryTh = element.querySelector('[data-doh="summary"]') as HTMLElement | null;
-
-  // Fallback: markers missing → old whole-width single image.
-  if (!table || !indicatorTh || gradeThs.length === 0) {
-    placeFullImage(pdf, canvas, pageWidthMm, pageHeightMm);
-    pdf.save(filename);
-    return;
-  }
-
-  const tableLeft = table.getBoundingClientRect().left;
-  // Offsets relative to the table's left edge — scroll-invariant because both
-  // the cell rect and tableLeft shift together with horizontal scroll.
-  const rel = (el: HTMLElement) => {
-    const r = el.getBoundingClientRect();
-    return { left: r.left - tableLeft, right: r.right - tableLeft };
-  };
-  const indW = indicatorTh.getBoundingClientRect().width; // DOM px
-  const grades = gradeThs.map(rel);
-  const summary = summaryTh ? rel(summaryTh) : null;
-
-  // Group whole grades into bands capped by rendered width so each band + the
-  // Indicator column fits a landscape page legibly. Summary rides with the last
-  // band if it fits, else becomes its own band.
-  const MAX_BAND_W = 900; // DOM px of data area per band
-  const bands: { left: number; right: number }[] = [];
-  let i = 0;
-  while (i < grades.length) {
-    const start = grades[i].left;
-    let end = grades[i].right;
-    i++;
-    while (i < grades.length && grades[i].right - start <= MAX_BAND_W) {
-      end = grades[i].right;
-      i++;
-    }
-    bands.push({ left: start, right: end });
-  }
-  if (summary) {
-    const last = bands[bands.length - 1];
-    if (summary.right - last.left <= MAX_BAND_W) last.right = summary.right;
-    else bands.push({ left: summary.left, right: summary.right });
-  }
-
-  let firstPage = true;
-  for (const band of bands) {
-    // Composite = Indicator strip + this band's strip, side by side, full height.
-    const indPx = indW * SCALE;
-    const bandLPx = band.left * SCALE;
-    const bandWPx = (band.right - band.left) * SCALE;
-    const width = Math.round(indPx + bandWPx);
-    if (!(width > 0)) continue; // degenerate measurement — skip (never divide by 0)
-    const comp = document.createElement('canvas');
-    comp.width = width;
-    comp.height = canvas.height;
-    const ctx = comp.getContext('2d');
-    if (!ctx) continue;
-    // JPEG has no alpha; paint white first so gaps render white, not black.
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, comp.width, comp.height);
-    // Indicator column (canvas x 0..indPx) → left of the page.
-    ctx.drawImage(canvas, 0, 0, indPx, comp.height, 0, 0, indPx, comp.height);
-    // Band's grade columns → right after the Indicator column.
-    ctx.drawImage(canvas, bandLPx, 0, bandWPx, comp.height, indPx, 0, bandWPx, comp.height);
-
-    if (!firstPage) pdf.addPage();
-    firstPage = false;
-    // JPEG (not PNG): jsPDF's PNG path is very slow (JS-side re-parse) and was
-    // freezing the tab with 3 large band images. JPEG addImage is fast + small.
-    placeStripPages(pdf, comp.toDataURL('image/jpeg', 0.95), comp, pageWidthMm, pageHeightMm);
-  }
-
-  pdf.save(filename);
-}
-
-function placeFullImage(
-  pdf: PdfLike,
-  canvas: HTMLCanvasElement,
-  pageWidthMm: number,
-  pageHeightMm: number,
-): void {
-  if (!(canvas.width > 0)) return;
-  const white = document.createElement('canvas');
-  white.width = canvas.width;
-  white.height = canvas.height;
-  const ctx = white.getContext('2d');
+  // JPEG has no alpha channel; paint white first so the background renders
+  // white (not black) and jsPDF embeds it fast (its PNG path is very slow).
+  const out = document.createElement('canvas');
+  out.width = canvas.width;
+  out.height = canvas.height;
+  const ctx = out.getContext('2d');
   if (!ctx) return;
   ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, white.width, white.height);
+  ctx.fillRect(0, 0, out.width, out.height);
   ctx.drawImage(canvas, 0, 0);
-  placeStripPages(pdf, white.toDataURL('image/jpeg', 0.95), white, pageWidthMm, pageHeightMm);
-}
+  const imgData = out.toDataURL('image/jpeg', 0.95);
 
-type PdfLike = { addImage: (...a: unknown[]) => void; addPage: () => void };
-
-// Places one tall image across as many vertical pages as needed. Guards against
-// a non-finite page height (bad measurement) ever spinning an infinite addPage
-// loop — the cause of the reported tab freeze class — via a hard page cap.
-function placeStripPages(
-  pdf: PdfLike,
-  imgData: string,
-  canvas: HTMLCanvasElement,
-  pageWidthMm: number,
-  pageHeightMm: number,
-): void {
-  const imgWidthMm = pageWidthMm;
-  const imgHeightMm = (canvas.height * imgWidthMm) / canvas.width;
-  if (!Number.isFinite(imgHeightMm) || imgHeightMm <= 0) return;
-  const totalPages = Math.min(Math.ceil(imgHeightMm / pageHeightMm), 100); // cap: safety
-  for (let p = 0; p < totalPages; p++) {
-    if (p > 0) pdf.addPage();
-    pdf.addImage(imgData, 'JPEG', 0, -p * pageHeightMm, imgWidthMm, imgHeightMm);
-  }
+  // One page sized exactly to the image (px units → 1:1, full resolution).
+  const pdf = new jsPDF({
+    orientation: out.width >= out.height ? 'landscape' : 'portrait',
+    unit: 'px',
+    format: [out.width, out.height],
+  });
+  pdf.addImage(imgData, 'JPEG', 0, 0, out.width, out.height);
+  pdf.save(filename);
 }
