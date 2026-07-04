@@ -16,6 +16,16 @@ const isProd = process.env.NODE_ENV === "production";
 
 const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
 
+// Token lifetimes + a resend cooldown so repeated requests can't spam Brevo.
+// A code/link issued less than RESEND_COOLDOWN_MS ago is reused (no new email).
+const OTP_TTL_MS = 10 * 60 * 1000;
+const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
+const RESEND_COOLDOWN_MS = 60 * 1000;
+
+// Given an *_expires date and its full TTL, was it issued within the cooldown?
+const withinCooldown = (expires: Date | null | undefined, ttlMs: number) =>
+  !!expires && Date.now() - (expires.getTime() - ttlMs) < RESEND_COOLDOWN_MS;
+
 const baseCookieOptions = {
   httpOnly: true,
   secure: isProd,
@@ -51,9 +61,15 @@ export async function login(req: Request, res: Response) {
   // 2FA-enabled accounts get a one-time emailed code instead of cookies —
   // the session only exists after /auth/verify-otp succeeds.
   if (user.twofa_enabled) {
+    // Resend cooldown: a code sent in the last 60s is still valid — reuse it
+    // rather than emailing another, so repeated logins can't spam sends.
+    if (withinCooldown(user.otp_expires, OTP_TTL_MS)) {
+      res.json({ twofa_required: true });
+      return;
+    }
     const code = String(randomInt(100000, 1000000));
     user.otp_hash = sha256(code);
-    user.otp_expires = new Date(Date.now() + 10 * 60 * 1000);
+    user.otp_expires = new Date(Date.now() + OTP_TTL_MS);
     await user.save();
     const { subject, html } = otpEmailHtml(code);
     const sent = await sendEmail(user.email, subject, html);
@@ -209,10 +225,13 @@ export async function forgotPassword(req: Request, res: Response) {
   }
 
   const user = await User.findOne({ email: String(email).toLowerCase().trim(), isArchived: false });
-  if (user) {
+  // Resend cooldown: if a reset link was issued in the last 60s, don't send
+  // another (the earlier one is still valid). Still falls through to the same
+  // generic 200 below, so the endpoint stays a black box to probers.
+  if (user && !withinCooldown(user.reset_token_expires, RESET_TOKEN_TTL_MS)) {
     const token = randomBytes(32).toString("hex");
     user.reset_token_hash = sha256(token);
-    user.reset_token_expires = new Date(Date.now() + 30 * 60 * 1000);
+    user.reset_token_expires = new Date(Date.now() + RESET_TOKEN_TTL_MS);
     await user.save();
     const origin =
       typeof req.headers.origin === "string" && req.headers.origin
