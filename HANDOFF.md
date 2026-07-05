@@ -1,5 +1,15 @@
 # HANDOFF — Phase 3 pipeline dry-run complete on SYNTHETIC data (Sprints 21a-21f exercised end-to-end; real data still blocked)
 
+## PRE-TURNOVER DATA CLEANUP (flagged 2026-07-06 — user-gated, do NOT run early)
+Before real go-live/turnover, all seeded demo/fake data must be purged and replaced with real records:
+- **Demo accounts**: `admin@floral.local`, `admin@floral.com`, and any seeded demo dentist/aide/school-admin/bho users (from `seed:admin`/`seed:demo`). Replace with real staff accounts (real emails so 2FA + reset actually work — ties to the existing "swap account emails at turnover" note).
+- **Demo student/IPTR/RPC data**: everything from `seed:students`, `seed:demo`, `seed:rpc-visit2`, `seed:iptr-details`. Replace with the real encoded IPTR records.
+- **Approach**: a purge is destructive → needs a dedicated `reset:demo` script (or manual Atlas cleanup) that removes ONLY seeded demo docs, gated behind explicit confirmation. Also **rotate the Brevo API key** (passed through chat) at turnover. Do this as a deliberate pre-defense step, never automatically.
+
+## Actions that now have a confirmation step (2026-07-06)
+- **Deactivate account** (AccountManagement) → confirm dialog (stronger warning for System Admin) + you can't deactivate your OWN account (button disabled). Root cause of the accidental-admin-deletion incident. Reusable `ConfirmDialog.tsx` now exists — **apply it to other destructive one-clicks too**: DentalChart delete-year (`handleDeleteYear`) and delete-treatment (Trash2), any archive/delete buttons. (Not yet done — next pass.)
+- Recovery: `npm run restore:admin` un-archives system_admin accounts (login rejects archived users, so a deactivated admin is locked out; seedAdmin skips existing emails).
+
 ## QUEUED FOR NEXT SESSION (discussed 2026-07-05)
 - **Chart-consistency pass — DONE 2026-07-06 (commit f903f0b3, deployed)**: added `ChartTooltip.tsx` (shared recharts tooltip matching the app; ink text + color swatch per dataviz rules) applied to all 10 tooltips across Dashboard/RPCTracking/Reports; normalized every CartesianGrid to recessive #f0f0f0 single-direction (horizontal-only for vertical charts, vertical-only for the horizontal actions-by-module bar). tsc+build clean. **Still optional (not done):** (a) swap the two Dashboard PieCharts (risk distribution, oral-health status) → horizontal bars for easier size comparison — design judgment; (b) unify axis tick fonts (still vary 10–12px across charts) — minor; (c) centralize the per-file `COLORS` objects into one chart palette. **NOT visually verified** — build/tsc only; eyeball a chart hover on the deployed dashboard to confirm the tooltip renders right.
 - **Bulk queue/unqueue toggle** for "Queue for Charting". Today queuing a student for the dental-charting queue (localStorage via `utils/queueStorage` `getQueuedStudentIds`; surfaced in DentalChartNav `viewMode==='queued'`, added from PatientList's "Queue for Charting") is per-student. Add a bulk action: multi-select students (PatientList) → queue/unqueue all selected at once, with a single toggle that reflects mixed/all/none queued state.

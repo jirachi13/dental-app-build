@@ -11,13 +11,26 @@ export const UpdateToast = () => {
     updateServiceWorker,
   } = useRegisterSW();
 
+  // Guarantee the page reloads onto the new assets once the fresh service
+  // worker takes control. vite-plugin-pwa's own reload doesn't reliably fire
+  // with injectManifest, which made the Refresh button appear to "do nothing"
+  // (the SW updated, but the tab kept showing the old build).
+  const refresh = () => {
+    navigator.serviceWorker?.addEventListener(
+      'controllerchange',
+      () => window.location.reload(),
+      { once: true },
+    );
+    void updateServiceWorker(true);
+  };
+
   if (!needRefresh) return null;
 
   return (
     <div className="fixed bottom-4 right-4 z-50 bg-white rounded-xl border border-gray-200 shadow-lg p-4 flex items-center gap-3 max-w-sm">
       <div className="text-sm text-gray-700">A new version of FLORAL is available.</div>
       <button
-        onClick={() => updateServiceWorker(true)}
+        onClick={refresh}
         className="flex items-center gap-1.5 bg-[#1E40AF] hover:bg-blue-700 text-white rounded-lg px-3 py-1.5 text-sm font-medium shrink-0"
       >
         <RefreshCw className="w-3.5 h-3.5" /> Refresh
