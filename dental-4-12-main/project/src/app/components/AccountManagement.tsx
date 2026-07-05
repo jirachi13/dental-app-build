@@ -287,7 +287,7 @@ export const AccountManagement = () => {
                 onChange={(e) => setForm({ ...form, school_id: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
               >
-                <option value="">None (Barangay Level)</option>
+                <option value="">All Schools (Barangay level — full access)</option>
                 {schools.map(school => (
                   <option key={school._id} value={school._id}>{school.school_name}</option>
                 ))}
@@ -531,7 +531,7 @@ export const AccountManagement = () => {
                   onChange={(e) => setEditForm({ ...editForm, school_id: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
                 >
-                  <option value="">None (Barangay Level)</option>
+                  <option value="">All Schools (Barangay level — full access)</option>
                   {schools.map(school => (
                     <option key={school._id} value={school._id}>{school.school_name}</option>
                   ))}
