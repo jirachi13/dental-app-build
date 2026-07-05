@@ -13,6 +13,8 @@ Capstone Thesis — Build Phase — Group 404 — AY 2025-2026
 ## DOC ROLES + SELF-MAINTENANCE (adopted 2026-07-04)
 - CLAUDE.md = rules/specs/decisions that constrain every session. It self-improves by REPLACEMENT: when a decision supersedes a line here, rewrite or delete that line the same turn — never just append. This file is injected into every session's context, so bloat here taxes everything.
 - HANDOFF.md = state journal (what happened, current status). Narrative goes here, never into CLAUDE.md.
+- PRODUCT.md (root, for /impeccable) = stable design identity (register, users, purpose, principles). NOT self-improving — update only on a genuine strategic pivot (new register/role/principle); a churning PRODUCT.md is noise. Impeccable reads it as a fixed anchor.
+- DESIGN.md (root, for /impeccable — not created yet) = the visual system (tokens, palette, typography, components). It's derived from code, so keep it in sync by RE-DERIVING via `/impeccable document` when the design system materially changes (new tokens, palette shift, core component), not by hand-editing. A stale DESIGN.md misleads agents that design against it.
 - Every ~5 sprints, do a CLAUDE.md hygiene pass: delete superseded lines, compress resolved sagas to one-liners, verify build-phase status markers.
 
 ## MODEL STRATEGY (adopted 2026-07-04)
