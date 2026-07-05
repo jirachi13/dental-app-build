@@ -1,9 +1,9 @@
 import type { Request, Response } from "express";
-import { createHash, randomInt } from "node:crypto";
+import { createHash, randomInt, randomBytes } from "node:crypto";
 import { User, ROLES } from "../models/index.js";
 import { hashPassword } from "../utils/password.js";
 import { logAudit } from "../utils/auditLog.js";
-import { sendEmail, otpEmailHtml } from "../utils/mailer.js";
+import { sendEmail, otpEmailHtml, resetEmailHtml } from "../utils/mailer.js";
 
 const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
 
@@ -68,6 +68,41 @@ export async function resetPassword(req: Request, res: Response) {
   await logAudit(req.user!.id, "Reset Password", user._id.toString(), "User");
 
   res.status(200).json({ success: true });
+}
+
+// Admin-initiated password reset via EMAIL — preferred over the direct set
+// above. Instead of the admin choosing (and thus knowing) the password, this
+// generates a reset token and emails the user a link so they set their own,
+// preserving accountability. Same token mechanism as self-service
+// forgot-password, but admin-triggered with real success/failure feedback.
+// Falls back to the direct set for accounts without a real mailbox.
+export async function sendResetLink(req: Request, res: Response) {
+  const user = await User.findById(req.params.id);
+  if (!user || user.isArchived) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const token = randomBytes(32).toString("hex");
+  user.reset_token_hash = sha256(token);
+  user.reset_token_expires = new Date(Date.now() + 30 * 60 * 1000);
+  await user.save();
+
+  const origin =
+    typeof req.headers.origin === "string" && req.headers.origin
+      ? req.headers.origin
+      : process.env.APP_URL ?? "https://dental-app-build.vercel.app";
+  const { subject, html } = resetEmailHtml(`${origin}/reset-password?token=${token}`);
+  const sent = await sendEmail(user.email, subject, html);
+  if (!sent) {
+    res
+      .status(503)
+      .json({ error: "Could not send the reset email — check the mailbox is real, or set a password directly." });
+    return;
+  }
+
+  await logAudit(req.user!.id, "Sent Password Reset Link", user._id.toString(), "User");
+  res.json({ message: `Reset link sent to ${user.email}` });
 }
 
 // 2FA enablement is confirmation-gated: enabling sends a test code to the

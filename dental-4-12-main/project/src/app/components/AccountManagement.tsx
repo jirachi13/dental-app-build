@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit, Power, Search, KeyRound } from 'lucide-react';
+import { Plus, Edit, Power, Search, KeyRound, Mail } from 'lucide-react';
 import { useUsers, ROLE_LABELS } from '../hooks/useUsers';
 import { apiClient, ApiError } from '../api/client';
 import type { ApiRole } from '../api/types';
@@ -167,11 +167,14 @@ export const AccountManagement = () => {
   const [resetConfirm, setResetConfirm] = useState('');
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetSubmitting, setResetSubmitting] = useState(false);
+  const [resetInfo, setResetInfo] = useState<string | null>(null);
+  const [sendingReset, setSendingReset] = useState(false);
 
   const openResetPassword = (user: (typeof users)[number]) => {
     setResetPassword('');
     setResetConfirm('');
     setResetError(null);
+    setResetInfo(null);
     setResettingUserName(user.name);
     setResettingUserId(user.id);
   };
@@ -195,6 +198,23 @@ export const AccountManagement = () => {
       setResetError(err instanceof ApiError ? err.message : 'Failed to reset password');
     } finally {
       setResetSubmitting(false);
+    }
+  };
+
+  // Preferred over the direct set: email the user a reset link so they choose
+  // their own password (the admin never sees it).
+  const handleSendResetLink = async () => {
+    if (!resettingUserId) return;
+    setResetError(null);
+    setResetInfo(null);
+    setSendingReset(true);
+    try {
+      const res = await apiClient.patch<{ message?: string }>(`/users/${resettingUserId}/send-reset`, {});
+      setResetInfo(res?.message ?? 'Reset link sent.');
+    } catch (err) {
+      setResetError(err instanceof ApiError ? err.message : 'Failed to send reset email');
+    } finally {
+      setSendingReset(false);
     }
   };
 
@@ -621,6 +641,18 @@ export const AccountManagement = () => {
               <p className="text-sm text-gray-500 mt-1">for {resettingUserName}</p>
             </div>
             <div className="p-6 space-y-4">
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                <p className="text-sm text-gray-700">Recommended — email {resettingUserName} a secure link so they set their own password (you never see it).</p>
+                <button
+                  onClick={handleSendResetLink}
+                  disabled={sendingReset}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[#1E40AF] px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                >
+                  <Mail className="w-4 h-4" /> {sendingReset ? 'Sending…' : 'Send reset email'}
+                </button>
+                {resetInfo && <p className="mt-2 text-sm text-green-700">{resetInfo}</p>}
+              </div>
+              <div className="text-center text-xs text-gray-400">or set a password directly (for accounts without a real mailbox)</div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
                 <input
