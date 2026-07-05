@@ -1,5 +1,22 @@
 # HANDOFF — Phase 3 pipeline dry-run complete on SYNTHETIC data (Sprints 21a-21f exercised end-to-end; real data still blocked)
 
+## BACKLOG PLAN — Dark Mode (scoped 2026-07-05, NOT built; est. 1–2 focused Opus sessions)
+User asked for dark mode. It's a real feature, not a cleanup — the app hardcodes Tailwind palette classes (`bg-white`, `text-gray-900`, `bg-gray-50`, `bg-blue-50`, `border-gray-200`, green/red/amber/blue status chips) across ~20 components, so there's no shortcut. Do it via **token migration**, NOT scattered `dark:` classes (which you'd inevitably miss spots on → unreadable patches). Design note: this is a daytime clinic tool, so light stays the DEFAULT; dark is opt-in.
+
+**Foundation already partly present**: `theme.css` has `:root` light tokens + `@custom-variant dark (&:is(.dark *))` (kept). The `.dark {…}` value block was REMOVED this session (commit 36902173) — recover the original shadcn dark values as a starting point via `git show 36902173^:dental-4-12-main/project/src/app/components/ui` … actually the theme block: `git show 36902173~1:dental-4-12-main/project/src/styles/theme.css`. Those were near-black shadcn defaults; retune them to the FLORAL blue brand (`#1E40AF`).
+
+**Safe-to-interrupt build order** (each step ships working; keep the toggle hidden until Phase 2 is mostly done so users never see a half-dark UI):
+1. **Foundation (no visible change):** re-add `.dark {…}` token block to theme.css (retuned to brand). Add theme state — read `localStorage['theme']` (default 'light'), toggle `.dark` class on `document.documentElement`. Body already `@apply bg-background text-foreground` in the base layer, so the page bg flips once `.dark` is set. DON'T expose the toggle button yet.
+2. **Migrate surfaces component-by-component** (order: Root/sidebar → Dashboard → lists → DentalChart → Reports → forms/modals → Login/Reset). Per component swap hardcoded → tokens: `bg-white`→`bg-card`, `text-gray-900`→`text-foreground`, `text-gray-500`→`text-muted-foreground`, `bg-gray-50`→`bg-muted`, `border-gray-200`→`border-border`. Each screen must read correctly in BOTH themes before moving on.
+3. **Status/brand colors** (fewer spots): the green/red/amber/blue chips and `#1E40AF` brand need explicit dark variants — add inline `dark:` there (e.g. `bg-green-100 text-green-700` → `dark:bg-green-900/30 dark:text-green-300`). Brand blue needs a lighter dark-mode shade.
+4. **Edge cases (critical):**
+   - **PDF export + print MUST force LIGHT.** `exportDohReportToPdf` html2canvas-captures the live DOM — if dark is active the PDF/print comes out dark. Force a light context for the capture (temporarily strip `.dark` from the captured subtree, or capture with forced light tokens) and keep the `@media print` block light.
+   - **Charts** (recharts): use the `--chart-N` tokens (already themed) instead of hardcoded hex.
+   - **Skeleton.tsx** (`bg-gray-200`) + `gradeColors.ts`/`schoolColors.ts` — verify they read on dark; add dark values.
+5. **Expose the toggle** in Root.tsx sidebar (near Change Password / Logout), persist choice. Then test EVERY screen in both themes for WCAG contrast, confirm persistence across reload, and confirm PDF/print still light.
+
+Risk if rushed: a partial migration leaves a broken half-dark UI. That's why the toggle stays hidden until step 5.
+
 ## Sprint 23 (UI beautify) — STARTED 2026-07-05 via /impeccable audit (Opus)
 **`/impeccable audit` result: 13/20 (Acceptable→Good), anti-patterns PASS** (not AI-slop; familiar product UI, single blue brand). Full findings:
 - **[P1] Contrast — DONE 2026-07-05**: `text-gray-400` (#9ca3af ≈ 2.85:1 on white, fails WCAG AA) was used as readable text in 81 spots across 16 components. Bumped all → `text-gray-500` (≈4.6:1). Done via Node script (`scratchpad/fix_contrast.mjs`) because the Bash sandbox blocks sed/perl temp-file writes AND `cp` into the project dir — **use the Write/Edit tools or a Node fs.writeFileSync script for bulk edits here, not shell in-place edits**. tsc+build clean.
