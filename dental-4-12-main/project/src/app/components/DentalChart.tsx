@@ -722,7 +722,7 @@ export const DentalChart = () => {
                 ['Guardian Contact', student.guardian_contact || '—'],
               ].map(([label, val]) => (
                 <div key={label}>
-                  <div className="text-gray-400 font-medium">{label}</div>
+                  <div className="text-gray-500 font-medium">{label}</div>
                   <div className="text-gray-900">{val}</div>
                 </div>
               ))}
@@ -760,14 +760,14 @@ export const DentalChart = () => {
                     <button type="button" onClick={() => setSelectedYear(idx)} className="px-4 py-2.5 text-left text-xs font-medium transition-all">
                       <div>{y.iptr.school_year}</div>
                       {activeTab === 'chart' && (
-                        <div style={{ fontSize: '10px', marginTop: '2px' }} className={isActive ? 'text-blue-600' : 'text-gray-400'}>DMFT: {yrDmft.T + yrDmft.t}</div>
+                        <div style={{ fontSize: '10px', marginTop: '2px' }} className={isActive ? 'text-blue-600' : 'text-gray-500'}>DMFT: {yrDmft.T + yrDmft.t}</div>
                       )}
-                      <div style={{ fontSize: '10px', marginTop: '2px' }} className={isActive ? 'text-blue-600' : 'text-gray-400'}>
+                      <div style={{ fontSize: '10px', marginTop: '2px' }} className={isActive ? 'text-blue-600' : 'text-gray-500'}>
                         {formatDateStamp(y.dentalChart?.date_charted)}
                       </div>
                     </button>
                     {canEdit && isManagingYears && years.length > 1 && (
-                      <button type="button" onClick={() => handleDeleteYear(idx)} className="border-l border-gray-200 px-2 text-gray-400 transition-colors hover:bg-white hover:text-red-600" title={`Remove ${y.iptr.school_year}`}>
+                      <button type="button" onClick={() => handleDeleteYear(idx)} className="border-l border-gray-200 px-2 text-gray-500 transition-colors hover:bg-white hover:text-red-600" title={`Remove ${y.iptr.school_year}`}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     )}
@@ -781,7 +781,7 @@ export const DentalChart = () => {
                     {isManagingYears ? 'Done' : 'Edit Years'}
                   </button>
                   {isManagingYears && !!getNextSchoolYear() && (
-                    <button type="button" onClick={handleAddYear} className="flex-shrink-0 px-3 py-2 text-xs text-gray-400 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-300 transition-all">
+                    <button type="button" onClick={handleAddYear} className="flex-shrink-0 px-3 py-2 text-xs text-gray-500 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-300 transition-all">
                       + Add Year
                     </button>
                   )}
@@ -798,7 +798,7 @@ export const DentalChart = () => {
       <div className="bg-white rounded-xl border border-gray-200">
 
         {years.length === 0 ? (
-          <div className="p-12 text-center text-gray-400">
+          <div className="p-12 text-center text-gray-500">
             <p className="text-sm">No IPTR school-year records yet for this student.</p>
             {canEdit && <button onClick={handleAddYear} className="mt-3 px-4 py-2 bg-[#1E40AF] text-white rounded-lg text-sm font-medium hover:bg-blue-700">+ Start {getNextSchoolYear()}</button>}
           </div>
@@ -852,7 +852,7 @@ export const DentalChart = () => {
 
             <div className={!canEdit ? 'opacity-60' : ''}>
               <div className="text-xs font-bold text-gray-800 uppercase tracking-wide mb-2">
-                Oral Health Condition{!canEdit && <span className="ml-2 normal-case font-normal text-gray-400">(dentist only)</span>}
+                Oral Health Condition{!canEdit && <span className="ml-2 normal-case font-normal text-gray-500">(dentist only)</span>}
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1.5">
                 {([
@@ -1030,7 +1030,7 @@ export const DentalChart = () => {
           <div className="p-4 space-y-4">
             <div className="bg-gray-50 rounded-xl p-4 w-48">
               <div className="text-xs text-gray-500 mb-1">Consent Status</div>
-              <div className={`text-sm font-bold ${student.consent_status === 'complete' ? 'text-green-600' : 'text-gray-400'}`}>
+              <div className={`text-sm font-bold ${student.consent_status === 'complete' ? 'text-green-600' : 'text-gray-500'}`}>
                 {student.consent_status === 'complete' ? 'Completed' : 'Pending'}
               </div>
             </div>
@@ -1044,12 +1044,12 @@ export const DentalChart = () => {
                 <div>
                   <div className="text-xs text-gray-500 mb-2">Lagda ng Pasyente</div>
                   <div className="border-b-2 border-gray-400 h-10 mb-1" />
-                  <div className="text-xs text-gray-400">Pirma sa itaas ng pangalan</div>
+                  <div className="text-xs text-gray-500">Pirma sa itaas ng pangalan</div>
                 </div>
                 <div>
                   <div className="text-xs text-gray-500 mb-2">Lagda ng Magulang o Guardian</div>
                   <div className="border-b-2 border-gray-400 h-10 mb-1" />
-                  <div className="text-xs text-gray-400">Pirma sa itaas ng pangalan</div>
+                  <div className="text-xs text-gray-500">Pirma sa itaas ng pangalan</div>
                 </div>
               </div>
               <label className={`flex items-center gap-2 mt-4 ${canEdit ? 'cursor-pointer' : 'cursor-default'}`}>
@@ -1076,7 +1076,7 @@ export const DentalChart = () => {
                 <Link to="/appointments" className="text-xs text-blue-600 hover:underline">View all →</Link>
               </div>
               {studentAppointments.length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-4">No upcoming appointments scheduled.</p>
+                <p className="text-xs text-gray-500 text-center py-4">No upcoming appointments scheduled.</p>
               ) : (
                 <div className="space-y-2">
                   {studentAppointments.map((apt) => (
@@ -1101,7 +1101,7 @@ export const DentalChart = () => {
             for (const tr of y.toothRecords) chart[tr.tooth_number] = { condition: tr.condition, treatment: tr.treatment_code ?? '' };
             return { year: y.iptr.school_year, ...computeDMFT(chart) };
           });
-          if (dmftByYear.length === 0) return <div className="p-8 text-center text-gray-400 text-sm">No records yet.</div>;
+          if (dmftByYear.length === 0) return <div className="p-8 text-center text-gray-500 text-sm">No records yet.</div>;
           return (
           <div className="p-4 space-y-6">
             <div className="space-y-1">
@@ -1189,7 +1189,7 @@ export const DentalChart = () => {
               </div>
             )}
             {allTreatments.length === 0 ? (
-              <p className="text-center text-gray-400 text-sm py-12">No treatment records yet.</p>
+              <p className="text-center text-gray-500 text-sm py-12">No treatment records yet.</p>
             ) : (
             <>
             <div className="hidden md:block overflow-x-auto rounded-lg border border-gray-200">
@@ -1221,7 +1221,7 @@ export const DentalChart = () => {
                   </div>
                   <p className="text-xs text-gray-600"><span className="font-medium">Dx:</span> {t.diagnosis}</p>
                   <p className="text-xs text-gray-600"><span className="font-medium">Tx:</span> {t.treatment_done}</p>
-                  {t.remarks && <p className="text-xs text-gray-400 italic">{t.remarks}</p>}
+                  {t.remarks && <p className="text-xs text-gray-500 italic">{t.remarks}</p>}
                 </div>
               ))}
             </div>
@@ -1235,7 +1235,7 @@ export const DentalChart = () => {
              persistence that doesn't exist. ── */}
         {activeTab === 'referrals' && (
           <div className="p-4">
-            <div className="text-center py-12 text-gray-400">
+            <div className="text-center py-12 text-gray-500">
               <FileText className="w-8 h-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm font-medium text-gray-500">Referral Tracking Not Yet Available</p>
               <p className="text-xs mt-1 max-w-sm mx-auto">There's no referral-tracking model in the system yet. Referrals to outside facilities should be noted in Treatment History remarks for now.</p>
@@ -1248,7 +1248,7 @@ export const DentalChart = () => {
              this tab just points there rather than duplicating that UI. ── */}
         {activeTab === 'ai' && (
           <div className="p-4">
-            <div className="text-center py-12 text-gray-400">
+            <div className="text-center py-12 text-gray-500">
               <Brain className="w-8 h-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm font-medium text-gray-500">Risk assessments live on the Risk Classification page</p>
               <p className="text-xs mt-1 max-w-sm mx-auto">Generate, validate, and save AI-assisted risk assessments for this student from the dedicated page. The current model is trained on synthetic placeholder data until real IPTR records are available.</p>

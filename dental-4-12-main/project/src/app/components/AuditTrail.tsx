@@ -90,7 +90,7 @@ export const AuditTrail = () => {
       {/* Filters */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <div className="flex items-center gap-2 mb-4">
-          <Filter className="w-5 h-5 text-gray-400" />
+          <Filter className="w-5 h-5 text-gray-500" />
           <h3 className="font-semibold text-gray-900">Filters</h3>
         </div>
 
@@ -98,7 +98,7 @@ export const AuditTrail = () => {
           {/* Search */}
           <div className="lg:col-span-2">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
               <input
                 type="text"
                 placeholder="Search logs..."
@@ -142,7 +142,7 @@ export const AuditTrail = () => {
           {/* Date Range */}
           <div className="lg:col-span-2 grid grid-cols-2 gap-2">
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
               <input
                 type="date"
                 value={startDate}
@@ -151,7 +151,7 @@ export const AuditTrail = () => {
               />
             </div>
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
               <input
                 type="date"
                 value={endDate}
@@ -189,7 +189,7 @@ export const AuditTrail = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">{log.module}</span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-400 font-mono">{log.affectedRecordId}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500 font-mono">{log.affectedRecordId}</td>
                 </tr>
               ))}
             </tbody>
@@ -212,14 +212,14 @@ export const AuditTrail = () => {
               <div>
                 <span className={`text-sm font-medium ${getActionColor(log.action)}`}>{log.action}</span>
               </div>
-              <div className="text-xs text-gray-400 font-mono">{log.affectedRecordId}</div>
+              <div className="text-xs text-gray-500 font-mono">{log.affectedRecordId}</div>
             </div>
           </div>
         ))}
       </div>
 
       {filteredLogs.length === 0 && (
-        <div className="py-12 text-center text-gray-400">
+        <div className="py-12 text-center text-gray-500">
           <Filter className="w-8 h-8 mx-auto mb-2 opacity-30" />
           <p className="text-sm">No audit logs found matching your filters.</p>
         </div>

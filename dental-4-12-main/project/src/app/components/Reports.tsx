@@ -446,7 +446,7 @@ export const Reports = () => {
 
                     const isSub   = row.type === 'sub';
                     const field   = row.field;
-                    const labelPadding = isSub ? 'pl-8 italic text-gray-400' : (row as any).indent ? 'pl-5 text-gray-700' : 'font-medium text-gray-800';
+                    const labelPadding = isSub ? 'pl-8 italic text-gray-500' : (row as any).indent ? 'pl-5 text-gray-700' : 'font-medium text-gray-800';
 
                     return (
                       <tr key={idx} className="group border-b border-gray-100 hover:bg-yellow-50 transition-colors">
@@ -493,7 +493,7 @@ export const Reports = () => {
                   the PDF. sticky left-0 keeps it from scrolling horizontally
                   with the table on screen (same trick as the Indicator column),
                   and it still renders at the left in the capture (scrollLeft 0). */}
-              <div className="sticky left-0 bg-white px-4 py-2 border-t border-gray-100 flex items-center justify-between gap-4 text-[10px] text-gray-400">
+              <div className="sticky left-0 bg-white px-4 py-2 border-t border-gray-100 flex items-center justify-between gap-4 text-[10px] text-gray-500">
                 <span>Prepared by: Dr. Maria Santos, Dentist · Barangay Tanyag Dental Clinic</span>
                 <span>{MONTHS[reportMonth-1]} {reportYear}</span>
               </div>
@@ -554,7 +554,7 @@ export const Reports = () => {
                     <X className="w-3 h-3" /> Clear
                   </button>
                 )}
-                <span className="text-xs text-gray-400 ml-auto">{MONTHS[reportMonth-1]} {reportYear}{periodType==='biannual'?' (6-month period)':periodType==='annual'?' (full year)':''}</span>
+                <span className="text-xs text-gray-500 ml-auto">{MONTHS[reportMonth-1]} {reportYear}{periodType==='biannual'?' (6-month period)':periodType==='annual'?' (full year)':''}</span>
               </div>
 
               {/* Summary cards */}
@@ -800,8 +800,8 @@ export const Reports = () => {
                     })}
                   </div>
                   <div className="mt-4 pt-3 border-t border-gray-100 grid grid-cols-2 gap-2 text-center text-xs">
-                    <div><div className="text-base font-bold text-green-600">{totalComplete}</div><div className="text-gray-400">Complete</div></div>
-                    <div><div className="text-base font-bold text-yellow-600">{totalPending}</div><div className="text-gray-400">Pending</div></div>
+                    <div><div className="text-base font-bold text-green-600">{totalComplete}</div><div className="text-gray-500">Complete</div></div>
+                    <div><div className="text-base font-bold text-yellow-600">{totalPending}</div><div className="text-gray-500">Pending</div></div>
                   </div>
                 </div>
               </div>
@@ -812,7 +812,7 @@ export const Reports = () => {
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
                   <h3 className="text-sm font-bold text-gray-900">Treatment Sessions</h3>
-                  <span className="text-xs text-gray-400">{mockSessions.length} sessions recorded</span>
+                  <span className="text-xs text-gray-500">{mockSessions.length} sessions recorded</span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
@@ -823,7 +823,7 @@ export const Reports = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {mockSessions.length === 0 ? (
-                        <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400">No treatment sessions recorded yet.</td></tr>
+                        <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-500">No treatment sessions recorded yet.</td></tr>
                       ) : mockSessions.map((s, i) => {
                         const pct = Math.round((s.treated / s.students) * 100);
                         return (
@@ -858,7 +858,7 @@ export const Reports = () => {
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
                   <h3 className="text-sm font-bold text-gray-900">Referral Tracking</h3>
-                  <span className="text-xs text-gray-400">{mockReferrals.length} referrals issued</span>
+                  <span className="text-xs text-gray-500">{mockReferrals.length} referrals issued</span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
@@ -869,7 +869,7 @@ export const Reports = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {mockReferrals.length === 0 ? (
-                        <tr><td colSpan={8} className="px-4 py-6 text-center text-gray-400">No referrals recorded yet.</td></tr>
+                        <tr><td colSpan={8} className="px-4 py-6 text-center text-gray-500">No referrals recorded yet.</td></tr>
                       ) : mockReferrals.map((r, i) => (
                         <>
                         <tr key={i} onClick={() => setExpandedReferral(expandedReferral === i ? null : i)}

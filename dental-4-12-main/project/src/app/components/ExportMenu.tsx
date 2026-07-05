@@ -43,10 +43,10 @@ export const ExportMenu = ({ onExport }: { onExport: (format: ExportFormat) => v
       {open && (
         <div role="menu" className="absolute right-0 mt-1 w-44 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-20">
           <button role="menuitem" onClick={() => pick('csv')} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">
-            <FileText className="w-4 h-4 text-gray-400" /> CSV (.csv)
+            <FileText className="w-4 h-4 text-gray-500" /> CSV (.csv)
           </button>
           <button role="menuitem" onClick={() => pick('xlsx')} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">
-            <FileSpreadsheet className="w-4 h-4 text-gray-400" /> Excel (.xlsx)
+            <FileSpreadsheet className="w-4 h-4 text-gray-500" /> Excel (.xlsx)
           </button>
         </div>
       )}

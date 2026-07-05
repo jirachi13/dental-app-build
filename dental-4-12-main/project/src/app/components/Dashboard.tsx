@@ -272,7 +272,7 @@ export const Dashboard = () => {
   // model) -- never fabricate numbers just to make a chart look populated.
   const NoDataYet = ({ message }: { message: string }) => (
     <div className="flex items-center justify-center text-center px-4" style={{ height: 220 }}>
-      <p className="text-sm text-gray-400">{message}</p>
+      <p className="text-sm text-gray-500">{message}</p>
     </div>
   );
 
@@ -577,7 +577,7 @@ export const Dashboard = () => {
         {/* Task List -- same reason as above, no backing model */}
         <div className="bg-white p-4 rounded-xl border border-gray-200">
           <h2 className="text-sm font-bold text-gray-900 mb-3">Pending Tasks</h2>
-          <p className="text-sm text-gray-400 text-center py-12">No task-tracking system exists yet.</p>
+          <p className="text-sm text-gray-500 text-center py-12">No task-tracking system exists yet.</p>
         </div>
       </div>
     );
@@ -715,7 +715,7 @@ export const Dashboard = () => {
         <div className="bg-white p-4 rounded-xl border border-gray-200">
           <h2 className="text-sm font-bold text-gray-900 mb-3">Upcoming Bayanihan Events</h2>
           {upcomingEvents.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-12">No upcoming Bayanihan Mission events scheduled.</p>
+            <p className="text-sm text-gray-500 text-center py-12">No upcoming Bayanihan Mission events scheduled.</p>
           ) : (
             <div className="space-y-3">
               {upcomingEvents.map((event, idx) => (
@@ -942,7 +942,7 @@ export const Dashboard = () => {
             icon={CheckCircle}
             label="System Uptime"
             value="N/A"
-            color="text-gray-400"
+            color="text-gray-500"
             trend="not monitored"
             linkTo="/audit"
           />
@@ -950,7 +950,7 @@ export const Dashboard = () => {
             icon={AlertCircle}
             label="Failed Logins Today"
             value="N/A"
-            color="text-gray-400"
+            color="text-gray-500"
             trend="not tracked"
             linkTo="/audit"
           />
@@ -958,7 +958,7 @@ export const Dashboard = () => {
             icon={Clock}
             label="Pending Actions"
             value="N/A"
-            color="text-gray-400"
+            color="text-gray-500"
             trend="no task-tracking system"
             linkTo="/audit"
           />
@@ -1003,7 +1003,7 @@ export const Dashboard = () => {
         <div className="bg-white p-4 rounded-xl border border-gray-200">
           <h2 className="text-sm font-bold text-gray-900 mb-3">Recent Audit Activity</h2>
           {recentAudit.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-12">No audit trail activity recorded yet.</p>
+            <p className="text-sm text-gray-500 text-center py-12">No audit trail activity recorded yet.</p>
           ) : (
             <div className="space-y-3">
               {recentAudit.map((log, idx) => (

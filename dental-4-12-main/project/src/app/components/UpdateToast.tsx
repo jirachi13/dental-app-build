@@ -25,7 +25,7 @@ export const UpdateToast = () => {
       <button
         onClick={() => setNeedRefresh(false)}
         aria-label="Dismiss update notification"
-        className="text-gray-400 hover:text-gray-600 shrink-0"
+        className="text-gray-500 hover:text-gray-600 shrink-0"
       >
         <X className="w-4 h-4" />
       </button>

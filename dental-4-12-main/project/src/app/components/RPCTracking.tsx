@@ -220,7 +220,7 @@ export const RPCTracking = () => {
 
       <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input type="text" placeholder="Search student..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
@@ -246,7 +246,7 @@ export const RPCTracking = () => {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-12 text-gray-400">No records match the selected filters.</td></tr>
+                <tr><td colSpan={7} className="text-center py-12 text-gray-500">No records match the selected filters.</td></tr>
               ) : filtered.map(r => {
                 const sc = statusConfig[r.status] || statusConfig['not-started'];
                 const gc = getGradeColor(r.grade);
@@ -263,10 +263,10 @@ export const RPCTracking = () => {
                       <span className="inline-block px-2 py-0.5 rounded text-xs font-semibold" style={{backgroundColor:gc.light,color:gc.solid}}>{r.grade}</span>
                       <span className="text-gray-500 text-xs ml-1">{r.section}</span>
                     </td>
-                    <td className="px-4 py-3">{r.visit1Date ? <span className="text-green-700 text-xs flex items-center gap-1"><CheckCircle className="w-3 h-3"/>{r.visit1Date}</span> : <span className="text-gray-400 text-xs">Not done</span>}</td>
-                    <td className="px-4 py-3">{r.visit2Date ? <span className="text-green-700 text-xs flex items-center gap-1"><CheckCircle className="w-3 h-3"/>{r.visit2Date}{r.earlyVisit2 && <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold" title="Visit 2 recorded less than 4 months after Visit 1">early</span>}</span> : <span className="text-gray-400 text-xs">Not done</span>}</td>
+                    <td className="px-4 py-3">{r.visit1Date ? <span className="text-green-700 text-xs flex items-center gap-1"><CheckCircle className="w-3 h-3"/>{r.visit1Date}</span> : <span className="text-gray-500 text-xs">Not done</span>}</td>
+                    <td className="px-4 py-3">{r.visit2Date ? <span className="text-green-700 text-xs flex items-center gap-1"><CheckCircle className="w-3 h-3"/>{r.visit2Date}{r.earlyVisit2 && <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold" title="Visit 2 recorded less than 4 months after Visit 1">early</span>}</span> : <span className="text-gray-500 text-xs">Not done</span>}</td>
                     <td className="px-4 py-3"><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${sc.bg} ${sc.color}`}>{sc.label}</span></td>
-                    <td className="px-4 py-3 text-sm">{r.status==='overdue'?<span className="text-red-600 font-semibold">{Math.abs(r.daysUntilDue)}d overdue</span>:r.daysUntilDue>0?<span className="text-blue-600">{r.daysUntilDue}d</span>:<span className="text-gray-400">—</span>}</td>
+                    <td className="px-4 py-3 text-sm">{r.status==='overdue'?<span className="text-red-600 font-semibold">{Math.abs(r.daysUntilDue)}d overdue</span>:r.daysUntilDue>0?<span className="text-blue-600">{r.daysUntilDue}d</span>:<span className="text-gray-500">—</span>}</td>
                   </tr>
                 );
               })}

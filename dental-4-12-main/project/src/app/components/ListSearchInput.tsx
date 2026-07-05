@@ -12,7 +12,7 @@ export const ListSearchInput = ({
   placeholder = 'Search student, grade, or section...',
 }: ListSearchInputProps) => (
   <label className="relative min-w-[240px] flex-1 sm:flex-none">
-    <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+    <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
     <input
       type="text"
       value={value}

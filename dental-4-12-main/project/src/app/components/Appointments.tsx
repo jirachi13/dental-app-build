@@ -279,7 +279,7 @@ export const Appointments = () => {
               <Users className="w-3 h-3" />
               <span>{a.studentCount} students</span>
             </div>
-            <div className="text-xs text-gray-400 mt-0.5">{a.type} · {a.dentist}</div>
+            <div className="text-xs text-gray-500 mt-0.5">{a.type} · {a.dentist}</div>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -431,7 +431,7 @@ export const Appointments = () => {
             <span className="text-sm font-semibold text-gray-900">Today — {new Date(TODAY).toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
           </div>
           {todayAppts.length === 0 ? (
-            <div className="py-12 text-center text-gray-400">
+            <div className="py-12 text-center text-gray-500">
               <CalendarIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm">No appointments scheduled for today</p>
             </div>
@@ -448,7 +448,7 @@ export const Appointments = () => {
             <span className="text-sm font-semibold text-gray-900">Upcoming Appointments</span>
           </div>
           {upcomingAppts.length === 0 ? (
-            <div className="py-12 text-center text-gray-400">
+            <div className="py-12 text-center text-gray-500">
               <CalendarIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm">No upcoming appointments</p>
             </div>
@@ -457,7 +457,7 @@ export const Appointments = () => {
               <div key={a.id} className="flex items-center gap-4 px-4 py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50">
                 <div className="text-center min-w-[48px]">
                   <div className="text-lg font-bold text-[#1E40AF]">{a.date.split('-')[2]}</div>
-                  <div className="text-xs text-gray-400">{new Date(a.date + 'T00:00:00').toLocaleString('default', { month: 'short' })}</div>
+                  <div className="text-xs text-gray-500">{new Date(a.date + 'T00:00:00').toLocaleString('default', { month: 'short' })}</div>
                 </div>
                 <div className="flex-1 min-w-0">
                   <AppointmentCard a={a} showActions />
@@ -475,7 +475,7 @@ export const Appointments = () => {
             <span className="text-sm font-semibold text-gray-900">Completed Appointments</span>
           </div>
           {completedAppts.length === 0 ? (
-            <div className="py-12 text-center text-gray-400">
+            <div className="py-12 text-center text-gray-500">
               <CalendarIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm">No completed appointments</p>
             </div>
@@ -492,7 +492,7 @@ export const Appointments = () => {
             <span className="text-sm font-semibold text-gray-900">Missed Appointments</span>
           </div>
           {missedAppts.length === 0 ? (
-            <div className="py-12 text-center text-gray-400">
+            <div className="py-12 text-center text-gray-500">
               <CalendarIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm">No missed appointments</p>
             </div>
@@ -523,7 +523,7 @@ export const Appointments = () => {
                     <span style={{ color: sc.text }} className="font-bold text-sm">{getSchoolShortName(school)}</span>
                   </div>
                   {schoolRots.length === 0 ? (
-                    <p className="text-xs text-gray-400 pl-6">No rotation schedule set</p>
+                    <p className="text-xs text-gray-500 pl-6">No rotation schedule set</p>
                   ) : (
                     <div className="pl-6 space-y-1.5">
                       {schoolRots.map(r => (
@@ -620,7 +620,7 @@ export const Appointments = () => {
                           onChange={() => setSelectedStudents(prev => prev.includes(s.id) ? prev.filter(x => x !== s.id) : [...prev, s.id])}
                           className="w-4 h-4 rounded accent-blue-600" />
                         <span className="text-sm text-gray-700">{s.name}</span>
-                        <span className="text-xs text-gray-400 ml-auto">{s.gender} · {new Date().getFullYear() - new Date(s.birthdate).getFullYear()}y</span>
+                        <span className="text-xs text-gray-500 ml-auto">{s.gender} · {new Date().getFullYear() - new Date(s.birthdate).getFullYear()}y</span>
                       </label>
                     ))}
                   </div>

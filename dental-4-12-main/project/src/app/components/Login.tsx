@@ -116,7 +116,7 @@ export const Login = () => {
                   Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                   <input
                     id="login-email"
                     type="email"
@@ -134,7 +134,7 @@ export const Login = () => {
                   Password
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                   <input
                     id="login-password"
                     type={showPassword ? 'text' : 'password'}
@@ -147,7 +147,7 @@ export const Login = () => {
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -226,7 +226,7 @@ export const Login = () => {
                   type="button"
                   onClick={handleResend}
                   disabled={resendCooldown > 0}
-                  className="text-[#1E40AF] hover:underline disabled:text-gray-400 disabled:no-underline"
+                  className="text-[#1E40AF] hover:underline disabled:text-gray-500 disabled:no-underline"
                 >
                   {resendCooldown > 0 ? `Resend code (${resendCooldown}s)` : 'Resend code'}
                 </button>
@@ -242,7 +242,7 @@ export const Login = () => {
                 No email set up? Contact your System Admin instead.
               </p>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <input
                   type="email"
                   value={email}

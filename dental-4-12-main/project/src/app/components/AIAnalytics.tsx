@@ -343,7 +343,7 @@ export const AIAnalytics = () => {
           <div className="bg-white rounded-xl border border-gray-200 flex flex-col max-h-[70vh]">
             <div className="p-3 border-b border-gray-200 space-y-2">
               <div className="relative">
-                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -410,7 +410,7 @@ export const AIAnalytics = () => {
             </div>
             <div className="overflow-y-auto divide-y divide-gray-100">
               {filtered.length === 0 && (
-                <div className="text-gray-400 text-sm py-12 text-center">No students found</div>
+                <div className="text-gray-500 text-sm py-12 text-center">No students found</div>
               )}
               {filtered.map((c) => {
                 const latest = c.history[c.history.length - 1];
@@ -516,7 +516,7 @@ export const AIAnalytics = () => {
                   <div className="bg-white rounded-xl border border-gray-200 p-4">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="font-semibold text-gray-900">Model Assessment</h3>
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-500">
                         {prediction.algorithm}
                         {generatedAt && ` · generated ${generatedAt.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`}
                       </span>
@@ -644,7 +644,7 @@ export const AIAnalytics = () => {
                     })()}
                   </div>
                   {selected.history.length === 0 ? (
-                    <p className="text-gray-400 text-sm py-6 text-center">
+                    <p className="text-gray-500 text-sm py-6 text-center">
                       No previous risk assessments for this student.
                     </p>
                   ) : (
@@ -659,9 +659,9 @@ export const AIAnalytics = () => {
                                 {h.riskLevel}
                               </span>
                               <span className="text-gray-600">Visit: {h.visitDate}</span>
-                              <span className="text-gray-400">DMF {h.dmfScore}</span>
+                              <span className="text-gray-500">DMF {h.dmfScore}</span>
                             </div>
-                            <span className={`text-xs ${h.validated ? 'text-green-700' : 'text-gray-400'}`}>
+                            <span className={`text-xs ${h.validated ? 'text-green-700' : 'text-gray-500'}`}>
                               {h.validated ? 'Dentist-validated' : 'Not validated'}
                             </span>
                           </li>

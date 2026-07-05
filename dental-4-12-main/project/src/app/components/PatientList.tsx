@@ -484,7 +484,7 @@ export const PatientList = () => {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
             <div className="flex items-center justify-between p-6 border-b">
               <h2 className="text-lg font-bold text-gray-900">Scan IPTR Form</h2>
-              <button onClick={() => setShowOcrUpload(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+              <button onClick={() => setShowOcrUpload(false)} className="text-gray-500 hover:text-gray-600"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-6 space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
@@ -498,9 +498,9 @@ export const PatientList = () => {
                   onDragOver={e => e.preventDefault()}
                   onDrop={e => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) handleOcrFile(file); }}
                 >
-                  <ScanLine className="w-8 h-8 text-gray-400 mx-auto mb-3" />
+                  <ScanLine className="w-8 h-8 text-gray-500 mx-auto mb-3" />
                   <p className="text-sm text-gray-600 font-medium">Drop IPTR image here</p>
-                  <p className="text-xs text-gray-400 mt-1">or click to browse</p>
+                  <p className="text-xs text-gray-500 mt-1">or click to browse</p>
                   <input id="ocr-file-input" type="file" accept="image/png,image/jpeg,image/jpg,application/pdf" className="hidden"
                     onChange={e => { if (e.target.files?.[0]) handleOcrFile(e.target.files[0]); }} />
                 </div>
@@ -522,7 +522,7 @@ export const PatientList = () => {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b">
               <h2 className="text-lg font-bold text-gray-900">Add New Student</h2>
-              <button onClick={() => { setShowAddForm(false); setOcrConfidences({}); }} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+              <button onClick={() => { setShowAddForm(false); setOcrConfidences({}); }} className="text-gray-500 hover:text-gray-600"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-6 space-y-4">
               {Object.keys(ocrConfidences).length > 0 && (
@@ -588,9 +588,9 @@ export const PatientList = () => {
                       if (file) { setBulkFile(file); }
                     }}
                   >
-                    <Upload className="w-8 h-8 text-gray-400 mx-auto mb-3" />
+                    <Upload className="w-8 h-8 text-gray-500 mx-auto mb-3" />
                     <p className="text-sm text-gray-600 font-medium">{bulkFile ? bulkFile.name : 'Drop CSV / Excel file here'}</p>
-                    <p className="text-xs text-gray-400 mt-1">{bulkFile ? `${(bulkFile.size / 1024).toFixed(1)} KB` : 'or click to browse'}</p>
+                    <p className="text-xs text-gray-500 mt-1">{bulkFile ? `${(bulkFile.size / 1024).toFixed(1)} KB` : 'or click to browse'}</p>
                     <input id="bulk-file-input" type="file" accept=".csv,.xlsx,.xls" className="hidden"
                       onChange={e => { if (e.target.files?.[0]) setBulkFile(e.target.files[0]); }} />
                   </div>

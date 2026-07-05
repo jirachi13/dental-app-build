@@ -8,6 +8,6 @@ export const studentListTableStyles = {
   row: 'hover:bg-gray-50 transition-colors cursor-pointer',
   primaryCell: 'px-4 py-3 font-medium text-gray-900',
   secondaryCell: 'px-4 py-3 text-gray-600',
-  emptyCell: 'text-center py-12 text-gray-400',
+  emptyCell: 'text-center py-12 text-gray-500',
   footer: 'px-4 py-3 border-t border-gray-100 text-sm text-gray-500',
 } as const;
