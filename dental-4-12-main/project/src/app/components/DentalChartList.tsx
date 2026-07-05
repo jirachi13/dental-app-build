@@ -119,7 +119,7 @@ export const DentalChartList = () => {
             </thead>
             <tbody className={studentListTableStyles.body}>
               {filtered.length === 0 ? (
-                <tr><td colSpan={5} className={studentListTableStyles.emptyCell}>No dental charts match the selected filters.</td></tr>
+                <tr><td colSpan={5} className={studentListTableStyles.emptyCell}>{hasActiveFilters ? <>No students match your filters. <button onClick={clearFilters} className="text-[#1E40AF] hover:underline font-medium">Clear filters</button></> : 'No students at this school yet.'}</td></tr>
               ) : filtered.map(patient => {
                 const age = calculateAge(patient.birthdate);
                 return (

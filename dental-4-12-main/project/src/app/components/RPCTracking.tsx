@@ -247,7 +247,7 @@ export const RPCTracking = () => {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-12 text-gray-500">No records match the selected filters.</td></tr>
+                <tr><td colSpan={7} className="text-center py-12 text-gray-500">{hasActiveFilters ? <>No records match your filters. <button onClick={clearFilters} className="text-[#1E40AF] hover:underline font-medium">Clear filters</button></> : 'No RPC records for this school yet.'}</td></tr>
               ) : filtered.map(r => {
                 const sc = statusConfig[r.status] || statusConfig['not-started'];
                 const gc = getGradeColor(r.grade);
