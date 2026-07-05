@@ -10,6 +10,7 @@ import { useDentalChartData } from '../hooks/useDentalChartData';
 import { apiClient, ApiError } from '../api/client';
 import { toLocalDateString } from '../utils/localDate';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
+import { ConfirmDialog } from './ConfirmDialog';
 
 // ─── FDI tooth layout ─────────────────────────────────────────────────────────
 const upperPermanent = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
@@ -310,6 +311,9 @@ export const DentalChart = () => {
     }
   };
 
+  const [confirmDeleteYear, setConfirmDeleteYear] = useState<number | null>(null);
+  const [deletingYear, setDeletingYear] = useState(false);
+
   const handleDeleteYear = async (yearIndex: number) => {
     if (!canEdit || years.length <= 1) return;
     const iptrId = years[yearIndex]?.iptr._id;
@@ -320,6 +324,16 @@ export const DentalChart = () => {
       await reload();
     } catch (err) {
       setSaveError(err instanceof ApiError ? err.message : 'Failed to remove school year');
+    }
+  };
+  const confirmDeleteYearNow = async () => {
+    if (confirmDeleteYear === null) return;
+    setDeletingYear(true);
+    try {
+      await handleDeleteYear(confirmDeleteYear);
+      setConfirmDeleteYear(null);
+    } finally {
+      setDeletingYear(false);
     }
   };
 
@@ -767,7 +781,7 @@ export const DentalChart = () => {
                       </div>
                     </button>
                     {canEdit && isManagingYears && years.length > 1 && (
-                      <button type="button" onClick={() => handleDeleteYear(idx)} className="border-l border-gray-200 px-2 text-gray-500 transition-colors hover:bg-white hover:text-red-600" title={`Remove ${y.iptr.school_year}`}>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmDeleteYear(idx); }} className="border-l border-gray-200 px-2 text-gray-500 transition-colors hover:bg-white hover:text-red-600" title={`Remove ${y.iptr.school_year}`}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     )}
@@ -1259,6 +1273,15 @@ export const DentalChart = () => {
         </>
         )}
       </div>
+      <ConfirmDialog
+        open={confirmDeleteYear !== null}
+        title={`Remove ${confirmDeleteYear !== null ? years[confirmDeleteYear]?.iptr.school_year ?? 'school year' : 'school year'}?`}
+        message="This archives the entire school year — its dental chart and medical, dietary, and oral-health records. A System Admin can restore it from the archive."
+        confirmLabel="Remove year"
+        busy={deletingYear}
+        onConfirm={confirmDeleteYearNow}
+        onCancel={() => setConfirmDeleteYear(null)}
+      />
     </div>
   );
 };
