@@ -1,5 +1,15 @@
 # HANDOFF — Phase 3 pipeline dry-run complete on SYNTHETIC data (Sprints 21a-21f exercised end-to-end; real data still blocked)
 
+## TURNOVER CHECKLIST (accounts/credentials — flagged 2026-07-06, do at handover)
+Re-owner or rotate every external credential/account, and swap demo logins for real staff:
+- **MongoDB Atlas** (DB) · **Vercel** (frontend+API host) · **Render** (ML service) · **GitHub** (repo owner) — transfer ownership or move to client-owned accounts; update all env vars.
+- **Brevo** — new account/sender + **rotate BREVO_API_KEY** (it passed through chat); update in .env + Vercel.
+- **Env vars everywhere**: MONGODB_URI, JWT secrets, ENCRYPTION_KEY (⚠ re-keying encryption needs data migration — the encrypted STUDENT/TREATMENT fields), RENDER_API_KEY, SEED_ADMIN_*, APP_URL.
+- **Demo logins → real staff emails** (so 2FA + password reset work) — ties to the data-cleanup below.
+
+## REPORT PRINT (browser Print) — cropped / rows missing (flagged 2026-07-06, NOT fixed)
+The DOH report's browser Print (`window.print()`) crops the 77-col table and drops rows: `styles/index.css` `@media print` uses `#doh-report-printable { zoom: 0.45 }` — a fixed guess (its own comment admits it) that can't fit 77 columns on paper, and `tr { break-inside: avoid }` still loses content. **Print is the weakest path** — Download PDF (single zoomable page) and Download Excel (real column pagination) already handle this well. Options for a real fix next session: (a) apply the same column-band approach to print CSS (needs visual iteration), or (b) de-emphasize/remove the DOH Print button and point users to PDF/Excel. Needs a live print-preview to verify — don't guess at zoom values blind.
+
 ## PRE-TURNOVER DATA CLEANUP (flagged 2026-07-06 — user-gated, do NOT run early)
 Before real go-live/turnover, all seeded demo/fake data must be purged and replaced with real records:
 - **Demo accounts**: `admin@floral.local`, `admin@floral.com`, and any seeded demo dentist/aide/school-admin/bho users (from `seed:admin`/`seed:demo`). Replace with real staff accounts (real emails so 2FA + reset actually work — ties to the existing "swap account emails at turnover" note).
