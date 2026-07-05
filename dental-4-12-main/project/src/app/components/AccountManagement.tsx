@@ -3,6 +3,7 @@ import { Plus, Edit, Power, Search, KeyRound } from 'lucide-react';
 import { useUsers, ROLE_LABELS } from '../hooks/useUsers';
 import { apiClient, ApiError } from '../api/client';
 import type { ApiRole } from '../api/types';
+import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 
 const ROLES: ApiRole[] = ['dentist', 'dental_aide', 'school_admin', 'bho_staff', 'system_admin'];
 
@@ -173,7 +174,12 @@ export const AccountManagement = () => {
   };
 
   if (loading) {
-    return <div className="text-sm text-gray-500 p-8 text-center">Loading accounts…</div>;
+    return (
+      <div className="space-y-4">
+        <SkeletonPageHeader />
+        <SkeletonTable rows={8} />
+      </div>
+    );
   }
 
   return (

@@ -7,6 +7,7 @@ import { GradePill } from './GradePill';
 import { useDohReportData } from '../hooks/useDohReportData';
 import { exportDohReportToPdf } from '../utils/exportPdf';
 import { exportDohReportToXlsx } from '../utils/exportDohXlsx';
+import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { apiClient } from '../api/client';
 import type { ApiTreatment } from '../api/types';
 import { useStudents } from '../hooks/useStudents';
@@ -272,7 +273,12 @@ export const Reports = () => {
   const tdBase = "text-center px-1 py-1 font-mono border-r border-gray-100 text-[10px]";
 
   if (dohLoading) {
-    return <div className="text-sm text-gray-500 p-8 text-center">Loading report data…</div>;
+    return (
+      <div className="space-y-4">
+        <SkeletonPageHeader />
+        <SkeletonTable rows={8} />
+      </div>
+    );
   }
 
   return (

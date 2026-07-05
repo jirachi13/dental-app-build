@@ -8,6 +8,7 @@ import { studentListTableStyles } from './StudentListTableStyles';
 import { getQueuedStudentIds } from '../utils/queueStorage';
 import { useStudents } from '../hooks/useStudents';
 import { useAuth } from '../context/AuthContext';
+import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 
@@ -82,7 +83,12 @@ export const DentalChartNav = () => {
   );
 
   if (studentsLoading) {
-    return <div className="text-sm text-gray-500 p-8 text-center">Loading students…</div>;
+    return (
+      <div className="space-y-4">
+        <SkeletonPageHeader />
+        <SkeletonTable rows={8} />
+      </div>
+    );
   }
 
   return (

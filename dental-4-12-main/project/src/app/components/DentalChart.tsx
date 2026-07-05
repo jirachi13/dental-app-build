@@ -9,6 +9,7 @@ import { useAppointments } from '../hooks/useAppointments';
 import { useDentalChartData } from '../hooks/useDentalChartData';
 import { apiClient, ApiError } from '../api/client';
 import { toLocalDateString } from '../utils/localDate';
+import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 
 // ─── FDI tooth layout ─────────────────────────────────────────────────────────
 const upperPermanent = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
@@ -520,7 +521,12 @@ export const DentalChart = () => {
   const backPath = iptrContext === 'risk' ? '/ai-analytics' : iptrContext === 'treatment' ? '/treatment-records' : '/dental-charts';
 
   if (loading) {
-    return <div className="text-sm text-gray-500 p-8 text-center">Loading dental chart…</div>;
+    return (
+      <div className="space-y-4">
+        <SkeletonPageHeader />
+        <SkeletonTable rows={8} />
+      </div>
+    );
   }
   if (error || !student) {
     return (
