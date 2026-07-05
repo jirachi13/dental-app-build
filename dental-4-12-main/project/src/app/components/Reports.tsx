@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { FileSpreadsheet, FileText, Printer, Download, AlertTriangle, AlertCircle, CheckCircle, Users, Calendar, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ChartTooltip } from './ChartTooltip';
 import { useAuth } from '../context/AuthContext';
 import { getSchoolShortName } from '../utils/schoolColors';
 import { GradePill } from './GradePill';
@@ -591,10 +592,10 @@ export const Reports = () => {
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={PROCEDURES.map(p => ({ name: p, count: cnt(treatmentMatrix, p, intGenderFilter) }))}
                     margin={{top:4,right:8,bottom:40,left:0}}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                     <XAxis dataKey="name" tick={{fontSize:10}} angle={-25} textAnchor="end" interval={0} />
                     <YAxis tick={{fontSize:11}} />
-                    <Tooltip />
+                    <Tooltip content={<ChartTooltip />} />
                     <Bar dataKey="count" name="Count" fill="#1E40AF" radius={[4,4,0,0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -705,10 +706,10 @@ export const Reports = () => {
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={CONDITIONS.map(c => ({ name: c, count: cnt(conditionMatrix, c, intGenderFilter) }))}
                     margin={{top:4,right:8,bottom:36,left:0}}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                     <XAxis dataKey="name" tick={{fontSize:10}} angle={-20} textAnchor="end" interval={0} />
                     <YAxis tick={{fontSize:11}} />
-                    <Tooltip />
+                    <Tooltip content={<ChartTooltip />} />
                     <Bar dataKey="count" name="Count" fill="#0D9488" radius={[4,4,0,0]} />
                   </BarChart>
                 </ResponsiveContainer>

@@ -38,6 +38,7 @@ import {
   RadialBarChart,
   RadialBar
 } from 'recharts';
+import { ChartTooltip } from './ChartTooltip';
 import { Link } from 'react-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useStudents } from '../hooks/useStudents';
@@ -376,7 +377,7 @@ export const Dashboard = () => {
                     <Cell key={`risk-cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip key="risk-tooltip" />
+                <Tooltip key="risk-tooltip" content={<ChartTooltip />} />
               </PieChart>
             </ResponsiveContainer>
             <div className="flex justify-center gap-4 mt-2">
@@ -460,10 +461,10 @@ export const Dashboard = () => {
             ) : (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={assessmentsByMonth}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                   <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 12 }} width={28} />
-                  <Tooltip />
+                  <Tooltip content={<ChartTooltip />} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   {/* Risk levels use the app's established status colors; white strokes
                       give the 2px segment gap, legend + tooltip carry identity beyond color */}
@@ -554,10 +555,10 @@ export const Dashboard = () => {
             <h2 className="text-sm font-bold text-gray-900 mb-3">Appointments by Status (This Week)</h2>
             <ResponsiveContainer width="100%" height={220} key="appt-status-container">
               <BarChart data={appointmentsByStatusData} id="appointments-status-chart">
-                <CartesianGrid strokeDasharray="3 3" key="appt-grid" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" key="appt-grid" />
                 <XAxis dataKey="day" key="appt-xaxis" />
                 <YAxis key="appt-yaxis" />
-                <Tooltip key="appt-tooltip" />
+                <Tooltip key="appt-tooltip" content={<ChartTooltip />} />
                 <Legend key="appt-legend" />
                 <Bar dataKey="completed" stackId="a" fill={COLORS.green} name="Completed" key="appt-bar-completed" />
                 <Bar dataKey="scheduled" stackId="a" fill={COLORS.blue} name="Scheduled" key="appt-bar-scheduled" />
@@ -697,7 +698,7 @@ export const Dashboard = () => {
                     <Cell key={`oral-health-cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip key="oral-health-tooltip" />
+                <Tooltip key="oral-health-tooltip" content={<ChartTooltip />} />
               </PieChart>
             </ResponsiveContainer>
             <div className="grid grid-cols-2 gap-2 mt-4">
@@ -825,10 +826,10 @@ export const Dashboard = () => {
             <h2 className="text-sm font-bold text-gray-900 mb-3">School Comparison</h2>
             <ResponsiveContainer width="100%" height={220} key="school-comparison-container">
               <BarChart data={schoolComparisonData} id="school-comparison-chart">
-                <CartesianGrid strokeDasharray="3 3" key="school-grid" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" key="school-grid" />
                 <XAxis dataKey="school" angle={-15} textAnchor="end" height={80} key="school-xaxis" />
                 <YAxis key="school-yaxis" />
-                <Tooltip key="school-tooltip" />
+                <Tooltip key="school-tooltip" content={<ChartTooltip />} />
                 <Legend key="school-legend" />
                 <Bar dataKey="screened" fill={COLORS.blue} name="Screened" key="school-bar-screened" />
                 <Bar dataKey="treated" fill={COLORS.green} name="Treated" key="school-bar-treated" />
@@ -971,10 +972,10 @@ export const Dashboard = () => {
             <h2 className="text-sm font-bold text-gray-900 mb-3">Login Activity (Last 7 Days)</h2>
             <ResponsiveContainer width="100%" height={220} key="login-activity-container">
               <LineChart data={loginActivityData} id="login-activity-chart">
-                <CartesianGrid strokeDasharray="3 3" key="login-grid" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" key="login-grid" />
                 <XAxis dataKey="day" key="login-xaxis" />
                 <YAxis key="login-yaxis" allowDecimals={false} />
-                <Tooltip key="login-tooltip" />
+                <Tooltip key="login-tooltip" content={<ChartTooltip />} />
                 <Line type="monotone" dataKey="logins" stroke={COLORS.blue} strokeWidth={2} dot={{ r: 5 }} key="login-line" />
               </LineChart>
             </ResponsiveContainer>
@@ -988,10 +989,10 @@ export const Dashboard = () => {
             ) : (
               <ResponsiveContainer width="100%" height={220} key="actions-module-container">
                 <BarChart data={actionsByModuleData} layout="vertical" id="actions-module-chart">
-                  <CartesianGrid strokeDasharray="3 3" key="actions-grid" />
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" key="actions-grid" />
                   <XAxis type="number" key="actions-xaxis" allowDecimals={false} />
                   <YAxis dataKey="module" type="category" width={100} key="actions-yaxis" />
-                  <Tooltip key="actions-tooltip" />
+                  <Tooltip key="actions-tooltip" content={<ChartTooltip />} />
                   <Bar dataKey="actions" fill={COLORS.blue} key="actions-bar" />
                 </BarChart>
               </ResponsiveContainer>
