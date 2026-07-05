@@ -4,11 +4,16 @@ import { useUsers, ROLE_LABELS } from '../hooks/useUsers';
 import { apiClient, ApiError } from '../api/client';
 import type { ApiRole } from '../api/types';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
+import { ConfirmDialog } from './ConfirmDialog';
+import { useAuth } from '../context/AuthContext';
 
 const ROLES: ApiRole[] = ['dentist', 'dental_aide', 'school_admin', 'bho_staff', 'system_admin'];
 
 export const AccountManagement = () => {
   const { users, schools, loading, error, reload } = useUsers();
+  const { user: currentUser } = useAuth();
+  const [confirmUser, setConfirmUser] = useState<(typeof users)[number] | null>(null);
+  const [deactivating, setDeactivating] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
@@ -131,6 +136,26 @@ export const AccountManagement = () => {
   const handleToggleStatus = async (id: string, status: 'Active' | 'Inactive') => {
     await apiClient.patch(`/users/${id}/${status === 'Active' ? 'archive' : 'restore'}`);
     await reload();
+  };
+
+  // Reactivating is harmless → do it directly. Deactivating locks the account
+  // out of login, so it goes through a confirmation step first.
+  const requestToggle = (u: (typeof users)[number]) => {
+    if (u.status === 'Inactive') {
+      void handleToggleStatus(u.id, u.status);
+      return;
+    }
+    setConfirmUser(u);
+  };
+  const confirmDeactivate = async () => {
+    if (!confirmUser) return;
+    setDeactivating(true);
+    try {
+      await handleToggleStatus(confirmUser.id, confirmUser.status);
+      setConfirmUser(null);
+    } finally {
+      setDeactivating(false);
+    }
   };
 
   // Admin-assisted password reset -- System Admin sets a new password
@@ -373,8 +398,10 @@ export const AccountManagement = () => {
                           <KeyRound className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleToggleStatus(user.id, user.status)}
-                          className={`${
+                          onClick={() => requestToggle(user)}
+                          disabled={user.status === 'Active' && user.id === currentUser?.id}
+                          title={user.status === 'Active' && user.id === currentUser?.id ? "You can't deactivate your own account" : user.status === 'Active' ? 'Deactivate' : 'Activate'}
+                          className={`disabled:opacity-40 disabled:cursor-not-allowed ${
                           user.status === 'Active'
                             ? 'text-red-600 hover:text-red-700'
                             : 'text-green-600 hover:text-green-700'
@@ -442,8 +469,10 @@ export const AccountManagement = () => {
                   Reset Password
                 </button>
                 <button
-                  onClick={() => handleToggleStatus(user.id, user.status)}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm ${
+                  onClick={() => requestToggle(user)}
+                  disabled={user.status === 'Active' && user.id === currentUser?.id}
+                  title={user.status === 'Active' && user.id === currentUser?.id ? "You can't deactivate your own account" : undefined}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed ${
                   user.status === 'Active'
                     ? 'bg-red-100 text-red-700 hover:bg-red-200'
                     : 'bg-green-100 text-green-700 hover:bg-green-200'
@@ -631,6 +660,25 @@ export const AccountManagement = () => {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmUser !== null}
+        title={`Deactivate ${confirmUser?.name ?? 'account'}?`}
+        message={
+          <>
+            They won't be able to log in until an admin reactivates the account.
+            {confirmUser?.role === 'system_admin' && (
+              <span className="mt-2 block font-medium text-red-600">
+                This is a System Admin account — deactivating it removes access to user management, the audit trail, and archive restoration.
+              </span>
+            )}
+          </>
+        }
+        confirmLabel="Deactivate"
+        busy={deactivating}
+        onConfirm={confirmDeactivate}
+        onCancel={() => setConfirmUser(null)}
+      />
     </div>
   );
 };

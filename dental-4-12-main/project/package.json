@@ -8,6 +8,7 @@
     "build": "vite build",
     "dev:server": "tsx watch server/local.ts",
     "seed:admin": "tsx server/scripts/seedAdmin.ts",
+    "restore:admin": "tsx server/scripts/restoreAdmin.ts",
     "seed:demo": "tsx server/scripts/seedDemo.ts",
     "seed:students": "tsx server/scripts/seedStudents.ts",
     "seed:rpc-visit2": "tsx server/scripts/seedRpcVisit2.ts",
