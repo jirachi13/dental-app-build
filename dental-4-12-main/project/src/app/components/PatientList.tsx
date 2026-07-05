@@ -12,6 +12,7 @@ import { formatStudentName } from '../utils/formatStudentName';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
 import { GradePill } from './GradePill';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
+import { activatable } from '../utils/a11y';
 import { GradeTableCell } from './GradeTableCell';
 import { ListSearchInput } from './ListSearchInput';
 import { studentListTableStyles } from './StudentListTableStyles';
@@ -422,7 +423,7 @@ export const PatientList = () => {
                     const age = calculateAge(student.birthdate);
                     const isQueued = queuedStudentIds.includes(student.id);
                     return (
-                      <tr key={student.id} onClick={() => { if (!student.pending) navigate(`/dental-chart/${student.id}?tab=history`); }} className={`${studentListTableStyles.row} ${student.pending ? 'opacity-70' : ''}`}>
+                      <tr key={student.id} {...activatable(() => { if (!student.pending) navigate(`/dental-chart/${student.id}?tab=history`); })} className={`${studentListTableStyles.row} ${student.pending ? 'opacity-70' : ''}`}>
                         <td className={studentListTableStyles.secondaryCell} onClick={(e) => e.stopPropagation()}>
                           {!student.pending && (
                             <input

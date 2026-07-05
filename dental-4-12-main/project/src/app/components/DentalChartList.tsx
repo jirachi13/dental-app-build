@@ -7,6 +7,7 @@ import { ListSearchInput } from './ListSearchInput';
 import { studentListTableStyles } from './StudentListTableStyles';
 import { useStudents } from '../hooks/useStudents';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
+import { activatable } from '../utils/a11y';
 
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 
@@ -122,7 +123,7 @@ export const DentalChartList = () => {
               ) : filtered.map(patient => {
                 const age = calculateAge(patient.birthdate);
                 return (
-                  <tr key={patient.id} onClick={() => navigate(`/dental-chart/${patient.id}`)} className={studentListTableStyles.row}>
+                  <tr key={patient.id} {...activatable(() => navigate(`/dental-chart/${patient.id}`))} className={studentListTableStyles.row}>
                     <td className={studentListTableStyles.primaryCell}>{formatStudentName(patient.name)}</td>
                     <GradeTableCell grade={patient.grade} />
                     <td className={studentListTableStyles.secondaryCell}>{patient.section}</td>

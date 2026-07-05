@@ -11,6 +11,7 @@ import { exportToXlsx } from '../utils/exportXlsx';
 import { ExportMenu, type ExportFormat } from './ExportMenu';
 import { toLocalDateString } from '../utils/localDate';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
+import { activatable } from '../utils/a11y';
 
 const SCHOOLS = [
   'Bagong Tanyag Integrated School',
@@ -251,7 +252,7 @@ export const RPCTracking = () => {
                 const sc = statusConfig[r.status] || statusConfig['not-started'];
                 const gc = getGradeColor(r.grade);
                 return (
-                  <tr key={r.id} onClick={() => navigate(`/dental-chart/${r.id}?tab=treatments`)} className={`hover:bg-gray-50 transition-colors cursor-pointer ${r.status==='overdue'?'bg-red-50':''}`}>
+                  <tr key={r.id} {...activatable(() => navigate(`/dental-chart/${r.id}?tab=treatments`))} className={`hover:bg-gray-50 transition-colors cursor-pointer ${r.status==='overdue'?'bg-red-50':''}`}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-semibold">{r.studentName.split(' ').map(n=>n[0]).join('').slice(0,2)}</div>

@@ -9,6 +9,7 @@ import { getQueuedStudentIds } from '../utils/queueStorage';
 import { useStudents } from '../hooks/useStudents';
 import { useAuth } from '../context/AuthContext';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
+import { activatable } from '../utils/a11y';
 
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 
@@ -148,7 +149,7 @@ export const DentalChartNav = () => {
               ) : filtered.map(p => {
                 const age = calculateAge(p.birthdate);
                 return (
-                  <tr key={p.id} onClick={() => navigate(`/dental-chart/${p.id}?tab=history&context=dental-queue`)} className={studentListTableStyles.row}>
+                  <tr key={p.id} {...activatable(() => navigate(`/dental-chart/${p.id}?tab=history&context=dental-queue`))} className={studentListTableStyles.row}>
                     <td className={studentListTableStyles.primaryCell}>{formatStudentName(p.name)}</td>
                     <GradeTableCell grade={p.grade} />
                     <td className={studentListTableStyles.secondaryCell}>{p.section}</td>

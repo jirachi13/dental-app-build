@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
 import type { ApiStudentIptr, ApiTreatment } from '../api/types';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
+import { activatable } from '../utils/a11y';
 
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 
@@ -149,7 +150,7 @@ export const TreatmentRecords = () => {
               ) : filtered.map(t => {
                 const age = calculateAge(t.birthdate);
                 return (
-                  <tr key={t.id} onClick={() => navigate(`/dental-chart/${t.id}?tab=chart&context=treatment`)} className={studentListTableStyles.row}>
+                  <tr key={t.id} {...activatable(() => navigate(`/dental-chart/${t.id}?tab=chart&context=treatment`))} className={studentListTableStyles.row}>
                     <td className={studentListTableStyles.primaryCell}>{formatStudentName(t.name)}</td>
                     <GradeTableCell grade={t.grade} />
                     <td className={studentListTableStyles.secondaryCell}>{t.section}</td>

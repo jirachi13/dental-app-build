@@ -8,6 +8,7 @@ import { useDohReportData } from '../hooks/useDohReportData';
 import { exportDohReportToPdf } from '../utils/exportPdf';
 import { exportDohReportToXlsx } from '../utils/exportDohXlsx';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
+import { activatable } from '../utils/a11y';
 import { apiClient } from '../api/client';
 import type { ApiTreatment } from '../api/types';
 import { useStudents } from '../hooks/useStudents';
@@ -872,7 +873,7 @@ export const Reports = () => {
                         <tr><td colSpan={8} className="px-4 py-6 text-center text-gray-500">No referrals recorded yet.</td></tr>
                       ) : mockReferrals.map((r, i) => (
                         <>
-                        <tr key={i} onClick={() => setExpandedReferral(expandedReferral === i ? null : i)}
+                        <tr key={i} {...activatable(() => setExpandedReferral(expandedReferral === i ? null : i))}
                           className="hover:bg-orange-50/40 cursor-pointer select-none">
                           <td className="px-4 py-2.5 font-medium text-gray-900 whitespace-nowrap">{r.student}</td>
                           <td className="px-4 py-2.5 text-gray-500 max-w-[120px] truncate">{getSchoolShortName(r.school)}</td>
