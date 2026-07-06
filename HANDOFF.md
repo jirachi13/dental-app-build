@@ -68,6 +68,14 @@ Risk if rushed: a partial migration leaves a broken half-dark UI. That's why the
 
 **Verify**: Excel — merged headers + frozen panes correct, values match on-screen for a known school/month, print-preview shows banded pages with Indicator col repeated. PDF — ~3 pages, no grade split, Indicator col on each page, legible. tsc clean; build watching precache size.
 
+## Session 2026-07-06 — CLAUDE.md hygiene + context-load cuts (branch `worktree-claudemd-hygiene`, PR pending)
+Goal was reducing per-session context load (user flagged high startup usage). All on branch `worktree-claudemd-hygiene` — **PR not yet merged** (gh not installed locally; user merges via compare link). Not on main yet.
+- **CLAUDE.md cut ~53%** (26.5KB→12.4KB): compressed superseded model-strategy + resolved sagas + DONE sprints to one-liners; **model field specs → `docs/DATA-MODEL.md`**, **completed-sprint history → `docs/BUILD-LOG.md`** (both on-demand, not auto-read); Phase 3 21a–g breakdown de-duplicated to its `phase3-sprint-prompts.md` pointer. No live rule lost.
+- **Vercel plugin disabled** (`~/.claude/settings.json` → false) — trims ~40 skill blurbs + knowledge doc from every future session. Reversible via `/plugin`. Effective next session. App is Vercel-hosted but CLI unused (deploy via dashboard).
+- **ConfirmDialog rollout — verified already COMPLETE**, not new work: deactivate-account + delete-year are the only destructive one-clicks and both guarded; "delete-treatment" never existed. Stale backlog note closed.
+- **Strays — verified already done** (a463824c/cf4b7e4b) except the last: **t/T score-card labels → dmft/DMFT** (DentalChart, match progression table). CLAUDE.md stray line updated.
+- **Parked for next session:** Sprint 23 beautify — start with the 7+1 gray-on-color findings (DentalChart L756/773/794/914/928+2, Appointments:380), then loaders/toasts/focus. Better on a fresh (lighter) context after the PR merges.
+
 ## Session 2026-07-05 — model-strategy pivot + strays + resend cooldown (all Opus, pushed to main)
 Short session on a tight context budget; no full sprint opened. Commits: `cf4b7e4b`, `164351c9`, `a463824c`, `2487f7b5` — all on `main`.
 
