@@ -50,40 +50,7 @@ Capstone Thesis — Build Phase — Group 404 — AY 2025-2026
 - **Barangay Health Office Staff** — consolidated reports across all schools, City Health Office report submission
 
 ## MONGODB MODELS (exact from ERD Chapter 3)
-
-**SCHOOL** — school_id, school_name, school_type, principal_name, street_address, barangay, city, created_at, updated_at, isArchived, archivedAt, archivedBy
-
-**USER** — user_id, school_id (FK, optional — system_admin and bho_staff are not tied to one school), role (system_admin/dentist/dental_aide/school_admin/bho_staff), full_name, email (added Sprint 7 — login identifier, unique, not in original ERD), password_hash (added ahead of Sprint 7, not in original ERD, `select: false` so it never returns in queries by default), is_enrolled (BOOLEAN), last_login, created_at, updated_at, isArchived, archivedAt, archivedBy
-
-**DENTIST** — dentist_id, school_id (FK), user_id (FK), last_name, first_name, license_number (VARCHAR 50), created_at, updated_at, isArchived, archivedAt, archivedBy
-
-**DENTAL_AIDE** — dental_aide_id, school_id (FK), user_id (FK), dentist_id (FK), last_name, first_name, contact_number (VARCHAR 20), created_at, updated_at, isArchived, archivedAt, archivedBy
-
-**STUDENT** — student_id, school_id (FK), full_name (VARCHAR 150), birthday (DATE), sex (VARCHAR 10), address (VARCHAR 200), contact_number (VARCHAR 15), grade_level, section, created_at, isArchived, archivedAt, archivedBy
-
-**STUDENT_IPTR** — iptr_id, student_id (FK), school_year (VARCHAR 20), created_at, isArchived, archivedAt, archivedBy
-
-**MEDICAL_HISTORY** — medical_id, iptr_id (FK), allergies (TEXT), diabetes_mellitus (BOOLEAN), hypertension (BOOLEAN), cardiovascular_disease (BOOLEAN), thyroid_disorders (BOOLEAN), hepatitis_disorders (BOOLEAN), malignancy (BOOLEAN), previous_hospitalization (BOOLEAN), previous_surgical (BOOLEAN), blood_transfusion (BOOLEAN), tattoo (BOOLEAN), others (TEXT), created_at
-
-**DIETARY_SOCIAL_HABITS** — dietary_id, iptr_id (FK), sugar_beverages (BOOLEAN), alcohol_drinker (BOOLEAN), tobacco_user (BOOLEAN), betel_nut_chewer (BOOLEAN), body_piercing (BOOLEAN), nail_biting (BOOLEAN), thumb_sucking (BOOLEAN), created_at
-
-**ORAL_HEALTH_CONDITION** — oral_id, iptr_id (FK), oral_hygiene (VARCHAR 50), gingivitis (BOOLEAN), periodontal_disease (BOOLEAN), debris (BOOLEAN), calculus (BOOLEAN), abnormal_growth (BOOLEAN), cleft_lip_palate (BOOLEAN), others (TEXT), created_at
-
-**DENTAL_CHART** — chart_id, iptr_id (FK), dentist_id (FK), date_charted (DATE), isArchived, archivedAt, archivedBy
-
-**TOOTH_RECORD** — tooth_record_id, chart_id (FK), tooth_number (INT), condition (VARCHAR 100), treatment_code (VARCHAR 50)
-
-**TREATMENT** — treatment_id, iptr_id (FK), dentist_id (FK), diagnosis (TEXT), treatment_done (TEXT), remarks (TEXT), date (DATE), created_at, isArchived, archivedAt, archivedBy
-
-**PREVENTIVE_CARE_RECORD** — preventive_id, iptr_id (FK), visit_date (DATE), visit_number (1 or 2), created_at, isArchived, archivedAt, archivedBy
-
-**RISK_STRATIFICATION** — risk_id, preventive_id (FK), risk_level (VARCHAR 50: High/Medium/Low), recommendation (TEXT), dmf_score (FLOAT), dmf_index (VARCHAR 10: DMF or dmf), validated_by_dentist (BOOLEAN), validated_at (DATETIME)
-
-**APPOINTMENT** — appointment_id, student_id (FK), dentist_id (FK), appointment_datetime (DATETIME), status (VARCHAR 50), appointment_type (added Sprint 11, not in original ERD), requires_followup (BOOLEAN, added Sprint 11), parental_supervision_required (BOOLEAN, added Sprint 11), isArchived, archivedAt, archivedBy. One Appointment record per student — a UI "session" (whole class section scheduled at once) is multiple Appointment records sharing date/time/dentist/type, grouped client-side.
-
-**DENTIST_ROTATION** (NEW — not in original ERD, added Sprint 11) — rotation_id, school_id (FK), dentist_id (FK), week_start (DATE), week_end (DATE), notes (TEXT), isArchived, archivedAt, archivedBy
-
-**AUDIT_TRAIL** — audit_id, user_id (FK), action (VARCHAR 100), timestamp (DATETIME), affected_record_id, affected_model (VARCHAR 50)
+Full field-level specs for all 16 models live in **`/docs/DATA-MODEL.md`** — READ IT before touching any schema, model, or migration (moved out of CLAUDE.md to keep per-session context small; that doc is authoritative for field details). Models: SCHOOL, USER, DENTIST, DENTAL_AIDE, STUDENT, STUDENT_IPTR, MEDICAL_HISTORY, DIETARY_SOCIAL_HABITS, ORAL_HEALTH_CONDITION, DENTAL_CHART, TOOTH_RECORD, TREATMENT, PREVENTIVE_CARE_RECORD, RISK_STRATIFICATION, APPOINTMENT, DENTIST_ROTATION, AUDIT_TRAIL.
 
 ## SOFT DELETE RULES
 - ALL models include: isArchived BOOLEAN default false, archivedAt DATETIME default null, archivedBy user_id default null
