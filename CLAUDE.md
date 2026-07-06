@@ -105,29 +105,15 @@ Full field-level specs for all 16 models live in **`/docs/DATA-MODEL.md`** — R
 
 ## BUILD PHASES
 
-**Phase 1 — Foundation (DONE, deployed to production):** Sprints 1–17 — Express MVC + MongoDB, all models, CRUD API, JWT auth + RBAC (5 roles), encryption, dummy→real API, appointments, RPC 2-visit, dashboard + DOH reports, search/filter, soft delete + audit logs, OWASP + ZAP, OCR, Vercel deploy.
+**Completed work (Phase 1 Sprints 1–17, Phase 2 18–20, Phase 3 synthetic dry-run 21a–g, Phase 4 Sprints 22/24/25/27):** history moved to **`/docs/BUILD-LOG.md`**. Phase 1 + 2 are DONE and deployed. Only the pending items below remain.
 
-**Phase 2 — Offline (DONE):** Sprints 18–20 — PWA service worker review, IndexedDB + FIFO queue, Workbox sync + conflict handling.
+**Phase 3 — Algo (BUILD DONE on synthetic data; re-run against REAL data BLOCKED — see Predictive Analytics above):** full 21a–21g task breakdown is authoritative in **`/docs/phase3-sprint-prompts.md`** — read it before any Phase 3 work; each sub-sprint needs approval before the next. Chapter 4: state that real IPTR records (after cleaning) were the training data — stronger than synthetic.
 
-**Phase 3 — Algo (BUILD DONE on synthetic data 21a–21g; re-run against REAL data still BLOCKED — see Predictive Analytics above):**
-Full task breakdown in `/docs/phase3-sprint-prompts.md` (authoritative; this is the index). Each sprint needs explicit approval before the next.
-- 21a → clean + standardize real Excel `/data/raw/` → `/data/cleaned/dataset.csv` + cleaning-report.md (copies only; drop name column)
-- 21b → feature engineering → `/data/processed/ml_dataset.csv` (DMF calc, risk labels, imputation, class distribution)
-- 21c → Train/Test + K-Fold experiments, all 5 algos → `/docs/algo-results.md` + decision tree/feature-importance/confusion charts
-- 21d → select + justify winner by K-Fold F1 → `/docs/model-selection-rationale.md` (Chapter 4 §4.2)
-- 21e → integrate winner via Strategy Pattern (`/ml-service/`, predictor.py sole entry, config.py active model)
-- 21f → risk classification UI (High/Medium/Low, dentist validation required, logged to AUDIT_TRAIL)
-- 21g → dentist decision support (priority queue, bulk assessment, risk trend dashboard, validation before clinical action)
-- Chapter 4 note: real IPTR records used as training data after cleaning — stronger than synthetic, state this in the manuscript.
-
-**Phase 4 — Post-review backlog (each needs approval, sprint loop applies):**
+**PENDING backlog (each needs approval, sprint loop applies):**
 - Sprint 21a-d (real data) → re-run clean→features→experiments→select once real IPTR files located (only remaining Phase 3 work)
-- Sprint 22 → DONE 2026-07-04: export dropdown (CSV/.xlsx) on all 4 list exports
-- Sprint 23 → PENDING: full UI beautify pass via /impeccable (text loaders, transitions, toast consistency, focus states; anti-slop rules in HANDOFF apply)
-- Sprint 24 → DONE 2026-07-05: DOH Consolidated Report Excel export + zoomable high-res PDF
-- Sprint 25 → DONE 2026-07-04: opt-in email 2FA + self-service reset via Brevo. No account has 2FA enabled yet — enable per account once real staff emails set.
-- Sprint 26 → PENDING: deterministic encryption IV fix (research mongoose-field-encryption's IV mechanism first — real-data-loss risk, take extra care)
-- Sprint 27 → DONE 2026-07-04: root README.md
+- Sprint 23 → full UI beautify pass via /impeccable (text loaders, transitions, toast consistency, focus states; anti-slop rules in HANDOFF apply)
+- Sprint 26 → deterministic encryption IV fix (research mongoose-field-encryption's IV mechanism first — real-data-loss risk, take extra care)
+- Live TODO (from Sprint 25): no account has 2FA enabled yet — enable per account in Account Management once real staff emails are set
 - Small strays (bundle into any sprint): RPC interval label wording + early-Visit-2 flag; appointment card date display; mixed-dentition hint + t/T column labels; other roles' dashboard upgrades
 - User-only items (no sprint): locate real IPTR files; verify DOH form typo spellings (Transfussion/Scalling/Flouride) against paper form; decide Reports April-default month
 
