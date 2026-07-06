@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, Eye, EyeOff, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { apiClient, ApiError } from '../api/client';
+import { Notice } from './Notice';
 // Logo placeholder — replace with actual Barangay Tanyag logo file
 const logoImage = null;
 
@@ -163,11 +164,7 @@ export const Login = () => {
                 Forgot password?
               </button>
 
-              {error && (
-                <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                  {error}
-                </div>
-              )}
+              {error && <Notice variant="error">{error}</Notice>}
 
               <button
                 type="submit"
@@ -204,11 +201,7 @@ export const Login = () => {
                 />
               </div>
 
-              {error && (
-                <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                  {error}
-                </div>
-              )}
+              {error && <Notice variant="error">{error}</Notice>}
 
               <button
                 type="submit"
@@ -254,11 +247,7 @@ export const Login = () => {
                 />
               </div>
 
-              {error && (
-                <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                  {error}
-                </div>
-              )}
+              {error && <Notice variant="error">{error}</Notice>}
 
               <button
                 type="submit"
@@ -275,9 +264,9 @@ export const Login = () => {
 
           {step === 'forgot-sent' && (
             <div className="space-y-4">
-              <div className="text-sm text-green-800 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+              <Notice variant="success">
                 If that email has an account, a reset link is on its way. The link expires in 30 minutes — check spam if it doesn't arrive.
-              </div>
+              </Notice>
               <button type="button" onClick={backToSignIn} className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700">
                 <ArrowLeft className="w-3 h-3" /> Back to sign in
               </button>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { apiClient, ApiError } from '../api/client';
+import { Notice } from './Notice';
 
 // Landing page for the emailed reset link (/reset-password?token=...).
 // Public route — the token IS the authentication.
@@ -47,16 +48,16 @@ export const ResetPassword = () => {
         <div className="bg-white rounded-2xl shadow-xl p-5 border border-gray-100">
           {!token ? (
             <div className="space-y-4">
-              <p className="text-sm text-red-600">This reset link is malformed or incomplete. Request a new one from the login page.</p>
+              <Notice variant="error">This reset link is malformed or incomplete. Request a new one from the login page.</Notice>
               <Link to="/login" className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700">
                 <ArrowLeft className="w-3 h-3" /> Back to sign in
               </Link>
             </div>
           ) : done ? (
             <div className="space-y-4">
-              <div className="text-sm text-green-800 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+              <Notice variant="success">
                 Password updated. You can sign in with your new password now.
-              </div>
+              </Notice>
               <Link to="/login" className="block w-full text-center bg-[#1E40AF] hover:bg-blue-700 text-white font-medium py-2 rounded-lg text-sm">
                 Go to Sign In
               </Link>
@@ -109,11 +110,7 @@ export const ResetPassword = () => {
                 </div>
               </div>
 
-              {error && (
-                <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                  {error}
-                </div>
-              )}
+              {error && <Notice variant="error">{error}</Notice>}
 
               <button
                 type="submit"

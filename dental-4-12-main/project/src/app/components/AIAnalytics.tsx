@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  AlertTriangle, Brain, CheckCircle2, ChevronRight, ListOrdered, Loader2, Minus,
+  Brain, CheckCircle2, ChevronRight, ListOrdered, Loader2, Minus,
   Search, ShieldCheck, TrendingDown, TrendingUp,
 } from 'lucide-react';
 import { apiClient, ApiError } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useRiskClassification, type RiskCandidate } from '../hooks/useRiskClassification';
 import { SkeletonStatGrid, SkeletonTable } from './Skeleton';
+import { Notice } from './Notice';
 
 // Sprint 21f — Risk Classification UI. Predictions come from the ML service
 // via POST /api/predictions/assess (Express → FastAPI → predictor.py); a
@@ -296,20 +297,18 @@ export const AIAnalytics = () => {
       </div>
 
       {serviceDown && (
-        <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
-          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-          <span>The prediction service is currently unavailable. Assessments cannot be generated right now.</span>
-        </div>
+        <Notice variant="error">
+          The prediction service is currently unavailable. Assessments cannot be generated right now.
+        </Notice>
       )}
       {modelStatus?.model?.synthetic_data && (
-        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
-          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+        <Notice variant="warning">
           <span>
             The current model ({modelStatus.model.display_name}) was trained on{' '}
             <strong>synthetic placeholder data</strong> — predictions are for demonstration and
             pipeline testing only until it is retrained on real IPTR records.
           </span>
-        </div>
+        </Notice>
       )}
 
       {loading ? (
@@ -572,11 +571,11 @@ export const AIAnalytics = () => {
                           Only a dentist can validate and save this assessment.
                         </p>
                       ) : !selected.latestPreventiveId ? (
-                        <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                        <Notice variant="warning">
                           This student has no RPC (preventive care) visit on record — a risk
                           assessment attaches to an RPC visit per the record structure. Record
                           Visit 1 in RPC Tracking first, then validate here.
-                        </p>
+                        </Notice>
                       ) : (
                         <div className="space-y-3">
                           <div className="flex flex-wrap gap-4 text-sm">

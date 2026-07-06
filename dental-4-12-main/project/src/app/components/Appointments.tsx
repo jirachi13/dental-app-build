@@ -9,6 +9,7 @@ import { useAppointments, type AppointmentSession } from '../hooks/useAppointmen
 import { useDentistRotations } from '../hooks/useDentistRotations';
 import { useStudents } from '../hooks/useStudents';
 import { apiClient } from '../api/client';
+import { Notice } from './Notice';
 import { toLocalDateString } from '../utils/localDate';
 import { exportToCsv, type ExportColumn } from '../utils/exportCsv';
 import { exportToXlsx } from '../utils/exportXlsx';
@@ -335,9 +336,7 @@ export const Appointments = () => {
 
   return (
     <div className="space-y-4">
-      {appointmentsError && (
-        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{appointmentsError}</div>
-      )}
+      {appointmentsError && <Notice variant="error">{appointmentsError}</Notice>}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

@@ -5,6 +5,7 @@ import { apiClient, ApiError } from '../api/client';
 import type { ApiRole } from '../api/types';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
+import { Notice } from './Notice';
 import { useAuth } from '../context/AuthContext';
 
 const ROLES: ApiRole[] = ['dentist', 'dental_aide', 'school_admin', 'bho_staff', 'system_admin'];
@@ -245,9 +246,7 @@ export const AccountManagement = () => {
         </button>
       </div>
 
-      {error && (
-        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{error}</div>
-      )}
+      {error && <Notice variant="error">{error}</Notice>}
 
       {/* Search */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
