@@ -87,7 +87,10 @@ export const AIAnalytics = () => {
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [bulkResults, setBulkResults] = useState<Record<string, PredictionResult>>({});
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
-  const [bulkFailed, setBulkFailed] = useState<number>(0);
+  // failures split by whether a retry can help: transient (service unreachable,
+  // e.g. Render cold start) vs permanent (this student's data was rejected by
+  // the ML range validation, so retrying won't help until the record is fixed)
+  const [bulkFailed, setBulkFailed] = useState<{ transient: number; permanent: number } | null>(null);
 
   const isDentist = user?.role === 'dentist';
 
@@ -183,9 +186,10 @@ export const AIAnalytics = () => {
     const ids = filtered.filter((c) => checkedIds.has(c.id)).map((c) => c.id);
     if (ids.length === 0) return;
     setBulkProgress({ done: 0, total: ids.length });
-    setBulkFailed(0);
+    setBulkFailed(null);
     const results: Record<string, PredictionResult> = {};
-    let failed = 0;
+    const transientFailed: string[] = [];
+    const permanentFailed: string[] = [];
     // sequential on purpose: the free-tier ML service handles one request at a
     // time gracefully, and progress stays honest
     for (const [i, id] of ids.entries()) {
@@ -196,15 +200,22 @@ export const AIAnalytics = () => {
           student_id: id,
           features: candidate.features,
         });
-      } catch {
-        failed++;
+      } catch (err) {
+        // 503/504 or a network throw = the service was unreachable (cold start)
+        // → a retry works. Anything else (502 from ML range validation, 4xx) is
+        // a data problem with THIS student → retrying won't help until fixed.
+        const transient = !(err instanceof ApiError) || err.status === 503 || err.status === 504;
+        (transient ? transientFailed : permanentFailed).push(id);
       }
       setBulkProgress({ done: i + 1, total: ids.length });
     }
     setBulkResults((prev) => ({ ...prev, ...results }));
-    setBulkFailed(failed);
     setBulkProgress(null);
-    setCheckedIds(new Set());
+    const failedIds = [...transientFailed, ...permanentFailed];
+    setBulkFailed(failedIds.length ? { transient: transientFailed.length, permanent: permanentFailed.length } : null);
+    // keep ONLY the failed students selected so "try again" needs no manual
+    // re-selection; the ones that succeeded drop out of the checkbox set
+    setCheckedIds(new Set(failedIds));
     // if the currently open student was in the batch, surface their result
     if (selectedId && results[selectedId]) {
       setPrediction(results[selectedId]);
@@ -401,10 +412,19 @@ export const AIAnalytics = () => {
                     : `Assess Selected (${checkedIds.size})`}
                 </button>
               </div>
-              {bulkFailed > 0 && (
-                <p className="text-xs text-red-600">
-                  {bulkFailed} assessment{bulkFailed > 1 ? 's' : ''} failed — re-select those students and try again.
-                </p>
+              {bulkFailed && (
+                <div className="space-y-0.5">
+                  {bulkFailed.permanent > 0 && (
+                    <p className="text-xs text-red-600">
+                      {bulkFailed.permanent} couldn't be assessed — the record was rejected (often a missing birthday/age). Fix the student's record; retrying won't help until then.
+                    </p>
+                  )}
+                  {bulkFailed.transient > 0 && (
+                    <p className="text-xs text-amber-700">
+                      {bulkFailed.transient} couldn't be reached (service busy) — still selected, click Assess Selected to retry.
+                    </p>
+                  )}
+                </div>
               )}
             </div>
             <div className="overflow-y-auto divide-y divide-gray-100">
