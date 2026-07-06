@@ -17,7 +17,8 @@ Before real go-live/turnover, all seeded demo/fake data must be purged and repla
 - **Approach**: a purge is destructive → needs a dedicated `reset:demo` script (or manual Atlas cleanup) that removes ONLY seeded demo docs, gated behind explicit confirmation. Also **rotate the Brevo API key** (passed through chat) at turnover. Do this as a deliberate pre-defense step, never automatically.
 
 ## Actions that now have a confirmation step (2026-07-06)
-- **Deactivate account** (AccountManagement) → confirm dialog (stronger warning for System Admin) + you can't deactivate your OWN account (button disabled). Root cause of the accidental-admin-deletion incident. Reusable `ConfirmDialog.tsx` now exists — **apply it to other destructive one-clicks too**: DentalChart delete-year (`handleDeleteYear`) and delete-treatment (Trash2), any archive/delete buttons. (Not yet done — next pass.)
+- **Deactivate account** (AccountManagement) → confirm dialog (stronger warning for System Admin) + you can't deactivate your OWN account (button disabled). Root cause of the accidental-admin-deletion incident.
+- **ConfirmDialog rollout — COMPLETE 2026-07-06.** Reusable `ConfirmDialog.tsx` now guards every destructive one-click in the frontend: deactivate-account (above) and DentalChart delete-year (`handleDeleteYear`, commit `01c492a9`). Swept the whole app — these are the ONLY two destructive actions surfaced (the sole archive API call is delete-year; the sole Trash2 is delete-year). "delete-treatment" from the earlier note never existed — treatments are add/edit only, no delete. Nothing left to guard.
 - Recovery: `npm run restore:admin` un-archives system_admin accounts (login rejects archived users, so a deactivated admin is locked out; seedAdmin skips existing emails).
 
 ## QUEUED FOR NEXT SESSION (discussed 2026-07-05)
