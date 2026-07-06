@@ -114,7 +114,7 @@ Full field-level specs for all 16 models live in **`/docs/DATA-MODEL.md`** — R
 - Sprint 23 → full UI beautify pass via /impeccable (text loaders, transitions, toast consistency, focus states; anti-slop rules in HANDOFF apply)
 - Sprint 26 → deterministic encryption IV fix (research mongoose-field-encryption's IV mechanism first — real-data-loss risk, take extra care)
 - Live TODO (from Sprint 25): no account has 2FA enabled yet — enable per account in Account Management once real staff emails are set
-- Small strays (bundle into any sprint): RPC interval label wording + early-Visit-2 flag; appointment card date display; mixed-dentition hint + t/T column labels; other roles' dashboard upgrades
+- Other roles' dashboard upgrades (NOT small — punted, needs its own scope). (Earlier small strays — RPC interval label + early-Visit-2 flag, appointment card date, mixed-dentition hint, t/T→dmft/DMFT score labels — are all DONE; see BUILD-LOG / HANDOFF.)
 - User-only items (no sprint): locate real IPTR files; verify DOH form typo spellings (Transfussion/Scalling/Flouride) against paper form; decide Reports April-default month
 
 **Before Defense:** encode real IPTR paper records to CSV, replace synthetic dataset, re-run algo experiments, update Chapter 4 results; ISO 25010:2023 evaluation (30 respondents, 5-point Likert, weighted mean); final ZAP scan.

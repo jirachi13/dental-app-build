@@ -970,8 +970,8 @@ export const DentalChart = () => {
                 <div>
                   <div className="text-xs text-gray-500 mb-2">Primary teeth (dmft+x)</div>
                   <div className="flex gap-2">
-                    {[['d', dmft.d], ['m', dmft.m], ['f', dmft.f], ['x', dmft.x], ['t', dmft.t]].map(([label, val]) => (
-                      <div key={label as string} className={`flex-1 border rounded text-center py-1.5 ${label === 't' ? 'border-blue-400 bg-blue-50' : 'border-gray-300'}`}>
+                    {[['d', dmft.d], ['m', dmft.m], ['f', dmft.f], ['x', dmft.x], ['dmft', dmft.t]].map(([label, val]) => (
+                      <div key={label as string} className={`flex-1 border rounded text-center py-1.5 ${label === 'dmft' ? 'border-blue-400 bg-blue-50' : 'border-gray-300'}`}>
                         <div className="text-xs text-gray-500">{label}</div>
                         <div className="text-sm font-bold font-mono text-gray-900">{val}</div>
                       </div>
@@ -981,8 +981,8 @@ export const DentalChart = () => {
                 <div>
                   <div className="text-xs text-gray-500 mb-2">Permanent teeth (DMFT+X)</div>
                   <div className="flex gap-2">
-                    {[['D', dmft.D], ['M', dmft.M], ['F', dmft.F], ['X', dmft.X], ['T', dmft.T]].map(([label, val]) => (
-                      <div key={label as string} className={`flex-1 border rounded text-center py-1.5 ${label === 'T' ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}>
+                    {[['D', dmft.D], ['M', dmft.M], ['F', dmft.F], ['X', dmft.X], ['DMFT', dmft.T]].map(([label, val]) => (
+                      <div key={label as string} className={`flex-1 border rounded text-center py-1.5 ${label === 'DMFT' ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}>
                         <div className="text-xs text-gray-500">{label}</div>
                         <div className="text-sm font-bold font-mono text-gray-900">{val}</div>
                       </div>
