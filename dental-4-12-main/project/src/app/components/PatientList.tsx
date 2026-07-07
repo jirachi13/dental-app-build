@@ -79,6 +79,17 @@ export const PatientList = () => {
     setTickedIds(new Set());
   };
 
+  const unqueueTicked = () => {
+    const next = getQueuedStudentIds().filter(id => !tickedIds.has(id));
+    persistQueuedStudentIds(next);
+    setQueuedStudentIds(next);
+    setTickedIds(new Set());
+  };
+
+  // when every ticked student is already queued the bulk action flips to
+  // unqueue; otherwise (none or mixed) it queues them all
+  const allTickedQueued = tickedIds.size > 0 && [...tickedIds].every(id => queuedStudentIds.includes(id));
+
   const calculateAge = (birthdate: string) => {
     const today = new Date(); const birth = new Date(birthdate);
     if (isNaN(birth.getTime())) return null;
@@ -383,8 +394,11 @@ export const PatientList = () => {
                 </button>
               )}
               {tickedIds.size > 0 && (
-                <button onClick={queueTicked} className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-white bg-[#1E40AF] hover:bg-blue-700 rounded-lg ml-auto">
-                  Queue Selected ({tickedIds.size})
+                <button
+                  onClick={allTickedQueued ? unqueueTicked : queueTicked}
+                  className={`flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg ml-auto ${allTickedQueued ? 'text-[#1E40AF] border border-[#1E40AF] hover:bg-blue-50' : 'text-white bg-[#1E40AF] hover:bg-blue-700'}`}
+                >
+                  {allTickedQueued ? 'Unqueue' : 'Queue'} Selected ({tickedIds.size})
                 </button>
               )}
             </div>
