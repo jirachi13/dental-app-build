@@ -142,8 +142,8 @@ export const Root = () => {
         title={collapsed ? tab.label : undefined}
         className={`flex items-center gap-3 px-4 py-3 transition-colors ${
           isActive
-            ? 'bg-[#1E40AF] text-white'
-            : 'text-gray-700 hover:bg-[#EFF6FF]'
+            ? 'bg-primary text-primary-foreground'
+            : 'text-foreground hover:bg-primary-surface'
         }`}
       >
         <Icon className="w-5 h-5 flex-shrink-0" />
@@ -155,15 +155,15 @@ export const Root = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* LEFT TAB BAR */}
-      <aside className={`w-[60px] ${collapsed ? '' : 'md:w-[220px]'} bg-white border-r border-gray-200 flex flex-col fixed left-0 top-0 h-screen z-40 transition-[width] duration-200`}>
+      <aside className={`w-[60px] ${collapsed ? '' : 'md:w-[220px]'} bg-card border-r border-border flex flex-col fixed left-0 top-0 h-screen z-40 transition-[width] duration-200`}>
         {/* Logo */}
-        <div className="p-4 border-b border-gray-200 relative">
+        <div className="p-4 border-b border-border relative">
           {/* Collapse toggle -- desktop only, mobile has no room to expand anyway */}
           <button
             onClick={toggleCollapsed}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="hidden md:flex absolute -right-3 top-5 w-6 h-6 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-50 shadow-sm z-10"
+            className="hidden md:flex absolute -right-3 top-5 w-6 h-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-gray-50 shadow-sm z-10"
           >
             {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
           </button>
@@ -176,8 +176,8 @@ export const Root = () => {
               </div>
             )}
             <div className={collapsed ? 'hidden' : 'hidden md:block'}>
-              <div className="text-lg font-bold text-[#1E40AF]">FLORAL</div>
-              <div className="text-xs text-gray-500 leading-tight">Dental Health Record Management System</div>
+              <div className="text-lg font-bold text-primary">FLORAL</div>
+              <div className="text-xs text-muted-foreground leading-tight">Dental Health Record Management System</div>
             </div>
           </div>
         </div>
@@ -205,11 +205,11 @@ export const Root = () => {
         </nav>
 
         {/* User info + logout */}
-        <div className="border-t border-gray-200 p-4">
+        <div className="border-t border-border p-4">
           <div className={`mb-3 ${collapsed ? 'hidden' : 'hidden md:block'}`}>
-            <div className="text-sm font-medium text-gray-900 truncate">{user.name}</div>
+            <div className="text-sm font-medium text-foreground truncate">{user.name}</div>
             <div className="mt-1">
-              <span className="inline-block px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded capitalize">
+              <span className="inline-block px-2 py-0.5 text-xs bg-primary-surface text-primary rounded capitalize">
                 {user.role.replace('_', ' ')}
               </span>
             </div>
@@ -217,7 +217,7 @@ export const Root = () => {
           <button
             onClick={openChangePassword}
             title={collapsed ? 'Change Password' : undefined}
-            className={`w-full flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors mb-1 ${collapsed ? 'justify-center' : 'justify-center md:justify-start'}`}
+            className={`w-full flex items-center gap-3 px-3 py-2 text-muted-foreground hover:bg-muted rounded-lg transition-colors mb-1 ${collapsed ? 'justify-center' : 'justify-center md:justify-start'}`}
           >
             <KeyRound className="w-5 h-5 flex-shrink-0" />
             <span className={`${collapsed ? 'hidden' : 'hidden md:block'} text-sm font-medium`}>Change Password</span>
@@ -225,7 +225,7 @@ export const Root = () => {
           <button
             onClick={handleLogout}
             title={collapsed ? 'Logout' : undefined}
-            className={`w-full flex items-center gap-3 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors ${collapsed ? 'justify-center' : 'justify-center md:justify-start'}`}
+            className={`w-full flex items-center gap-3 px-3 py-2 text-destructive hover:bg-danger-surface rounded-lg transition-colors ${collapsed ? 'justify-center' : 'justify-center md:justify-start'}`}
           >
             <LogOut className="w-5 h-5 flex-shrink-0" />
             <span className={`${collapsed ? 'hidden' : 'hidden md:block'} text-sm font-medium`}>Logout</span>
@@ -243,16 +243,16 @@ export const Root = () => {
       {/* Change Password Modal */}
       {showChangePassword && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-            <div className="p-6 border-b">
-              <h2 className="text-lg font-bold text-gray-900">Change Password</h2>
+          <div className="bg-card rounded-xl shadow-xl w-full max-w-md">
+            <div className="p-6 border-b border-border">
+              <h2 className="text-lg font-bold text-foreground">Change Password</h2>
             </div>
             {changePasswordSuccess ? (
               <div className="p-6 space-y-4">
-                <p className="text-sm text-green-700">Password changed successfully.</p>
+                <p className="text-sm text-success">Password changed successfully.</p>
                 <button
                   onClick={() => setShowChangePassword(false)}
-                  className="w-full px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors"
                 >
                   Close
                 </button>
@@ -261,45 +261,45 @@ export const Root = () => {
               <>
                 <div className="p-6 space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
+                    <label className="block text-sm font-medium text-foreground mb-2">Current Password</label>
                     <input
                       type="password"
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                      className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                    <label className="block text-sm font-medium text-foreground mb-2">New Password</label>
                     <input
                       type="password"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                      className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
+                    <label className="block text-sm font-medium text-foreground mb-2">Confirm New Password</label>
                     <input
                       type="password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                      className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
                   </div>
-                  {changePasswordError && <p className="text-sm text-red-600">{changePasswordError}</p>}
+                  {changePasswordError && <p className="text-sm text-destructive">{changePasswordError}</p>}
                 </div>
-                <div className="flex gap-3 p-6 border-t">
+                <div className="flex gap-3 p-6 border-t border-border">
                   <button
                     onClick={() => setShowChangePassword(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-muted transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleChangePassword}
                     disabled={changingPassword}
-                    className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+                    className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover disabled:opacity-60 transition-colors"
                   >
                     {changingPassword ? 'Changing…' : 'Change Password'}
                   </button>

@@ -229,12 +229,12 @@ export const Dashboard = () => {
     const content = (
       <>
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm text-gray-600">{label}</span>
+          <span className="text-sm text-muted-foreground">{label}</span>
           <Icon className={`w-5 h-5 ${color}`} />
         </div>
-        <p className="text-xl font-bold text-gray-900">{value}</p>
+        <p className="text-xl font-bold text-foreground">{value}</p>
         {trend && (
-          <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+          <p className="text-xs text-success mt-1 flex items-center gap-1">
             <TrendingUp className="w-3 h-3" />
             {trend}
           </p>
@@ -247,7 +247,7 @@ export const Dashboard = () => {
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <p className="text-xs text-gray-500 mt-1">{progress}% completion</p>
+            <p className="text-xs text-muted-foreground mt-1">{progress}% completion</p>
           </div>
         )}
       </>
@@ -255,14 +255,14 @@ export const Dashboard = () => {
 
     if (linkTo) {
       return (
-        <Link to={linkTo} className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow cursor-pointer block">
+        <Link to={linkTo} className="bg-card rounded-xl border border-border p-4 hover:shadow-md transition-shadow cursor-pointer block">
           {content}
         </Link>
       );
     }
 
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <div className="bg-card rounded-xl border border-border p-4">
         {content}
       </div>
     );
@@ -273,7 +273,7 @@ export const Dashboard = () => {
   // model) -- never fabricate numbers just to make a chart look populated.
   const NoDataYet = ({ message }: { message: string }) => (
     <div className="flex items-center justify-center text-center px-4" style={{ height: 220 }}>
-      <p className="text-sm text-gray-500">{message}</p>
+      <p className="text-sm text-muted-foreground">{message}</p>
     </div>
   );
 
@@ -287,10 +287,10 @@ export const Dashboard = () => {
           <SchoolIcon style={{ color: sc.solid }} className="w-5 h-5" />
           <div>
             <div style={{ color: sc.text }} className="font-bold text-sm">{getSchoolShortName(selectedSchool)}</div>
-            <div className="text-xs text-gray-500">Current workspace</div>
+            <div className="text-xs text-muted-foreground">Current workspace</div>
           </div>
         </div>
-        <button onClick={handleSwitchSchool} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 bg-white px-3 py-1.5 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
+        <button onClick={handleSwitchSchool} className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-card px-3 py-1.5 rounded-lg border border-border hover:border-border transition-colors">
           <ArrowLeft className="w-3 h-3" />
           Switch School
         </button>
@@ -318,8 +318,8 @@ export const Dashboard = () => {
     return (
       <div className="space-y-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dentist Dashboard</h1>
-          <p className="text-sm text-gray-600 mt-0.5">Welcome back, {user?.name} — {selectedSchool ? getSchoolShortName(selectedSchool) : 'All Schools'}</p>
+          <h1 className="text-2xl font-bold text-foreground">Dentist Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Welcome back, {user?.name} — {selectedSchool ? getSchoolShortName(selectedSchool) : 'All Schools'}</p>
         </div>
 
         {/* KPI Cards */}
@@ -328,7 +328,7 @@ export const Dashboard = () => {
             icon={Users}
             label="Total Patients"
             value={String(allStudents.length)}
-            color="text-blue-600"
+            color="text-primary"
             linkTo="/patients"
           />
           <StatCard
@@ -343,7 +343,7 @@ export const Dashboard = () => {
             icon={AlertCircle}
             label="High-Risk Patients"
             value={String(highRiskCount)}
-            color="text-red-600"
+            color="text-destructive"
             trend={highRiskCount > 0 ? 'review in Risk Classification' : undefined}
             linkTo="/patients?risk=high"
           />
@@ -351,7 +351,7 @@ export const Dashboard = () => {
             icon={Shield}
             label="RPC Completion Rate"
             value={`${rpcCompletionRate}%`}
-            color="text-green-600"
+            color="text-success"
             progress={rpcCompletionRate}
             linkTo="/rpc"
           />
@@ -359,8 +359,8 @@ export const Dashboard = () => {
 
         {/* Charts Row: Risk Distribution (LEFT) + Oral Health Trend (RIGHT, illustrative — see note above) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <h2 className="text-sm font-bold text-gray-900 mb-3">Risk Distribution</h2>
+          <div className="bg-card p-4 rounded-xl border border-border">
+            <h2 className="text-sm font-bold text-foreground mb-3">Risk Distribution</h2>
             <ResponsiveContainer width="100%" height={220} key="risk-dist-container">
               <PieChart id="risk-distribution-chart">
                 <Pie
@@ -384,14 +384,14 @@ export const Dashboard = () => {
               {riskDistributionData.map((item, idx) => (
                 <div key={`risk-legend-${idx}`} className="flex items-center gap-1.5">
                   <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                  <span className="text-xs text-gray-600">{item.name}: {item.value}</span>
+                  <span className="text-xs text-muted-foreground">{item.name}: {item.value}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <h2 className="text-sm font-bold text-gray-900 mb-3">Oral Health Trend (Last 6 Months)</h2>
+          <div className="bg-card p-4 rounded-xl border border-border">
+            <h2 className="text-sm font-bold text-foreground mb-3">Oral Health Trend (Last 6 Months)</h2>
             {/* No historical monthly snapshots exist yet to compute a real
                 trend from -- an honest empty state, not fabricated numbers. */}
             <NoDataYet message="No historical trend data yet. This chart will populate once monthly snapshots begin accumulating." />
@@ -400,10 +400,10 @@ export const Dashboard = () => {
 
         {/* Charts Row 2: RPC funnel + procedures — both computed from real records */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
+          <div className="bg-card p-4 rounded-xl border border-border">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold text-gray-900">RPC Two-Visit Funnel</h2>
-              <Link to="/rpc" className="text-xs text-[#1E40AF] hover:underline">RPC Tracking →</Link>
+              <h2 className="text-sm font-bold text-foreground">RPC Two-Visit Funnel</h2>
+              <Link to="/rpc" className="text-xs text-primary hover:underline">RPC Tracking →</Link>
             </div>
             {scopedRpc.length === 0 ? (
               <NoDataYet message="No enrolled students yet." />
@@ -417,34 +417,34 @@ export const Dashboard = () => {
                 ].map((step) => (
                   <div key={step.label}>
                     <div className="flex justify-between text-xs mb-1">
-                      <span className="text-gray-600">{step.label}</span>
-                      <span className="font-medium text-gray-900">{step.value} ({Math.round((step.value / scopedRpc.length) * 100)}%)</span>
+                      <span className="text-muted-foreground">{step.label}</span>
+                      <span className="font-medium text-foreground">{step.value} ({Math.round((step.value / scopedRpc.length) * 100)}%)</span>
                     </div>
                     <div className="w-full bg-gray-100 rounded-full h-3">
                       <div className="h-3 rounded-full" style={{ width: `${(step.value / scopedRpc.length) * 100}%`, backgroundColor: step.color }} />
                     </div>
                   </div>
                 ))}
-                <p className="text-xs text-gray-500 pt-1">
+                <p className="text-xs text-muted-foreground pt-1">
                   {rpcOverdueCount > 0 ? `${rpcOverdueCount} student${rpcOverdueCount !== 1 ? 's' : ''} overdue for Visit 2` : 'No students overdue for Visit 2'}
                 </p>
               </div>
             )}
           </div>
 
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <h2 className="text-sm font-bold text-gray-900 mb-3">Procedures Performed</h2>
+          <div className="bg-card p-4 rounded-xl border border-border">
+            <h2 className="text-sm font-bold text-foreground mb-3">Procedures Performed</h2>
             {procedureBreakdown.length === 0 ? (
               <NoDataYet message="No procedures recorded on dental charts yet." />
             ) : (
               <div className="space-y-2.5">
                 {procedureBreakdown.slice(0, 6).map((p) => (
                   <div key={p.code} className="flex items-center gap-2">
-                    <span className="text-xs text-gray-600 w-40 truncate shrink-0" title={p.label}>{p.label}</span>
+                    <span className="text-xs text-muted-foreground w-40 truncate shrink-0" title={p.label}>{p.label}</span>
                     <div className="flex-1 bg-gray-100 rounded-full h-2.5">
-                      <div className="h-2.5 rounded-full bg-[#1E40AF]" style={{ width: `${(p.count / procedureBreakdown[0].count) * 100}%` }} />
+                      <div className="h-2.5 rounded-full bg-primary" style={{ width: `${(p.count / procedureBreakdown[0].count) * 100}%` }} />
                     </div>
-                    <span className="text-xs font-medium text-gray-900 w-6 text-right shrink-0">{p.count}</span>
+                    <span className="text-xs font-medium text-foreground w-6 text-right shrink-0">{p.count}</span>
                   </div>
                 ))}
               </div>
@@ -454,8 +454,8 @@ export const Dashboard = () => {
 
         {/* Charts Row 3: validated assessments over time + follow-ups due */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <h2 className="text-sm font-bold text-gray-900 mb-3">Validated Risk Assessments by Month</h2>
+          <div className="bg-card p-4 rounded-xl border border-border">
+            <h2 className="text-sm font-bold text-foreground mb-3">Validated Risk Assessments by Month</h2>
             {assessmentsByMonth.length === 0 ? (
               <NoDataYet message="No dentist-validated assessments yet — validated assessments will chart here by month." />
             ) : (
@@ -476,10 +476,10 @@ export const Dashboard = () => {
             )}
           </div>
 
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
+          <div className="bg-card p-4 rounded-xl border border-border">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold text-gray-900">RPC Follow-ups Due</h2>
-              <Link to="/rpc" className="text-xs text-[#1E40AF] hover:underline">View all →</Link>
+              <h2 className="text-sm font-bold text-foreground">RPC Follow-ups Due</h2>
+              <Link to="/rpc" className="text-xs text-primary hover:underline">View all →</Link>
             </div>
             {upcomingFollowUps.length === 0 ? (
               <NoDataYet message="No follow-ups overdue or due within 60 days." />
@@ -488,10 +488,10 @@ export const Dashboard = () => {
                 {upcomingFollowUps.map((r) => (
                   <div key={r.id} className="flex items-center justify-between py-2">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{r.studentName}</p>
-                      <p className="text-xs text-gray-500">{r.grade} · {r.section}</p>
+                      <p className="text-sm font-medium text-foreground truncate">{r.studentName}</p>
+                      <p className="text-xs text-muted-foreground">{r.grade} · {r.section}</p>
                     </div>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${r.status === 'overdue' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${r.status === 'overdue' ? 'bg-red-100 text-destructive' : 'bg-primary-surface text-primary'}`}>
                       {r.status === 'overdue' ? `${Math.abs(r.daysUntilDue)}d overdue` : `due in ${r.daysUntilDue}d`}
                     </span>
                   </div>
@@ -511,8 +511,8 @@ export const Dashboard = () => {
     return (
       <div className="space-y-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dental Aide Dashboard</h1>
-          <p className="text-gray-600 mt-1">Welcome back, {user?.name}</p>
+          <h1 className="text-2xl font-bold text-foreground">Dental Aide Dashboard</h1>
+          <p className="text-muted-foreground mt-1">Welcome back, {user?.name}</p>
         </div>
 
         {/* KPI Cards */}
@@ -521,7 +521,7 @@ export const Dashboard = () => {
             icon={Calendar}
             label="Appointments Today"
             value={String(todaySessions.length)}
-            color="text-blue-600"
+            color="text-primary"
             linkTo="/appointments"
           />
           <StatCard
@@ -536,7 +536,7 @@ export const Dashboard = () => {
             icon={AlertCircle}
             label="RPC Follow-ups Overdue"
             value={String(rpcOverdueCount)}
-            color="text-red-600"
+            color="text-destructive"
             linkTo="/rpc"
           />
           <StatCard
@@ -551,8 +551,8 @@ export const Dashboard = () => {
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Appointments by Status - Stacked Bar Chart (real, current week) */}
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <h2 className="text-sm font-bold text-gray-900 mb-3">Appointments by Status (This Week)</h2>
+          <div className="bg-card p-4 rounded-xl border border-border">
+            <h2 className="text-sm font-bold text-foreground mb-3">Appointments by Status (This Week)</h2>
             <ResponsiveContainer width="100%" height={220} key="appt-status-container">
               <BarChart data={appointmentsByStatusData} id="appointments-status-chart">
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" key="appt-grid" />
@@ -569,16 +569,16 @@ export const Dashboard = () => {
 
           {/* Pending Tasks by Priority - no Task entity exists in the ERD,
               so there's no real data to chart -- honest empty state. */}
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <h2 className="text-sm font-bold text-gray-900 mb-3">Pending Tasks by Priority</h2>
+          <div className="bg-card p-4 rounded-xl border border-border">
+            <h2 className="text-sm font-bold text-foreground mb-3">Pending Tasks by Priority</h2>
             <NoDataYet message="No task-tracking system exists yet -- there's no Task entity in the data model to report on." />
           </div>
         </div>
 
         {/* Task List -- same reason as above, no backing model */}
-        <div className="bg-white p-4 rounded-xl border border-gray-200">
-          <h2 className="text-sm font-bold text-gray-900 mb-3">Pending Tasks</h2>
-          <p className="text-sm text-gray-500 text-center py-12">No task-tracking system exists yet.</p>
+        <div className="bg-card p-4 rounded-xl border border-border">
+          <h2 className="text-sm font-bold text-foreground mb-3">Pending Tasks</h2>
+          <p className="text-sm text-muted-foreground text-center py-12">No task-tracking system exists yet.</p>
         </div>
       </div>
     );
@@ -613,8 +613,8 @@ export const Dashboard = () => {
     return (
       <div className="space-y-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">School Admin Dashboard</h1>
-          <p className="text-gray-600 mt-1">{user.schools?.[0]}</p>
+          <h1 className="text-2xl font-bold text-foreground">School Admin Dashboard</h1>
+          <p className="text-muted-foreground mt-1">{user.schools?.[0]}</p>
         </div>
 
         {/* KPI Cards */}
@@ -623,14 +623,14 @@ export const Dashboard = () => {
             icon={Users}
             label="Students Enrolled"
             value={String(schoolStudents.length)}
-            color="text-blue-600"
+            color="text-primary"
             linkTo="/reports"
           />
           <StatCard
             icon={CheckCircle}
             label="Students Screened"
             value={String(schoolScreenedCount)}
-            color="text-green-600"
+            color="text-success"
             trend={`${coveragePct}% coverage`}
             linkTo="/reports"
           />
@@ -653,8 +653,8 @@ export const Dashboard = () => {
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Screening Coverage - Radial Chart */}
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <h2 className="text-sm font-bold text-gray-900 mb-3">Screening Coverage</h2>
+          <div className="bg-card p-4 rounded-xl border border-border">
+            <h2 className="text-sm font-bold text-foreground mb-3">Screening Coverage</h2>
             <ResponsiveContainer width="100%" height={220} key="screening-coverage-container">
               <RadialBarChart 
                 cx="50%" 
@@ -677,12 +677,12 @@ export const Dashboard = () => {
                 </text>
               </RadialBarChart>
             </ResponsiveContainer>
-            <p className="text-center text-sm text-gray-600 mt-2">Students Screened</p>
+            <p className="text-center text-sm text-muted-foreground mt-2">Students Screened</p>
           </div>
 
           {/* Oral Health Status - Pie Chart */}
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <h2 className="text-sm font-bold text-gray-900 mb-3">Oral Health Status Breakdown</h2>
+          <div className="bg-card p-4 rounded-xl border border-border">
+            <h2 className="text-sm font-bold text-foreground mb-3">Oral Health Status Breakdown</h2>
             <ResponsiveContainer width="100%" height={220} key="oral-health-status-container">
               <PieChart id="oral-health-status-chart">
                 <Pie
@@ -705,7 +705,7 @@ export const Dashboard = () => {
               {oralHealthStatusData.map((item, idx) => (
                 <div key={`oral-health-legend-${idx}`} className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                  <span className="text-xs text-gray-600">{item.name}: {item.value}</span>
+                  <span className="text-xs text-muted-foreground">{item.name}: {item.value}</span>
                 </div>
               ))}
             </div>
@@ -713,21 +713,21 @@ export const Dashboard = () => {
         </div>
 
         {/* Upcoming Bayanihan Events */}
-        <div className="bg-white p-4 rounded-xl border border-gray-200">
-          <h2 className="text-sm font-bold text-gray-900 mb-3">Upcoming Bayanihan Events</h2>
+        <div className="bg-card p-4 rounded-xl border border-border">
+          <h2 className="text-sm font-bold text-foreground mb-3">Upcoming Bayanihan Events</h2>
           {upcomingEvents.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-12">No upcoming Bayanihan Mission events scheduled.</p>
+            <p className="text-sm text-muted-foreground text-center py-12">No upcoming Bayanihan Mission events scheduled.</p>
           ) : (
             <div className="space-y-3">
               {upcomingEvents.map((event, idx) => (
-                <div key={idx} className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                <div key={idx} className="flex items-center justify-between p-4 bg-primary-surface rounded-lg">
                   <div>
-                    <div className="font-medium text-gray-900">{event.name}</div>
-                    <div className="text-sm text-gray-600">{event.date} • {event.school}</div>
+                    <div className="font-medium text-foreground">{event.name}</div>
+                    <div className="text-sm text-muted-foreground">{event.date} • {event.school}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl font-bold text-blue-600">{event.students}</div>
-                    <div className="text-xs text-gray-600">students expected</div>
+                    <div className="text-2xl font-bold text-primary">{event.students}</div>
+                    <div className="text-xs text-muted-foreground">students expected</div>
                   </div>
                 </div>
               ))}
@@ -781,8 +781,8 @@ export const Dashboard = () => {
     return (
       <div className="space-y-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Barangay Health Office Dashboard</h1>
-          <p className="text-gray-600 mt-1">Aggregated data across all schools</p>
+          <h1 className="text-2xl font-bold text-foreground">Barangay Health Office Dashboard</h1>
+          <p className="text-muted-foreground mt-1">Aggregated data across all schools</p>
         </div>
 
         {/* KPI Cards */}
@@ -791,7 +791,7 @@ export const Dashboard = () => {
             icon={Users}
             label="Total Students Served"
             value={String(totalStudents)}
-            color="text-blue-600"
+            color="text-primary"
             trend={`across ${schoolsParticipating} schools`}
             linkTo="/reports"
           />
@@ -799,7 +799,7 @@ export const Dashboard = () => {
             icon={Activity}
             label="Program Coverage"
             value={`${programCoveragePct}%`}
-            color="text-green-600"
+            color="text-success"
             progress={programCoveragePct}
             linkTo="/reports"
           />
@@ -814,7 +814,7 @@ export const Dashboard = () => {
             icon={Shield}
             label="Schools Participating"
             value={`${schoolsParticipating} of 3`}
-            color="text-gray-600"
+            color="text-muted-foreground"
             linkTo="/reports"
           />
         </div>
@@ -822,8 +822,8 @@ export const Dashboard = () => {
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* School Comparison - Grouped Bar Chart */}
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <h2 className="text-sm font-bold text-gray-900 mb-3">School Comparison</h2>
+          <div className="bg-card p-4 rounded-xl border border-border">
+            <h2 className="text-sm font-bold text-foreground mb-3">School Comparison</h2>
             <ResponsiveContainer width="100%" height={220} key="school-comparison-container">
               <BarChart data={schoolComparisonData} id="school-comparison-chart">
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" key="school-grid" />
@@ -839,35 +839,35 @@ export const Dashboard = () => {
           </div>
 
           {/* Monthly Coverage Trend - Area Chart */}
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <h2 className="text-sm font-bold text-gray-900 mb-3">Monthly Program Coverage Trend</h2>
+          <div className="bg-card p-4 rounded-xl border border-border">
+            <h2 className="text-sm font-bold text-foreground mb-3">Monthly Program Coverage Trend</h2>
             {/* No historical monthly snapshots exist yet -- honest empty state. */}
             <NoDataYet message="No historical coverage data yet. This chart will populate once monthly snapshots begin accumulating." />
           </div>
         </div>
 
         {/* Age Group Breakdown Table */}
-        <div className="bg-white p-4 rounded-xl border border-gray-200">
-          <h2 className="text-sm font-bold text-gray-900 mb-3">Age Group Breakdown</h2>
+        <div className="bg-card p-4 rounded-xl border border-border">
+          <h2 className="text-sm font-bold text-foreground mb-3">Age Group Breakdown</h2>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-gray-50 border-b border-border">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Age Bracket</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Students</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Orally Fit</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Needs Treatment</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fitness Rate</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Age Bracket</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Total Students</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Orally Fit</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Needs Treatment</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Fitness Rate</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {ageGroupData.map((group, idx) => (
                   <tr key={idx}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{group.bracket}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{group.total}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">{group.orallyFit}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">{group.needsTreatment}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{group.bracket}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{group.total}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-success font-medium">{group.orallyFit}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-destructive font-medium">{group.needsTreatment}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
                       {group.total ? Math.round((group.orallyFit / group.total) * 100) : 0}%
                     </td>
                   </tr>
@@ -924,8 +924,8 @@ export const Dashboard = () => {
     return (
       <div className="space-y-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">System Admin Dashboard</h1>
-          <p className="text-gray-600 mt-1">System monitoring and management</p>
+          <h1 className="text-2xl font-bold text-foreground">System Admin Dashboard</h1>
+          <p className="text-muted-foreground mt-1">System monitoring and management</p>
         </div>
 
         {/* KPI Cards */}
@@ -934,7 +934,7 @@ export const Dashboard = () => {
             icon={Users}
             label="Active Users"
             value={String(activeUsersCount)}
-            color="text-blue-600"
+            color="text-primary"
             linkTo="/accounts"
           />
           {/* System uptime and failed-login tracking aren't measured anywhere
@@ -943,7 +943,7 @@ export const Dashboard = () => {
             icon={CheckCircle}
             label="System Uptime"
             value="N/A"
-            color="text-gray-500"
+            color="text-muted-foreground"
             trend="not monitored"
             linkTo="/audit"
           />
@@ -951,7 +951,7 @@ export const Dashboard = () => {
             icon={AlertCircle}
             label="Failed Logins Today"
             value="N/A"
-            color="text-gray-500"
+            color="text-muted-foreground"
             trend="not tracked"
             linkTo="/audit"
           />
@@ -959,7 +959,7 @@ export const Dashboard = () => {
             icon={Clock}
             label="Pending Actions"
             value="N/A"
-            color="text-gray-500"
+            color="text-muted-foreground"
             trend="no task-tracking system"
             linkTo="/audit"
           />
@@ -968,8 +968,8 @@ export const Dashboard = () => {
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Login Activity - Line Chart (real, from users' last_login) */}
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <h2 className="text-sm font-bold text-gray-900 mb-3">Login Activity (Last 7 Days)</h2>
+          <div className="bg-card p-4 rounded-xl border border-border">
+            <h2 className="text-sm font-bold text-foreground mb-3">Login Activity (Last 7 Days)</h2>
             <ResponsiveContainer width="100%" height={220} key="login-activity-container">
               <LineChart data={loginActivityData} id="login-activity-chart">
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" key="login-grid" />
@@ -982,8 +982,8 @@ export const Dashboard = () => {
           </div>
 
           {/* Actions by Module - Horizontal Bar Chart (real, from audit trail) */}
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <h2 className="text-sm font-bold text-gray-900 mb-3">Actions by Module</h2>
+          <div className="bg-card p-4 rounded-xl border border-border">
+            <h2 className="text-sm font-bold text-foreground mb-3">Actions by Module</h2>
             {actionsByModuleData.length === 0 ? (
               <NoDataYet message="No audit trail activity recorded yet." />
             ) : (
@@ -1001,21 +1001,21 @@ export const Dashboard = () => {
         </div>
 
         {/* Recent Audit Activity (real) */}
-        <div className="bg-white p-4 rounded-xl border border-gray-200">
-          <h2 className="text-sm font-bold text-gray-900 mb-3">Recent Audit Activity</h2>
+        <div className="bg-card p-4 rounded-xl border border-border">
+          <h2 className="text-sm font-bold text-foreground mb-3">Recent Audit Activity</h2>
           {recentAudit.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-12">No audit trail activity recorded yet.</p>
+            <p className="text-sm text-muted-foreground text-center py-12">No audit trail activity recorded yet.</p>
           ) : (
             <div className="space-y-3">
               {recentAudit.map((log, idx) => (
                 <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-gray-500">{log.time}</span>
-                      <span className="font-medium text-gray-900">{log.user}</span>
-                      <span className="text-sm text-gray-600">• {log.action}</span>
+                      <span className="text-xs text-muted-foreground">{log.time}</span>
+                      <span className="font-medium text-foreground">{log.user}</span>
+                      <span className="text-sm text-muted-foreground">• {log.action}</span>
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">Module: {log.module}</div>
+                    <div className="text-xs text-muted-foreground mt-1">Module: {log.module}</div>
                   </div>
                 </div>
               ))}
@@ -1023,7 +1023,7 @@ export const Dashboard = () => {
           )}
           <Link
             to="/audit"
-            className="block mt-4 text-center text-sm text-blue-600 hover:text-blue-800 font-medium"
+            className="block mt-4 text-center text-sm text-primary hover:text-primary font-medium"
           >
             View Full Audit Trail →
           </Link>
@@ -1036,11 +1036,11 @@ export const Dashboard = () => {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600 mt-1">Welcome back, {user?.name}</p>
+        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+        <p className="text-muted-foreground mt-1">Welcome back, {user?.name}</p>
       </div>
-      <div className="bg-white p-4 rounded-xl border border-gray-200">
-        <p className="text-gray-600">No dashboard configured for your role.</p>
+      <div className="bg-card p-4 rounded-xl border border-border">
+        <p className="text-muted-foreground">No dashboard configured for your role.</p>
       </div>
     </div>
   );

@@ -18,6 +18,18 @@
   --accent-foreground: #030213;
   --destructive: #d4183d;
   --destructive-foreground: #ffffff;
+  /* Semantic state vocabulary (Sprint 23g). Each state = a solid color for
+     text/icon/border on white, plus a light `-surface` fill for banners,
+     tints, and selected rows. Replaces ad-hoc blue-50/green-700/amber-* etc.
+     scattered across components. Restrained per product register — brand blue
+     carries primary + info; green/amber/red carry the three real statuses. */
+  --primary-hover: #1D4ED8;      /* blue-700 — hover on primary buttons */
+  --primary-surface: #EFF6FF;    /* blue-50 — nav active/hover, selected, info fill */
+  --success: #15803D;            /* green-700 — legible on white */
+  --success-surface: #F0FDF4;    /* green-50 */
+  --warning: #B45309;            /* amber-700 */
+  --warning-surface: #FFFBEB;    /* amber-50 */
+  --danger-surface: #FEF2F2;     /* red-50 — destructive light fill / hover */
   --border: rgba(0, 0, 0, 0.1);
   --input: transparent;
   --input-background: #f3f3f5;
@@ -68,6 +80,13 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-surface: var(--primary-surface);
+  --color-success: var(--success);
+  --color-success-surface: var(--success-surface);
+  --color-warning: var(--warning);
+  --color-warning-surface: var(--warning-surface);
+  --color-danger-surface: var(--danger-surface);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-input-background: var(--input-background);
