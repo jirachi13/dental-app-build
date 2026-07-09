@@ -12,6 +12,7 @@ import { formatStudentName } from '../utils/formatStudentName';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
 import { GradePill } from './GradePill';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
+import { useToast } from './Toast';
 import { activatable } from '../utils/a11y';
 import { GradeTableCell } from './GradeTableCell';
 import { ListSearchInput } from './ListSearchInput';
@@ -32,6 +33,7 @@ const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grad
 export const PatientList = () => {
   const navigate = useNavigate();
   const { user, selectedSchool } = useAuth();
+  const toast = useToast();
   const canAddStudent = user?.role === 'dentist' || user?.role === 'dental_aide';
 
 
@@ -154,6 +156,7 @@ export const PatientList = () => {
         consent_status: newPatient.consentStatus,
       });
       await reloadStudents();
+      toast.success(`Student added: ${newPatient.lastName}, ${newPatient.firstName}`);
       setShowAddForm(false);
       setNewPatient({ firstName:'', lastName:'', middleName:'', birthdate:'', gender:'', grade:'', section:'', school:'', guardianName:'', guardianContact:'', address:'', contactNumber:'', philhealthNumber:'', philhealthStatus:'None', is4Ps:false, fourPsId:'', consentStatus:'pending' });
       setOcrConfidences({});

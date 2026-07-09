@@ -1,5 +1,10 @@
 # HANDOFF — Phase 3 pipeline dry-run complete on SYNTHETIC data (Sprints 21a-21f exercised end-to-end; real data still blocked)
 
+## Sprint 23k (toast system — audit X2) — DONE 2026-07-10 (tsc+build clean, pushed → auto-deploy)
+New `components/Toast.tsx`: ToastProvider + `useToast()` (success/error/info). Bottom-right stacked column (max 3 visible), auto-dismiss 4s/6s-for-errors + manual X, `role=alert|status` for SR announcement, `.rise` entrance (reduced-motion-safe), design tokens throughout. Mounted in App.tsx inside AuthProvider. **Division of labor documented in the file:** toasts = "your action landed/failed"; Notice.tsx = section banners; bare red text = field validation.
+**Wired so far (first slice):** Root change-password (in-modal success view REMOVED — toast + close instead, `changePasswordSuccess` state deleted), PatientList add-student ("Student added: Last, First"), Appointments create ("Appointment scheduled for N students") + rotation save. **Remaining screens to wire in later passes:** DentalChart save, TreatmentRecords, RPCTracking updates, AccountManagement create/edit/deactivate, OCR/bulk import in PatientList, appointment status changes (updateSessionStatus).
+Hook note: Appointments gray-on-color L390 re-confirmed FALSE POSITIVE (ternary branches — teal bg pairs with white text, gray text only on white cells; matches the 07-07 re-verification).
+
 ## Sprint 23j (entrance motion + card subtitles) — DONE 2026-07-10 (tsc+build clean, pushed → auto-deploy)
 Final mockup gap-close for the dentist dashboard:
 - **Motion (audit X4-lite)**: `.rise`/`.rise-1..4` staggered entrance (0.45s ease-out, translateY 8px) on header/KPIs/3 chart rows + `.grow-x` scaleX grow on funnel/procedure/StatCard-meter fills. Keyframes in `index.css`, entirely inside `@media (prefers-reduced-motion: no-preference)` — content fully visible by default, motion is enhancement only.

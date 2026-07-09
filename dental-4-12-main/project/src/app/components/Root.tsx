@@ -9,6 +9,7 @@ import {
 import { useEffect, useState } from 'react';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
 import { apiClient, ApiError } from '../api/client';
+import { useToast } from './Toast';
 
 // Fallback logo — replace with actual Barangay Tanyag logo file
 const logoImage = null;
@@ -17,6 +18,7 @@ export const Root = () => {
   const { user, logout, selectedSchool, setSelectedSchool } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const toast = useToast();
 
   useEffect(() => {
     if (!user) navigate('/login');
@@ -37,7 +39,6 @@ export const Root = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changePasswordError, setChangePasswordError] = useState<string | null>(null);
-  const [changePasswordSuccess, setChangePasswordSuccess] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
 
   const openChangePassword = () => {
@@ -45,7 +46,6 @@ export const Root = () => {
     setNewPassword('');
     setConfirmPassword('');
     setChangePasswordError(null);
-    setChangePasswordSuccess(false);
     setShowChangePassword(true);
   };
 
@@ -62,10 +62,8 @@ export const Root = () => {
     setChangingPassword(true);
     try {
       await apiClient.patch('/auth/change-password', { currentPassword, newPassword });
-      setChangePasswordSuccess(true);
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
+      toast.success('Password changed.');
+      setShowChangePassword(false);
     } catch (err) {
       setChangePasswordError(err instanceof ApiError ? err.message : 'Failed to change password');
     } finally {
@@ -247,18 +245,7 @@ export const Root = () => {
             <div className="p-6 border-b border-border">
               <h2 className="text-lg font-bold text-foreground">Change Password</h2>
             </div>
-            {changePasswordSuccess ? (
-              <div className="p-6 space-y-4">
-                <p className="text-sm text-success">Password changed successfully.</p>
-                <button
-                  onClick={() => setShowChangePassword(false)}
-                  className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-            ) : (
-              <>
+            <>
                 <div className="p-6 space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">Current Password</label>
@@ -304,8 +291,7 @@ export const Root = () => {
                     {changingPassword ? 'Changing…' : 'Change Password'}
                   </button>
                 </div>
-              </>
-            )}
+            </>
           </div>
         </div>
       )}

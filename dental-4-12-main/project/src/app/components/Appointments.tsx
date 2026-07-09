@@ -16,6 +16,7 @@ import { exportToXlsx } from '../utils/exportXlsx';
 import { ExportMenu, type ExportFormat } from './ExportMenu';
 import type { ApiSchool } from '../api/types';
 import { SkeletonPageHeader, SkeletonStatGrid, SkeletonTable } from './Skeleton';
+import { useToast } from './Toast';
 
 const SCHOOLS = [
   'Bagong Tanyag Integrated School',
@@ -28,6 +29,7 @@ const TODAY = toLocalDateString(new Date());
 export const Appointments = () => {
   const { user, selectedSchool } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
   const staffNameLabel = user?.role === 'dental_aide' ? 'Dental Aide' : 'Dentist';
 
   // Tabs
@@ -136,6 +138,7 @@ export const Appointments = () => {
         ),
       );
       await reloadAppointments();
+      toast.success(`Appointment scheduled for ${selectedStudents.length} student${selectedStudents.length !== 1 ? 's' : ''}.`);
       resetCreateAppointmentForm();
       setShowCreateModal(false);
     } catch (err) {
@@ -163,6 +166,7 @@ export const Appointments = () => {
         notes: rotNotes,
       });
       await reloadRotations();
+      toast.success('Rotation saved.');
       resetRotationForm();
       setShowRotationModal(false);
       setActiveTab('rotation');
