@@ -1,6 +1,9 @@
 # HANDOFF — Phase 3 pipeline dry-run complete on SYNTHETIC data (Sprints 21a-21f exercised end-to-end; real data still blocked)
 
-## Sprint 23h (Dashboard beautify U2+U3, mockup-approved) — DONE 2026-07-10 (tsc+build clean, NOT yet deployed/pushed)
+## Sprint 23i (canvas tint + funnel/procedures restyle) — DONE 2026-07-10 (tsc+build clean, pushed → auto-deploy)
+Closes the two cheapest visible gaps between the live app and the approved mockup: (1) new `--canvas: #F4F6FA` token (cool-biased page bg, registered as `bg-canvas`) applied in Root — replaces the default `bg-gray-50` app-wide; (2) RPC funnel restyled to the mockup treatment: label-left rows, h-7 tracks, single-hue depth ramp darkest→lightest (#1E40AF/#4E74D6/#9DB2EC), count inside the bar when it fits (anchored to the BAR end, `right: calc(100-pct% + 8px)` — not the track end, which put white text on gray) else beside it in ink; (3) procedures bars fattened to h-5 rounded-md with tabular-nums counts. Remaining mockup gaps (deliberate): entrance motion (audit X4), sidebar risk badge, other roles' layout pass.
+
+## Sprint 23h (Dashboard beautify U2+U3, mockup-approved) — DONE 2026-07-10 (tsc+build clean, deployed + verified on user's machine via screenshot)
 Implements the user-approved mockup (claude.ai/code/artifact/afcc72b6-b05d-4f3c-8bf9-9986f6595360, "v2-full-page") — 1 file, `Dashboard.tsx`:
 - **StatCard redesigned (shared → all 5 role dashboards inherit)**: tinted icon chip (style derived from existing `color` prop via `STAT_CHIP` map — zero call-site changes), 3xl tabular-nums value, status tiles carry their color on number+footnote (destructive/success), hover lift + reveal-arrow when linked, slimmer aria-labelled progress meter.
 - **Dentist header**: date block + "N appointments today" + primary New Appointment button (Link → /appointments).

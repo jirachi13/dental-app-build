@@ -23,6 +23,7 @@
      tints, and selected rows. Replaces ad-hoc blue-50/green-700/amber-* etc.
      scattered across components. Restrained per product register — brand blue
      carries primary + info; green/amber/red carry the three real statuses. */
+  --canvas: #F4F6FA;             /* app page background — cool-biased, not default gray */
   --primary-hover: #1D4ED8;      /* blue-700 — hover on primary buttons */
   --primary-surface: #EFF6FF;    /* blue-50 — nav active/hover, selected, info fill */
   --success: #15803D;            /* green-700 — legible on white */
@@ -80,6 +81,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-canvas: var(--canvas);
   --color-primary-hover: var(--primary-hover);
   --color-primary-surface: var(--primary-surface);
   --color-success: var(--success);

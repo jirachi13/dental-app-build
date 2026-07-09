@@ -452,23 +452,32 @@ export const Dashboard = () => {
             {scopedRpc.length === 0 ? (
               <NoDataYet message="No enrolled students yet." />
             ) : (
-              <div className="space-y-3">
-                {/* One measure at deepening stages: sequential single-hue ramp, light→dark */}
+              <div className="space-y-2.5">
+                {/* One measure at deepening stages: single-hue depth ramp,
+                    darkest = widest. Count sits inside the bar when it fits,
+                    beside it in ink when the bar is too short. */}
                 {[
-                  { label: 'Enrolled', value: scopedRpc.length, color: '#60A5FA' },
-                  { label: 'Visit 1 completed', value: scopedRpc.filter((r) => r.visit1Status === 'Completed').length, color: '#3B82F6' },
-                  { label: 'Both visits completed', value: scopedRpc.filter((r) => r.visit2Status === 'Completed').length, color: '#1E40AF' },
-                ].map((step) => (
-                  <div key={step.label}>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-muted-foreground">{step.label}</span>
-                      <span className="font-medium text-foreground">{step.value} ({Math.round((step.value / scopedRpc.length) * 100)}%)</span>
+                  { label: 'Enrolled', value: scopedRpc.length, color: '#1E40AF', ink: '#FFFFFF' },
+                  { label: 'Visit 1 completed', value: scopedRpc.filter((r) => r.visit1Status === 'Completed').length, color: '#4E74D6', ink: '#FFFFFF' },
+                  { label: 'Both visits completed', value: scopedRpc.filter((r) => r.visit2Status === 'Completed').length, color: '#9DB2EC', ink: '#26355C' },
+                ].map((step) => {
+                  const pct = Math.round((step.value / scopedRpc.length) * 100);
+                  const fits = pct >= 22;
+                  return (
+                    <div key={step.label} className="flex items-center gap-3">
+                      <span className="text-xs text-muted-foreground w-36 shrink-0">{step.label}</span>
+                      <div className="flex-1 bg-muted rounded-md h-7 relative overflow-hidden">
+                        <div className="h-full rounded-md" style={{ width: `${pct}%`, backgroundColor: step.color }} />
+                        <span
+                          className="absolute inset-y-0 flex items-center text-xs font-bold tabular-nums whitespace-nowrap"
+                          style={fits ? { right: `calc(${100 - pct}% + 8px)`, color: step.ink } : { left: `calc(${pct}% + 8px)`, color: 'var(--foreground)' }}
+                        >
+                          {step.value} ({pct}%)
+                        </span>
+                      </div>
                     </div>
-                    <div className="w-full bg-gray-100 rounded-full h-3">
-                      <div className="h-3 rounded-full" style={{ width: `${(step.value / scopedRpc.length) * 100}%`, backgroundColor: step.color }} />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
                 <p className="text-xs text-muted-foreground pt-1">
                   {rpcOverdueCount > 0 ? `${rpcOverdueCount} student${rpcOverdueCount !== 1 ? 's' : ''} overdue for Visit 2` : 'No students overdue for Visit 2'}
                 </p>
@@ -483,12 +492,12 @@ export const Dashboard = () => {
             ) : (
               <div className="space-y-2.5">
                 {procedureBreakdown.slice(0, 6).map((p) => (
-                  <div key={p.code} className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground w-40 truncate shrink-0" title={p.label}>{p.label}</span>
-                    <div className="flex-1 bg-gray-100 rounded-full h-2.5">
-                      <div className="h-2.5 rounded-full bg-primary" style={{ width: `${(p.count / procedureBreakdown[0].count) * 100}%` }} />
+                  <div key={p.code} className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground w-36 truncate shrink-0" title={p.label}>{p.label}</span>
+                    <div className="flex-1 bg-muted rounded-md h-5">
+                      <div className="h-full rounded-md bg-primary" style={{ width: `${(p.count / procedureBreakdown[0].count) * 100}%` }} />
                     </div>
-                    <span className="text-xs font-medium text-foreground w-6 text-right shrink-0">{p.count}</span>
+                    <span className="text-xs font-bold tabular-nums text-foreground w-8 text-right shrink-0">{p.count}</span>
                   </div>
                 ))}
               </div>

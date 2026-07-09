@@ -153,7 +153,7 @@ export const Root = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-canvas flex">
       {/* LEFT TAB BAR */}
       <aside className={`w-[60px] ${collapsed ? '' : 'md:w-[220px]'} bg-card border-r border-border flex flex-col fixed left-0 top-0 h-screen z-40 transition-[width] duration-200`}>
         {/* Logo */}
