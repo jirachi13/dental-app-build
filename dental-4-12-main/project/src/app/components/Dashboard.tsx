@@ -64,6 +64,10 @@ export const Dashboard = () => {
     cyan: '#06B6D4',
     green: '#16A34A',
   };
+  // Ordered semantic risk palette (Sprint 23h / audit U3): risk charts always
+  // use these three, Low→High, matching the app's status tokens — never the
+  // generic rainbow above.
+  const RISK_COLORS = { low: '#15803D', medium: '#B45309', high: '#DC2626' };
 
   const { students: allStudentsRaw, loading: studentsLoading } = useStudents();
   const { sessions: allSessions, loading: appointmentsLoading } = useAppointments();
@@ -225,29 +229,40 @@ export const Dashboard = () => {
     });
   }, [allSessions, selectedSchool]);
 
+  // Tiles are shaped by meaning, not four identical boxes (Sprint 23h / audit
+  // U2): tinted icon chip, big tabular number, and status tiles (destructive/
+  // success) carry their color on the number + footnote too. Chip/tint style
+  // derives from the existing `color` prop so no call site changes.
+  const STAT_CHIP: Record<string, { chip: string; val: string; foot: string }> = {
+    'text-destructive': { chip: 'bg-danger-surface text-destructive', val: 'text-destructive', foot: 'text-destructive font-semibold' },
+    'text-success': { chip: 'bg-success-surface text-success', val: 'text-success', foot: 'text-muted-foreground' },
+    'text-cyan-600': { chip: 'bg-cyan-50 text-cyan-700', val: 'text-foreground', foot: 'text-muted-foreground' },
+  };
   const StatCard = ({ icon: Icon, label, value, color, trend, progress, linkTo }: any) => {
+    const style = STAT_CHIP[color] ?? { chip: 'bg-primary-surface text-primary', val: 'text-foreground', foot: 'text-muted-foreground' };
     const content = (
       <>
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm text-muted-foreground">{label}</span>
-          <Icon className={`w-5 h-5 ${color}`} />
+        <div className="flex items-center justify-between mb-3">
+          <span className={`w-9 h-9 rounded-lg grid place-items-center ${style.chip}`}>
+            <Icon className="w-[18px] h-[18px]" />
+          </span>
+          {linkTo && (
+            <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+          )}
         </div>
-        <p className="text-xl font-bold text-foreground">{value}</p>
+        <p className={`text-3xl font-extrabold leading-none tracking-tight tabular-nums ${style.val}`}>{value}</p>
+        <p className="text-xs text-muted-foreground font-medium mt-1.5">{label}</p>
         {trend && (
-          <p className="text-xs text-success mt-1 flex items-center gap-1">
-            <TrendingUp className="w-3 h-3" />
+          <p className={`text-[11px] mt-2.5 flex items-center gap-1 ${style.foot}`}>
             {trend}
           </p>
         )}
         {progress !== undefined && (
-          <div className="mt-2">
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div
-                className={`h-2 rounded-full ${color.replace('text-', 'bg-')}`}
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">{progress}% completion</p>
+          <div className="mt-2.5 w-full bg-muted rounded-full h-1.5" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+            <div
+              className={`h-1.5 rounded-full ${color.replace('text-', 'bg-')}`}
+              style={{ width: `${progress}%` }}
+            />
           </div>
         )}
       </>
@@ -255,14 +270,14 @@ export const Dashboard = () => {
 
     if (linkTo) {
       return (
-        <Link to={linkTo} className="bg-card rounded-xl border border-border p-4 hover:shadow-md transition-shadow cursor-pointer block">
+        <Link to={linkTo} className="group bg-card rounded-xl border border-border p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer block">
           {content}
         </Link>
       );
     }
 
     return (
-      <div className="bg-card rounded-xl border border-border p-4">
+      <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
         {content}
       </div>
     );
@@ -311,15 +326,31 @@ export const Dashboard = () => {
   // ===== DENTIST DASHBOARD =====
   if (user?.role === 'dentist') {
     const riskDistributionData = [
-      { name: 'High Risk', value: highRiskCount, color: COLORS.red },
-      { name: 'Medium Risk', value: mediumRiskCount, color: COLORS.yellow },
-      { name: 'Low Risk', value: lowRiskCount, color: COLORS.green },
+      { name: 'Low Risk', value: lowRiskCount, color: RISK_COLORS.low },
+      { name: 'Medium Risk', value: mediumRiskCount, color: RISK_COLORS.medium },
+      { name: 'High Risk', value: highRiskCount, color: RISK_COLORS.high },
     ];
+    const riskTotal = highRiskCount + mediumRiskCount + lowRiskCount;
     return (
-      <div className="space-y-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Dentist Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Welcome back, {user?.name} — {selectedSchool ? getSchoolShortName(selectedSchool) : 'All Schools'}</p>
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-end gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Dentist Dashboard</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Welcome back, {user?.name} — {selectedSchool ? getSchoolShortName(selectedSchool) : 'All Schools'}</p>
+          </div>
+          <div className="ml-auto text-right text-xs text-muted-foreground hidden sm:block">
+            <span className="block text-[13px] font-semibold text-foreground">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </span>
+            {todaySessions.length} appointment{todaySessions.length !== 1 ? 's' : ''} today
+          </div>
+          <Link
+            to="/appointments"
+            className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            New Appointment
+          </Link>
         </div>
 
         {/* KPI Cards */}
@@ -360,31 +391,44 @@ export const Dashboard = () => {
         {/* Charts Row: Risk Distribution (LEFT) + Oral Health Trend (RIGHT, illustrative — see note above) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-card p-4 rounded-xl border border-border">
-            <h2 className="text-sm font-bold text-foreground mb-3">Risk Distribution</h2>
-            <ResponsiveContainer width="100%" height={220} key="risk-dist-container">
-              <PieChart id="risk-distribution-chart">
-                <Pie
-                  data={riskDistributionData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={85}
-                  paddingAngle={5}
-                  dataKey="value"
-                  key="risk-pie"
-                >
-                  {riskDistributionData.map((entry, index) => (
-                    <Cell key={`risk-cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip key="risk-tooltip" content={<ChartTooltip />} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="flex justify-center gap-4 mt-2">
+            <h2 className="text-sm font-bold text-foreground">Risk Distribution</h2>
+            <p className="text-[11px] text-muted-foreground mb-3">Validated caries-risk classification</p>
+            <div className="relative">
+              <ResponsiveContainer width="100%" height={220} key="risk-dist-container">
+                <PieChart id="risk-distribution-chart">
+                  <Pie
+                    data={riskDistributionData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={58}
+                    outerRadius={85}
+                    paddingAngle={3}
+                    dataKey="value"
+                    key="risk-pie"
+                  >
+                    {riskDistributionData.map((entry, index) => (
+                      <Cell key={`risk-cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip key="risk-tooltip" content={<ChartTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+              {/* center total — overlay, pointer-events off so tooltips still work */}
+              <div className="absolute inset-0 grid place-items-center pointer-events-none">
+                <div className="text-center">
+                  <span className="block text-2xl font-extrabold leading-none tabular-nums text-foreground">{riskTotal}</span>
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">students</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-center gap-5 mt-2">
               {riskDistributionData.map((item, idx) => (
                 <div key={`risk-legend-${idx}`} className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                  <span className="text-xs text-muted-foreground">{item.name}: {item.value}</span>
+                  <div className="w-2.5 h-2.5 rounded-[3px]" style={{ backgroundColor: item.color }} />
+                  <span className="text-xs text-muted-foreground">
+                    {item.name.replace(' Risk', '')} <span className="font-semibold text-foreground tabular-nums">{item.value}</span>
+                    {riskTotal > 0 && <span className="text-muted-foreground"> · {Math.round((item.value / riskTotal) * 100)}%</span>}
+                  </span>
                 </div>
               ))}
             </div>
@@ -468,9 +512,9 @@ export const Dashboard = () => {
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   {/* Risk levels use the app's established status colors; white strokes
                       give the 2px segment gap, legend + tooltip carry identity beyond color */}
-                  <Bar dataKey="High" stackId="risk" fill={COLORS.red} stroke="#fff" strokeWidth={2} />
-                  <Bar dataKey="Medium" stackId="risk" fill={COLORS.yellow} stroke="#fff" strokeWidth={2} />
-                  <Bar dataKey="Low" stackId="risk" fill={COLORS.green} stroke="#fff" strokeWidth={2} />
+                  <Bar dataKey="High" stackId="risk" fill={RISK_COLORS.high} stroke="#fff" strokeWidth={2} />
+                  <Bar dataKey="Medium" stackId="risk" fill={RISK_COLORS.medium} stroke="#fff" strokeWidth={2} />
+                  <Bar dataKey="Low" stackId="risk" fill={RISK_COLORS.low} stroke="#fff" strokeWidth={2} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -485,17 +529,36 @@ export const Dashboard = () => {
               <NoDataYet message="No follow-ups overdue or due within 60 days." />
             ) : (
               <div className="divide-y divide-gray-100">
-                {upcomingFollowUps.map((r) => (
-                  <div key={r.id} className="flex items-center justify-between py-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{r.studentName}</p>
-                      <p className="text-xs text-muted-foreground">{r.grade} · {r.section}</p>
+                {upcomingFollowUps.map((r) => {
+                  // urgency reads as form, not just number: overdue red, due
+                  // within a week amber, further out calm gray
+                  const pill = r.status === 'overdue'
+                    ? 'bg-danger-surface text-destructive'
+                    : r.daysUntilDue <= 7
+                      ? 'bg-warning-surface text-warning'
+                      : 'bg-muted text-muted-foreground';
+                  const initials = r.studentName
+                    .split(/[\s,]+/)
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((w: string) => w[0])
+                    .join('')
+                    .toUpperCase();
+                  return (
+                    <div key={r.id} className="flex items-center gap-3 py-2 px-1 rounded-lg hover:bg-primary-surface transition-colors">
+                      <span className="w-8 h-8 rounded-lg bg-primary-surface text-primary grid place-items-center text-[11px] font-bold shrink-0">
+                        {initials}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{r.studentName}</p>
+                        <p className="text-xs text-muted-foreground">{r.grade} · {r.section}</p>
+                      </div>
+                      <span className={`ml-auto text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 tabular-nums ${pill}`}>
+                        {r.status === 'overdue' ? `${Math.abs(r.daysUntilDue)}d overdue` : r.daysUntilDue === 0 ? 'due today' : `due in ${r.daysUntilDue}d`}
+                      </span>
                     </div>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${r.status === 'overdue' ? 'bg-red-100 text-destructive' : 'bg-primary-surface text-primary'}`}>
-                      {r.status === 'overdue' ? `${Math.abs(r.daysUntilDue)}d overdue` : `due in ${r.daysUntilDue}d`}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

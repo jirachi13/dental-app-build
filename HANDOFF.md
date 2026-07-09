@@ -1,5 +1,15 @@
 # HANDOFF — Phase 3 pipeline dry-run complete on SYNTHETIC data (Sprints 21a-21f exercised end-to-end; real data still blocked)
 
+## Sprint 23h (Dashboard beautify U2+U3, mockup-approved) — DONE 2026-07-10 (tsc+build clean, NOT yet deployed/pushed)
+Implements the user-approved mockup (claude.ai/code/artifact/afcc72b6-b05d-4f3c-8bf9-9986f6595360, "v2-full-page") — 1 file, `Dashboard.tsx`:
+- **StatCard redesigned (shared → all 5 role dashboards inherit)**: tinted icon chip (style derived from existing `color` prop via `STAT_CHIP` map — zero call-site changes), 3xl tabular-nums value, status tiles carry their color on number+footnote (destructive/success), hover lift + reveal-arrow when linked, slimmer aria-labelled progress meter.
+- **Dentist header**: date block + "N appointments today" + primary New Appointment button (Link → /appointments).
+- **U3 semantic risk palette**: new `RISK_COLORS` (low #15803D / medium #B45309 / high #DC2626, ordered Low→High) used by the risk donut AND the validated-assessments stacked bars — replaces COLORS.red/yellow/green rainbow *for risk charts only* (COLORS untouched; other roles' charts still use it — migrate when their dashboards get their pass).
+- **Risk donut**: center total overlay (pointer-events-none so tooltips work), legend with counts + %.
+- **Follow-ups list**: avatar initials, row hover, urgency pills semantic (overdue red / ≤7d amber `warning-surface` / later gray), "due today" case.
+- **Section rhythm**: dentist view `space-y-4`→`space-y-6`.
+**Not done (known, deliberate):** sidebar risk-count badge from the mockup (Root has no data fetching — own small sprint); entrance/bar-grow motion (audit X4, own sprint); other role dashboards' layout pass; funnel/procedures visual restyle (kept — already decent). Mockup artifact = the spec if the direction needs re-checking.
+
 ## Sprint 23g (token system LIVE — proof slice) — DONE 2026-07-07 (Opus, tsc+build clean, NOT yet deployed)
 Fixes audit finding U1 (dead tokens) as a vertical slice — makes the 23f foundation real instead of unused. Two parts:
 - **theme.css**: added semantic state vocabulary (`--primary-hover`, `--primary-surface`, `--success`/`-surface`, `--warning`/`-surface`, `--danger-surface`) + registered all in `@theme inline` so they emit as utilities. Verified present in built CSS (`bg-primary-surface`, `text-success`, `bg-primary-hover`, `bg-card`, etc. all generated).
