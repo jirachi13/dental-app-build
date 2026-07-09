@@ -260,7 +260,7 @@ export const Dashboard = () => {
         {progress !== undefined && (
           <div className="mt-2.5 w-full bg-muted rounded-full h-1.5" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
             <div
-              className={`h-1.5 rounded-full ${color.replace('text-', 'bg-')}`}
+              className={`h-1.5 rounded-full grow-x ${color.replace('text-', 'bg-')}`}
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -333,7 +333,7 @@ export const Dashboard = () => {
     const riskTotal = highRiskCount + mediumRiskCount + lowRiskCount;
     return (
       <div className="space-y-6">
-        <div className="flex flex-wrap items-end gap-4">
+        <div className="flex flex-wrap items-end gap-4 rise">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Dentist Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-0.5">Welcome back, {user?.name} — {selectedSchool ? getSchoolShortName(selectedSchool) : 'All Schools'}</p>
@@ -354,7 +354,7 @@ export const Dashboard = () => {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 rise rise-1">
           <StatCard
             icon={Users}
             label="Total Patients"
@@ -389,7 +389,7 @@ export const Dashboard = () => {
         </div>
 
         {/* Charts Row: Risk Distribution (LEFT) + Oral Health Trend (RIGHT, illustrative — see note above) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 rise rise-2">
           <div className="bg-card p-4 rounded-xl border border-border">
             <h2 className="text-sm font-bold text-foreground">Risk Distribution</h2>
             <p className="text-[11px] text-muted-foreground mb-3">Validated caries-risk classification</p>
@@ -435,7 +435,8 @@ export const Dashboard = () => {
           </div>
 
           <div className="bg-card p-4 rounded-xl border border-border">
-            <h2 className="text-sm font-bold text-foreground mb-3">Oral Health Trend (Last 6 Months)</h2>
+            <h2 className="text-sm font-bold text-foreground">Oral Health Trend</h2>
+            <p className="text-[11px] text-muted-foreground mb-3">Mean DMFT index · last 6 months</p>
             {/* No historical monthly snapshots exist yet to compute a real
                 trend from -- an honest empty state, not fabricated numbers. */}
             <NoDataYet message="No historical trend data yet. This chart will populate once monthly snapshots begin accumulating." />
@@ -443,10 +444,13 @@ export const Dashboard = () => {
         </div>
 
         {/* Charts Row 2: RPC funnel + procedures — both computed from real records */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 rise rise-3">
           <div className="bg-card p-4 rounded-xl border border-border">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold text-foreground">RPC Two-Visit Funnel</h2>
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <h2 className="text-sm font-bold text-foreground">RPC Two-Visit Funnel</h2>
+                <p className="text-[11px] text-muted-foreground">Preventive care progression</p>
+              </div>
               <Link to="/rpc" className="text-xs text-primary hover:underline">RPC Tracking →</Link>
             </div>
             {scopedRpc.length === 0 ? (
@@ -467,7 +471,7 @@ export const Dashboard = () => {
                     <div key={step.label} className="flex items-center gap-3">
                       <span className="text-xs text-muted-foreground w-36 shrink-0">{step.label}</span>
                       <div className="flex-1 bg-muted rounded-md h-7 relative overflow-hidden">
-                        <div className="h-full rounded-md" style={{ width: `${pct}%`, backgroundColor: step.color }} />
+                        <div className="h-full rounded-md grow-x" style={{ width: `${pct}%`, backgroundColor: step.color }} />
                         <span
                           className="absolute inset-y-0 flex items-center text-xs font-bold tabular-nums whitespace-nowrap"
                           style={fits ? { right: `calc(${100 - pct}% + 8px)`, color: step.ink } : { left: `calc(${pct}% + 8px)`, color: 'var(--foreground)' }}
@@ -486,7 +490,8 @@ export const Dashboard = () => {
           </div>
 
           <div className="bg-card p-4 rounded-xl border border-border">
-            <h2 className="text-sm font-bold text-foreground mb-3">Procedures Performed</h2>
+            <h2 className="text-sm font-bold text-foreground">Procedures Performed</h2>
+            <p className="text-[11px] text-muted-foreground mb-3">From dental chart treatment records</p>
             {procedureBreakdown.length === 0 ? (
               <NoDataYet message="No procedures recorded on dental charts yet." />
             ) : (
@@ -495,7 +500,7 @@ export const Dashboard = () => {
                   <div key={p.code} className="flex items-center gap-3">
                     <span className="text-xs text-muted-foreground w-36 truncate shrink-0" title={p.label}>{p.label}</span>
                     <div className="flex-1 bg-muted rounded-md h-5">
-                      <div className="h-full rounded-md bg-primary" style={{ width: `${(p.count / procedureBreakdown[0].count) * 100}%` }} />
+                      <div className="h-full rounded-md bg-primary grow-x" style={{ width: `${(p.count / procedureBreakdown[0].count) * 100}%` }} />
                     </div>
                     <span className="text-xs font-bold tabular-nums text-foreground w-8 text-right shrink-0">{p.count}</span>
                   </div>
@@ -506,9 +511,10 @@ export const Dashboard = () => {
         </div>
 
         {/* Charts Row 3: validated assessments over time + follow-ups due */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 rise rise-4">
           <div className="bg-card p-4 rounded-xl border border-border">
-            <h2 className="text-sm font-bold text-foreground mb-3">Validated Risk Assessments by Month</h2>
+            <h2 className="text-sm font-bold text-foreground">Validated Risk Assessments</h2>
+            <p className="text-[11px] text-muted-foreground mb-3">Dentist-validated each month</p>
             {assessmentsByMonth.length === 0 ? (
               <NoDataYet message="No dentist-validated assessments yet — validated assessments will chart here by month." />
             ) : (
@@ -530,8 +536,11 @@ export const Dashboard = () => {
           </div>
 
           <div className="bg-card p-4 rounded-xl border border-border">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold text-foreground">RPC Follow-ups Due</h2>
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <h2 className="text-sm font-bold text-foreground">RPC Follow-ups Due</h2>
+                <p className="text-[11px] text-muted-foreground">Overdue and due within 60 days</p>
+              </div>
               <Link to="/rpc" className="text-xs text-primary hover:underline">View all →</Link>
             </div>
             {upcomingFollowUps.length === 0 ? (

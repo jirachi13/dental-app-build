@@ -10,6 +10,31 @@ input::-ms-clear {
   display: none;
 }
 
+/* ── Dashboard entrance motion (Sprint 23j / audit X4-lite) ──────────────
+   Content is fully visible by default; motion is pure enhancement and only
+   runs when the OS allows it. Short ease-out, no bounce, 4-step stagger. */
+@media (prefers-reduced-motion: no-preference) {
+  .rise {
+    animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .rise-1 { animation-delay: 0.05s; }
+  .rise-2 { animation-delay: 0.1s; }
+  .rise-3 { animation-delay: 0.15s; }
+  .rise-4 { animation-delay: 0.2s; }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+  .grow-x {
+    transform-origin: left;
+    animation: grow-x 0.7s 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  @keyframes grow-x {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
+}
+
 /* ── Print Styles ────────────────────────────────────────────────────────── */
 @media print {
   /* The DOH report table is very wide (many age-bracket columns) — printing

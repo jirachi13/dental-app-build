@@ -1,5 +1,12 @@
 # HANDOFF — Phase 3 pipeline dry-run complete on SYNTHETIC data (Sprints 21a-21f exercised end-to-end; real data still blocked)
 
+## Sprint 23j (entrance motion + card subtitles) — DONE 2026-07-10 (tsc+build clean, pushed → auto-deploy)
+Final mockup gap-close for the dentist dashboard:
+- **Motion (audit X4-lite)**: `.rise`/`.rise-1..4` staggered entrance (0.45s ease-out, translateY 8px) on header/KPIs/3 chart rows + `.grow-x` scaleX grow on funnel/procedure/StatCard-meter fills. Keyframes in `index.css`, entirely inside `@media (prefers-reduced-motion: no-preference)` — content fully visible by default, motion is enhancement only.
+- **Subtitles** added to Oral Health Trend / funnel / procedures / validated-assessments / follow-ups cards ([11px] muted line under each h2, matching Risk Distribution).
+- **Sidebar risk-count badge CUT deliberately**: an accurate count needs the same 6 API calls useStudents makes — too heavy for shell chrome, and a "lighter" duplicate risks a wrong number (trust bug). Right fix later = small backend count endpoint (e.g. `/stats/high-risk-count`), then a one-line badge in Root.
+**Dentist-dashboard mockup is now effectively closed** (remaining diffs are data-honest: trend chart stays an empty state until snapshots exist). Still open from beautify audit: X1 modal primitive, X2 toast system, X3 per-region loading, remaining screens onto tokens, other roles' layout pass.
+
 ## Sprint 23i (canvas tint + funnel/procedures restyle) — DONE 2026-07-10 (tsc+build clean, pushed → auto-deploy)
 Closes the two cheapest visible gaps between the live app and the approved mockup: (1) new `--canvas: #F4F6FA` token (cool-biased page bg, registered as `bg-canvas`) applied in Root — replaces the default `bg-gray-50` app-wide; (2) RPC funnel restyled to the mockup treatment: label-left rows, h-7 tracks, single-hue depth ramp darkest→lightest (#1E40AF/#4E74D6/#9DB2EC), count inside the bar when it fits (anchored to the BAR end, `right: calc(100-pct% + 8px)` — not the track end, which put white text on gray) else beside it in ink; (3) procedures bars fattened to h-5 rounded-md with tabular-nums counts. Remaining mockup gaps (deliberate): entrance motion (audit X4), sidebar risk badge, other roles' layout pass.
 
