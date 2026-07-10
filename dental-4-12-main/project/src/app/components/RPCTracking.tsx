@@ -212,10 +212,11 @@ export const RPCTracking = () => {
             <YAxis tick={{fontSize:11}} />
             <Tooltip content={<ChartTooltip />} />
             <Legend wrapperStyle={{fontSize:11}} />
-            <Bar dataKey="complete"   name="Complete"     fill="#16A34A" stackId="a" />
-            <Bar dataKey="pending"    name="Visit 1 Only" fill="#2563EB" stackId="a" />
-            <Bar dataKey="overdue"    name="Overdue"      fill="#E31E24" stackId="a" />
-            <Bar dataKey="notStarted" name="Not Started"  fill="#9CA3AF" stackId="a" />
+            {/* semantic status set (Sprint 23o): matches dashboard risk/status colors */}
+            <Bar dataKey="complete"   name="Complete"     fill="#15803D" stackId="a" maxBarSize={48} />
+            <Bar dataKey="pending"    name="Visit 1 Only" fill="#1E40AF" stackId="a" maxBarSize={48} />
+            <Bar dataKey="overdue"    name="Overdue"      fill="#DC2626" stackId="a" maxBarSize={48} />
+            <Bar dataKey="notStarted" name="Not Started"  fill="#9CA3AF" stackId="a" maxBarSize={48} />
           </BarChart>
         </ResponsiveContainer>
       </div>

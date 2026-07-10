@@ -642,9 +642,9 @@ export const Dashboard = () => {
                 <YAxis key="appt-yaxis" />
                 <Tooltip key="appt-tooltip" content={<ChartTooltip />} />
                 <Legend key="appt-legend" />
-                <Bar dataKey="completed" stackId="a" fill={COLORS.green} name="Completed" key="appt-bar-completed" />
-                <Bar dataKey="scheduled" stackId="a" fill={COLORS.blue} name="Scheduled" key="appt-bar-scheduled" />
-                <Bar dataKey="cancelled" stackId="a" fill={COLORS.red} name="Cancelled" key="appt-bar-cancelled" />
+                <Bar dataKey="completed" stackId="a" fill="#15803D" name="Completed" key="appt-bar-completed" maxBarSize={48} />
+                <Bar dataKey="scheduled" stackId="a" fill={COLORS.blue} name="Scheduled" key="appt-bar-scheduled" maxBarSize={48} />
+                <Bar dataKey="cancelled" stackId="a" fill="#DC2626" name="Missed" key="appt-bar-cancelled" maxBarSize={48} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -678,10 +678,12 @@ export const Dashboard = () => {
     ];
 
     const oralHealthStatusData = [
-      { name: 'Orally Fit', value: schoolStudents.filter((s) => s.oralStatus === 'Orally Fit').length, color: COLORS.green },
-      { name: 'Needs Treatment', value: schoolStudents.filter((s) => s.oralStatus === 'Needs Treatment').length, color: COLORS.red },
+      // semantic status colors (Sprint 23o): good=green, needs-care=red,
+      // in-progress=brand blue, no-data-yet=neutral gray (not warning-amber)
+      { name: 'Orally Fit', value: schoolStudents.filter((s) => s.oralStatus === 'Orally Fit').length, color: '#15803D' },
+      { name: 'Needs Treatment', value: schoolStudents.filter((s) => s.oralStatus === 'Needs Treatment').length, color: '#DC2626' },
       { name: 'Under Treatment', value: schoolStudents.filter((s) => s.oralStatus === 'Under Treatment').length, color: COLORS.blue },
-      { name: 'Not Yet Screened', value: schoolStudents.filter((s) => s.oralStatus === 'Not Yet Screened').length, color: COLORS.yellow },
+      { name: 'Not Yet Screened', value: schoolStudents.filter((s) => s.oralStatus === 'Not Yet Screened').length, color: '#9CA3AF' },
     ];
 
     const schoolSessions = schoolName ? allSessions.filter((s) => s.school === schoolName) : [];
@@ -913,9 +915,9 @@ export const Dashboard = () => {
                 <YAxis key="school-yaxis" />
                 <Tooltip key="school-tooltip" content={<ChartTooltip />} />
                 <Legend key="school-legend" />
-                <Bar dataKey="screened" fill={COLORS.blue} name="Screened" key="school-bar-screened" />
-                <Bar dataKey="treated" fill={COLORS.green} name="Treated" key="school-bar-treated" />
-                <Bar dataKey="highRisk" fill={COLORS.red} name="High Risk" key="school-bar-risk" />
+                <Bar dataKey="screened" fill={COLORS.blue} name="Screened" key="school-bar-screened" maxBarSize={40} />
+                <Bar dataKey="treated" fill="#15803D" name="Treated" key="school-bar-treated" maxBarSize={40} />
+                <Bar dataKey="highRisk" fill="#DC2626" name="High Risk" key="school-bar-risk" maxBarSize={40} />
               </BarChart>
             </ResponsiveContainer>
           </div>
