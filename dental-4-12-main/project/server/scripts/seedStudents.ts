@@ -38,6 +38,18 @@ async function main() {
     throw new Error("No Dentist record found — run `npm run seed:demo` first");
   }
 
+  // full_name is encrypted with a RANDOM IV (Sprint 26), so a plaintext
+  // equality query can never match the stored ciphertext. Fetch once and
+  // dedup in JS after mongoose decrypts on read — same pattern as
+  // seedRpcVisit2.ts (Sprint 12 lesson).
+  const existingBySchool = new Map<string, Set<string>>();
+  for (const st of await Student.find({})) {
+    const key = String(st.school_id);
+    const set = existingBySchool.get(key) ?? new Set<string>();
+    set.add(st.full_name);
+    existingBySchool.set(key, set);
+  }
+
   let created = 0;
   for (const s of STUDENTS) {
     const school = schools[s.school];
@@ -46,8 +58,7 @@ async function main() {
       continue;
     }
 
-    const existing = await Student.findOne({ full_name: s.full_name, school_id: school._id });
-    if (existing) {
+    if (existingBySchool.get(String(school._id))?.has(s.full_name)) {
       console.log(`Student ${s.full_name} already exists, skipping.`);
       continue;
     }

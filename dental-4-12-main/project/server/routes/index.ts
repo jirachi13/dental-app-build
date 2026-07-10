@@ -67,7 +67,7 @@ router.get("/stats/high-risk-count", requireAuth, asyncHandler(async (req, res) 
   const schoolName = typeof req.query.school === "string" ? req.query.school : null;
   let studentFilter: Record<string, unknown> = { isArchived: false };
   if (schoolName) {
-    const school = await School.findOne({ school_name: schoolName, isArchived: false }).select("_id").lean();
+    const school = await School.findOne({ school_name: schoolName, isArchived: false }).select("_id").lean<{ _id: unknown } | null>();
     if (!school) { res.json({ count: 0 }); return; }
     studentFilter = { ...studentFilter, school_id: school._id };
   }

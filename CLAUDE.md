@@ -16,8 +16,8 @@ Capstone Thesis — Build Phase — Group 404 — AY 2025-2026
 - Every ~5 sprints, do a CLAUDE.md hygiene pass: delete superseded lines, compress resolved sagas to one-liners, verify build-phase status markers.
 
 ## MODEL STRATEGY (superseded 2026-07-04 → OPUS-ONLY)
-- Fable is effectively unavailable (usage-credit-based from 2026-07-07, Pro plan carries no credits, allotment spent). Run everything on Opus — scoping, plans, reviews, execution — taking extra care on judgment-heavy/risky parts (esp. Sprint 26 encryption IV data-loss risk).
-- Leave a precise plan in HANDOFF before executing, so any session can execute without re-deriving intent.
+- Fable is available again (2026-07-10). Split by task: **Fable = judgment** (scoping, plan mode, reviews, risky work), **Opus/Sonnet = execute written plans and light work** — premium capacity on light work is waste.
+- Leave a precise plan in HANDOFF (or a plan-mode plan file) before executing, so any session/model can execute without re-deriving intent.
 
 ## BEHAVIOR RULES
 - Think before coding, ask if unclear; simplicity first, no overengineering
@@ -66,7 +66,8 @@ Full field-level specs for all 16 models live in **`/docs/DATA-MODEL.md`** — R
 
 ## DATA ENCRYPTION
 - Encrypt sensitive patient fields before saving to MongoDB. Do NOT encrypt fields needed for querying (isArchived, dates, IDs, role, school_id).
-- Implemented Sprint 8 via `mongoose-field-encryption` (AES-256-CBC), scoped to: STUDENT (full_name, address, contact_number), DENTAL_AIDE (contact_number), MEDICAL_HISTORY (allergies, others — not the boolean flags), TREATMENT (diagnosis, treatment_done). USER.full_name NOT encrypted (staff name, not patient PII). CRUD routes for these models use findById+save (not findByIdAndUpdate) — see HANDOFF Sprint 8 for why.
+- Implemented Sprint 8 via `mongoose-field-encryption` (AES-256-CBC), scoped to: STUDENT (full_name, address, contact_number, guardian_name, guardian_contact, philhealth_number, fourps_id), DENTAL_AIDE (contact_number), MEDICAL_HISTORY (allergies, others — not the boolean flags), TREATMENT (diagnosis, treatment_done). USER.full_name NOT encrypted (staff name, not patient PII). CRUD routes for these models use findById+save (not findByIdAndUpdate) — see HANDOFF Sprint 8 for why.
+- **Random IV per encryption (Sprint 26)** — values stored as `<iv>:<ciphertext>`, decrypt reads the IV from the stored value, so plaintext equality queries on encrypted fields NEVER match (fetch + filter in JS instead; see seedStudents/seedRpcVisit2). NEVER change `FIELD_ENCRYPTION_SECRET` — that is the one action that makes existing records permanently undecryptable.
 
 ## SECURITY
 - OWASP Top 10 compliance before deployment; ZAP scan after deployment
@@ -112,7 +113,6 @@ Full field-level specs for all 16 models live in **`/docs/DATA-MODEL.md`** — R
 **PENDING backlog (each needs approval, sprint loop applies):**
 - Sprint 21a-d (real data) → re-run clean→features→experiments→select once real IPTR files located (only remaining Phase 3 work)
 - Sprint 23 → full UI beautify pass via /impeccable (text loaders, transitions, toast consistency, focus states; anti-slop rules in HANDOFF apply)
-- Sprint 26 → deterministic encryption IV fix (research mongoose-field-encryption's IV mechanism first — real-data-loss risk, take extra care)
 - Live TODO (from Sprint 25): no account has 2FA enabled yet — enable per account in Account Management once real staff emails are set
 - Other roles' dashboard upgrades (NOT small — punted, needs its own scope). (Earlier small strays — RPC interval label + early-Visit-2 flag, appointment card date, mixed-dentition hint, t/T→dmft/DMFT score labels — are all DONE; see BUILD-LOG / HANDOFF.)
 - User-only items (no sprint): locate real IPTR files; verify DOH form typo spellings (Transfussion/Scalling/Flouride) against paper form; decide Reports April-default month
