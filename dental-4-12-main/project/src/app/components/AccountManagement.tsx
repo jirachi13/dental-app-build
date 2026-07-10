@@ -7,6 +7,7 @@ import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Notice } from './Notice';
 import { useToast } from './Toast';
+import { Modal } from './Modal';
 import { useAuth } from '../context/AuthContext';
 
 const ROLES: ApiRole[] = ['dentist', 'dental_aide', 'school_admin', 'bho_staff', 'system_admin'];
@@ -513,8 +514,7 @@ export const AccountManagement = () => {
 
       {/* Edit Account Modal */}
       {editingUserId && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
+        <Modal onClose={() => setEditingUserId(null)} maxWidth="max-w-lg" closeDisabled={editSubmitting || twofaBusy}>
             <div className="p-6 border-b">
               <h2 className="text-lg font-bold text-gray-900">Edit Account</h2>
             </div>
@@ -633,14 +633,12 @@ export const AccountManagement = () => {
                 {editSubmitting ? 'Saving…' : 'Save Changes'}
               </button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* Reset Password Modal */}
       {resettingUserId && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
+        <Modal onClose={() => setResettingUserId(null)} maxWidth="max-w-lg" closeDisabled={resetSubmitting || sendingReset}>
             <div className="p-6 border-b">
               <h2 className="text-lg font-bold text-gray-900">Reset Password</h2>
               <p className="text-sm text-gray-500 mt-1">for {resettingUserName}</p>
@@ -694,8 +692,7 @@ export const AccountManagement = () => {
                 {resetSubmitting ? 'Resetting…' : 'Reset Password'}
               </button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       <ConfirmDialog

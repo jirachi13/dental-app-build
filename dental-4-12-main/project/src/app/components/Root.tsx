@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
 import { apiClient, ApiError } from '../api/client';
 import { useToast } from './Toast';
+import { Modal } from './Modal';
 
 // Fallback logo — replace with actual Barangay Tanyag logo file
 const logoImage = null;
@@ -240,8 +241,7 @@ export const Root = () => {
 
       {/* Change Password Modal */}
       {showChangePassword && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-xl shadow-xl w-full max-w-md">
+        <Modal onClose={() => setShowChangePassword(false)} closeDisabled={changingPassword}>
             <div className="p-6 border-b border-border">
               <h2 className="text-lg font-bold text-foreground">Change Password</h2>
             </div>
@@ -292,8 +292,7 @@ export const Root = () => {
                   </button>
                 </div>
             </>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

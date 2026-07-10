@@ -13,6 +13,7 @@ import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
 import { GradePill } from './GradePill';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { useToast } from './Toast';
+import { Modal } from './Modal';
 import { activatable } from '../utils/a11y';
 import { GradeTableCell } from './GradeTableCell';
 import { ListSearchInput } from './ListSearchInput';
@@ -666,8 +667,7 @@ export const PatientList = () => {
 
       {/* Scan IPTR Form Modal */}
       {showOcrUpload && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+        <Modal onClose={() => setShowOcrUpload(false)} closeDisabled={ocrProcessing}>
             <div className="flex items-center justify-between p-6 border-b">
               <h2 className="text-lg font-bold text-gray-900">Scan IPTR Form</h2>
               <button onClick={() => setShowOcrUpload(false)} className="text-gray-500 hover:text-gray-600"><X className="w-5 h-5" /></button>
@@ -698,14 +698,12 @@ export const PatientList = () => {
               )}
               {ocrError && <p className="text-sm text-red-600">{ocrError}</p>}
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* Add Student Modal */}
       {showAddForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <Modal onClose={() => { setShowAddForm(false); setOcrConfidences({}); }} maxWidth="max-w-lg" closeDisabled={addingPatient}>
             <div className="flex items-center justify-between p-6 border-b">
               <h2 className="text-lg font-bold text-gray-900">Add New Student</h2>
               <button onClick={() => { setShowAddForm(false); setOcrConfidences({}); }} className="text-gray-500 hover:text-gray-600"><X className="w-5 h-5" /></button>
@@ -745,14 +743,12 @@ export const PatientList = () => {
               <button onClick={() => { setShowAddForm(false); setOcrConfidences({}); }} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">Cancel</button>
               <button onClick={handleAddStudent} disabled={addingPatient} className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 text-sm font-medium">{addingPatient ? 'Adding…' : 'Add Student'}</button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* ── BULK UPLOAD MODAL ── */}
       {showBulkUpload && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+        <Modal onClose={resetBulkUpload} maxWidth="max-w-lg" closeDisabled={bulkImporting}>
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">Bulk Upload Students</h2>
               <button onClick={resetBulkUpload} disabled={bulkImporting} className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-40"><X className="w-4 h-4"/></button>
@@ -889,8 +885,7 @@ export const PatientList = () => {
                 </div>
               )}
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

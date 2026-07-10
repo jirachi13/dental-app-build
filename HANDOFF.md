@@ -1,5 +1,10 @@
 # HANDOFF — Phase 3 pipeline dry-run complete on SYNTHETIC data (Sprints 21a-21f exercised end-to-end; real data still blocked)
 
+## Sprint 23n (shared Modal primitive — audit X1 DONE) — 2026-07-10 (tsc+build clean, pushed → auto-deploy)
+New `components/Modal.tsx`: native `<dialog>` (platform focus-trap + Esc + top-layer), backdrop-click close, `closeDisabled` prop blocks Esc/backdrop mid-operation, body scroll lock, panel styling (bg-card rounded-xl shadow-xl, maxWidth prop, max-h-90vh scroll), `backdrop:bg-black/50`. Children keep their own header/body/footer.
+**All 9 hand-rolled overlays migrated**: Root change-password, ConfirmDialog (now a Modal consumer; kept cancel-initial-focus + alertdialog role), PatientList ×3 (OCR, add-student, bulk), Appointments ×2 (create, rotation), AccountManagement ×2 (edit+2FA, reset). Each passes its in-flight flag to closeDisabled (e.g. bulkImporting, creating). Zero `fixed inset-0` overlays remain in components/.
+Gotcha for future modals: replace BOTH overlay+panel divs AND both their closers — first pass left orphaned `</div>`s at 7 sites (tsc caught it).
+
 ## Sprint 23m (bulk import made REAL — P1 stub fixed) — DONE 2026-07-10 (tsc+build clean, parse logic smoke-tested, pushed → auto-deploy)
 The prototype's bulk-upload was fake END TO END: "Parse File" ignored the upload and fabricated 5 hardcoded students, "Import" saved nothing, and the helper text claimed birthday/address optional when the Student model REQUIRES them (school_id, full_name, birthday, sex, address, grade_level, section — verified in server/models/Student.ts). Now real, all in PatientList.tsx:
 - **Parse**: CSV via a small quoted-field-aware splitter; .xlsx via dynamic-import exceljs (same bundle-protection pattern as exportToXlsx). Header aliases (gender→sex, birthdate→birthday, etc.), sex/grade normalization ("4"→"Grade 4", "kinder"→"Kinder"; out-of-range grades rejected).

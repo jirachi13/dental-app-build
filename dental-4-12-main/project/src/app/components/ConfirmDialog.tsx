@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { Modal } from './Modal';
 
 // Reusable confirmation step for consequential/destructive actions (deactivate
 // account, delete a chart year, etc.) so none of them is a single unguarded
-// click. Escape or backdrop cancels; the Cancel button takes initial focus so
-// the safe choice is the default. `tone="danger"` gives a red confirm button.
+// click. Escape or backdrop cancels (via the shared Modal); the Cancel button
+// takes initial focus so the safe choice is the default. `tone="danger"` gives
+// a red confirm button.
 interface Props {
   open: boolean;
   title: string;
@@ -31,30 +33,14 @@ export function ConfirmDialog({
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (!open) return;
-    cancelRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !busy) onCancel();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, busy, onCancel]);
+    if (open) cancelRef.current?.focus();
+  }, [open]);
 
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={() => !busy && onCancel()}
-      role="presentation"
-    >
-      <div
-        role="alertdialog"
-        aria-modal="true"
-        aria-label={title}
-        className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal onClose={onCancel} closeDisabled={busy}>
+      <div role="alertdialog" aria-label={title} className="p-5">
         <div className="flex items-start gap-3">
           {tone === 'danger' && (
             <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-red-100">
@@ -86,6 +72,6 @@ export function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
