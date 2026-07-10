@@ -58,6 +58,47 @@ router.use("/users", createCrudRouter(User, { readRoles: ADMIN_ONLY, writeRoles:
 router.use("/dentists", createCrudRouter(Dentist, { writeRoles: ADMIN_ONLY }));
 router.use("/dental-aides", createCrudRouter(DentalAide, { writeRoles: ADMIN_ONLY }));
 
+// Lightweight aggregate for the sidebar risk badge (Sprint 23p) — replicates
+// useStudents' risk join server-side (student → iptrs → preventive → risk
+// stratification, first hit wins) so the badge count always matches the
+// dashboard, without the client re-fetching 6 collections on every page.
+// Read-only; requireAuth matches the underlying models' read policy.
+router.get("/stats/high-risk-count", requireAuth, asyncHandler(async (req, res) => {
+  const schoolName = typeof req.query.school === "string" ? req.query.school : null;
+  let studentFilter: Record<string, unknown> = { isArchived: false };
+  if (schoolName) {
+    const school = await School.findOne({ school_name: schoolName, isArchived: false }).select("_id").lean();
+    if (!school) { res.json({ count: 0 }); return; }
+    studentFilter = { ...studentFilter, school_id: school._id };
+  }
+  const [students, iptrs, preventives, risks] = await Promise.all([
+    Student.find(studentFilter).select("_id").lean(),
+    StudentIptr.find({ isArchived: false }).select("_id student_id").lean(),
+    PreventiveCareRecord.find({ isArchived: false }).select("_id iptr_id").lean(),
+    RiskStratification.find({ isArchived: false }).select("preventive_id risk_level").lean(),
+  ]);
+  const preventiveIptrById = new Map(preventives.map((p) => [String(p._id), String(p.iptr_id)]));
+  const riskByIptr = new Map<string, string>();
+  for (const r of risks) {
+    const iptrId = preventiveIptrById.get(String(r.preventive_id));
+    if (iptrId) riskByIptr.set(iptrId, String(r.risk_level));
+  }
+  const iptrsByStudent = new Map<string, string[]>();
+  for (const i of iptrs) {
+    const list = iptrsByStudent.get(String(i.student_id)) ?? [];
+    list.push(String(i._id));
+    iptrsByStudent.set(String(i.student_id), list);
+  }
+  let count = 0;
+  for (const s of students) {
+    const level = (iptrsByStudent.get(String(s._id)) ?? [])
+      .map((id) => riskByIptr.get(id))
+      .find(Boolean);
+    if (level === "High") count++;
+  }
+  res.json({ count });
+}));
+
 // Clinical models — all 5 roles can read (school_admin/bho_staff need this
 // for dashboards/reports per CLAUDE.md's own role descriptions), but only
 // clinical staff (+ System Admin as super user) can create/edit. Archive/

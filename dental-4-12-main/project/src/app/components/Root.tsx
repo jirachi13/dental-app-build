@@ -35,6 +35,17 @@ export const Root = () => {
     });
   };
 
+  // High-risk count for the Risk Classification badge — one light server
+  // aggregate (Sprint 23p) instead of the dashboard's 6-collection fetch.
+  const [highRiskCount, setHighRiskCount] = useState(0);
+  useEffect(() => {
+    if (user?.role !== 'dentist') return;
+    const q = selectedSchool ? `?school=${encodeURIComponent(selectedSchool)}` : '';
+    apiClient.get<{ count: number }>(`/stats/high-risk-count${q}`)
+      .then((r) => setHighRiskCount(r.count))
+      .catch(() => setHighRiskCount(0));
+  }, [user?.role, selectedSchool]);
+
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -147,6 +158,13 @@ export const Root = () => {
       >
         <Icon className="w-5 h-5 flex-shrink-0" />
         <span className={`${collapsed ? 'hidden' : 'hidden md:block'} text-sm font-medium`}>{tab.label}</span>
+        {tab.path === '/ai-analytics' && highRiskCount > 0 && (
+          <span className={`${collapsed ? 'hidden' : 'hidden md:inline-block'} ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full tabular-nums ${
+            isActive ? 'bg-white/20 text-white' : 'bg-danger-surface text-destructive'
+          }`}>
+            {highRiskCount}
+          </span>
+        )}
       </Link>
     );
   };

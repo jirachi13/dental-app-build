@@ -1,5 +1,10 @@
 # HANDOFF — Phase 3 pipeline dry-run complete on SYNTHETIC data (Sprints 21a-21f exercised end-to-end; real data still blocked)
 
+## Sprint 23p (small cleanups: risk badge endpoint + audit of stale items) — DONE 2026-07-10 (tsc+build clean, pushed → auto-deploy)
+- **New `GET /stats/high-risk-count[?school=<name>]`** (server/routes/index.ts, requireAuth): replicates useStudents' risk join server-side (student→iptrs→preventive→risk, first-hit-wins, isArchived filters) so the count always matches the dashboard. **Root.tsx sidebar badge**: red count pill on Risk Classification tab, dentist-only fetch (one light call vs the dashboard's 6), refetches on school switch, hidden when collapsed/zero. Closes the 23j punt.
+- **Stale "small cleanups" items VERIFIED ALREADY DONE, list closed**: OCR/pdf.js is already its own lazy chunk (`iptrOcr-*.js` — dynamic-imported; exceljs/jspdf/html2canvas also split), and PatientList's dead ViewToggle/`{true &&}` code no longer exists. Main bundle ~990KB is mostly recharts/react — further splitting would be route-level React.lazy (own sprint if ever; not "small").
+- NOTE: badge deploys with frontend+backend together (same repo/deploy), no staging skew concern.
+
 ## Sprint 23o (chart semantic palette — all other pages) — DONE 2026-07-10 (tsc+build clean, pushed → auto-deploy)
 Extends the dentist dashboard's semantic chart colors (23h) to every remaining chart: **Dashboard** — dental-aide Appointments by Status (green #15803D / brand blue / red #DC2626 + maxBarSize; "Cancelled" label corrected to "Missed" — dataKey counts Missed), school-admin Oral Health pie (Fit=green, Needs Treatment=red, Under Treatment=blue, Not Yet Screened=**neutral gray #9CA3AF** not warning-amber), BHO School Comparison (same set + maxBarSize). **RPCTracking** completion-by-school stack (#16A34A/#2563EB/#E31E24 → #15803D/#1E40AF/#DC2626, gray keeps). **Reports** second bar chart #0D9488 off-palette teal → #0E7490 (the app's cyan accent). COLORS rainbow now only used for brand-blue references; RPCTracking L270 gray-on-color = FALSE POSITIVE (amber badge + separate gray span on one line).
 
