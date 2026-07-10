@@ -21,6 +21,9 @@ __pycache__/
 # curl session-cookie files from manual API testing — never commit
 cookies.txt
 
+# Raw DB snapshots from backupRaw.ts — real patient PII, never commit
+backups/
+
 # Claude Code local session state — machine-specific, never shared
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
