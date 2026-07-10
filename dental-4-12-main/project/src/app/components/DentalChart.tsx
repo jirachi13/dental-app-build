@@ -247,10 +247,10 @@ export const DentalChart = () => {
       abnormalGrowth: oc.abnormal_growth, cleftLipPalate: oc.cleft_lip_palate, oralHygiene: oc.oral_hygiene, others: oc.others,
     } : emptyOral());
 
-    // Empty year (nothing recorded yet) exists to be filled — drop the
-    // dentist straight into edit mode; anything with data opens as a read view.
+    // Empty year (nothing recorded yet) exists to be filled — drop clinical
+    // staff straight into edit mode; anything with data opens as a read view.
     setEditMode(
-      user?.role === 'dentist' &&
+      (user?.role === 'dentist' || user?.role === 'dental_aide') &&
       !currentYearData.medicalHistory && !currentYearData.oralCondition &&
       currentYearData.toothRecords.length === 0,
     );
@@ -375,8 +375,26 @@ export const DentalChart = () => {
     setSaving(true);
     setSaveError(null);
     try {
+      // Teeth are dentist-only (aides save History & Oral); the chart record
+      // is only created when there are real tooth changes to persist — an
+      // aide saving history must not require (or fabricate) a dentist chart.
+      const existingByTooth = new Map(currentYearData.toothRecords.map((tr) => [tr.tooth_number, tr]));
+      const pendingTeeth = canEdit
+        ? Object.entries(draftChart)
+            // ToothRecord.condition is required (non-empty) on the backend --
+            // a tooth toggled back to "cleared" (empty string) has nothing
+            // valid to persist. Its local draft state just won't be sent; on
+            // reload it reverts to its last real saved value, if any, rather
+            // than crashing the save with a validation error.
+            .filter(([, entry]) => entry.condition !== '')
+            .filter(([toothStr, entry]) => {
+              const existing = existingByTooth.get(Number(toothStr));
+              return !existing || existing.condition !== entry.condition || (existing.treatment_code ?? '') !== entry.treatment;
+            })
+        : [];
+
       let chartId = currentYearData.dentalChart?._id;
-      if (!chartId) {
+      if (!chartId && pendingTeeth.length > 0) {
         if (!currentDentist) throw new Error('No dentist record linked to your account.');
         const created = await apiClient.post<{ _id: string }>('/dental-charts', {
           iptr_id: currentYearData.iptr._id,
@@ -386,24 +404,12 @@ export const DentalChart = () => {
         chartId = created._id;
       }
 
-      const existingByTooth = new Map(currentYearData.toothRecords.map((tr) => [tr.tooth_number, tr]));
-      const toothWrites = Object.entries(draftChart)
-        // ToothRecord.condition is required (non-empty) on the backend --
-        // a tooth toggled back to "cleared" (empty string) has nothing
-        // valid to persist. Its local draft state just won't be sent; on
-        // reload it reverts to its last real saved value, if any, rather
-        // than crashing the save with a validation error.
-        .filter(([, entry]) => entry.condition !== '')
-        .filter(([toothStr, entry]) => {
-          const existing = existingByTooth.get(Number(toothStr));
-          return !existing || existing.condition !== entry.condition || (existing.treatment_code ?? '') !== entry.treatment;
-        })
-        .map(([toothStr, entry]) => {
-          const toothNumber = Number(toothStr);
-          const existing = existingByTooth.get(toothNumber);
-          const body = { chart_id: chartId, tooth_number: toothNumber, condition: entry.condition, treatment_code: entry.treatment };
-          return existing ? apiClient.put(`/tooth-records/${existing._id}`, body) : apiClient.post('/tooth-records', body);
-        });
+      const toothWrites = pendingTeeth.map(([toothStr, entry]) => {
+        const toothNumber = Number(toothStr);
+        const existing = existingByTooth.get(toothNumber);
+        const body = { chart_id: chartId, tooth_number: toothNumber, condition: entry.condition, treatment_code: entry.treatment };
+        return existing ? apiClient.put(`/tooth-records/${existing._id}`, body) : apiClient.post('/tooth-records', body);
+      });
 
       const medBody = {
         iptr_id: currentYearData.iptr._id,
@@ -634,13 +640,13 @@ export const DentalChart = () => {
               </button>
             </>
           )}
-          {canEdit && currentYearData && !editMode && (
+          {canEditHistory && currentYearData && !editMode && (
             <button onClick={() => setEditMode(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-border text-foreground hover:bg-muted transition-colors">
               <Pencil className="w-4 h-4" />
-              Edit Chart
+              {canEdit ? 'Edit Chart' : 'Edit History & Oral'}
             </button>
           )}
-          {canEdit && currentYearData && editMode && (
+          {canEditHistory && currentYearData && editMode && (
             <>
               <button onClick={cancelEdit} disabled={saving} className="px-3 py-2 rounded-lg text-sm font-medium border border-border text-muted-foreground hover:bg-muted transition-colors disabled:opacity-60">
                 Cancel
@@ -908,7 +914,7 @@ export const DentalChart = () => {
 
             <div>
               <div className="text-xs font-bold text-gray-800 uppercase tracking-wide mb-2">
-                Oral Health Condition{!canEdit && <span className="ml-2 normal-case font-normal text-gray-500">(dentist only)</span>}
+                Oral Health Condition
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1.5">
                 {([
@@ -917,7 +923,7 @@ export const DentalChart = () => {
                 ] as [string, keyof OralDraft][]).map(([label, field]) => (
                   <label key={field} className="flex items-center justify-between text-xs text-gray-700 py-1 border-b border-gray-100">
                     {label}
-                    <input type="checkbox" disabled={!editingChart} checked={!!draftOral[field]}
+                    <input type="checkbox" disabled={!editingHistory} checked={!!draftOral[field]}
                       onChange={(e) => setDraftOral((p) => ({ ...p, [field]: e.target.checked }))}
                       className="w-4 h-4 rounded accent-teal-600 disabled:cursor-not-allowed" />
                   </label>
@@ -926,12 +932,12 @@ export const DentalChart = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Oral Hygiene</label>
-                  <input type="text" disabled={!editingChart} value={draftOral.oralHygiene} onChange={(e) => setDraftOral((p) => ({ ...p, oralHygiene: e.target.value }))}
+                  <input type="text" disabled={!editingHistory} value={draftOral.oralHygiene} onChange={(e) => setDraftOral((p) => ({ ...p, oralHygiene: e.target.value }))}
                     placeholder="e.g. Good, Fair, Poor" className="w-full text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed" />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Others</label>
-                  <input type="text" disabled={!editingChart} value={draftOral.others} onChange={(e) => setDraftOral((p) => ({ ...p, others: e.target.value }))}
+                  <input type="text" disabled={!editingHistory} value={draftOral.others} onChange={(e) => setDraftOral((p) => ({ ...p, others: e.target.value }))}
                     placeholder="—" className="w-full text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed" />
                 </div>
               </div>
