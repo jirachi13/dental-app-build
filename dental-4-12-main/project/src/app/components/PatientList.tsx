@@ -29,6 +29,78 @@ const SCHOOLS = [
 ];
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 
+// ── Bulk import parsing (Sprint 23m) ─────────────────────────────────────────
+// The prototype's "Parse File" ignored the upload and fabricated 5 students,
+// and "Import" saved nothing. This is the real thing: CSV/XLSX → validated
+// rows → POST /students per row. birthday + address are REQUIRED by the
+// Student model (not optional as the old helper text claimed).
+type BulkRow = {
+  lastName: string; firstName: string; middleName: string; sex: string;
+  grade: string; section: string; birthday: string; address: string;
+  contactNumber: string; error: string | null;
+};
+
+// minimal CSV field splitter that honors double-quoted fields
+const parseCsvLine = (line: string): string[] => {
+  const out: string[] = []; let cur = ''; let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQ) {
+      if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else inQ = false; }
+      else cur += ch;
+    } else if (ch === '"') inQ = true;
+    else if (ch === ',') { out.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out.map((s) => s.trim());
+};
+
+const normalizeHeader = (h: string) => h.toLowerCase().trim().replace(/\s+/g, '_');
+
+const normalizeSex = (s: string): string | null => {
+  const t = s.trim().toLowerCase();
+  if (t === 'm' || t === 'male') return 'Male';
+  if (t === 'f' || t === 'female') return 'Female';
+  return null;
+};
+
+const normalizeGrade = (g: string): string | null => {
+  const t = g.trim().toLowerCase();
+  if (!t) return null;
+  if (t === 'k' || t.startsWith('kinder')) return 'Kinder';
+  const m = t.match(/(\d{1,2})/);
+  if (m) {
+    const cand = `Grade ${parseInt(m[1], 10)}`;
+    return GRADES.includes(cand) ? cand : null;
+  }
+  return null;
+};
+
+const buildBulkRow = (rec: Record<string, string>): BulkRow => {
+  const get = (...keys: string[]) => { for (const k of keys) if (rec[k]) return rec[k]; return ''; };
+  const lastName = get('last_name', 'lastname', 'surname');
+  const firstName = get('first_name', 'firstname', 'given_name');
+  const middleName = get('middle_name', 'middlename');
+  const sexRaw = get('sex', 'gender');
+  const gradeRaw = get('grade_level', 'grade', 'gradelevel');
+  const section = get('section');
+  const birthday = get('birthday', 'birthdate', 'birth_date', 'date_of_birth');
+  const address = get('address');
+  const contactNumber = get('contact_number', 'contact', 'contactnumber', 'phone');
+  const sex = normalizeSex(sexRaw);
+  const grade = gradeRaw ? normalizeGrade(gradeRaw) : null;
+  let error: string | null = null;
+  if (!lastName || !firstName) error = 'Missing name';
+  else if (!sex) error = sexRaw ? `Unrecognized sex "${sexRaw}"` : 'Missing sex';
+  else if (!grade) error = gradeRaw ? `Unrecognized grade "${gradeRaw}"` : 'Missing grade level';
+  else if (!section) error = 'Missing section';
+  else if (!birthday) error = 'Missing birthday';
+  else if (isNaN(new Date(birthday).getTime())) error = `Invalid birthday "${birthday}"`;
+  else if (!address) error = 'Missing address';
+  return { lastName, firstName, middleName, sex: sex ?? sexRaw, grade: grade ?? gradeRaw, section, birthday, address, contactNumber, error };
+};
+
 
 export const PatientList = () => {
   const navigate = useNavigate();
@@ -59,8 +131,104 @@ export const PatientList = () => {
   const [ocrConfidences, setOcrConfidences] = useState<Partial<Record<IptrOcrFieldKey, number>>>({});
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [bulkFile, setBulkFile] = useState<File | null>(null);
-  const [bulkPreview, setBulkPreview] = useState<any[]>([]);
+  const [bulkPreview, setBulkPreview] = useState<BulkRow[]>([]);
   const [bulkStep, setBulkStep] = useState<'upload'|'preview'|'done'>('upload');
+  const [bulkParseError, setBulkParseError] = useState<string | null>(null);
+  const [bulkImporting, setBulkImporting] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(0);
+  const [bulkResult, setBulkResult] = useState<{ imported: number; failures: { name: string; error: string }[] }>({ imported: 0, failures: [] });
+
+  const resetBulkUpload = () => {
+    setShowBulkUpload(false);
+    setBulkStep('upload');
+    setBulkPreview([]);
+    setBulkFile(null);
+    setBulkParseError(null);
+    setBulkProgress(0);
+    setBulkResult({ imported: 0, failures: [] });
+  };
+
+  const handleParseBulk = async () => {
+    if (!bulkFile) return;
+    setBulkParseError(null);
+    try {
+      let records: Record<string, string>[] = [];
+      if (/\.(xlsx|xls)$/i.test(bulkFile.name)) {
+        // same dynamic-import bundle protection as exportToXlsx
+        const ExcelJS = (await import('exceljs')).default ?? (await import('exceljs'));
+        const wb = new ExcelJS.Workbook();
+        await wb.xlsx.load(await bulkFile.arrayBuffer());
+        const ws = wb.worksheets[0];
+        if (!ws) throw new Error('No worksheet found in the file.');
+        const headers: string[] = [];
+        ws.getRow(1).eachCell((cell, col) => { headers[col] = normalizeHeader(String(cell.value ?? '')); });
+        ws.eachRow((row, rowNumber) => {
+          if (rowNumber === 1) return;
+          const rec: Record<string, string> = {};
+          row.eachCell((cell, col) => {
+            if (headers[col]) rec[headers[col]] = (cell.text ? String(cell.text) : String(cell.value ?? '')).trim();
+          });
+          if (Object.values(rec).some((v) => v)) records.push(rec);
+        });
+      } else {
+        const text = await bulkFile.text();
+        const lines = text.split(/\r?\n/).filter((l) => l.trim());
+        if (lines.length < 2) throw new Error('The file has a header but no data rows.');
+        const headers = parseCsvLine(lines[0]).map(normalizeHeader);
+        records = lines.slice(1).map((line) => {
+          const vals = parseCsvLine(line);
+          const rec: Record<string, string> = {};
+          headers.forEach((h, i) => { rec[h] = vals[i] ?? ''; });
+          return rec;
+        });
+      }
+      if (records.length === 0) throw new Error('No data rows found in the file.');
+      setBulkPreview(records.map(buildBulkRow));
+      setBulkStep('preview');
+    } catch (err) {
+      setBulkParseError(err instanceof Error ? err.message : 'Could not read the file. Save it as .csv or .xlsx and try again.');
+    }
+  };
+
+  const handleBulkImport = async () => {
+    const school = schools.find((s) => s.school_name === (selectedSchool ?? ''));
+    if (!school) {
+      setBulkParseError('No school workspace selected — bulk import adds students to your current school.');
+      return;
+    }
+    const valid = bulkPreview.filter((r) => !r.error);
+    if (valid.length === 0) return;
+    setBulkImporting(true);
+    setBulkProgress(0);
+    const failures: { name: string; error: string }[] = [];
+    let imported = 0;
+    // sequential on purpose: keeps server load gentle and progress readable
+    for (const r of valid) {
+      try {
+        await apiClient.post('/students', {
+          school_id: school._id,
+          full_name: [r.firstName, r.middleName, r.lastName].filter(Boolean).join(' '),
+          birthday: r.birthday,
+          sex: r.sex,
+          address: r.address,
+          contact_number: r.contactNumber,
+          grade_level: r.grade,
+          section: r.section,
+          consent_status: 'pending',
+        });
+        imported++;
+      } catch (err) {
+        failures.push({ name: `${r.lastName}, ${r.firstName}`, error: err instanceof ApiError ? err.message : 'Failed to save' });
+      }
+      setBulkProgress(imported + failures.length);
+    }
+    await reloadStudents();
+    setBulkResult({ imported, failures });
+    setBulkImporting(false);
+    setBulkStep('done');
+    if (imported > 0) toast.success(`${imported} student${imported !== 1 ? 's' : ''} imported.`);
+    if (failures.length > 0) toast.error(`${failures.length} row${failures.length !== 1 ? 's' : ''} failed to import.`);
+  };
   const [queuedStudentIds, setQueuedStudentIds] = useState<string[]>(() => getQueuedStudentIds());
   // tick-box selection for queueing several students at once
   const [tickedIds, setTickedIds] = useState<Set<string>>(new Set());
@@ -587,14 +755,14 @@ export const PatientList = () => {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">Bulk Upload Students</h2>
-              <button onClick={() => { setShowBulkUpload(false); setBulkStep('upload'); setBulkPreview([]); setBulkFile(null); }} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-4 h-4"/></button>
+              <button onClick={resetBulkUpload} disabled={bulkImporting} className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-40"><X className="w-4 h-4"/></button>
             </div>
             <div className="p-5 space-y-4">
               {bulkStep === 'upload' && (
                 <>
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
                     <FileText className="w-3.5 h-3.5 inline mr-1" />
-                    Upload a CSV or Excel file. Required columns: <strong>Last Name, First Name, Sex, Grade Level, Section</strong>. Optional: Middle Name, Birthday, Address, Contact Number.
+                    Upload a CSV or Excel (.xlsx) file. Required columns: <strong>Last Name, First Name, Sex, Grade Level, Section, Birthday, Address</strong>. Optional: Middle Name, Contact Number.
                   </div>
                   <div
                     className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"
@@ -616,29 +784,19 @@ export const PatientList = () => {
                     <div className="bg-gray-50 rounded-lg p-3">
                       <div className="text-xs font-medium text-gray-600 mb-2">CSV Template (expected format):</div>
                       <div className="font-mono text-xs text-gray-500 overflow-x-auto whitespace-nowrap">
-                        last_name,first_name,middle_name,sex,grade_level,section,birthday,contact_number<br/>
-                        Dela Cruz,Juan,Santos,Male,Grade 4,Sampaguita,2016-03-15,09171234567<br/>
-                        Santos,Maria,Reyes,Female,Grade 3,Jasmine,2017-07-22,09281234567
+                        last_name,first_name,middle_name,sex,grade_level,section,birthday,address,contact_number<br/>
+                        Dela Cruz,Juan,Santos,Male,Grade 4,Sampaguita,2016-03-15,123 Tanyag St,09171234567<br/>
+                        Santos,Maria,Reyes,Female,Grade 3,Jasmine,2017-07-22,45 Daang Hari Rd,09281234567
                       </div>
                     </div>
                   )}
+                  {bulkParseError && <p className="text-sm text-destructive">{bulkParseError}</p>}
                   <div className="flex gap-3">
-                    <button onClick={() => { setShowBulkUpload(false); setBulkFile(null); }}
+                    <button onClick={resetBulkUpload}
                       className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">Cancel</button>
                     <button
                       disabled={!bulkFile}
-                      onClick={() => {
-                        // Mock parse — generate preview students
-                        const mock = [
-                          { lastName:'Dela Cruz', firstName:'Juan', sex:'Male', grade:'Grade 4', section:'Sampaguita' },
-                          { lastName:'Santos', firstName:'Maria', sex:'Female', grade:'Grade 3', section:'Jasmine' },
-                          { lastName:'Reyes', firstName:'Pedro', sex:'Male', grade:'Grade 2', section:'Rose' },
-                          { lastName:'Garcia', firstName:'Ana', sex:'Female', grade:'Grade 5', section:'Sunflower' },
-                          { lastName:'Martinez', firstName:'Jose', sex:'Male', grade:'Grade 1', section:'Sampaguita' },
-                        ];
-                        setBulkPreview(mock);
-                        setBulkStep('preview');
-                      }}
+                      onClick={handleParseBulk}
                       className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-40">
                       Parse File →
                     </button>
@@ -650,7 +808,10 @@ export const PatientList = () => {
                 <>
                   <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg p-3">
                     <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-                    <span className="text-sm text-green-800">{bulkPreview.length} students parsed from <strong>{bulkFile?.name}</strong></span>
+                    <span className="text-sm text-green-800">
+                      {bulkPreview.filter(r => !r.error).length} of {bulkPreview.length} rows ready from <strong>{bulkFile?.name}</strong>
+                      {bulkPreview.some(r => r.error) && <> — {bulkPreview.filter(r => r.error).length} with issues will be skipped</>}
+                    </span>
                   </div>
                   <div className="border border-gray-200 rounded-xl overflow-hidden max-h-60 overflow-y-auto">
                     <table className="w-full text-xs">
@@ -660,17 +821,21 @@ export const PatientList = () => {
                           <th className="text-left px-3 py-2 font-semibold text-gray-600">Sex</th>
                           <th className="text-left px-3 py-2 font-semibold text-gray-600">Grade</th>
                           <th className="text-left px-3 py-2 font-semibold text-gray-600">Section</th>
+                          <th className="text-left px-3 py-2 font-semibold text-gray-600">Birthday</th>
+                          <th className="text-left px-3 py-2 font-semibold text-gray-600">Issue</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
                         {bulkPreview.map((s, i) => (
-                          <tr key={i} className="hover:bg-gray-50">
-                            <td className="px-3 py-2 font-medium text-gray-900">{s.lastName}, {s.firstName}</td>
+                          <tr key={i} className={s.error ? 'bg-danger-surface' : 'hover:bg-gray-50'}>
+                            <td className="px-3 py-2 font-medium text-gray-900">{s.lastName || '—'}{s.lastName || s.firstName ? ', ' : ''}{s.firstName}</td>
                             <td className="px-3 py-2 text-gray-600">{s.sex}</td>
                             <td className="px-3 py-2">
                               <GradePill grade={s.grade} />
                             </td>
                             <td className="px-3 py-2 text-gray-600">{s.section}</td>
+                            <td className="px-3 py-2 text-gray-600 tabular-nums">{s.birthday}</td>
+                            <td className="px-3 py-2 text-destructive">{s.error ?? ''}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -678,14 +843,18 @@ export const PatientList = () => {
                   </div>
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs text-yellow-700">
                     <AlertCircle className="w-3.5 h-3.5 inline mr-1" />
-                    All uploaded students will be assigned: consent status = <strong>Pending</strong>, risk level = <strong>Low</strong>, status = <strong>Active</strong>.
+                    Students will be added to <strong>{selectedSchool ? getSchoolShortName(selectedSchool) : 'your current school'}</strong> with consent status = <strong>Pending</strong>. Rows with issues are skipped.
                   </div>
+                  {bulkParseError && <p className="text-sm text-destructive">{bulkParseError}</p>}
                   <div className="flex gap-3">
-                    <button onClick={() => setBulkStep('upload')}
-                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">← Back</button>
-                    <button onClick={() => setBulkStep('done')}
-                      className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
-                      Import {bulkPreview.length} Students
+                    <button onClick={() => setBulkStep('upload')} disabled={bulkImporting}
+                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium disabled:opacity-40">← Back</button>
+                    <button onClick={handleBulkImport}
+                      disabled={bulkImporting || bulkPreview.filter(r => !r.error).length === 0}
+                      className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-40">
+                      {bulkImporting
+                        ? `Importing… (${bulkProgress}/${bulkPreview.filter(r => !r.error).length})`
+                        : `Import ${bulkPreview.filter(r => !r.error).length} Students`}
                     </button>
                   </div>
                 </>
@@ -693,12 +862,27 @@ export const PatientList = () => {
 
               {bulkStep === 'done' && (
                 <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CheckCircle className="w-8 h-8 text-green-600" />
+                  <div className={`w-16 h-16 ${bulkResult.imported > 0 ? 'bg-green-100' : 'bg-danger-surface'} rounded-full flex items-center justify-center mx-auto mb-4`}>
+                    {bulkResult.imported > 0
+                      ? <CheckCircle className="w-8 h-8 text-green-600" />
+                      : <AlertCircle className="w-8 h-8 text-destructive" />}
                   </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">{bulkPreview.length} Students Imported!</h3>
-                  <p className="text-sm text-gray-500 mb-6">Students have been added to the system with pending consent status.</p>
-                  <button onClick={() => { setShowBulkUpload(false); setBulkStep('upload'); setBulkPreview([]); setBulkFile(null); }}
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">
+                    {bulkResult.imported} Student{bulkResult.imported !== 1 ? 's' : ''} Imported
+                  </h3>
+                  <p className="text-sm text-gray-500 mb-2">
+                    {bulkResult.imported > 0 ? 'Added with pending consent status.' : 'Nothing was imported.'}
+                  </p>
+                  {bulkResult.failures.length > 0 && (
+                    <div className="text-left bg-danger-surface rounded-lg p-3 mb-4 max-h-32 overflow-y-auto">
+                      <p className="text-xs font-semibold text-destructive mb-1">{bulkResult.failures.length} row{bulkResult.failures.length !== 1 ? 's' : ''} failed:</p>
+                      {bulkResult.failures.slice(0, 5).map((f, i) => (
+                        <p key={i} className="text-xs text-destructive">{f.name} — {f.error}</p>
+                      ))}
+                      {bulkResult.failures.length > 5 && <p className="text-xs text-destructive">…and {bulkResult.failures.length - 5} more</p>}
+                    </div>
+                  )}
+                  <button onClick={resetBulkUpload}
                     className="px-6 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
                     Done
                   </button>
