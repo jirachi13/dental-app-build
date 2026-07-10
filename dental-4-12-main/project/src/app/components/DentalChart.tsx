@@ -187,6 +187,10 @@ export const DentalChart = () => {
   const [selectedTreatment, setSelectedTreatment] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  // View-by-default (like the Patient Info card): clinical fields are a read
+  // view until the dentist explicitly enters edit mode — a stray click can no
+  // longer flip a medical flag. A brand-new/empty year auto-enters edit mode.
+  const [editMode, setEditMode] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [editingInfo, setEditingInfo] = useState(false);
   const [draftInfo, setDraftInfo] = useState<Partial<typeof student>>({});
@@ -214,6 +218,7 @@ export const DentalChart = () => {
       setDraftMed(emptyMed());
       setDraftDiet(emptyDiet());
       setDraftOral(emptyOral());
+      setEditMode(false);
       return;
     }
     const chart: Record<number, ChartEntry> = {};
@@ -241,7 +246,26 @@ export const DentalChart = () => {
       gingivitis: oc.gingivitis, periodontal: oc.periodontal_disease, debris: oc.debris, calculus: oc.calculus,
       abnormalGrowth: oc.abnormal_growth, cleftLipPalate: oc.cleft_lip_palate, oralHygiene: oc.oral_hygiene, others: oc.others,
     } : emptyOral());
-  }, [selectedYear, currentYearData]);
+
+    // Empty year (nothing recorded yet) exists to be filled — drop the
+    // dentist straight into edit mode; anything with data opens as a read view.
+    setEditMode(
+      user?.role === 'dentist' &&
+      !currentYearData.medicalHistory && !currentYearData.oralCondition &&
+      currentYearData.toothRecords.length === 0,
+    );
+  }, [selectedYear, currentYearData, user?.role]);
+
+  // Effective edit rights: role AND edit mode. Aides keep read-only here —
+  // they could tick history boxes before, but Save was always dentist-only,
+  // so those edits silently went nowhere (dead UI, now honest).
+  const editingChart = canEdit && editMode;
+  const editingHistory = canEditHistory && editMode;
+
+  const cancelEdit = async () => {
+    setEditMode(false);
+    await reload(); // refetch → draft-sync effect resets all drafts
+  };
 
   const currentChart = draftChart;
   const dmft = computeDMFT(currentChart);
@@ -468,10 +492,10 @@ export const DentalChart = () => {
     const cond = data?.condition || '';
     const treat = data?.treatment || '';
     const colorClass = conditionColors[cond] || conditionColors[cond.toLowerCase()] || 'bg-white border-gray-300';
-    const isSelected = canEdit && (selectedCondition || selectedTreatment);
+    const isSelected = editingChart && (selectedCondition || selectedTreatment);
     return (
       <button
-        onClick={() => canEdit && handleToothClick(num)}
+        onClick={() => editingChart && handleToothClick(num)}
         className={`relative flex h-12 w-10 shrink-0 flex-col items-center justify-between rounded-md border-2 px-0.5 py-1 text-center transition-all md:h-[54px] md:w-[44px] ${colorClass} ${isSelected ? 'hover:border-teal-500 hover:ring-2 hover:ring-teal-300 hover:bg-teal-50 cursor-pointer' : 'cursor-default'}`}
       >
         <div className="text-[8px] font-medium text-slate-500 leading-none">{num}</div>
@@ -610,11 +634,22 @@ export const DentalChart = () => {
               </button>
             </>
           )}
-          {canEdit && currentYearData && (
-            <button onClick={handleSave} disabled={saving} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-60 ${saved ? 'bg-green-600 text-white' : 'bg-[#1E40AF] text-white hover:bg-blue-700'}`}>
-              <Save className="w-4 h-4" />
-              {saving ? 'Saving…' : saved ? 'Saved!' : 'Save'}
+          {canEdit && currentYearData && !editMode && (
+            <button onClick={() => setEditMode(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-border text-foreground hover:bg-muted transition-colors">
+              <Pencil className="w-4 h-4" />
+              Edit Chart
             </button>
+          )}
+          {canEdit && currentYearData && editMode && (
+            <>
+              <button onClick={cancelEdit} disabled={saving} className="px-3 py-2 rounded-lg text-sm font-medium border border-border text-muted-foreground hover:bg-muted transition-colors disabled:opacity-60">
+                Cancel
+              </button>
+              <button onClick={handleSave} disabled={saving} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-60 ${saved ? 'bg-green-600 text-white' : 'bg-[#1E40AF] text-white hover:bg-blue-700'}`}>
+                <Save className="w-4 h-4" />
+                {saving ? 'Saving…' : saved ? 'Saved!' : 'Save'}
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -828,7 +863,7 @@ export const DentalChart = () => {
         {/* ── TAB 1: History ── */}
         {activeTab === 'history' && (
           <div className="p-4 space-y-4">
-            <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${!canEditHistory ? 'opacity-60' : ''}`}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <div className="text-xs font-bold text-gray-800 uppercase tracking-wide mb-2">Medical History</div>
                 <div className="space-y-1.5">
@@ -840,14 +875,14 @@ export const DentalChart = () => {
                   ] as [string, keyof MedicalHistoryDraft][]).map(([label, field]) => (
                     <label key={field} className="flex items-center justify-between text-xs text-gray-700 py-1 border-b border-gray-100 last:border-0">
                       {label}
-                      <input type="checkbox" disabled={!canEditHistory} checked={!!draftMed[field]}
+                      <input type="checkbox" disabled={!editingHistory} checked={!!draftMed[field]}
                         onChange={(e) => setDraftMed((p) => ({ ...p, [field]: e.target.checked }))}
                         className="w-4 h-4 rounded accent-teal-600 disabled:cursor-not-allowed" />
                     </label>
                   ))}
                   <div className="pt-1">
                     <label className="block text-xs text-gray-500 mb-1">Allergies</label>
-                    <input type="text" disabled={!canEditHistory} value={draftMed.allergies} onChange={(e) => setDraftMed((p) => ({ ...p, allergies: e.target.value }))}
+                    <input type="text" disabled={!editingHistory} value={draftMed.allergies} onChange={(e) => setDraftMed((p) => ({ ...p, allergies: e.target.value }))}
                       placeholder="—" className="w-full text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed" />
                   </div>
                 </div>
@@ -862,7 +897,7 @@ export const DentalChart = () => {
                   ] as [string, keyof DietDraft][]).map(([label, field]) => (
                     <label key={field} className="flex items-center justify-between text-xs text-gray-700 py-1 border-b border-gray-100 last:border-0">
                       {label}
-                      <input type="checkbox" disabled={!canEditHistory} checked={!!draftDiet[field]}
+                      <input type="checkbox" disabled={!editingHistory} checked={!!draftDiet[field]}
                         onChange={(e) => setDraftDiet((p) => ({ ...p, [field]: e.target.checked }))}
                         className="w-4 h-4 rounded accent-teal-600 disabled:cursor-not-allowed" />
                     </label>
@@ -871,7 +906,7 @@ export const DentalChart = () => {
               </div>
             </div>
 
-            <div className={!canEdit ? 'opacity-60' : ''}>
+            <div>
               <div className="text-xs font-bold text-gray-800 uppercase tracking-wide mb-2">
                 Oral Health Condition{!canEdit && <span className="ml-2 normal-case font-normal text-gray-500">(dentist only)</span>}
               </div>
@@ -882,7 +917,7 @@ export const DentalChart = () => {
                 ] as [string, keyof OralDraft][]).map(([label, field]) => (
                   <label key={field} className="flex items-center justify-between text-xs text-gray-700 py-1 border-b border-gray-100">
                     {label}
-                    <input type="checkbox" disabled={!canEdit} checked={!!draftOral[field]}
+                    <input type="checkbox" disabled={!editingChart} checked={!!draftOral[field]}
                       onChange={(e) => setDraftOral((p) => ({ ...p, [field]: e.target.checked }))}
                       className="w-4 h-4 rounded accent-teal-600 disabled:cursor-not-allowed" />
                   </label>
@@ -891,12 +926,12 @@ export const DentalChart = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Oral Hygiene</label>
-                  <input type="text" disabled={!canEdit} value={draftOral.oralHygiene} onChange={(e) => setDraftOral((p) => ({ ...p, oralHygiene: e.target.value }))}
+                  <input type="text" disabled={!editingChart} value={draftOral.oralHygiene} onChange={(e) => setDraftOral((p) => ({ ...p, oralHygiene: e.target.value }))}
                     placeholder="e.g. Good, Fair, Poor" className="w-full text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed" />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Others</label>
-                  <input type="text" disabled={!canEdit} value={draftOral.others} onChange={(e) => setDraftOral((p) => ({ ...p, others: e.target.value }))}
+                  <input type="text" disabled={!editingChart} value={draftOral.others} onChange={(e) => setDraftOral((p) => ({ ...p, others: e.target.value }))}
                     placeholder="—" className="w-full text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed" />
                 </div>
               </div>
@@ -908,8 +943,9 @@ export const DentalChart = () => {
         {activeTab === 'chart' && (
           <div className="p-0 space-y-0">
             <div className="p-4 space-y-4">
-            <div className={`bg-blue-50 rounded-xl p-4 ${!canEdit ? 'opacity-50 pointer-events-none select-none' : ''}`}>
+            <div className={`bg-blue-50 rounded-xl p-4 ${!editingChart ? 'opacity-50 pointer-events-none select-none' : ''}`}>
               {!canEdit && <p className="text-xs text-gray-500 mb-2 italic">View only — editing restricted to Dentist</p>}
+              {canEdit && !editMode && <p className="text-xs text-gray-500 mb-2 italic">View mode — click "Edit Chart" to record conditions/treatments</p>}
               <div className={`grid grid-cols-1 ${iptrContext === 'default' ? 'lg:grid-cols-2' : ''} gap-4`}>
                 {iptrContext !== 'treatment' && (
                 <div>
