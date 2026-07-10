@@ -527,9 +527,10 @@ export const Dashboard = () => {
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   {/* Risk levels use the app's established status colors; white strokes
                       give the 2px segment gap, legend + tooltip carry identity beyond color */}
-                  <Bar dataKey="High" stackId="risk" fill={RISK_COLORS.high} stroke="#fff" strokeWidth={2} />
-                  <Bar dataKey="Medium" stackId="risk" fill={RISK_COLORS.medium} stroke="#fff" strokeWidth={2} />
-                  <Bar dataKey="Low" stackId="risk" fill={RISK_COLORS.low} stroke="#fff" strokeWidth={2} />
+                  {/* maxBarSize keeps a lone month from stretching into a slab */}
+                  <Bar dataKey="High" stackId="risk" fill={RISK_COLORS.high} stroke="#fff" strokeWidth={2} maxBarSize={48} />
+                  <Bar dataKey="Medium" stackId="risk" fill={RISK_COLORS.medium} stroke="#fff" strokeWidth={2} maxBarSize={48} />
+                  <Bar dataKey="Low" stackId="risk" fill={RISK_COLORS.low} stroke="#fff" strokeWidth={2} maxBarSize={48} />
                 </BarChart>
               </ResponsiveContainer>
             )}
