@@ -191,12 +191,30 @@ export const Dashboard = () => {
       bucket[r.risk_level]++;
       byMonth.set(month, bucket);
     }
-    return [...byMonth.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, c]) => ({
-        month: new Date(month + '-02').toLocaleDateString('en-PH', { month: 'short', year: '2-digit' }),
-        ...c,
-      }));
+    // No validations at all → empty array so the honest NoDataYet state shows
+    if (byMonth.size === 0) return [];
+    // Fixed rolling window: last 6 months up to the current month, zeros
+    // included — a lone data month reads as a timeline ("started in July"),
+    // not a single floating bar. Zero months are real zeros, not fabricated.
+    const months: { key: string; label: string }[] = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({
+        key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        label: d.toLocaleDateString('en-PH', { month: 'short', year: '2-digit' }),
+      });
+    }
+    // if any validations predate the window, chart them too (don't hide data)
+    const older = [...byMonth.keys()].filter((k) => k < months[0].key).sort();
+    const keys = [
+      ...older.map((k) => ({ key: k, label: new Date(k + '-02').toLocaleDateString('en-PH', { month: 'short', year: '2-digit' }) })),
+      ...months,
+    ];
+    return keys.map(({ key, label }) => ({
+      month: label,
+      ...(byMonth.get(key) ?? { High: 0, Medium: 0, Low: 0 }),
+    }));
   }, [riskStrats, preventiveIptrById, iptrStudentById, studentSchoolById, selectedSchool]);
 
   // RPC follow-ups needing attention: overdue first, then due within 60 days
