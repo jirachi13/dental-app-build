@@ -6,6 +6,7 @@ import type { ApiRole } from '../api/types';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Notice } from './Notice';
+import { useToast } from './Toast';
 import { useAuth } from '../context/AuthContext';
 
 const ROLES: ApiRole[] = ['dentist', 'dental_aide', 'school_admin', 'bho_staff', 'system_admin'];
@@ -13,6 +14,7 @@ const ROLES: ApiRole[] = ['dentist', 'dental_aide', 'school_admin', 'bho_staff',
 export const AccountManagement = () => {
   const { users, schools, loading, error, reload } = useUsers();
   const { user: currentUser } = useAuth();
+  const toast = useToast();
   const [confirmUser, setConfirmUser] = useState<(typeof users)[number] | null>(null);
   const [deactivating, setDeactivating] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -102,6 +104,7 @@ export const AccountManagement = () => {
       await apiClient.put(`/users/${editingUserId}`, { ...editForm, school_id: editForm.school_id || null });
       setEditingUserId(null);
       await reload();
+      toast.success('Account updated.');
     } catch (err) {
       setEditError(err instanceof ApiError ? err.message : 'Failed to update account');
     } finally {
@@ -127,6 +130,7 @@ export const AccountManagement = () => {
       setShowCreateForm(false);
       setForm({ full_name: '', email: '', role: 'dentist', school_id: '', password: '' });
       await reload();
+      toast.success('Account created.');
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : 'Failed to create account');
     } finally {
@@ -137,6 +141,7 @@ export const AccountManagement = () => {
   const handleToggleStatus = async (id: string, status: 'Active' | 'Inactive') => {
     await apiClient.patch(`/users/${id}/${status === 'Active' ? 'archive' : 'restore'}`);
     await reload();
+    toast.success(status === 'Active' ? 'Account deactivated.' : 'Account reactivated.');
   };
 
   // Reactivating is harmless → do it directly. Deactivating locks the account
@@ -195,6 +200,7 @@ export const AccountManagement = () => {
     try {
       await apiClient.patch(`/users/${resettingUserId}/reset-password`, { password: resetPassword });
       setResettingUserId(null);
+      toast.success('Password reset.');
     } catch (err) {
       setResetError(err instanceof ApiError ? err.message : 'Failed to reset password');
     } finally {

@@ -248,8 +248,14 @@ export const Appointments = () => {
   const monthName = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
   const days = getDaysInMonth(currentDate);
 
-  const markStatus = (session: AppointmentSession, status: string) => {
-    updateSessionStatus(session, status);
+  const markStatus = async (session: AppointmentSession, status: string) => {
+    // previously fire-and-forget — a failed status update was silent
+    try {
+      await updateSessionStatus(session, status);
+      toast.success(`Appointment marked ${status.toLowerCase()}.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update appointment status');
+    }
   };
 
   const statusBadge = (status: string) => {

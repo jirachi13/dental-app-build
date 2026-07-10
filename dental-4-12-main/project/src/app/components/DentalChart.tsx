@@ -4,6 +4,7 @@ import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, TrendingUp, 
 import { getGradeColor } from '../utils/gradeColors';
 import { useAuth } from '../context/AuthContext';
 import { GradePill } from './GradePill';
+import { useToast } from './Toast';
 import { useStudents } from '../hooks/useStudents';
 import { useAppointments } from '../hooks/useAppointments';
 import { useDentalChartData } from '../hooks/useDentalChartData';
@@ -130,6 +131,7 @@ export const treatmentCodes = [
 export const DentalChart = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const [searchParams] = useSearchParams();
   const { user, selectedSchool } = useAuth();
   const canEdit = user?.role === 'dentist';
@@ -306,6 +308,7 @@ export const DentalChart = () => {
     try {
       await apiClient.post('/student-iptrs', { student_id: id, school_year: nextYear });
       await reload();
+      toast.success(`School year ${nextYear} added.`);
     } catch (err) {
       setSaveError(err instanceof ApiError ? err.message : 'Failed to add school year');
     }
@@ -322,6 +325,7 @@ export const DentalChart = () => {
       await apiClient.patch(`/student-iptrs/${iptrId}/archive`);
       setSelectedYear((prev) => (prev === yearIndex ? Math.max(0, yearIndex - 1) : prev > yearIndex ? prev - 1 : prev));
       await reload();
+      toast.success('School year removed.');
     } catch (err) {
       setSaveError(err instanceof ApiError ? err.message : 'Failed to remove school year');
     }
@@ -430,6 +434,7 @@ export const DentalChart = () => {
     try {
       await apiClient.put(`/students/${id}`, { consent_status: checked ? 'complete' : 'pending' });
       await reload();
+      toast.success(checked ? 'Consent marked complete.' : 'Consent marked pending.');
     } catch (err) {
       setSaveError(err instanceof ApiError ? err.message : 'Failed to update consent status');
     }
@@ -449,6 +454,7 @@ export const DentalChart = () => {
     try {
       await apiClient.put(`/students/${id}`, draftInfo);
       await reload();
+      toast.success('Student info updated.');
       setEditingInfo(false);
     } catch (err) {
       setInfoError(err instanceof ApiError ? err.message : 'Failed to update student info');
@@ -513,6 +519,7 @@ export const DentalChart = () => {
         date: treatmentForm.date,
       });
       await reload();
+      toast.success('Treatment entry saved.');
       setTreatmentForm({ date: toLocalDateString(new Date()), diagnosis: '', treatmentDone: '', remarks: '' });
       setShowAddTreatment(false);
     } catch (err) {
