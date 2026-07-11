@@ -609,14 +609,29 @@ export const Dashboard = () => {
     const appointmentsByStatusData = weekAppointmentsByDay;
 
     return (
-      <div className="space-y-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Dental Aide Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Welcome back, {user?.name}</p>
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-end gap-4 rise">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Dental Aide Dashboard</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Welcome back, {user?.name}{selectedSchool ? ` — ${getSchoolShortName(selectedSchool)}` : ''}</p>
+          </div>
+          <div className="ml-auto text-right text-xs text-muted-foreground hidden sm:block">
+            <span className="block text-[13px] font-semibold text-foreground">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </span>
+            {todaySessions.length} appointment{todaySessions.length !== 1 ? 's' : ''} today
+          </div>
+          <Link
+            to="/appointments?new=1"
+            className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            New Appointment
+          </Link>
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 rise rise-1">
           <StatCard
             icon={Calendar}
             label="Appointments Today"
@@ -649,10 +664,11 @@ export const Dashboard = () => {
         </div>
 
         {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 rise rise-2">
           {/* Appointments by Status - Stacked Bar Chart (real, current week) */}
           <div className="bg-card p-4 rounded-xl border border-border">
-            <h2 className="text-sm font-bold text-foreground mb-3">Appointments by Status (This Week)</h2>
+            <h2 className="text-sm font-bold text-foreground mb-0.5">Appointments by Status (This Week)</h2>
+            <p className="text-[11px] text-muted-foreground mb-3">Completed · scheduled · missed, per day</p>
             <ResponsiveContainer width="100%" height={220} key="appt-status-container">
               <BarChart data={appointmentsByStatusData} id="appointments-status-chart">
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" key="appt-grid" />
@@ -676,7 +692,7 @@ export const Dashboard = () => {
         </div>
 
         {/* Task List -- same reason as above, no backing model */}
-        <div className="bg-card p-4 rounded-xl border border-border">
+        <div className="bg-card p-4 rounded-xl border border-border rise rise-3">
           <h2 className="text-sm font-bold text-foreground mb-3">Pending Tasks</h2>
           <p className="text-sm text-muted-foreground text-center py-12">No task-tracking system exists yet.</p>
         </div>
@@ -713,14 +729,29 @@ export const Dashboard = () => {
     const nextUpcomingSession = [...schoolSessions].filter((s) => s.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0];
 
     return (
-      <div className="space-y-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">School Admin Dashboard</h1>
-          <p className="text-muted-foreground mt-1">{user.schools?.[0]}</p>
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-end gap-4 rise">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">School Admin Dashboard</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">{user.schools?.[0]}</p>
+          </div>
+          <div className="ml-auto text-right text-xs text-muted-foreground hidden sm:block">
+            <span className="block text-[13px] font-semibold text-foreground">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </span>
+            {schoolStudents.length} student{schoolStudents.length !== 1 ? 's' : ''} enrolled
+          </div>
+          <Link
+            to="/reports"
+            className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
+          >
+            <FileText className="w-4 h-4" />
+            View Reports
+          </Link>
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 rise rise-1">
           <StatCard
             icon={Users}
             label="Students Enrolled"
@@ -753,10 +784,11 @@ export const Dashboard = () => {
         </div>
 
         {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 rise rise-2">
           {/* Screening Coverage - Radial Chart */}
           <div className="bg-card p-4 rounded-xl border border-border">
-            <h2 className="text-sm font-bold text-foreground mb-3">Screening Coverage</h2>
+            <h2 className="text-sm font-bold text-foreground mb-0.5">Screening Coverage</h2>
+            <p className="text-[11px] text-muted-foreground mb-3">Share of enrolled students already screened</p>
             <ResponsiveContainer width="100%" height={220} key="screening-coverage-container">
               <RadialBarChart 
                 cx="50%" 
@@ -784,7 +816,8 @@ export const Dashboard = () => {
 
           {/* Oral Health Status - Pie Chart */}
           <div className="bg-card p-4 rounded-xl border border-border">
-            <h2 className="text-sm font-bold text-foreground mb-3">Oral Health Status Breakdown</h2>
+            <h2 className="text-sm font-bold text-foreground mb-0.5">Oral Health Status Breakdown</h2>
+            <p className="text-[11px] text-muted-foreground mb-3">Latest recorded status per student</p>
             <ResponsiveContainer width="100%" height={220} key="oral-health-status-container">
               <PieChart id="oral-health-status-chart">
                 <Pie
@@ -815,8 +848,9 @@ export const Dashboard = () => {
         </div>
 
         {/* Upcoming Bayanihan Events */}
-        <div className="bg-card p-4 rounded-xl border border-border">
-          <h2 className="text-sm font-bold text-foreground mb-3">Upcoming Bayanihan Events</h2>
+        <div className="bg-card p-4 rounded-xl border border-border rise rise-3">
+          <h2 className="text-sm font-bold text-foreground mb-0.5">Upcoming Bayanihan Events</h2>
+          <p className="text-[11px] text-muted-foreground mb-3">Scheduled outreach missions at this school</p>
           {upcomingEvents.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-12">No upcoming Bayanihan Mission events scheduled.</p>
           ) : (
@@ -881,14 +915,29 @@ export const Dashboard = () => {
     const schoolsParticipating = new Set(allStudentsRaw.map((s) => s.school)).size;
 
     return (
-      <div className="space-y-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Barangay Health Office Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Aggregated data across all schools</p>
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-end gap-4 rise">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Barangay Health Office Dashboard</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Aggregated data across all schools</p>
+          </div>
+          <div className="ml-auto text-right text-xs text-muted-foreground hidden sm:block">
+            <span className="block text-[13px] font-semibold text-foreground">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </span>
+            {totalStudents} student{totalStudents !== 1 ? 's' : ''} across {schoolsParticipating} school{schoolsParticipating !== 1 ? 's' : ''}
+          </div>
+          <Link
+            to="/reports"
+            className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
+          >
+            <FileText className="w-4 h-4" />
+            View Reports
+          </Link>
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 rise rise-1">
           <StatCard
             icon={Users}
             label="Total Students Served"
@@ -922,10 +971,11 @@ export const Dashboard = () => {
         </div>
 
         {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 rise rise-2">
           {/* School Comparison - Grouped Bar Chart */}
           <div className="bg-card p-4 rounded-xl border border-border">
-            <h2 className="text-sm font-bold text-foreground mb-3">School Comparison</h2>
+            <h2 className="text-sm font-bold text-foreground mb-0.5">School Comparison</h2>
+            <p className="text-[11px] text-muted-foreground mb-3">Screened · treated · high-risk counts per school</p>
             <ResponsiveContainer width="100%" height={220} key="school-comparison-container">
               <BarChart data={schoolComparisonData} id="school-comparison-chart">
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" key="school-grid" />
@@ -949,8 +999,9 @@ export const Dashboard = () => {
         </div>
 
         {/* Age Group Breakdown Table */}
-        <div className="bg-card p-4 rounded-xl border border-border">
-          <h2 className="text-sm font-bold text-foreground mb-3">Age Group Breakdown</h2>
+        <div className="bg-card p-4 rounded-xl border border-border rise rise-3">
+          <h2 className="text-sm font-bold text-foreground mb-0.5">Age Group Breakdown</h2>
+          <p className="text-[11px] text-muted-foreground mb-3">Oral health status by DOH age bracket, all schools</p>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-border">
@@ -1024,14 +1075,29 @@ export const Dashboard = () => {
       }));
 
     return (
-      <div className="space-y-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">System Admin Dashboard</h1>
-          <p className="text-muted-foreground mt-1">System monitoring and management</p>
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-end gap-4 rise">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">System Admin Dashboard</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">System monitoring and management</p>
+          </div>
+          <div className="ml-auto text-right text-xs text-muted-foreground hidden sm:block">
+            <span className="block text-[13px] font-semibold text-foreground">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </span>
+            {activeUsersCount} active user{activeUsersCount !== 1 ? 's' : ''}
+          </div>
+          <Link
+            to="/accounts"
+            className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
+          >
+            <Users className="w-4 h-4" />
+            Manage Accounts
+          </Link>
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 rise rise-1">
           <StatCard
             icon={Users}
             label="Active Users"
@@ -1068,10 +1134,11 @@ export const Dashboard = () => {
         </div>
 
         {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 rise rise-2">
           {/* Login Activity - Line Chart (real, from users' last_login) */}
           <div className="bg-card p-4 rounded-xl border border-border">
-            <h2 className="text-sm font-bold text-foreground mb-3">Login Activity (Last 7 Days)</h2>
+            <h2 className="text-sm font-bold text-foreground mb-0.5">Login Activity (Last 7 Days)</h2>
+            <p className="text-[11px] text-muted-foreground mb-3">Users seen per day, from last-login timestamps</p>
             <ResponsiveContainer width="100%" height={220} key="login-activity-container">
               <LineChart data={loginActivityData} id="login-activity-chart">
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" key="login-grid" />
@@ -1085,7 +1152,8 @@ export const Dashboard = () => {
 
           {/* Actions by Module - Horizontal Bar Chart (real, from audit trail) */}
           <div className="bg-card p-4 rounded-xl border border-border">
-            <h2 className="text-sm font-bold text-foreground mb-3">Actions by Module</h2>
+            <h2 className="text-sm font-bold text-foreground mb-0.5">Actions by Module</h2>
+            <p className="text-[11px] text-muted-foreground mb-3">Audit-trail entries per data model</p>
             {actionsByModuleData.length === 0 ? (
               <NoDataYet message="No audit trail activity recorded yet." />
             ) : (
@@ -1103,8 +1171,9 @@ export const Dashboard = () => {
         </div>
 
         {/* Recent Audit Activity (real) */}
-        <div className="bg-card p-4 rounded-xl border border-border">
-          <h2 className="text-sm font-bold text-foreground mb-3">Recent Audit Activity</h2>
+        <div className="bg-card p-4 rounded-xl border border-border rise rise-3">
+          <h2 className="text-sm font-bold text-foreground mb-0.5">Recent Audit Activity</h2>
+          <p className="text-[11px] text-muted-foreground mb-3">Five most recent recorded actions</p>
           {recentAudit.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-12">No audit trail activity recorded yet.</p>
           ) : (
