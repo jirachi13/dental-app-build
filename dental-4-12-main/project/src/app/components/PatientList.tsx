@@ -369,10 +369,10 @@ export const PatientList = () => {
 
   const ocrFieldClass = (key: IptrOcrFieldKey) => {
     const conf = ocrConfidences[key];
-    if (conf === undefined) return 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+    if (conf === undefined) return 'w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring';
     return conf < OCR_CONFIDENCE_THRESHOLD
       ? 'w-full border-2 border-yellow-400 bg-yellow-50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500'
-      : 'w-full border border-green-300 bg-green-50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+      : 'w-full border border-green-300 bg-green-50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring';
   };
 
   const ocrHint = (key: IptrOcrFieldKey) => {
@@ -472,7 +472,7 @@ export const PatientList = () => {
   };
 
   const FilterSelect = ({ value, onChange, options, label }: { value: string; onChange: (v:string) => void; options: {value:string;label:string}[]; label: string }) => (
-    <select value={value} onChange={e => onChange(e.target.value)} className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+    <select value={value} onChange={e => onChange(e.target.value)} className="text-sm border border-border rounded-lg px-3 py-2 bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
       <option value="all">{label}</option>
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
@@ -481,7 +481,7 @@ export const PatientList = () => {
   const SchoolCard = ({ school, count, onClick }: { school: string; count: number; onClick: () => void }) => {
     const sc = getSchoolColor(school);
     return (
-      <button onClick={onClick} style={{ borderColor: sc.border }} className="w-full text-left bg-white rounded-xl border-2 p-5 hover:shadow-md transition-all group">
+      <button onClick={onClick} style={{ borderColor: sc.border }} className="w-full text-left bg-card rounded-xl border-2 p-5 hover:shadow-md transition-all group">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div style={{ backgroundColor: sc.light }} className="w-10 h-10 rounded-lg flex items-center justify-center">
@@ -489,7 +489,7 @@ export const PatientList = () => {
             </div>
             <div>
               <div style={{ color: sc.text }} className="font-bold text-sm">{school}</div>
-              <div className="text-xs text-gray-500 mt-0.5">{count} students enrolled</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{count} students enrolled</div>
             </div>
           </div>
           <ChevronRight style={{ color: sc.solid }} className="w-5 h-5 transition-colors" />
@@ -504,11 +504,11 @@ export const PatientList = () => {
   const Breadcrumb = () => {
     if (!selectedGrade && !selectedSection) return null;
     return (
-      <div className="flex items-center gap-1 text-sm text-gray-500 mb-4">
-        <button onClick={() => { setSelectedGrade(null); setSelectedSection(null); }} className="hover:text-[#1E40AF]">All Schools</button>
+      <div className="flex items-center gap-1 text-sm text-muted-foreground mb-4">
+        <button onClick={() => { setSelectedGrade(null); setSelectedSection(null); }} className="hover:text-primary">All Schools</button>
         {selectedGrade && <><ChevronRight className="w-4 h-4" /><button onClick={() => { setSelectedGrade(null); setSelectedSection(null); }} style={{ color: selectedSchool ? getSchoolColor(selectedSchool).solid : undefined }} className="truncate max-w-[160px] font-medium">{selectedSchool ? getSchoolShortName(selectedSchool) : ''}</button></>}
-        {selectedGrade && <><ChevronRight className="w-4 h-4" /><button onClick={() => setSelectedSection(null)} className="hover:text-[#1E40AF]"><GradePill grade={selectedGrade} /></button></>}
-        {selectedSection && <><ChevronRight className="w-4 h-4" /><span className="text-gray-900 font-medium">{selectedSection}</span></>}
+        {selectedGrade && <><ChevronRight className="w-4 h-4" /><button onClick={() => setSelectedSection(null)} className="hover:text-primary"><GradePill grade={selectedGrade} /></button></>}
+        {selectedSection && <><ChevronRight className="w-4 h-4" /><span className="text-foreground font-medium">{selectedSection}</span></>}
       </div>
     );
   };
@@ -527,17 +527,17 @@ export const PatientList = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Student Records</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{schoolStudents.length} students{selectedSchool ? '' : ' across 3 schools'}</p>
+          <h1 className="text-2xl font-bold text-foreground">Student Records</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{schoolStudents.length} students{selectedSchool ? '' : ' across 3 schools'}</p>
         </div>
         <div className="flex items-center gap-3">
           <ExportMenu onExport={handleExport} />
 {canAddStudent && (
             <>
-              <button onClick={() => { setOcrError(null); setShowOcrUpload(true); }} className="flex items-center gap-2 px-4 py-2 border border-[#1E40AF] text-[#1E40AF] rounded-lg hover:bg-blue-50 text-sm font-medium">
+              <button onClick={() => { setOcrError(null); setShowOcrUpload(true); }} className="flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary-surface text-sm font-medium">
                 <ScanLine className="w-4 h-4" /> Scan IPTR Form
               </button>
-              <button onClick={() => { setOcrConfidences({}); setShowAddForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+              <button onClick={() => { setOcrConfidences({}); setShowAddForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover text-sm font-medium">
                 <Plus className="w-4 h-4" /> Add Student
               </button>
             </>
@@ -549,7 +549,7 @@ export const PatientList = () => {
       {/* LIST VIEW */}
         <div className="space-y-4">
           {/* Filters */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+          <div className="bg-card rounded-xl border border-border p-4 space-y-3">
             <div className="flex flex-wrap gap-2">
               <ListSearchInput value={searchTerm} onChange={setSearchTerm} />
               <FilterSelect value={gradeFilter} onChange={v => { setGradeFilter(v); setSectionFilter('all'); }} label="All Grades"
@@ -561,14 +561,14 @@ export const PatientList = () => {
               <FilterSelect value={ageGroupFilter} onChange={setAgeGroupFilter} label="All Age Groups"
                 options={[{ value:'4 & below', label:'4 & below' }, { value:'5-9', label:'5-9' }, { value:'10-14', label:'10-14' }, { value:'15-19', label:'15-19' }, { value:'20 & above', label:'20 & above' }]} />
               {hasActiveFilters && (
-                <button onClick={clearFilters} className="flex items-center gap-1 px-3 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50">
+                <button onClick={clearFilters} className="flex items-center gap-1 px-3 py-2 text-sm text-destructive border border-red-200 rounded-lg hover:bg-red-50">
                   <X className="w-3 h-3" /> Clear All
                 </button>
               )}
               {tickedIds.size > 0 && (
                 <button
                   onClick={allTickedQueued ? unqueueTicked : queueTicked}
-                  className={`flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg ml-auto ${allTickedQueued ? 'text-[#1E40AF] border border-[#1E40AF] hover:bg-blue-50' : 'text-white bg-[#1E40AF] hover:bg-blue-700'}`}
+                  className={`flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg ml-auto ${allTickedQueued ? 'text-primary border border-primary hover:bg-primary-surface' : 'text-white bg-primary hover:bg-primary-hover'}`}
                 >
                   {allTickedQueued ? 'Unqueue' : 'Queue'} Selected ({tickedIds.size})
                 </button>
@@ -591,7 +591,7 @@ export const PatientList = () => {
                           if (e.target.checked) setTickedIds(new Set(filtered.filter(s => !s.pending).map(s => s.id)));
                           else setTickedIds(new Set());
                         }}
-                        className="w-4 h-4 accent-[#1E40AF] align-middle"
+                        className="w-4 h-4 accent-primary align-middle"
                       />
                     </th>
                     <th className={studentListTableStyles.headerCell}>Student</th>
@@ -604,7 +604,7 @@ export const PatientList = () => {
                 </thead>
                 <tbody className={studentListTableStyles.body}>
                   {filtered.length === 0 ? (
-                    <tr><td colSpan={7} className={studentListTableStyles.emptyCell}>{hasActiveFilters ? <>No students match your filters. <button onClick={clearFilters} className="text-[#1E40AF] hover:underline font-medium">Clear filters</button></> : 'No students at this school yet — use Add Student to register one.'}</td></tr>
+                    <tr><td colSpan={7} className={studentListTableStyles.emptyCell}>{hasActiveFilters ? <>No students match your filters. <button onClick={clearFilters} className="text-primary hover:underline font-medium">Clear filters</button></> : 'No students at this school yet — use Add Student to register one.'}</td></tr>
                   ) : filtered.map(student => {
                     const age = calculateAge(student.birthdate);
                     const isQueued = queuedStudentIds.includes(student.id);
@@ -617,7 +617,7 @@ export const PatientList = () => {
                               aria-label={`Select ${formatStudentName(student.name)} for queueing`}
                               checked={tickedIds.has(student.id)}
                               onChange={() => toggleTicked(student.id)}
-                              className="w-4 h-4 accent-[#1E40AF] align-middle"
+                              className="w-4 h-4 accent-primary align-middle"
                             />
                           )}
                         </td>
@@ -669,8 +669,8 @@ export const PatientList = () => {
       {showOcrUpload && (
         <Modal onClose={() => setShowOcrUpload(false)} closeDisabled={ocrProcessing}>
             <div className="flex items-center justify-between p-6 border-b">
-              <h2 className="text-lg font-bold text-gray-900">Scan IPTR Form</h2>
-              <button onClick={() => setShowOcrUpload(false)} className="text-gray-500 hover:text-gray-600"><X className="w-5 h-5" /></button>
+              <h2 className="text-lg font-bold text-foreground">Scan IPTR Form</h2>
+              <button onClick={() => setShowOcrUpload(false)} className="text-muted-foreground hover:text-muted-foreground"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-6 space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
@@ -679,24 +679,24 @@ export const PatientList = () => {
               </div>
               {!ocrProcessing ? (
                 <div
-                  className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"
+                  className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"
                   onClick={() => document.getElementById('ocr-file-input')?.click()}
                   onDragOver={e => e.preventDefault()}
                   onDrop={e => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) handleOcrFile(file); }}
                 >
-                  <ScanLine className="w-8 h-8 text-gray-500 mx-auto mb-3" />
-                  <p className="text-sm text-gray-600 font-medium">Drop IPTR image here</p>
-                  <p className="text-xs text-gray-500 mt-1">or click to browse</p>
+                  <ScanLine className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground font-medium">Drop IPTR image here</p>
+                  <p className="text-xs text-muted-foreground mt-1">or click to browse</p>
                   <input id="ocr-file-input" type="file" accept="image/png,image/jpeg,image/jpg,application/pdf" className="hidden"
                     onChange={e => { if (e.target.files?.[0]) handleOcrFile(e.target.files[0]); }} />
                 </div>
               ) : (
                 <div className="p-8 text-center">
-                  <div className="w-10 h-10 border-4 border-blue-200 border-t-[#1E40AF] rounded-full animate-spin mx-auto mb-3" />
-                  <p className="text-sm text-gray-600 font-medium">Scanning form… {ocrProgress}%</p>
+                  <div className="w-10 h-10 border-4 border-blue-200 border-t-primary rounded-full animate-spin mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground font-medium">Scanning form… {ocrProgress}%</p>
                 </div>
               )}
-              {ocrError && <p className="text-sm text-red-600">{ocrError}</p>}
+              {ocrError && <p className="text-sm text-destructive">{ocrError}</p>}
             </div>
         </Modal>
       )}
@@ -705,8 +705,8 @@ export const PatientList = () => {
       {showAddForm && (
         <Modal onClose={() => { setShowAddForm(false); setOcrConfidences({}); }} maxWidth="max-w-lg" closeDisabled={addingPatient}>
             <div className="flex items-center justify-between p-6 border-b">
-              <h2 className="text-lg font-bold text-gray-900">Add New Student</h2>
-              <button onClick={() => { setShowAddForm(false); setOcrConfidences({}); }} className="text-gray-500 hover:text-gray-600"><X className="w-5 h-5" /></button>
+              <h2 className="text-lg font-bold text-foreground">Add New Student</h2>
+              <button onClick={() => { setShowAddForm(false); setOcrConfidences({}); }} className="text-muted-foreground hover:text-muted-foreground"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-6 space-y-4">
               {Object.keys(ocrConfidences).length > 0 && (
@@ -716,32 +716,32 @@ export const PatientList = () => {
                 </div>
               )}
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Last Name * {ocrHint('lastName')}</label><input type="text" value={newPatient.lastName} onChange={e => setNewPatient({...newPatient, lastName: e.target.value})} className={ocrFieldClass('lastName')} /></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">First Name * {ocrHint('firstName')}</label><input type="text" value={newPatient.firstName} onChange={e => setNewPatient({...newPatient, firstName: e.target.value})} className={ocrFieldClass('firstName')} /></div>
+                <div><label className="block text-sm font-medium text-foreground mb-1">Last Name * {ocrHint('lastName')}</label><input type="text" value={newPatient.lastName} onChange={e => setNewPatient({...newPatient, lastName: e.target.value})} className={ocrFieldClass('lastName')} /></div>
+                <div><label className="block text-sm font-medium text-foreground mb-1">First Name * {ocrHint('firstName')}</label><input type="text" value={newPatient.firstName} onChange={e => setNewPatient({...newPatient, firstName: e.target.value})} className={ocrFieldClass('firstName')} /></div>
               </div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Middle Name {ocrHint('middleName')}</label><input type="text" value={newPatient.middleName} onChange={e => setNewPatient({...newPatient, middleName: e.target.value})} className={ocrFieldClass('middleName')} /></div>
+              <div><label className="block text-sm font-medium text-foreground mb-1">Middle Name {ocrHint('middleName')}</label><input type="text" value={newPatient.middleName} onChange={e => setNewPatient({...newPatient, middleName: e.target.value})} className={ocrFieldClass('middleName')} /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Birthdate * {ocrHint('birthdate')}</label><input type="date" value={newPatient.birthdate} onChange={e => setNewPatient({...newPatient, birthdate: e.target.value})} className={ocrFieldClass('birthdate')} /></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Gender * {ocrHint('gender')}</label><select value={newPatient.gender} onChange={e => setNewPatient({...newPatient, gender: e.target.value})} className={ocrFieldClass('gender')}><option value="">Select</option><option>Male</option><option>Female</option></select></div>
+                <div><label className="block text-sm font-medium text-foreground mb-1">Birthdate * {ocrHint('birthdate')}</label><input type="date" value={newPatient.birthdate} onChange={e => setNewPatient({...newPatient, birthdate: e.target.value})} className={ocrFieldClass('birthdate')} /></div>
+                <div><label className="block text-sm font-medium text-foreground mb-1">Gender * {ocrHint('gender')}</label><select value={newPatient.gender} onChange={e => setNewPatient({...newPatient, gender: e.target.value})} className={ocrFieldClass('gender')}><option value="">Select</option><option>Male</option><option>Female</option></select></div>
               </div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">School *</label><select value={newPatient.school} onChange={e => setNewPatient({...newPatient, school: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="">Select School</option>{SCHOOLS.map(s => <option key={s}>{s}</option>)}</select></div>
+              <div><label className="block text-sm font-medium text-foreground mb-1">School *</label><select value={newPatient.school} onChange={e => setNewPatient({...newPatient, school: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"><option value="">Select School</option>{SCHOOLS.map(s => <option key={s}>{s}</option>)}</select></div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Grade * {ocrHint('grade')}</label><select value={newPatient.grade} onChange={e => setNewPatient({...newPatient, grade: e.target.value})} className={ocrFieldClass('grade')}><option value="">Select Grade</option>{GRADES.map(g => <option key={g}>{g}</option>)}</select></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Section * {ocrHint('section')}</label><input type="text" value={newPatient.section} onChange={e => setNewPatient({...newPatient, section: e.target.value})} placeholder="e.g. Sampaguita" className={ocrFieldClass('section')} /></div>
+                <div><label className="block text-sm font-medium text-foreground mb-1">Grade * {ocrHint('grade')}</label><select value={newPatient.grade} onChange={e => setNewPatient({...newPatient, grade: e.target.value})} className={ocrFieldClass('grade')}><option value="">Select Grade</option>{GRADES.map(g => <option key={g}>{g}</option>)}</select></div>
+                <div><label className="block text-sm font-medium text-foreground mb-1">Section * {ocrHint('section')}</label><input type="text" value={newPatient.section} onChange={e => setNewPatient({...newPatient, section: e.target.value})} placeholder="e.g. Sampaguita" className={ocrFieldClass('section')} /></div>
               </div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Contact Number {ocrHint('contactNumber')}</label><input type="text" value={newPatient.contactNumber} onChange={e => setNewPatient({...newPatient, contactNumber: e.target.value})} placeholder="09XX-XXX-XXXX" className={ocrFieldClass('contactNumber')} /></div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Guardian Name *</label><input type="text" value={newPatient.guardianName} onChange={e => setNewPatient({...newPatient, guardianName: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Guardian Contact</label><input type="text" value={newPatient.guardianContact} onChange={e => setNewPatient({...newPatient, guardianContact: e.target.value})} placeholder="09XX-XXX-XXXX" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">PhilHealth Number</label><input type="text" value={newPatient.philhealthNumber} onChange={e => setNewPatient({...newPatient, philhealthNumber: e.target.value})} placeholder="XX-XXXXXXXXX-X" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">PhilHealth Status</label><select value={newPatient.philhealthStatus} onChange={e => setNewPatient({...newPatient, philhealthStatus: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="None">None</option><option value="Principal">Principal</option><option value="Dependent">Dependent</option></select></div>
-              <div className="flex items-center gap-3 pt-2"><input type="checkbox" id="is4ps" checked={newPatient.is4Ps} onChange={e => setNewPatient({...newPatient, is4Ps: e.target.checked})} className="w-4 h-4 rounded accent-blue-600" /><label htmlFor="is4ps" className="text-sm font-medium text-gray-700">4Ps / NHTS Member</label></div>
-              {newPatient.is4Ps && <div><label className="block text-sm font-medium text-gray-700 mb-1">4Ps ID</label><input type="text" value={newPatient.fourPsId} onChange={e => setNewPatient({...newPatient, fourPsId: e.target.value})} placeholder="4PS-XXXXXXXX" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>}
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Address {ocrHint('address')}</label><input type="text" value={newPatient.address} onChange={e => setNewPatient({...newPatient, address: e.target.value})} className={ocrFieldClass('address')} /></div>
-              {addPatientError && <p className="text-sm text-red-600">{addPatientError}</p>}
+              <div><label className="block text-sm font-medium text-foreground mb-1">Contact Number {ocrHint('contactNumber')}</label><input type="text" value={newPatient.contactNumber} onChange={e => setNewPatient({...newPatient, contactNumber: e.target.value})} placeholder="09XX-XXX-XXXX" className={ocrFieldClass('contactNumber')} /></div>
+              <div><label className="block text-sm font-medium text-foreground mb-1">Guardian Name *</label><input type="text" value={newPatient.guardianName} onChange={e => setNewPatient({...newPatient, guardianName: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+              <div><label className="block text-sm font-medium text-foreground mb-1">Guardian Contact</label><input type="text" value={newPatient.guardianContact} onChange={e => setNewPatient({...newPatient, guardianContact: e.target.value})} placeholder="09XX-XXX-XXXX" className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+              <div><label className="block text-sm font-medium text-foreground mb-1">PhilHealth Number</label><input type="text" value={newPatient.philhealthNumber} onChange={e => setNewPatient({...newPatient, philhealthNumber: e.target.value})} placeholder="XX-XXXXXXXXX-X" className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+              <div><label className="block text-sm font-medium text-foreground mb-1">PhilHealth Status</label><select value={newPatient.philhealthStatus} onChange={e => setNewPatient({...newPatient, philhealthStatus: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"><option value="None">None</option><option value="Principal">Principal</option><option value="Dependent">Dependent</option></select></div>
+              <div className="flex items-center gap-3 pt-2"><input type="checkbox" id="is4ps" checked={newPatient.is4Ps} onChange={e => setNewPatient({...newPatient, is4Ps: e.target.checked})} className="w-4 h-4 rounded accent-primary" /><label htmlFor="is4ps" className="text-sm font-medium text-foreground">4Ps / NHTS Member</label></div>
+              {newPatient.is4Ps && <div><label className="block text-sm font-medium text-foreground mb-1">4Ps ID</label><input type="text" value={newPatient.fourPsId} onChange={e => setNewPatient({...newPatient, fourPsId: e.target.value})} placeholder="4PS-XXXXXXXX" className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>}
+              <div><label className="block text-sm font-medium text-foreground mb-1">Address {ocrHint('address')}</label><input type="text" value={newPatient.address} onChange={e => setNewPatient({...newPatient, address: e.target.value})} className={ocrFieldClass('address')} /></div>
+              {addPatientError && <p className="text-sm text-destructive">{addPatientError}</p>}
             </div>
             <div className="flex gap-3 p-6 border-t">
-              <button onClick={() => { setShowAddForm(false); setOcrConfidences({}); }} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">Cancel</button>
-              <button onClick={handleAddStudent} disabled={addingPatient} className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 text-sm font-medium">{addingPatient ? 'Adding…' : 'Add Student'}</button>
+              <button onClick={() => { setShowAddForm(false); setOcrConfidences({}); }} className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-gray-50 text-sm font-medium">Cancel</button>
+              <button onClick={handleAddStudent} disabled={addingPatient} className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-60 text-sm font-medium">{addingPatient ? 'Adding…' : 'Add Student'}</button>
             </div>
         </Modal>
       )}
@@ -750,7 +750,7 @@ export const PatientList = () => {
       {showBulkUpload && (
         <Modal onClose={resetBulkUpload} maxWidth="max-w-lg" closeDisabled={bulkImporting}>
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900">Bulk Upload Students</h2>
+              <h2 className="text-lg font-bold text-foreground">Bulk Upload Students</h2>
               <button onClick={resetBulkUpload} disabled={bulkImporting} className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-40"><X className="w-4 h-4"/></button>
             </div>
             <div className="p-5 space-y-4">
@@ -761,7 +761,7 @@ export const PatientList = () => {
                     Upload a CSV or Excel (.xlsx) file. Required columns: <strong>Last Name, First Name, Sex, Grade Level, Section, Birthday, Address</strong>. Optional: Middle Name, Contact Number.
                   </div>
                   <div
-                    className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"
+                    className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"
                     onClick={() => document.getElementById('bulk-file-input')?.click()}
                     onDragOver={e => e.preventDefault()}
                     onDrop={e => {
@@ -770,16 +770,16 @@ export const PatientList = () => {
                       if (file) { setBulkFile(file); }
                     }}
                   >
-                    <Upload className="w-8 h-8 text-gray-500 mx-auto mb-3" />
-                    <p className="text-sm text-gray-600 font-medium">{bulkFile ? bulkFile.name : 'Drop CSV / Excel file here'}</p>
-                    <p className="text-xs text-gray-500 mt-1">{bulkFile ? `${(bulkFile.size / 1024).toFixed(1)} KB` : 'or click to browse'}</p>
+                    <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground font-medium">{bulkFile ? bulkFile.name : 'Drop CSV / Excel file here'}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{bulkFile ? `${(bulkFile.size / 1024).toFixed(1)} KB` : 'or click to browse'}</p>
                     <input id="bulk-file-input" type="file" accept=".csv,.xlsx,.xls" className="hidden"
                       onChange={e => { if (e.target.files?.[0]) setBulkFile(e.target.files[0]); }} />
                   </div>
                   {bulkFile && (
                     <div className="bg-gray-50 rounded-lg p-3">
-                      <div className="text-xs font-medium text-gray-600 mb-2">CSV Template (expected format):</div>
-                      <div className="font-mono text-xs text-gray-500 overflow-x-auto whitespace-nowrap">
+                      <div className="text-xs font-medium text-muted-foreground mb-2">CSV Template (expected format):</div>
+                      <div className="font-mono text-xs text-muted-foreground overflow-x-auto whitespace-nowrap">
                         last_name,first_name,middle_name,sex,grade_level,section,birthday,address,contact_number<br/>
                         Dela Cruz,Juan,Santos,Male,Grade 4,Sampaguita,2016-03-15,123 Tanyag St,09171234567<br/>
                         Santos,Maria,Reyes,Female,Grade 3,Jasmine,2017-07-22,45 Daang Hari Rd,09281234567
@@ -789,11 +789,11 @@ export const PatientList = () => {
                   {bulkParseError && <p className="text-sm text-destructive">{bulkParseError}</p>}
                   <div className="flex gap-3">
                     <button onClick={resetBulkUpload}
-                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">Cancel</button>
+                      className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-gray-50 text-sm font-medium">Cancel</button>
                     <button
                       disabled={!bulkFile}
                       onClick={handleParseBulk}
-                      className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-40">
+                      className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover text-sm font-medium disabled:opacity-40">
                       Parse File →
                     </button>
                   </div>
@@ -803,34 +803,34 @@ export const PatientList = () => {
               {bulkStep === 'preview' && (
                 <>
                   <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg p-3">
-                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
                     <span className="text-sm text-green-800">
                       {bulkPreview.filter(r => !r.error).length} of {bulkPreview.length} rows ready from <strong>{bulkFile?.name}</strong>
                       {bulkPreview.some(r => r.error) && <> — {bulkPreview.filter(r => r.error).length} with issues will be skipped</>}
                     </span>
                   </div>
-                  <div className="border border-gray-200 rounded-xl overflow-hidden max-h-60 overflow-y-auto">
+                  <div className="border border-border rounded-xl overflow-hidden max-h-60 overflow-y-auto">
                     <table className="w-full text-xs">
-                      <thead className="bg-gray-50 border-b border-gray-200">
+                      <thead className="bg-gray-50 border-b border-border">
                         <tr>
-                          <th className="text-left px-3 py-2 font-semibold text-gray-600">Name</th>
-                          <th className="text-left px-3 py-2 font-semibold text-gray-600">Sex</th>
-                          <th className="text-left px-3 py-2 font-semibold text-gray-600">Grade</th>
-                          <th className="text-left px-3 py-2 font-semibold text-gray-600">Section</th>
-                          <th className="text-left px-3 py-2 font-semibold text-gray-600">Birthday</th>
-                          <th className="text-left px-3 py-2 font-semibold text-gray-600">Issue</th>
+                          <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Name</th>
+                          <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Sex</th>
+                          <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Grade</th>
+                          <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Section</th>
+                          <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Birthday</th>
+                          <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Issue</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
                         {bulkPreview.map((s, i) => (
                           <tr key={i} className={s.error ? 'bg-danger-surface' : 'hover:bg-gray-50'}>
-                            <td className="px-3 py-2 font-medium text-gray-900">{s.lastName || '—'}{s.lastName || s.firstName ? ', ' : ''}{s.firstName}</td>
-                            <td className="px-3 py-2 text-gray-600">{s.sex}</td>
+                            <td className="px-3 py-2 font-medium text-foreground">{s.lastName || '—'}{s.lastName || s.firstName ? ', ' : ''}{s.firstName}</td>
+                            <td className="px-3 py-2 text-muted-foreground">{s.sex}</td>
                             <td className="px-3 py-2">
                               <GradePill grade={s.grade} />
                             </td>
-                            <td className="px-3 py-2 text-gray-600">{s.section}</td>
-                            <td className="px-3 py-2 text-gray-600 tabular-nums">{s.birthday}</td>
+                            <td className="px-3 py-2 text-muted-foreground">{s.section}</td>
+                            <td className="px-3 py-2 text-muted-foreground tabular-nums">{s.birthday}</td>
                             <td className="px-3 py-2 text-destructive">{s.error ?? ''}</td>
                           </tr>
                         ))}
@@ -844,10 +844,10 @@ export const PatientList = () => {
                   {bulkParseError && <p className="text-sm text-destructive">{bulkParseError}</p>}
                   <div className="flex gap-3">
                     <button onClick={() => setBulkStep('upload')} disabled={bulkImporting}
-                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium disabled:opacity-40">← Back</button>
+                      className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-gray-50 text-sm font-medium disabled:opacity-40">← Back</button>
                     <button onClick={handleBulkImport}
                       disabled={bulkImporting || bulkPreview.filter(r => !r.error).length === 0}
-                      className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-40">
+                      className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover text-sm font-medium disabled:opacity-40">
                       {bulkImporting
                         ? `Importing… (${bulkProgress}/${bulkPreview.filter(r => !r.error).length})`
                         : `Import ${bulkPreview.filter(r => !r.error).length} Students`}
@@ -860,13 +860,13 @@ export const PatientList = () => {
                 <div className="text-center py-8">
                   <div className={`w-16 h-16 ${bulkResult.imported > 0 ? 'bg-green-100' : 'bg-danger-surface'} rounded-full flex items-center justify-center mx-auto mb-4`}>
                     {bulkResult.imported > 0
-                      ? <CheckCircle className="w-8 h-8 text-green-600" />
+                      ? <CheckCircle className="w-8 h-8 text-success" />
                       : <AlertCircle className="w-8 h-8 text-destructive" />}
                   </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">
+                  <h3 className="text-lg font-bold text-foreground mb-1">
                     {bulkResult.imported} Student{bulkResult.imported !== 1 ? 's' : ''} Imported
                   </h3>
-                  <p className="text-sm text-gray-500 mb-2">
+                  <p className="text-sm text-muted-foreground mb-2">
                     {bulkResult.imported > 0 ? 'Added with pending consent status.' : 'Nothing was imported.'}
                   </p>
                   {bulkResult.failures.length > 0 && (
@@ -879,7 +879,7 @@ export const PatientList = () => {
                     </div>
                   )}
                   <button onClick={resetBulkUpload}
-                    className="px-6 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                    className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover text-sm font-medium">
                     Done
                   </button>
                 </div>
