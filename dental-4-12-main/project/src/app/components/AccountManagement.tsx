@@ -240,13 +240,13 @@ export const AccountManagement = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Account Management</h1>
-          <p className="text-gray-600 mt-1">{filteredUsers.length} user accounts</p>
+          <h1 className="text-2xl font-bold text-foreground">Account Management</h1>
+          <p className="text-muted-foreground mt-1">{filteredUsers.length} user accounts</p>
         </div>
 
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
         >
           <Plus className="w-4 h-4" />
           Create Account
@@ -256,50 +256,50 @@ export const AccountManagement = () => {
       {error && <Notice variant="error">{error}</Notice>}
 
       {/* Search */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <div className="bg-card rounded-xl border border-border p-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search by name, email, or role..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
           />
         </div>
       </div>
 
       {/* Create Account Form */}
       {showCreateForm && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">Create New Account</h3>
+        <div className="bg-card rounded-xl border border-border p-6">
+          <h3 className="font-semibold text-foreground mb-4">Create New Account</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Full Name</label>
               <input
                 type="text"
                 value={form.full_name}
                 onChange={(e) => setForm({ ...form, full_name: e.target.value })}
                 placeholder="Dr. Juan Dela Cruz"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Email Address</label>
               <input
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 placeholder="juan.delacruz@floral.com"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Role</label>
               <select
                 value={form.role}
                 onChange={(e) => setForm({ ...form, role: e.target.value as ApiRole })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
               >
                 {ROLES.map(role => (
                   <option key={role} value={role}>{ROLE_LABELS[role]}</option>
@@ -307,11 +307,11 @@ export const AccountManagement = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Assigned School</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Assigned School</label>
               <select
                 value={form.school_id}
                 onChange={(e) => setForm({ ...form, school_id: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
               >
                 <option value="">All Schools (Barangay level — full access)</option>
                 {schools.map(school => (
@@ -320,29 +320,29 @@ export const AccountManagement = () => {
               </select>
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Temporary Password</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Temporary Password</label>
               <input
                 type="password"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 placeholder="Set an initial password"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
               />
-              <p className="text-xs text-gray-500 mt-1">Share this with the user securely; there's no forced password-change flow yet</p>
+              <p className="text-xs text-muted-foreground mt-1">Share this with the user securely; there's no forced password-change flow yet</p>
             </div>
           </div>
-          {formError && <p className="text-sm text-red-600 mt-3">{formError}</p>}
+          {formError && <p className="text-sm text-destructive mt-3">{formError}</p>}
           <div className="flex gap-2 mt-4">
             <button
               onClick={handleCreate}
               disabled={submitting}
-              className="px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-60 transition-colors"
             >
               {submitting ? 'Creating…' : 'Create Account'}
             </button>
             <button
               onClick={() => { setShowCreateForm(false); setFormError(null); }}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 border border-border text-foreground rounded-lg hover:bg-gray-50 transition-colors"
             >
               Cancel
             </button>
@@ -351,43 +351,43 @@ export const AccountManagement = () => {
       )}
 
       {/* Desktop Table */}
-      <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="hidden md:block bg-card rounded-xl border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-gray-50 border-b border-border">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Name
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Email
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Role
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   School
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-card divide-y divide-gray-200">
               {filteredUsers.map((user) => (
                 <tr key={user.id} className={`hover:bg-gray-50 ${user.pending ? 'opacity-70' : ''}`}>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-gray-900 flex items-center">
+                    <div className="font-medium text-foreground flex items-center">
                       {user.name}
                       {user.pending && (
                         <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200">Pending sync</span>
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                     {user.email}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -395,7 +395,7 @@ export const AccountManagement = () => {
                       {user.roleLabel}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
+                  <td className="px-6 py-4 text-sm text-muted-foreground">
                     {user.school}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -412,14 +412,14 @@ export const AccountManagement = () => {
                       <div className="flex items-center gap-3">
                         <button
                           onClick={() => openEdit(user)}
-                          className="text-[#1E40AF] hover:text-[#1E3A8A]"
+                          className="text-primary hover:text-[#1E3A8A]"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => openResetPassword(user)}
                           title="Reset Password"
-                          className="text-gray-500 hover:text-gray-700"
+                          className="text-muted-foreground hover:text-foreground"
                         >
                           <KeyRound className="w-4 h-4" />
                         </button>
@@ -429,8 +429,8 @@ export const AccountManagement = () => {
                           title={user.status === 'Active' && user.id === currentUser?.id ? "You can't deactivate your own account" : user.status === 'Active' ? 'Deactivate' : 'Activate'}
                           className={`disabled:opacity-40 disabled:cursor-not-allowed ${
                           user.status === 'Active'
-                            ? 'text-red-600 hover:text-red-700'
-                            : 'text-green-600 hover:text-green-700'
+                            ? 'text-destructive hover:text-red-700'
+                            : 'text-success hover:text-green-700'
                         }`}>
                           <Power className="w-4 h-4" />
                         </button>
@@ -447,16 +447,16 @@ export const AccountManagement = () => {
       {/* Mobile Cards */}
       <div className="md:hidden space-y-4">
         {filteredUsers.map((user) => (
-          <div key={user.id} className={`bg-white rounded-xl border border-gray-200 p-4 ${user.pending ? 'opacity-70' : ''}`}>
+          <div key={user.id} className={`bg-card rounded-xl border border-border p-4 ${user.pending ? 'opacity-70' : ''}`}>
             <div className="flex items-start justify-between mb-3">
               <div>
-                <h3 className="font-semibold text-gray-900 flex items-center">
+                <h3 className="font-semibold text-foreground flex items-center">
                   {user.name}
                   {user.pending && (
                     <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200">Pending sync</span>
                   )}
                 </h3>
-                <p className="text-sm text-gray-600">{user.email}</p>
+                <p className="text-sm text-muted-foreground">{user.email}</p>
               </div>
               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                 user.status === 'Active'
@@ -468,28 +468,28 @@ export const AccountManagement = () => {
             </div>
             <div className="space-y-2 mb-3">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Role:</span>
+                <span className="text-muted-foreground">Role:</span>
                 <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
                   {user.roleLabel}
                 </span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">School:</span>
-                <span className="text-gray-900">{user.school}</span>
+                <span className="text-muted-foreground">School:</span>
+                <span className="text-foreground">{user.school}</span>
               </div>
             </div>
             {!user.pending && (
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => openEdit(user)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-gray-50 transition-colors text-sm"
                 >
                   <Edit className="w-4 h-4" />
                   Edit
                 </button>
                 <button
                   onClick={() => openResetPassword(user)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-gray-50 transition-colors text-sm"
                 >
                   <KeyRound className="w-4 h-4" />
                   Reset Password
@@ -516,33 +516,33 @@ export const AccountManagement = () => {
       {editingUserId && (
         <Modal onClose={() => setEditingUserId(null)} maxWidth="max-w-lg" closeDisabled={editSubmitting || twofaBusy}>
             <div className="p-6 border-b">
-              <h2 className="text-lg font-bold text-gray-900">Edit Account</h2>
+              <h2 className="text-lg font-bold text-foreground">Edit Account</h2>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Full Name</label>
                 <input
                   type="text"
                   value={editForm.full_name}
                   onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                  className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Email Address</label>
                 <input
                   type="email"
                   value={editForm.email}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                  className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Role</label>
                 <select
                   value={editForm.role}
                   onChange={(e) => setEditForm({ ...editForm, role: e.target.value as ApiRole })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                  className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
                 >
                   {ROLES.map(role => (
                     <option key={role} value={role}>{ROLE_LABELS[role]}</option>
@@ -550,11 +550,11 @@ export const AccountManagement = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Assigned School</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Assigned School</label>
                 <select
                   value={editForm.school_id}
                   onChange={(e) => setEditForm({ ...editForm, school_id: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                  className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
                 >
                   <option value="">All Schools (Barangay level — full access)</option>
                   {schools.map(school => (
@@ -562,14 +562,14 @@ export const AccountManagement = () => {
                   ))}
                 </select>
               </div>
-              <p className="text-xs text-gray-500">Password isn't changed here — use the Reset Password action instead.</p>
+              <p className="text-xs text-muted-foreground">Password isn't changed here — use the Reset Password action instead.</p>
 
               {/* Two-factor authentication */}
-              <div className="border border-gray-200 rounded-lg p-3 space-y-2">
+              <div className="border border-border rounded-lg p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-700">Two-Factor Authentication</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm font-medium text-foreground">Two-Factor Authentication</p>
+                    <p className="text-xs text-muted-foreground">
                       {editingUser?.twofaEnabled
                         ? 'Enabled — login requires an emailed code.'
                         : 'Off. Enabling sends a test code to the account email that must be entered here first — this proves the mailbox is real before 2FA can lock the account.'}
@@ -579,7 +579,7 @@ export const AccountManagement = () => {
                     <button
                       onClick={handleTwofaDisable}
                       disabled={twofaBusy}
-                      className="shrink-0 px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-60"
+                      className="shrink-0 px-3 py-1.5 text-sm border border-border text-foreground rounded-lg hover:bg-gray-50 disabled:opacity-60"
                     >
                       Disable
                     </button>
@@ -587,7 +587,7 @@ export const AccountManagement = () => {
                     <button
                       onClick={handleTwofaInitiate}
                       disabled={twofaBusy}
-                      className="shrink-0 px-3 py-1.5 text-sm border border-[#1E40AF] text-[#1E40AF] rounded-lg hover:bg-blue-50 disabled:opacity-60"
+                      className="shrink-0 px-3 py-1.5 text-sm border border-primary text-primary rounded-lg hover:bg-primary-surface disabled:opacity-60"
                     >
                       {twofaBusy ? 'Sending…' : 'Enable (send code)'}
                     </button>
@@ -602,33 +602,33 @@ export const AccountManagement = () => {
                       value={twofaCode}
                       onChange={(e) => setTwofaCode(e.target.value.replace(/\D/g, ''))}
                       placeholder="6-digit code"
-                      className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                      className="flex-1 px-3 py-1.5 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
                     />
                     <button
                       onClick={handleTwofaConfirm}
                       disabled={twofaBusy || twofaCode.length !== 6}
-                      className="px-3 py-1.5 text-sm bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
+                      className="px-3 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-60"
                     >
                       {twofaBusy ? 'Confirming…' : 'Confirm'}
                     </button>
                   </div>
                 )}
-                {twofaMessage && <p className="text-xs text-gray-600">{twofaMessage}</p>}
+                {twofaMessage && <p className="text-xs text-muted-foreground">{twofaMessage}</p>}
               </div>
 
-              {editError && <p className="text-sm text-red-600">{editError}</p>}
+              {editError && <p className="text-sm text-destructive">{editError}</p>}
             </div>
             <div className="flex gap-3 p-6 border-t">
               <button
                 onClick={() => setEditingUserId(null)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveEdit}
                 disabled={editSubmitting}
-                className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-60 transition-colors"
               >
                 {editSubmitting ? 'Saving…' : 'Save Changes'}
               </button>
@@ -640,16 +640,16 @@ export const AccountManagement = () => {
       {resettingUserId && (
         <Modal onClose={() => setResettingUserId(null)} maxWidth="max-w-lg" closeDisabled={resetSubmitting || sendingReset}>
             <div className="p-6 border-b">
-              <h2 className="text-lg font-bold text-gray-900">Reset Password</h2>
-              <p className="text-sm text-gray-500 mt-1">for {resettingUserName}</p>
+              <h2 className="text-lg font-bold text-foreground">Reset Password</h2>
+              <p className="text-sm text-muted-foreground mt-1">for {resettingUserName}</p>
             </div>
             <div className="p-6 space-y-4">
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-                <p className="text-sm text-gray-700">Recommended — email {resettingUserName} a secure link so they set their own password (you never see it).</p>
+                <p className="text-sm text-foreground">Recommended — email {resettingUserName} a secure link so they set their own password (you never see it).</p>
                 <button
                   onClick={handleSendResetLink}
                   disabled={sendingReset}
-                  className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[#1E40AF] px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-60"
                 >
                   <Mail className="w-4 h-4" /> {sendingReset ? 'Sending…' : 'Send reset email'}
                 </button>
@@ -657,37 +657,37 @@ export const AccountManagement = () => {
               </div>
               <div className="text-center text-xs text-gray-400">or set a password directly (for accounts without a real mailbox)</div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                <label className="block text-sm font-medium text-foreground mb-2">New Password</label>
                 <input
                   type="password"
                   value={resetPassword}
                   onChange={(e) => setResetPassword(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                  className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Confirm New Password</label>
                 <input
                   type="password"
                   value={resetConfirm}
                   onChange={(e) => setResetConfirm(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                  className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
                 />
               </div>
-              <p className="text-xs text-gray-500">Share the new password with {resettingUserName} directly (in person, chat, or phone) — there's no automatic email notification.</p>
-              {resetError && <p className="text-sm text-red-600">{resetError}</p>}
+              <p className="text-xs text-muted-foreground">Share the new password with {resettingUserName} directly (in person, chat, or phone) — there's no automatic email notification.</p>
+              {resetError && <p className="text-sm text-destructive">{resetError}</p>}
             </div>
             <div className="flex gap-3 p-6 border-t">
               <button
                 onClick={() => setResettingUserId(null)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleResetPassword}
                 disabled={resetSubmitting}
-                className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-60 transition-colors"
               >
                 {resetSubmitting ? 'Resetting…' : 'Reset Password'}
               </button>
@@ -702,7 +702,7 @@ export const AccountManagement = () => {
           <>
             They won't be able to log in until an admin reactivates the account.
             {confirmUser?.role === 'system_admin' && (
-              <span className="mt-2 block font-medium text-red-600">
+              <span className="mt-2 block font-medium text-destructive">
                 This is a System Admin account — deactivating it removes access to user management, the audit trail, and archive restoration.
               </span>
             )}
