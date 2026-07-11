@@ -5,7 +5,7 @@
 ## Current status (2026-07-11)
 - **Phase 1 + 2 DONE and deployed**: https://dental-app-build.vercel.app (Vercel; **push to main auto-deploys** — verified across the 23h–27b sprints; older notes saying CLI-only are superseded). ML service live on Render free tier at `https://floral-ml-service.onrender.com` (sleeps after ~15min idle; first request 30–60s, may 503 once — retry works).
 - **Phase 3 built end-to-end on SYNTHETIC data** (21a–21g); re-run against real data BLOCKED — real dental IPTR Excel files still not in repo (`data/` = nutritional-status reports, verified via openpyxl). When they land: `clean_excel.py data/raw` → `build_features.py` → `run_experiments.py` → regenerate `algo-results.md`/`model-selection-rationale.md` → `train.py` → commit new `active/model.pkl` (Render auto-deploys) → UI's synthetic-data banner clears itself.
-- **Last sprints**: 27b (chart view/edit mode, 07-10), 26 (encryption IV fix + migration run+verified, 07-10), 23p (risk badge endpoint, 07-10). All pushed and deployed.
+- **Last sprints**: 27c (chart Edit/Cancel/Save moved from page header into the tabs-card row they actually govern, right-aligned beside the tabs; Edit shows only on History/Chart tabs, Cancel/Save stay visible mid-edit; 07-11), 27b (chart view/edit mode, 07-10), 26 (encryption IV fix + migration run+verified, 07-10). All pushed and deployed.
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 

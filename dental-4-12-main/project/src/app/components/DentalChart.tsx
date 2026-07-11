@@ -640,26 +640,8 @@ export const DentalChart = () => {
               </button>
             </>
           )}
-          {canEditHistory && currentYearData && !editMode && (
-            <button onClick={() => setEditMode(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-border text-foreground hover:bg-muted transition-colors">
-              <Pencil className="w-4 h-4" />
-              {canEdit ? 'Edit Chart' : 'Edit History & Oral'}
-            </button>
-          )}
-          {canEditHistory && currentYearData && editMode && (
-            <>
-              <button onClick={cancelEdit} disabled={saving} className="px-3 py-2 rounded-lg text-sm font-medium border border-border text-muted-foreground hover:bg-muted transition-colors disabled:opacity-60">
-                Cancel
-              </button>
-              <button onClick={handleSave} disabled={saving} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-60 ${saved ? 'bg-green-600 text-white' : 'bg-[#1E40AF] text-white hover:bg-blue-700'}`}>
-                <Save className="w-4 h-4" />
-                {saving ? 'Saving…' : saved ? 'Saved!' : 'Save'}
-              </button>
-            </>
-          )}
         </div>
       </div>
-      {saveError && <p className="text-xs text-red-600 mt-1">{saveError}</p>}
       </div>
 
       {/* Patient Info Card */}
@@ -797,16 +779,39 @@ export const DentalChart = () => {
       <div className="sticky z-30 bg-gray-50 space-y-0" style={{ top: stickyOffsets.tabsTop }}>
         <div className="bg-white rounded-xl border border-gray-200">
           <div ref={tabsRowRef} className="rounded-t-xl border-b border-gray-200 bg-white">
-            <div className="overflow-x-auto">
-            <div className="flex min-w-max">
-            {visibleTabs.map((tab) => (
-              <button key={tab.key} onClick={() => setActiveTab(tab.key as TabKey)}
-                className={`flex-shrink-0 px-4 py-3 text-sm font-medium transition-colors ${activeTab === tab.key ? 'border-b-2 border-blue-700 text-blue-700 bg-blue-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
-                {tab.label}
-              </button>
-            ))}
+            <div className="flex items-center">
+              <div className="min-w-0 flex-1 overflow-x-auto">
+              <div className="flex min-w-max">
+              {visibleTabs.map((tab) => (
+                <button key={tab.key} onClick={() => setActiveTab(tab.key as TabKey)}
+                  className={`flex-shrink-0 px-4 py-3 text-sm font-medium transition-colors ${activeTab === tab.key ? 'border-b-2 border-blue-700 text-blue-700 bg-blue-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
+                  {tab.label}
+                </button>
+              ))}
+              </div>
+              </div>
+              {canEditHistory && currentYearData && (editMode || activeTab === 'history' || (canEdit && activeTab === 'chart')) && (
+                <div className="flex shrink-0 items-center gap-2 px-3">
+                  {!editMode ? (
+                    <button onClick={() => setEditMode(true)} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted">
+                      <Pencil className="w-3 h-3" />
+                      {canEdit ? 'Edit Chart' : 'Edit History & Oral'}
+                    </button>
+                  ) : (
+                    <>
+                      <button onClick={cancelEdit} disabled={saving} className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-60">
+                        Cancel
+                      </button>
+                      <button onClick={handleSave} disabled={saving} className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 ${saved ? 'bg-green-600 text-white' : 'bg-[#1E40AF] text-white hover:bg-blue-700'}`}>
+                        <Save className="w-3.5 h-3.5" />
+                        {saving ? 'Saving…' : saved ? 'Saved!' : 'Save'}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
-            </div>
+            {saveError && <p className="px-4 pb-2 text-xs text-red-600">{saveError}</p>}
           </div>
           {showStickyYearBar && years.length > 0 && (
             <div className="border-t border-gray-100 bg-white px-4 pt-3">
