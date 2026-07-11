@@ -106,16 +106,16 @@ Full field-level specs for all 16 models live in **`/docs/DATA-MODEL.md`** — R
 
 ## BUILD PHASES
 
-**Completed work (Phase 1 Sprints 1–17, Phase 2 18–20, Phase 3 synthetic dry-run 21a–g, Phase 4 Sprints 22/24/25/27):** history moved to **`/docs/BUILD-LOG.md`**. Phase 1 + 2 are DONE and deployed. Only the pending items below remain.
+**Completed work (Phase 1 Sprints 1–17, Phase 2 18–20, Phase 3 synthetic dry-run 21a–g, Phase 4 Sprints 22/24/25/26/27/27b + the 23-series beautify sub-sprints):** history moved to **`/docs/BUILD-LOG.md`**. Phase 1 + 2 are DONE and deployed. Only the pending items below remain.
 
 **Phase 3 — Algo (BUILD DONE on synthetic data; re-run against REAL data BLOCKED — see Predictive Analytics above):** full 21a–21g task breakdown is authoritative in **`/docs/phase3-sprint-prompts.md`** — read it before any Phase 3 work; each sub-sprint needs approval before the next. Chapter 4: state that real IPTR records (after cleaning) were the training data — stronger than synthetic.
 
 **PENDING backlog (each needs approval, sprint loop applies):**
 - Sprint 21a-d (real data) → re-run clean→features→experiments→select once real IPTR files located (only remaining Phase 3 work)
-- Sprint 23 → full UI beautify pass via /impeccable (text loaders, transitions, toast consistency, focus states; anti-slop rules in HANDOFF apply)
+- Sprint 23 beautify remainder → remaining screens onto tokens (PatientList/DentalChart/Reports/Appointments/RPC/AccountManagement) + per-region loading + state motion + polish; ranked audit in `docs/beautify-audit.md`, done list in BUILD-LOG; anti-slop rules in HANDOFF apply
 - Live TODO (from Sprint 25): no account has 2FA enabled yet — enable per account in Account Management once real staff emails are set
-- Other roles' dashboard upgrades (NOT small — punted, needs its own scope). (Earlier small strays — RPC interval label + early-Visit-2 flag, appointment card date, mixed-dentition hint, t/T→dmft/DMFT score labels — are all DONE; see BUILD-LOG / HANDOFF.)
-- User-only items (no sprint): locate real IPTR files; verify DOH form typo spellings (Transfussion/Scalling/Flouride) against paper form; decide Reports April-default month
+- Other roles' dashboard upgrades (NOT small — punted, needs its own scope)
+- User-only items (no sprint): locate real IPTR files; verify DOH form typo spellings (Transfussion/Scalling/Flouride) against paper form
 
 **Before Defense:** encode real IPTR paper records to CSV, replace synthetic dataset, re-run algo experiments, update Chapter 4 results; ISO 25010:2023 evaluation (30 respondents, 5-point Likert, weighted mean); final ZAP scan.
 
