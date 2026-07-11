@@ -11,7 +11,7 @@
 
 ## Open work (each needs approval; sprint loop applies)
 1. **Sprint 23 beautify — remaining** (ranked audit: `docs/beautify-audit.md`; done list: BUILD-LOG):
-   - Remaining screens onto tokens: DentalChart, Reports, Appointments, RPCTracking, AccountManagement (Root + Dashboard done in 23g; PatientList + shared StudentListTableStyles done in 23q 07-11 — the shared table styles also carried DentalChartList/DentalChartNav/TreatmentRecords table shells onto tokens, so those screens only need their non-table chrome migrated). Established swap list: grays/brand-blue/focus-rings → tokens; status chips, info banners (blue-50/200/700), OCR confidence tints, neutral gray-50 hovers stay literal until a chip/banner pass.
+   - Remaining screens onto tokens: DentalChart, Reports, RPCTracking, AccountManagement (Appointments done in 23r 07-11) (Root + Dashboard done in 23g; PatientList + shared StudentListTableStyles done in 23q 07-11 — the shared table styles also carried DentalChartList/DentalChartNav/TreatmentRecords table shells onto tokens, so those screens only need their non-table chrome migrated). Established swap list: grays/brand-blue/focus-rings → tokens; status chips, info banners (blue-50/200/700), OCR confidence tints, neutral gray-50 hovers stay literal until a chip/banner pass.
    - X3 per-region loading, X4 state motion, final `polish` pass.
    - Optional chart polish (from 07-06): the two Dashboard PieCharts → horizontal bars; unify axis tick fonts (10–12px drift); centralize per-file `COLORS` objects.
 2. **Other roles' dashboard/layout pass** — NOT small, needs its own scope (dentist dashboard is done; aide/school-admin/BHO/admin still on the old layout; their charts still use the old `COLORS` rainbow).

@@ -265,9 +265,9 @@ export const Appointments = () => {
       'In Progress': 'bg-yellow-100 text-yellow-700',
       'Completed': 'bg-green-100 text-green-700',
       'Missed': 'bg-red-100 text-red-700',
-      'Cancelled': 'bg-gray-100 text-gray-500',
+      'Cancelled': 'bg-gray-100 text-muted-foreground',
     };
-    return map[status] || 'bg-gray-100 text-gray-500';
+    return map[status] || 'bg-gray-100 text-muted-foreground';
   };
 
   const AppointmentCard = ({ a, showActions = false }: { a: AppointmentSession; showActions?: boolean }) => {
@@ -281,8 +281,8 @@ export const Appointments = () => {
             {a.grade.replace('Grade ', 'G')}
           </div>
           <div>
-            <div className="text-sm font-medium text-gray-900">{a.section} — {a.grade}</div>
-            <div className="text-xs text-gray-500 flex items-center gap-2">
+            <div className="text-sm font-medium text-foreground">{a.section} — {a.grade}</div>
+            <div className="text-xs text-muted-foreground flex items-center gap-2">
               <span style={{ color: sc.solid }}>{getSchoolShortName(a.school)}</span>
               <span>·</span>
               <Clock className="w-3 h-3" />
@@ -291,7 +291,7 @@ export const Appointments = () => {
               <Users className="w-3 h-3" />
               <span>{a.studentCount} students</span>
             </div>
-            <div className="text-xs text-gray-500 mt-0.5">{a.type} · {a.dentist}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">{a.type} · {a.dentist}</div>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -326,7 +326,7 @@ export const Appointments = () => {
           )}
           {showActions && !a.pending && (status === 'Completed' || status === 'Missed') && (
             <button onClick={() => markStatus(a, 'Scheduled')}
-              className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition-colors" title="Reset">
+              className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 text-muted-foreground flex items-center justify-center transition-colors" title="Reset">
               <RotateCcw className="w-3 h-3" />
             </button>
           )}
@@ -351,39 +351,39 @@ export const Appointments = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Appointments</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{appointments.length} appointment{appointments.length !== 1 ? 's' : ''} total</p>
+          <h1 className="text-2xl font-bold text-foreground">Appointments</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{appointments.length} appointment{appointments.length !== 1 ? 's' : ''} total</p>
         </div>
         <div className="flex items-center gap-2">
           <ExportMenu onExport={handleExport} />
           <button onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover text-sm font-medium">
             <Plus className="w-4 h-4" /> New Appointment
           </button>
         </div>
       </div>
 
       {/* ── CALENDAR (always visible) ── */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-card rounded-xl border border-border overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-          <span className="text-sm font-semibold text-gray-700">Dentist Rotation Schedule</span>
+          <span className="text-sm font-semibold text-foreground">Dentist Rotation Schedule</span>
           <div className="flex items-center gap-2">
-            <button onClick={prevMonth} className="p-1.5 hover:bg-gray-100 rounded-lg"><ChevronLeft className="w-4 h-4 text-gray-600"/></button>
-            <span className="text-sm font-semibold text-gray-900 min-w-[110px] text-center">{monthName}</span>
-            <button onClick={nextMonth} className="p-1.5 hover:bg-gray-100 rounded-lg"><ChevronRight className="w-4 h-4 text-gray-600"/></button>
+            <button onClick={prevMonth} className="p-1.5 hover:bg-gray-100 rounded-lg"><ChevronLeft className="w-4 h-4 text-muted-foreground"/></button>
+            <span className="text-sm font-semibold text-foreground min-w-[110px] text-center">{monthName}</span>
+            <button onClick={nextMonth} className="p-1.5 hover:bg-gray-100 rounded-lg"><ChevronRight className="w-4 h-4 text-muted-foreground"/></button>
           </div>
         </div>
-        <div className="px-4 py-3 border-b border-gray-100 bg-white">
+        <div className="px-4 py-3 border-b border-gray-100 bg-card">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Grade Color Code</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Grade Color Code</span>
             {calendarLegendGrades.map(grade => (
               <GradePill key={grade} grade={grade} />
             ))}
           </div>
         </div>
-        <div className="grid grid-cols-7 border-b border-gray-200">
+        <div className="grid grid-cols-7 border-b border-border">
           {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
-            <div key={d} className="text-center text-xs font-semibold text-gray-600 py-2 bg-gray-50">{d}</div>
+            <div key={d} className="text-center text-xs font-semibold text-muted-foreground py-2 bg-gray-50">{d}</div>
           ))}
         </div>
         <div className="grid grid-cols-7">
@@ -394,7 +394,7 @@ export const Appointments = () => {
               <div key={idx} className={`min-h-[80px] p-1.5 border-r border-b border-gray-100 last:border-b-0 ${!day ? 'bg-gray-50/60' : ''} ${isToday ? 'bg-teal-50' : ''}`}>
                 {day && (
                   <>
-                    <div className={`text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-teal-600 text-white' : 'text-gray-600'}`}>
+                    <div className={`text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-teal-600 text-white' : 'text-muted-foreground'}`}>
                       {day.getDate()}
                     </div>
                     {dayAppts.map(a => {
@@ -424,24 +424,24 @@ export const Appointments = () => {
           { key: 'rotation',  label: 'Rotation'                                },
         ].map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === tab.key ? 'bg-white text-[#1E40AF] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === tab.key ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
             {tab.label}
           </button>
         ))}
       </div>
 
       {/* ── TAB CONTENT ── */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-card rounded-xl border border-border overflow-hidden">
 
       {/* TODAY */}
       {activeTab === 'today' && (
         <>
           <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-sm font-semibold text-gray-900">Today — {new Date(TODAY).toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
+            <span className="text-sm font-semibold text-foreground">Today — {new Date(TODAY).toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
           </div>
           {todayAppts.length === 0 ? (
-            <div className="py-12 text-center text-gray-500">
+            <div className="py-12 text-center text-muted-foreground">
               <CalendarIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm">No appointments scheduled for today</p>
             </div>
@@ -455,10 +455,10 @@ export const Appointments = () => {
       {activeTab === 'upcoming' && (
         <>
           <div className="px-4 py-3 border-b border-gray-100">
-            <span className="text-sm font-semibold text-gray-900">Upcoming Appointments</span>
+            <span className="text-sm font-semibold text-foreground">Upcoming Appointments</span>
           </div>
           {upcomingAppts.length === 0 ? (
-            <div className="py-12 text-center text-gray-500">
+            <div className="py-12 text-center text-muted-foreground">
               <CalendarIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm">No upcoming appointments</p>
             </div>
@@ -466,8 +466,8 @@ export const Appointments = () => {
             upcomingAppts.map(a => (
               <div key={a.id} className="flex items-center gap-4 px-4 py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50">
                 <div className="text-center min-w-[48px]">
-                  <div className="text-lg font-bold text-[#1E40AF]">{a.date.split('-')[2]}</div>
-                  <div className="text-xs text-gray-500">{new Date(a.date + 'T00:00:00').toLocaleString('default', { month: 'short' })}</div>
+                  <div className="text-lg font-bold text-primary">{a.date.split('-')[2]}</div>
+                  <div className="text-xs text-muted-foreground">{new Date(a.date + 'T00:00:00').toLocaleString('default', { month: 'short' })}</div>
                 </div>
                 <div className="flex-1 min-w-0">
                   <AppointmentCard a={a} showActions />
@@ -482,10 +482,10 @@ export const Appointments = () => {
       {activeTab === 'completed' && (
         <>
           <div className="px-4 py-3 border-b border-gray-100">
-            <span className="text-sm font-semibold text-gray-900">Completed Appointments</span>
+            <span className="text-sm font-semibold text-foreground">Completed Appointments</span>
           </div>
           {completedAppts.length === 0 ? (
-            <div className="py-12 text-center text-gray-500">
+            <div className="py-12 text-center text-muted-foreground">
               <CalendarIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm">No completed appointments</p>
             </div>
@@ -499,10 +499,10 @@ export const Appointments = () => {
       {activeTab === 'missed' && (
         <>
           <div className="px-4 py-3 border-b border-gray-100">
-            <span className="text-sm font-semibold text-gray-900">Missed Appointments</span>
+            <span className="text-sm font-semibold text-foreground">Missed Appointments</span>
           </div>
           {missedAppts.length === 0 ? (
-            <div className="py-12 text-center text-gray-500">
+            <div className="py-12 text-center text-muted-foreground">
               <CalendarIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm">No missed appointments</p>
             </div>
@@ -516,9 +516,9 @@ export const Appointments = () => {
       {activeTab === 'rotation' && (
         <>
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-            <span className="text-sm font-semibold text-gray-900">Dentist Rotation by School</span>
+            <span className="text-sm font-semibold text-foreground">Dentist Rotation by School</span>
             <button onClick={() => setShowRotationModal(true)}
-              className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm">
+              className="flex items-center gap-2 px-3 py-1.5 border border-border text-foreground rounded-lg hover:bg-gray-50 text-sm">
               <Plus className="w-3.5 h-3.5" /> Add Rotation
             </button>
           </div>
@@ -533,14 +533,14 @@ export const Appointments = () => {
                     <span style={{ color: sc.text }} className="font-bold text-sm">{getSchoolShortName(school)}</span>
                   </div>
                   {schoolRots.length === 0 ? (
-                    <p className="text-xs text-gray-500 pl-6">No rotation schedule set</p>
+                    <p className="text-xs text-muted-foreground pl-6">No rotation schedule set</p>
                   ) : (
                     <div className="pl-6 space-y-1.5">
                       {schoolRots.map(r => (
                         <div key={r.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
                           <div>
-                            <div className="text-sm font-medium text-gray-900">{r.dentist}</div>
-                            <div className="text-xs text-gray-500">{r.weekStart} → {r.weekEnd}{r.notes && ` · ${r.notes}`}</div>
+                            <div className="text-sm font-medium text-foreground">{r.dentist}</div>
+                            <div className="text-xs text-muted-foreground">{r.weekStart} → {r.weekEnd}{r.notes && ` · ${r.notes}`}</div>
                           </div>
                           <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">Active</span>
                         </div>
@@ -560,7 +560,7 @@ export const Appointments = () => {
       {showCreateModal && (
         <Modal onClose={() => { resetCreateAppointmentForm(); setShowCreateModal(false); }} maxWidth="max-w-lg" closeDisabled={creating}>
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900">New Appointment</h2>
+              <h2 className="text-lg font-bold text-foreground">New Appointment</h2>
               <button onClick={() => { resetCreateAppointmentForm(); setShowCreateModal(false); }} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-4 h-4"/></button>
             </div>
             <div className="p-5 space-y-4">
@@ -570,79 +570,79 @@ export const Appointments = () => {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">School</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">School</label>
                   <select value={formSchool} onChange={e => { setFormSchool(e.target.value); setSelectedGrade(''); setSelectedSection(''); }}
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    className="w-full text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring">
                     <option value="">Select school</option>
                     {SCHOOLS.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Grade</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Grade</label>
                   <select value={selectedGrade} onChange={e => { setSelectedGrade(e.target.value); setSelectedSection(''); }}
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    className="w-full text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring">
                     <option value="">Grade</option>
                     {grades.map(g => <option key={g} value={g}>{g}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Section</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Section</label>
                   <select value={selectedSection} onChange={e => setSelectedSection(e.target.value)}
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    className="w-full text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring">
                     <option value="">Section</option>
                     {sectionsForGrade.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Date</label>
                   <input type="date" value={appointmentDate} onChange={e => setAppointmentDate(e.target.value)}
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="w-full text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Time</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Time</label>
                   <input type="time" value={appointmentTime} onChange={e => setAppointmentTime(e.target.value)}
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="w-full text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring" />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Appointment Type</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Appointment Type</label>
                   <select value={appointmentType} onChange={e => setAppointmentType(e.target.value)}
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    className="w-full text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring">
                     <option value="">Select type</option>
                     {['Regular Checkup','Screening','Bayanihan Mission','Fluoride Application','Extraction','Follow-up'].map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">{staffNameLabel}</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">{staffNameLabel}</label>
                   <select value={appointmentDentistId} onChange={e => setAppointmentDentistId(e.target.value)}
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    className="w-full text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring">
                     {dentists.map(d => <option key={d._id} value={d._id}>Dr. {d.first_name} {d.last_name}</option>)}
                   </select>
                 </div>
               </div>
               {studentsInSection.length > 0 && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-2">Select Students ({selectedStudents.length} selected)</label>
-                  <div className="border border-gray-200 rounded-lg max-h-40 overflow-y-auto divide-y divide-gray-100">
+                  <label className="block text-xs font-medium text-muted-foreground mb-2">Select Students ({selectedStudents.length} selected)</label>
+                  <div className="border border-border rounded-lg max-h-40 overflow-y-auto divide-y divide-gray-100">
                     {studentsInSection.map(s => (
                       <label key={s.id} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer">
                         <input type="checkbox" checked={selectedStudents.includes(s.id)}
                           onChange={() => setSelectedStudents(prev => prev.includes(s.id) ? prev.filter(x => x !== s.id) : [...prev, s.id])}
-                          className="w-4 h-4 rounded accent-blue-600" />
-                        <span className="text-sm text-gray-700">{s.name}</span>
-                        <span className="text-xs text-gray-500 ml-auto">{s.gender} · {new Date().getFullYear() - new Date(s.birthdate).getFullYear()}y</span>
+                          className="w-4 h-4 rounded accent-primary" />
+                        <span className="text-sm text-foreground">{s.name}</span>
+                        <span className="text-xs text-muted-foreground ml-auto">{s.gender} · {new Date().getFullYear() - new Date(s.birthdate).getFullYear()}y</span>
                       </label>
                     ))}
                   </div>
                 </div>
               )}
-              {createError && <p className="text-sm text-red-600">{createError}</p>}
+              {createError && <p className="text-sm text-destructive">{createError}</p>}
               <div className="flex gap-3 pt-2">
                 <button onClick={() => { resetCreateAppointmentForm(); setShowCreateModal(false); }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
+                  className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-gray-50 text-sm font-medium">
                   Cancel
                 </button>
                 <button onClick={handleCreateAppointment} disabled={creating}
-                  className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 text-sm font-medium">
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-60 text-sm font-medium">
                   {creating ? 'Creating…' : 'Create Appointment'}
                 </button>
               </div>
@@ -654,51 +654,51 @@ export const Appointments = () => {
       {showRotationModal && (
         <Modal onClose={() => { resetRotationForm(); setShowRotationModal(false); }} closeDisabled={rotSaving}>
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900">Set Rotation Schedule</h2>
+              <h2 className="text-lg font-bold text-foreground">Set Rotation Schedule</h2>
               <button onClick={() => { resetRotationForm(); setShowRotationModal(false); }} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-4 h-4"/></button>
             </div>
             <div className="p-5 space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">School</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">School</label>
                 <select value={rotSchool} onChange={e => setRotSchool(e.target.value)}
-                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  className="w-full text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring">
                   <option value="">Select school</option>
                   {SCHOOLS.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">{staffNameLabel}</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">{staffNameLabel}</label>
                 <select value={rotDentistId} onChange={e => setRotDentistId(e.target.value)}
-                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  className="w-full text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring">
                   {dentists.map(d => <option key={d._id} value={d._id}>Dr. {d.first_name} {d.last_name}</option>)}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Week Start</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Week Start</label>
                   <input type="date" value={rotWeekStart} onChange={e => setRotWeekStart(e.target.value)}
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="w-full text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Week End</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Week End</label>
                   <input type="date" value={rotWeekEnd} onChange={e => setRotWeekEnd(e.target.value)}
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="w-full text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring" />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Notes (optional)</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Notes (optional)</label>
                 <input type="text" value={rotNotes} onChange={e => setRotNotes(e.target.value)}
                   placeholder="e.g. Bayanihan week"
-                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  className="w-full text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
-              {rotError && <p className="text-sm text-red-600">{rotError}</p>}
+              {rotError && <p className="text-sm text-destructive">{rotError}</p>}
               <div className="flex gap-3 pt-2">
                 <button onClick={() => { resetRotationForm(); setShowRotationModal(false); }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
+                  className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-gray-50 text-sm font-medium">
                   Cancel
                 </button>
                 <button onClick={handleSaveRotation} disabled={rotSaving}
-                  className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 text-sm font-medium">
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-60 text-sm font-medium">
                   {rotSaving ? 'Saving…' : 'Save Schedule'}
                 </button>
               </div>
