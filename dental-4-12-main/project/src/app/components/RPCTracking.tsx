@@ -150,7 +150,7 @@ export const RPCTracking = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">RPC Records</h1>
-          <p className="text-sm text-muted-foreground">Routine Preventive Care — Fluoride application tracking (Visit 2 due 4–6 months after Visit 1)</p>
+          <p className="text-sm text-muted-foreground">Routine Preventive Care — Fluoride application tracking (2nd fluoride dose due 4–6 months after Visit 1; other treatments may be done anytime)</p>
         </div>
         <ExportMenu onExport={handleExport} />
       </div>
