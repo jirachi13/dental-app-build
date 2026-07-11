@@ -497,7 +497,7 @@ export const DentalChart = () => {
     const data = currentChart[num];
     const cond = data?.condition || '';
     const treat = data?.treatment || '';
-    const colorClass = conditionColors[cond] || conditionColors[cond.toLowerCase()] || 'bg-white border-gray-300';
+    const colorClass = conditionColors[cond] || conditionColors[cond.toLowerCase()] || 'bg-card border-border';
     const isSelected = editingChart && (selectedCondition || selectedTreatment);
     return (
       <button
@@ -581,8 +581,8 @@ export const DentalChart = () => {
   }
   if (error || !student) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-        <p className="text-red-600">{error ?? 'Student not found.'}</p>
+      <div className="bg-card rounded-xl border border-border p-12 text-center">
+        <p className="text-destructive">{error ?? 'Student not found.'}</p>
         <Link to="/dental-charts" className="text-sm text-blue-600 hover:underline mt-2 inline-block">← Back to Dental Charts</Link>
       </div>
     );
@@ -597,25 +597,25 @@ export const DentalChart = () => {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0">
           <Link to={backPath} className="p-2 hover:bg-gray-100 rounded-lg shrink-0">
-            <ArrowLeft className="w-4 h-4 text-gray-600" />
+            <ArrowLeft className="w-4 h-4 text-muted-foreground" />
           </Link>
           <div className="min-w-0">
-            <h1 className="text-lg font-bold text-gray-900">Individual Patient Treatment Record</h1>
-            <p className="text-xs text-gray-500">{student.full_name} · {student.grade_level} {student.section} · {student.sex} · {patientAge} yrs</p>
+            <h1 className="text-lg font-bold text-foreground">Individual Patient Treatment Record</h1>
+            <p className="text-xs text-muted-foreground">{student.full_name} · {student.grade_level} {student.section} · {student.sex} · {patientAge} yrs</p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <div className="hidden sm:flex items-center gap-1 border border-gray-200 rounded-lg overflow-hidden">
+          <div className="hidden sm:flex items-center gap-1 border border-border rounded-lg overflow-hidden">
             <button
               onClick={() => prevPatient && navigate(`/dental-chart/${prevPatient.id}`)}
               disabled={!prevPatient}
               title={prevPatient ? `← ${prevPatient.name}` : undefined}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-default border-r border-gray-200"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-gray-100 disabled:opacity-30 disabled:cursor-default border-r border-border"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
               {prevPatient ? <span className="max-w-[80px] truncate">{prevPatient.name.split(' ')[0]}</span> : 'First'}
             </button>
-            <span className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-gray-500">
+            <span className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-muted-foreground">
               <Users className="w-3 h-3" />
               {navIndex >= 0 ? `${navIndex + 1}/${navList.length}` : '—'}
             </span>
@@ -623,7 +623,7 @@ export const DentalChart = () => {
               onClick={() => nextPatient && navigate(`/dental-chart/${nextPatient.id}`)}
               disabled={!nextPatient}
               title={nextPatient ? `${nextPatient.name} →` : undefined}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-default border-l border-gray-200"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-gray-100 disabled:opacity-30 disabled:cursor-default border-l border-border"
             >
               {nextPatient ? <span className="max-w-[80px] truncate">{nextPatient.name.split(' ')[0]}</span> : 'Last'}
               <ChevronRight className="w-3.5 h-3.5" />
@@ -645,89 +645,89 @@ export const DentalChart = () => {
       </div>
 
       {/* Patient Info Card */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <div className="bg-card rounded-xl border border-border p-4">
         {editingInfo ? (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-gray-700">Edit Student Info</span>
+              <span className="text-sm font-semibold text-foreground">Edit Student Info</span>
               <div className="flex gap-2">
-                <button onClick={handleSaveInfo} disabled={infoSaving} className="px-3 py-1.5 text-sm bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{infoSaving ? 'Saving…' : 'Save'}</button>
-                <button onClick={() => setEditingInfo(false)} className="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
+                <button onClick={handleSaveInfo} disabled={infoSaving} className="px-3 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-60">{infoSaving ? 'Saving…' : 'Save'}</button>
+                <button onClick={() => setEditingInfo(false)} className="px-3 py-1.5 text-sm border border-border text-foreground rounded-lg hover:bg-gray-50">Cancel</button>
               </div>
             </div>
-            {infoError && <p className="text-xs text-red-600">{infoError}</p>}
+            {infoError && <p className="text-xs text-destructive">{infoError}</p>}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
               <div className="md:col-span-2">
-                <label className="block text-gray-500 font-medium mb-0.5">Full Name</label>
+                <label className="block text-muted-foreground font-medium mb-0.5">Full Name</label>
                 <input type="text" value={draftInfo.full_name ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, full_name: e.target.value }))}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs" />
+                  className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs" />
               </div>
               <div>
-                <label className="block text-gray-500 font-medium mb-0.5">Contact Number</label>
+                <label className="block text-muted-foreground font-medium mb-0.5">Contact Number</label>
                 <input type="text" value={draftInfo.contact_number ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, contact_number: e.target.value }))}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs" />
+                  className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs" />
               </div>
               <div>
-                <label className="block text-gray-500 font-medium mb-0.5">Guardian Name</label>
+                <label className="block text-muted-foreground font-medium mb-0.5">Guardian Name</label>
                 <input type="text" value={draftInfo.guardian_name ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, guardian_name: e.target.value }))}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs" />
+                  className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs" />
               </div>
               <div>
-                <label className="block text-gray-500 font-medium mb-0.5">Guardian Contact</label>
+                <label className="block text-muted-foreground font-medium mb-0.5">Guardian Contact</label>
                 <input type="text" value={draftInfo.guardian_contact ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, guardian_contact: e.target.value }))}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs" />
+                  className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs" />
               </div>
               <div>
-                <label className="block text-gray-500 font-medium mb-0.5">PhilHealth No.</label>
+                <label className="block text-muted-foreground font-medium mb-0.5">PhilHealth No.</label>
                 <input type="text" value={draftInfo.philhealth_number ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, philhealth_number: e.target.value }))}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs" />
+                  className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs" />
               </div>
               <div>
-                <label className="block text-gray-500 font-medium mb-0.5">Birthday</label>
+                <label className="block text-muted-foreground font-medium mb-0.5">Birthday</label>
                 <input type="date" value={draftInfo.birthday?.slice(0, 10) ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, birthday: e.target.value }))}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs" />
+                  className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs" />
               </div>
               <div>
-                <label className="block text-gray-500 font-medium mb-0.5">Sex</label>
+                <label className="block text-muted-foreground font-medium mb-0.5">Sex</label>
                 <select value={draftInfo.sex ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, sex: e.target.value }))}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs bg-white">
+                  className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs bg-card">
                   <option>Male</option><option>Female</option>
                 </select>
               </div>
               <div>
-                <label className="block text-gray-500 font-medium mb-0.5">Grade</label>
+                <label className="block text-muted-foreground font-medium mb-0.5">Grade</label>
                 <select value={draftInfo.grade_level ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, grade_level: e.target.value }))}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs bg-white">
+                  className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs bg-card">
                   {GRADES.map((g) => <option key={g}>{g}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-gray-500 font-medium mb-0.5">Section</label>
+                <label className="block text-muted-foreground font-medium mb-0.5">Section</label>
                 <input type="text" value={draftInfo.section ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, section: e.target.value }))}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs" />
+                  className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs" />
               </div>
               <div>
-                <label className="block text-gray-500 font-medium mb-0.5">PhilHealth Status</label>
+                <label className="block text-muted-foreground font-medium mb-0.5">PhilHealth Status</label>
                 <select value={draftInfo.philhealth_status ?? 'None'} onChange={(e) => setDraftInfo((p) => ({ ...p, philhealth_status: e.target.value as 'None' | 'Principal' | 'Dependent' }))}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs bg-white">
+                  className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs bg-card">
                   <option>Dependent</option><option>Principal</option><option>None</option>
                 </select>
               </div>
               <div className="md:col-span-2">
-                <label className="block text-gray-500 font-medium mb-0.5">School</label>
-                <select value={schoolName} disabled className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs bg-gray-50 text-gray-500">
+                <label className="block text-muted-foreground font-medium mb-0.5">School</label>
+                <select value={schoolName} disabled className="w-full px-2 py-1.5 border border-border rounded-lg text-xs bg-gray-50 text-muted-foreground">
                   {SCHOOLS.map((s) => <option key={s}>{s}</option>)}
                 </select>
               </div>
               <div className="md:col-span-3">
-                <label className="block text-gray-500 font-medium mb-0.5">Address</label>
+                <label className="block text-muted-foreground font-medium mb-0.5">Address</label>
                 <input type="text" value={draftInfo.address ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, address: e.target.value }))}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs" />
+                  className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs" />
               </div>
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="4ps" checked={!!draftInfo.is_4ps} onChange={(e) => setDraftInfo((p) => ({ ...p, is_4ps: e.target.checked }))}
-                  className="w-4 h-4 rounded accent-blue-600" />
-                <label htmlFor="4ps" className="text-gray-700 font-medium">4Ps Member</label>
+                  className="w-4 h-4 rounded accent-primary" />
+                <label htmlFor="4ps" className="text-foreground font-medium">4Ps Member</label>
               </div>
             </div>
           </div>
@@ -739,8 +739,8 @@ export const DentalChart = () => {
                   {student.full_name.split(' ').map((n) => n[0]).slice(0, 2).join('')}
                 </div>
                 <div>
-                  <div className="font-bold text-gray-900">{student.full_name}</div>
-                  <div className="text-xs text-gray-500">{student.grade_level} • {student.section} • {student.sex} • Age {patientAge}</div>
+                  <div className="font-bold text-foreground">{student.full_name}</div>
+                  <div className="text-xs text-muted-foreground">{student.grade_level} • {student.section} • {student.sex} • Age {patientAge}</div>
                   <div className="flex items-center gap-2 mt-1">
                     <GradePill grade={student.grade_level} />
                     <span style={{ color: gc.solid }} className="text-xs font-medium">{student.section}</span>
@@ -749,7 +749,7 @@ export const DentalChart = () => {
                 </div>
               </div>
               {canEditInfo && (
-                <button onClick={openEditInfo} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">
+                <button onClick={openEditInfo} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded-lg text-muted-foreground hover:bg-gray-50">
                   <Pencil className="w-3 h-3" /> Edit
                 </button>
               )}
@@ -766,8 +766,8 @@ export const DentalChart = () => {
                 ['Guardian Contact', student.guardian_contact || '—'],
               ].map(([label, val]) => (
                 <div key={label}>
-                  <div className="text-gray-500 font-medium">{label}</div>
-                  <div className="text-gray-900">{val}</div>
+                  <div className="text-muted-foreground font-medium">{label}</div>
+                  <div className="text-foreground">{val}</div>
                 </div>
               ))}
             </div>
@@ -777,14 +777,14 @@ export const DentalChart = () => {
 
       {/* Tabs */}
       <div className="sticky z-30 bg-gray-50 space-y-0" style={{ top: stickyOffsets.tabsTop }}>
-        <div className="bg-white rounded-xl border border-gray-200">
-          <div ref={tabsRowRef} className="rounded-t-xl border-b border-gray-200 bg-white">
+        <div className="bg-card rounded-xl border border-border">
+          <div ref={tabsRowRef} className="rounded-t-xl border-b border-border bg-card">
             <div className="flex items-center">
               <div className="min-w-0 flex-1 overflow-x-auto">
               <div className="flex min-w-max">
               {visibleTabs.map((tab) => (
                 <button key={tab.key} onClick={() => setActiveTab(tab.key as TabKey)}
-                  className={`flex-shrink-0 px-4 py-3 text-sm font-medium transition-colors ${activeTab === tab.key ? 'border-b-2 border-blue-700 text-blue-700 bg-blue-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
+                  className={`flex-shrink-0 px-4 py-3 text-sm font-medium transition-colors ${activeTab === tab.key ? 'border-b-2 border-blue-700 text-blue-700 bg-blue-50' : 'text-muted-foreground hover:text-foreground hover:bg-gray-50'}`}>
                   {tab.label}
                 </button>
               ))}
@@ -802,7 +802,7 @@ export const DentalChart = () => {
                       <button onClick={cancelEdit} disabled={saving} className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-60">
                         Cancel
                       </button>
-                      <button onClick={handleSave} disabled={saving} className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 ${saved ? 'bg-green-600 text-white' : 'bg-[#1E40AF] text-white hover:bg-blue-700'}`}>
+                      <button onClick={handleSave} disabled={saving} className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 ${saved ? 'bg-green-600 text-white' : 'bg-primary text-white hover:bg-primary-hover'}`}>
                         <Save className="w-3.5 h-3.5" />
                         {saving ? 'Saving…' : saved ? 'Saved!' : 'Save'}
                       </button>
@@ -811,10 +811,10 @@ export const DentalChart = () => {
                 </div>
               )}
             </div>
-            {saveError && <p className="px-4 pb-2 text-xs text-red-600">{saveError}</p>}
+            {saveError && <p className="px-4 pb-2 text-xs text-destructive">{saveError}</p>}
           </div>
           {showStickyYearBar && years.length > 0 && (
-            <div className="border-t border-gray-100 bg-white px-4 pt-3">
+            <div className="border-t border-gray-100 bg-card px-4 pt-3">
               <div className="overflow-x-auto">
               <div className="flex items-center gap-0 min-w-max">
               {years.map((y, idx) => {
@@ -823,18 +823,18 @@ export const DentalChart = () => {
                 const yrDmft = computeDMFT(yrChart);
                 const isActive = selectedYear === idx;
                 return (
-                  <div key={y.iptr._id} className={`mr-1 flex flex-shrink-0 items-stretch border-b-2 ${isActive ? 'border-blue-700 bg-blue-50 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
+                  <div key={y.iptr._id} className={`mr-1 flex flex-shrink-0 items-stretch border-b-2 ${isActive ? 'border-blue-700 bg-blue-50 text-blue-700' : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-gray-50'}`}>
                     <button type="button" onClick={() => setSelectedYear(idx)} className="px-4 py-2.5 text-left text-xs font-medium transition-all">
                       <div>{y.iptr.school_year}</div>
                       {activeTab === 'chart' && (
-                        <div style={{ fontSize: '10px', marginTop: '2px' }} className={isActive ? 'text-blue-600' : 'text-gray-500'}>DMFT: {yrDmft.T + yrDmft.t}</div>
+                        <div style={{ fontSize: '10px', marginTop: '2px' }} className={isActive ? 'text-blue-600' : 'text-muted-foreground'}>DMFT: {yrDmft.T + yrDmft.t}</div>
                       )}
-                      <div style={{ fontSize: '10px', marginTop: '2px' }} className={isActive ? 'text-blue-600' : 'text-gray-500'}>
+                      <div style={{ fontSize: '10px', marginTop: '2px' }} className={isActive ? 'text-blue-600' : 'text-muted-foreground'}>
                         {formatDateStamp(y.dentalChart?.date_charted)}
                       </div>
                     </button>
                     {canEdit && isManagingYears && years.length > 1 && (
-                      <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmDeleteYear(idx); }} className="border-l border-gray-200 px-2 text-gray-500 transition-colors hover:bg-white hover:text-red-600" title={`Remove ${y.iptr.school_year}`}>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmDeleteYear(idx); }} className="border-l border-border px-2 text-muted-foreground transition-colors hover:bg-card hover:text-destructive" title={`Remove ${y.iptr.school_year}`}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     )}
@@ -844,11 +844,11 @@ export const DentalChart = () => {
               {canEdit && (
                 <div className="ml-2 flex flex-shrink-0 items-center gap-2 py-2">
                   <button type="button" onClick={() => setIsManagingYears((prev) => !prev)}
-                    className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors ${isManagingYears ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' : 'border border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}>
+                    className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors ${isManagingYears ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' : 'border border-border bg-card text-muted-foreground hover:bg-gray-50'}`}>
                     {isManagingYears ? 'Done' : 'Edit Years'}
                   </button>
                   {isManagingYears && !!getNextSchoolYear() && (
-                    <button type="button" onClick={handleAddYear} className="flex-shrink-0 px-3 py-2 text-xs text-gray-500 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-300 transition-all">
+                    <button type="button" onClick={handleAddYear} className="flex-shrink-0 px-3 py-2 text-xs text-muted-foreground hover:text-blue-600 border-b-2 border-transparent hover:border-blue-300 transition-all">
                       + Add Year
                     </button>
                   )}
@@ -862,12 +862,12 @@ export const DentalChart = () => {
       </div>
 
       {/* Tab Content */}
-      <div className="bg-white rounded-xl border border-gray-200">
+      <div className="bg-card rounded-xl border border-border">
 
         {years.length === 0 ? (
-          <div className="p-12 text-center text-gray-500">
+          <div className="p-12 text-center text-muted-foreground">
             <p className="text-sm">No IPTR school-year records yet for this student.</p>
-            {canEdit && <button onClick={handleAddYear} className="mt-3 px-4 py-2 bg-[#1E40AF] text-white rounded-lg text-sm font-medium hover:bg-blue-700">+ Start {getNextSchoolYear()}</button>}
+            {canEdit && <button onClick={handleAddYear} className="mt-3 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover">+ Start {getNextSchoolYear()}</button>}
           </div>
         ) : (
         <>
@@ -884,7 +884,7 @@ export const DentalChart = () => {
                     ['Hepatitis', 'hepatitis'], ['Malignancy', 'malignancy'],
                     ['History of Hospitalization', 'hospitalization'], ['Blood Transfusion', 'bloodTransfusion'], ['Tattoo', 'tattoo'],
                   ] as [string, keyof MedicalHistoryDraft][]).map(([label, field]) => (
-                    <label key={field} className="flex items-center justify-between text-xs text-gray-700 py-1 border-b border-gray-100 last:border-0">
+                    <label key={field} className="flex items-center justify-between text-xs text-foreground py-1 border-b border-gray-100 last:border-0">
                       {label}
                       <input type="checkbox" disabled={!editingHistory} checked={!!draftMed[field]}
                         onChange={(e) => setDraftMed((p) => ({ ...p, [field]: e.target.checked }))}
@@ -892,9 +892,9 @@ export const DentalChart = () => {
                     </label>
                   ))}
                   <div className="pt-1">
-                    <label className="block text-xs text-gray-500 mb-1">Allergies</label>
+                    <label className="block text-xs text-muted-foreground mb-1">Allergies</label>
                     <input type="text" disabled={!editingHistory} value={draftMed.allergies} onChange={(e) => setDraftMed((p) => ({ ...p, allergies: e.target.value }))}
-                      placeholder="—" className="w-full text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed" />
+                      placeholder="—" className="w-full text-xs border border-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed" />
                   </div>
                 </div>
               </div>
@@ -906,7 +906,7 @@ export const DentalChart = () => {
                     ['Tobacco User', 'tobaccoUser'], ['Betel Nut Chewer', 'betelNut'],
                     ['Body Piercing', 'bodyPiercing'], ['Nail Biting', 'nailBiting'], ['Thumbsucking', 'thumbsucking'],
                   ] as [string, keyof DietDraft][]).map(([label, field]) => (
-                    <label key={field} className="flex items-center justify-between text-xs text-gray-700 py-1 border-b border-gray-100 last:border-0">
+                    <label key={field} className="flex items-center justify-between text-xs text-foreground py-1 border-b border-gray-100 last:border-0">
                       {label}
                       <input type="checkbox" disabled={!editingHistory} checked={!!draftDiet[field]}
                         onChange={(e) => setDraftDiet((p) => ({ ...p, [field]: e.target.checked }))}
@@ -926,7 +926,7 @@ export const DentalChart = () => {
                   ['Gingivitis', 'gingivitis'], ['Periodontal Disease', 'periodontal'], ['Debris', 'debris'],
                   ['Calculus', 'calculus'], ['Abnormal Growth', 'abnormalGrowth'], ['Cleft Lip / Palate', 'cleftLipPalate'],
                 ] as [string, keyof OralDraft][]).map(([label, field]) => (
-                  <label key={field} className="flex items-center justify-between text-xs text-gray-700 py-1 border-b border-gray-100">
+                  <label key={field} className="flex items-center justify-between text-xs text-foreground py-1 border-b border-gray-100">
                     {label}
                     <input type="checkbox" disabled={!editingHistory} checked={!!draftOral[field]}
                       onChange={(e) => setDraftOral((p) => ({ ...p, [field]: e.target.checked }))}
@@ -936,14 +936,14 @@ export const DentalChart = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Oral Hygiene</label>
+                  <label className="block text-xs text-muted-foreground mb-1">Oral Hygiene</label>
                   <input type="text" disabled={!editingHistory} value={draftOral.oralHygiene} onChange={(e) => setDraftOral((p) => ({ ...p, oralHygiene: e.target.value }))}
-                    placeholder="e.g. Good, Fair, Poor" className="w-full text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed" />
+                    placeholder="e.g. Good, Fair, Poor" className="w-full text-xs border border-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed" />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Others</label>
+                  <label className="block text-xs text-muted-foreground mb-1">Others</label>
                   <input type="text" disabled={!editingHistory} value={draftOral.others} onChange={(e) => setDraftOral((p) => ({ ...p, others: e.target.value }))}
-                    placeholder="—" className="w-full text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed" />
+                    placeholder="—" className="w-full text-xs border border-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed" />
                 </div>
               </div>
             </div>
@@ -955,17 +955,17 @@ export const DentalChart = () => {
           <div className="p-0 space-y-0">
             <div className="p-4 space-y-4">
             <div className={`bg-blue-50 rounded-xl p-4 ${!editingChart ? 'opacity-50 pointer-events-none select-none' : ''}`}>
-              {!canEdit && <p className="text-xs text-gray-500 mb-2 italic">View only — editing restricted to Dentist</p>}
-              {canEdit && !editMode && <p className="text-xs text-gray-500 mb-2 italic">View mode — click "Edit Chart" to record conditions/treatments</p>}
+              {!canEdit && <p className="text-xs text-muted-foreground mb-2 italic">View only — editing restricted to Dentist</p>}
+              {canEdit && !editMode && <p className="text-xs text-muted-foreground mb-2 italic">View mode — click "Edit Chart" to record conditions/treatments</p>}
               <div className={`grid grid-cols-1 ${iptrContext === 'default' ? 'lg:grid-cols-2' : ''} gap-4`}>
                 {iptrContext !== 'treatment' && (
                 <div>
-                  <div className="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">Condition Codes</div>
+                  <div className="text-sm font-semibold text-foreground mb-2 uppercase tracking-wide">Condition Codes</div>
                   {/* solo (full-width) group flows to more columns so buttons keep the same size as the paired two-column layout */}
                   <div className={`grid gap-1.5 ${iptrContext === 'dental-queue' ? 'grid-cols-4 sm:grid-cols-6 lg:grid-cols-9' : 'grid-cols-4 sm:grid-cols-5'}`}>
                     {conditionCodes.map((c) => (
                       <button key={c.code} onClick={() => { setSelectedCondition(selectedCondition === c.code ? null : c.code); setSelectedTreatment(null); }}
-                        className={`aspect-square min-h-[54px] rounded-lg border p-1.5 text-center transition-all flex flex-col items-center justify-center gap-1 ${selectedCondition === c.code ? 'bg-teal-600 text-white ring-2 ring-teal-300 border-teal-600' : 'bg-white border-gray-300 text-gray-700 hover:border-teal-400'}`}>
+                        className={`aspect-square min-h-[54px] rounded-lg border p-1.5 text-center transition-all flex flex-col items-center justify-center gap-1 ${selectedCondition === c.code ? 'bg-teal-600 text-white ring-2 ring-teal-300 border-teal-600' : 'bg-card border-border text-foreground hover:border-teal-400'}`}>
                         <div className="text-[13px] sm:text-[15px] font-bold font-mono leading-none">{c.perm}/{c.temp}</div>
                         <div className="text-[9px] sm:text-[10px] font-medium leading-tight">{c.label}</div>
                       </button>
@@ -975,11 +975,11 @@ export const DentalChart = () => {
                 )}
                 {iptrContext !== 'dental-queue' && (
                 <div>
-                  <div className="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">Treatment Codes</div>
+                  <div className="text-sm font-semibold text-foreground mb-2 uppercase tracking-wide">Treatment Codes</div>
                   <div className={`grid gap-1.5 ${iptrContext === 'treatment' ? 'grid-cols-4 sm:grid-cols-6 lg:grid-cols-9' : 'grid-cols-4 sm:grid-cols-5'}`}>
                     {treatmentCodes.map((t) => (
                       <button key={t.code} onClick={() => { setSelectedTreatment(selectedTreatment === t.code ? null : t.code); setSelectedCondition(null); }}
-                        className={`aspect-square min-h-[54px] rounded-lg border p-1.5 text-center transition-all flex flex-col items-center justify-center gap-1 ${selectedTreatment === t.code ? 'bg-blue-600 text-white ring-2 ring-blue-300 border-blue-600' : 'bg-white border-gray-300 text-gray-700 hover:border-blue-400'}`}>
+                        className={`aspect-square min-h-[54px] rounded-lg border p-1.5 text-center transition-all flex flex-col items-center justify-center gap-1 ${selectedTreatment === t.code ? 'bg-blue-600 text-white ring-2 ring-blue-300 border-blue-600' : 'bg-card border-border text-foreground hover:border-blue-400'}`}>
                         <span className="text-[13px] sm:text-[15px] font-bold font-mono leading-none">{t.code}</span>
                         <span className="text-[9px] sm:text-[10px] font-medium leading-tight">{t.label}</span>
                       </button>
@@ -995,12 +995,12 @@ export const DentalChart = () => {
                     return <span className="text-xs font-semibold px-3 py-1 rounded-full bg-teal-100 text-teal-800">Applying: {c?.perm}/{c?.temp} — {c?.label} · Click teeth to apply</span>;
                   })()}
                   {selectedTreatment && <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-100 text-blue-800">Applying treatment: {selectedTreatment} · Click teeth to apply</span>}
-                  <button onClick={() => { setSelectedCondition(null); setSelectedTreatment(null); }} className="text-xs text-gray-500 hover:text-gray-700 underline">Clear</button>
+                  <button onClick={() => { setSelectedCondition(null); setSelectedTreatment(null); }} className="text-xs text-muted-foreground hover:text-foreground underline">Clear</button>
                 </div>
               )}
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-200 p-4 overflow-x-auto">
+            <div className="bg-card rounded-xl border border-border p-4 overflow-x-auto">
               <div className="min-w-[680px] space-y-2.5">
                 <div className="flex justify-center gap-1">{upperPermanent.map((n) => <ToothButton key={n} num={n} />)}</div>
                 <div className="flex justify-center gap-1">
@@ -1008,7 +1008,7 @@ export const DentalChart = () => {
                   <div className="w-9" />
                   <div className="flex gap-1">{upperTemporary.slice(5).map((n) => <ToothButton key={n} num={n} />)}</div>
                 </div>
-                <div className="border-t-2 border-dashed border-gray-300 my-2" />
+                <div className="border-t-2 border-dashed border-border my-2" />
                 <div className="flex justify-center gap-1">
                   <div className="flex gap-1">{lowerTemporary.slice(0, 5).map((n) => <ToothButton key={n} num={n} />)}</div>
                   <div className="w-9" />
@@ -1018,27 +1018,27 @@ export const DentalChart = () => {
               </div>
             </div>
 
-            <div className="bg-gray-50 rounded-xl border border-gray-200 p-4">
-              <div className="text-xs font-semibold text-gray-600 mb-3 uppercase tracking-wide">DMFT / dmft Scores (Auto-computed)</div>
+            <div className="bg-gray-50 rounded-xl border border-border p-4">
+              <div className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">DMFT / dmft Scores (Auto-computed)</div>
               <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <div className="text-xs text-gray-500 mb-2">Primary teeth (dmft+x)</div>
+                  <div className="text-xs text-muted-foreground mb-2">Primary teeth (dmft+x)</div>
                   <div className="flex gap-2">
                     {[['d', dmft.d], ['m', dmft.m], ['f', dmft.f], ['x', dmft.x], ['dmft', dmft.t]].map(([label, val]) => (
-                      <div key={label as string} className={`flex-1 border rounded text-center py-1.5 ${label === 'dmft' ? 'border-blue-400 bg-blue-50' : 'border-gray-300'}`}>
-                        <div className="text-xs text-gray-500">{label}</div>
-                        <div className="text-sm font-bold font-mono text-gray-900">{val}</div>
+                      <div key={label as string} className={`flex-1 border rounded text-center py-1.5 ${label === 'dmft' ? 'border-blue-400 bg-blue-50' : 'border-border'}`}>
+                        <div className="text-xs text-muted-foreground">{label}</div>
+                        <div className="text-sm font-bold font-mono text-foreground">{val}</div>
                       </div>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs text-gray-500 mb-2">Permanent teeth (DMFT+X)</div>
+                  <div className="text-xs text-muted-foreground mb-2">Permanent teeth (DMFT+X)</div>
                   <div className="flex gap-2">
                     {[['D', dmft.D], ['M', dmft.M], ['F', dmft.F], ['X', dmft.X], ['DMFT', dmft.T]].map(([label, val]) => (
-                      <div key={label as string} className={`flex-1 border rounded text-center py-1.5 ${label === 'DMFT' ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}>
-                        <div className="text-xs text-gray-500">{label}</div>
-                        <div className="text-sm font-bold font-mono text-gray-900">{val}</div>
+                      <div key={label as string} className={`flex-1 border rounded text-center py-1.5 ${label === 'DMFT' ? 'border-red-400 bg-red-50' : 'border-border'}`}>
+                        <div className="text-xs text-muted-foreground">{label}</div>
+                        <div className="text-sm font-bold font-mono text-foreground">{val}</div>
                       </div>
                     ))}
                   </div>
@@ -1046,13 +1046,13 @@ export const DentalChart = () => {
               </div>
             </div>
 
-            <div className="bg-gray-50 rounded-xl border border-gray-200 p-4">
-              <div className="text-xs font-semibold text-gray-600 mb-3 uppercase tracking-wide">Treatment Code Counter (Auto-computed)</div>
+            <div className="bg-gray-50 rounded-xl border border-border p-4">
+              <div className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">Treatment Code Counter (Auto-computed)</div>
               <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2">
                 {treatmentCodes.map((code) => (
-                  <div key={code.code} className="rounded border border-gray-300 bg-white p-2 text-center">
-                    <div className="text-[10px] text-gray-500">{code.code}</div>
-                    <div className="text-sm font-bold text-gray-900">{treatmentCodeCounts[code.code]}</div>
+                  <div key={code.code} className="rounded border border-border bg-card p-2 text-center">
+                    <div className="text-[10px] text-muted-foreground">{code.code}</div>
+                    <div className="text-sm font-bold text-foreground">{treatmentCodeCounts[code.code]}</div>
                   </div>
                 ))}
               </div>
@@ -1060,7 +1060,7 @@ export const DentalChart = () => {
 
             <div className="grid grid-cols-2 gap-4 text-xs">
               <div className="bg-gray-50 rounded-xl p-3">
-                <div className="font-semibold text-gray-600 mb-2 uppercase tracking-wide text-[10px]">Condition Codes</div>
+                <div className="font-semibold text-muted-foreground mb-2 uppercase tracking-wide text-[10px]">Condition Codes</div>
                 <div className="space-y-1">
                   {[
                     { codes: '✓/✓', label: 'Sound/Sealed', bg: 'bg-green-50' },
@@ -1074,17 +1074,17 @@ export const DentalChart = () => {
                     { codes: 'P/p', label: 'Pontic', bg: 'bg-indigo-50' },
                   ].map(({ codes, label, bg }) => (
                     <div key={codes} className="flex items-center gap-2">
-                      <span className={`font-mono font-bold text-gray-700 text-[10px] px-1.5 py-0.5 rounded border border-gray-300 w-14 text-center ${bg}`}>{codes}</span>
-                      <span className="text-gray-500">{label}</span>
+                      <span className={`font-mono font-bold text-foreground text-[10px] px-1.5 py-0.5 rounded border border-border w-14 text-center ${bg}`}>{codes}</span>
+                      <span className="text-muted-foreground">{label}</span>
                     </div>
                   ))}
                 </div>
               </div>
               <div className="bg-gray-50 rounded-xl p-3">
-                <div className="font-semibold text-gray-600 mb-2 uppercase tracking-wide text-[10px]">Treatment Codes</div>
+                <div className="font-semibold text-muted-foreground mb-2 uppercase tracking-wide text-[10px]">Treatment Codes</div>
                 <div className="space-y-1">
                   {[['FV', 'Fluoride Varnish'], ['PFS', 'Pit and Fissure Sealant'], ['PF', 'Permanent Filling'], ['TF', 'Temporary Filling'], ['X', 'Extraction'], ['SDF', 'Silver Diamine Fluoride']].map(([code, label]) => (
-                    <div key={code} className="flex gap-2"><span className="font-mono font-bold text-blue-700 w-10">{code}</span><span className="text-gray-500">{label}</span></div>
+                    <div key={code} className="flex gap-2"><span className="font-mono font-bold text-blue-700 w-10">{code}</span><span className="text-muted-foreground">{label}</span></div>
                   ))}
                 </div>
               </div>
@@ -1097,8 +1097,8 @@ export const DentalChart = () => {
         {activeTab === 'appointments' && (
           <div className="p-4 space-y-4">
             <div className="bg-gray-50 rounded-xl p-4 w-48">
-              <div className="text-xs text-gray-500 mb-1">Consent Status</div>
-              <div className={`text-sm font-bold ${student.consent_status === 'complete' ? 'text-green-600' : 'text-gray-500'}`}>
+              <div className="text-xs text-muted-foreground mb-1">Consent Status</div>
+              <div className={`text-sm font-bold ${student.consent_status === 'complete' ? 'text-success' : 'text-muted-foreground'}`}>
                 {student.consent_status === 'complete' ? 'Completed' : 'Pending'}
               </div>
             </div>
@@ -1110,19 +1110,19 @@ export const DentalChart = () => {
               </p>
               <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <div className="text-xs text-gray-500 mb-2">Lagda ng Pasyente</div>
+                  <div className="text-xs text-muted-foreground mb-2">Lagda ng Pasyente</div>
                   <div className="border-b-2 border-gray-400 h-10 mb-1" />
-                  <div className="text-xs text-gray-500">Pirma sa itaas ng pangalan</div>
+                  <div className="text-xs text-muted-foreground">Pirma sa itaas ng pangalan</div>
                 </div>
                 <div>
-                  <div className="text-xs text-gray-500 mb-2">Lagda ng Magulang o Guardian</div>
+                  <div className="text-xs text-muted-foreground mb-2">Lagda ng Magulang o Guardian</div>
                   <div className="border-b-2 border-gray-400 h-10 mb-1" />
-                  <div className="text-xs text-gray-500">Pirma sa itaas ng pangalan</div>
+                  <div className="text-xs text-muted-foreground">Pirma sa itaas ng pangalan</div>
                 </div>
               </div>
               <label className={`flex items-center gap-2 mt-4 ${canEdit ? 'cursor-pointer' : 'cursor-default'}`}>
-                <input type="checkbox" checked={student.consent_status === 'complete'} onChange={(e) => canEdit && handleToggleConsent(e.target.checked)} disabled={!canEdit} className="w-4 h-4 rounded accent-blue-600 disabled:opacity-60 disabled:cursor-not-allowed" />
-                <span className="text-xs text-gray-700">Nakumpleto na ang pahintulot / Consent has been obtained</span>
+                <input type="checkbox" checked={student.consent_status === 'complete'} onChange={(e) => canEdit && handleToggleConsent(e.target.checked)} disabled={!canEdit} className="w-4 h-4 rounded accent-primary disabled:opacity-60 disabled:cursor-not-allowed" />
+                <span className="text-xs text-foreground">Nakumpleto na ang pahintulot / Consent has been obtained</span>
               </label>
             </div>
 
@@ -1138,20 +1138,20 @@ export const DentalChart = () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <div className="bg-card rounded-xl border border-border p-4">
               <div className="flex items-center justify-between mb-3">
-                <div className="text-sm font-semibold text-gray-900">Upcoming Appointments</div>
+                <div className="text-sm font-semibold text-foreground">Upcoming Appointments</div>
                 <Link to="/appointments" className="text-xs text-blue-600 hover:underline">View all →</Link>
               </div>
               {studentAppointments.length === 0 ? (
-                <p className="text-xs text-gray-500 text-center py-4">No upcoming appointments scheduled.</p>
+                <p className="text-xs text-muted-foreground text-center py-4">No upcoming appointments scheduled.</p>
               ) : (
                 <div className="space-y-2">
                   {studentAppointments.map((apt) => (
                     <div key={apt.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
                       <div>
-                        <div className="text-xs font-medium text-gray-900">{apt.type}</div>
-                        <div className="text-xs text-gray-500">{apt.date} at {apt.time}</div>
+                        <div className="text-xs font-medium text-foreground">{apt.type}</div>
+                        <div className="text-xs text-muted-foreground">{apt.date} at {apt.time}</div>
                       </div>
                       <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{apt.status}</span>
                     </div>
@@ -1169,18 +1169,18 @@ export const DentalChart = () => {
             for (const tr of y.toothRecords) chart[tr.tooth_number] = { condition: tr.condition, treatment: tr.treatment_code ?? '' };
             return { year: y.iptr.school_year, ...computeDMFT(chart) };
           });
-          if (dmftByYear.length === 0) return <div className="p-8 text-center text-gray-500 text-sm">No records yet.</div>;
+          if (dmftByYear.length === 0) return <div className="p-8 text-center text-muted-foreground text-sm">No records yet.</div>;
           return (
           <div className="p-4 space-y-6">
             <div className="space-y-1">
-              <h3 className="text-sm font-bold text-gray-900">DMFT Progression by School Year</h3>
-              <p className="text-xs text-gray-500">Lowercase (d m f x · dmft) = primary / deciduous teeth; uppercase (D M F X · DMFT) = permanent teeth. A child with both present is in mixed dentition.</p>
+              <h3 className="text-sm font-bold text-foreground">DMFT Progression by School Year</h3>
+              <p className="text-xs text-muted-foreground">Lowercase (d m f x · dmft) = primary / deciduous teeth; uppercase (D M F X · DMFT) = permanent teeth. A child with both present is in mixed dentition.</p>
             </div>
-            <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <div className="overflow-x-auto rounded-lg border border-border">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200">
+                <thead className="bg-gray-50 border-b border-border">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">School Year</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">School Year</th>
                     {['d', 'm', 'f', 'x', 'dmft', 'D', 'M', 'F', 'X', 'DMFT'].map((h) => (
                       <th key={h} className={`px-2 py-2 text-center text-xs font-medium ${h === 'dmft' || h === 'DMFT' ? 'bg-gray-100 font-bold text-gray-800' : h === h.toLowerCase() ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'}`}>{h}</th>
                     ))}
@@ -1188,18 +1188,18 @@ export const DentalChart = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {dmftByYear.map((row, idx) => (
-                    <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
-                      <td className="px-4 py-2 font-medium text-gray-900 text-xs">{row.year}</td>
+                    <tr key={idx} className={idx % 2 === 0 ? 'bg-card' : 'bg-gray-50/50'}>
+                      <td className="px-4 py-2 font-medium text-foreground text-xs">{row.year}</td>
                       <td className="px-2 py-2 text-center text-xs text-red-700">{row.d || ''}</td>
                       <td className="px-2 py-2 text-center text-xs text-slate-600">{row.m || ''}</td>
                       <td className="px-2 py-2 text-center text-xs text-blue-700">{row.f || ''}</td>
                       <td className="px-2 py-2 text-center text-xs text-orange-700">{row.x || ''}</td>
-                      <td className="px-2 py-2 text-center text-xs font-bold text-gray-900 bg-gray-100">{row.t}</td>
+                      <td className="px-2 py-2 text-center text-xs font-bold text-foreground bg-gray-100">{row.t}</td>
                       <td className="px-2 py-2 text-center text-xs text-red-700">{row.D || ''}</td>
                       <td className="px-2 py-2 text-center text-xs text-slate-600">{row.M || ''}</td>
                       <td className="px-2 py-2 text-center text-xs text-blue-700">{row.F || ''}</td>
                       <td className="px-2 py-2 text-center text-xs text-orange-700">{row.X || ''}</td>
-                      <td className="px-2 py-2 text-center text-xs font-bold text-gray-900 bg-gray-100">{row.T}</td>
+                      <td className="px-2 py-2 text-center text-xs font-bold text-foreground bg-gray-100">{row.T}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1209,9 +1209,9 @@ export const DentalChart = () => {
               {[
                 { label: 'Latest dmft (primary)', value: dmftByYear[dmftByYear.length - 1].t, color: 'text-red-700 bg-red-50' },
                 { label: 'Latest DMFT (permanent)', value: dmftByYear[dmftByYear.length - 1].T, color: 'text-blue-700 bg-blue-50' },
-                { label: 'Years tracked', value: dmftByYear.length, color: 'text-gray-700 bg-gray-100' },
+                { label: 'Years tracked', value: dmftByYear.length, color: 'text-foreground bg-gray-100' },
                 // A trend needs 2+ years; equal values are Stable, not Improving (DMFT is cumulative)
-                { label: 'Trend', value: dmftByYear.length < 2 ? '—' : dmftByYear[dmftByYear.length - 1].T > dmftByYear[0].T ? '↑ Worsening' : dmftByYear[dmftByYear.length - 1].T < dmftByYear[0].T ? '↓ Improving' : 'Stable', color: dmftByYear.length >= 2 && dmftByYear[dmftByYear.length - 1].T > dmftByYear[0].T ? 'text-red-700 bg-red-50' : dmftByYear.length >= 2 && dmftByYear[dmftByYear.length - 1].T < dmftByYear[0].T ? 'text-green-700 bg-green-50' : 'text-gray-700 bg-gray-100' },
+                { label: 'Trend', value: dmftByYear.length < 2 ? '—' : dmftByYear[dmftByYear.length - 1].T > dmftByYear[0].T ? '↑ Worsening' : dmftByYear[dmftByYear.length - 1].T < dmftByYear[0].T ? '↓ Improving' : 'Stable', color: dmftByYear.length >= 2 && dmftByYear[dmftByYear.length - 1].T > dmftByYear[0].T ? 'text-red-700 bg-red-50' : dmftByYear.length >= 2 && dmftByYear[dmftByYear.length - 1].T < dmftByYear[0].T ? 'text-green-700 bg-green-50' : 'text-foreground bg-gray-100' },
               ].map((kpi, i) => (
                 <div key={i} className={`rounded-lg p-3 ${kpi.color}`}>
                   <div className="text-xl font-bold">{kpi.value}</div>
@@ -1227,9 +1227,9 @@ export const DentalChart = () => {
         {activeTab === 'treatments' && (
           <div className="p-4 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-gray-900">Treatment History</h3>
+              <h3 className="text-sm font-bold text-foreground">Treatment History</h3>
               {canEdit && currentYearData && (
-                <button onClick={() => setShowAddTreatment((v) => !v)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700">
+                <button onClick={() => setShowAddTreatment((v) => !v)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-primary-hover">
                   <Plus className="w-3.5 h-3.5" /> Add Entry
                 </button>
               )}
@@ -1238,43 +1238,43 @@ export const DentalChart = () => {
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
                 <p className="text-xs text-blue-700">Adding to school year: <strong>{currentYearData?.iptr.school_year}</strong></p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div><label className="block text-xs font-medium text-gray-700 mb-1">Date</label>
-                    <input type="date" value={treatmentForm.date} onChange={(e) => setTreatmentForm((f) => ({ ...f, date: e.target.value }))} className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
-                  <div><label className="block text-xs font-medium text-gray-700 mb-1">{staffNameLabel}</label>
-                    <input type="text" value={user?.name ?? ''} readOnly className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-gray-50 cursor-default text-gray-700" /></div>
-                  <div><label className="block text-xs font-medium text-gray-700 mb-1">Diagnosis</label>
-                    <textarea rows={2} value={treatmentForm.diagnosis} onChange={(e) => setTreatmentForm((f) => ({ ...f, diagnosis: e.target.value }))} className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" /></div>
-                  <div><label className="block text-xs font-medium text-gray-700 mb-1">Treatment Done</label>
-                    <textarea rows={2} value={treatmentForm.treatmentDone} onChange={(e) => setTreatmentForm((f) => ({ ...f, treatmentDone: e.target.value }))} className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" /></div>
-                  <div className="md:col-span-2"><label className="block text-xs font-medium text-gray-700 mb-1">Remarks</label>
-                    <input type="text" value={treatmentForm.remarks} onChange={(e) => setTreatmentForm((f) => ({ ...f, remarks: e.target.value }))} className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
+                  <div><label className="block text-xs font-medium text-foreground mb-1">Date</label>
+                    <input type="date" value={treatmentForm.date} onChange={(e) => setTreatmentForm((f) => ({ ...f, date: e.target.value }))} className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+                  <div><label className="block text-xs font-medium text-foreground mb-1">{staffNameLabel}</label>
+                    <input type="text" value={user?.name ?? ''} readOnly className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-gray-50 cursor-default text-foreground" /></div>
+                  <div><label className="block text-xs font-medium text-foreground mb-1">Diagnosis</label>
+                    <textarea rows={2} value={treatmentForm.diagnosis} onChange={(e) => setTreatmentForm((f) => ({ ...f, diagnosis: e.target.value }))} className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring resize-none" /></div>
+                  <div><label className="block text-xs font-medium text-foreground mb-1">Treatment Done</label>
+                    <textarea rows={2} value={treatmentForm.treatmentDone} onChange={(e) => setTreatmentForm((f) => ({ ...f, treatmentDone: e.target.value }))} className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring resize-none" /></div>
+                  <div className="md:col-span-2"><label className="block text-xs font-medium text-foreground mb-1">Remarks</label>
+                    <input type="text" value={treatmentForm.remarks} onChange={(e) => setTreatmentForm((f) => ({ ...f, remarks: e.target.value }))} className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring" /></div>
                 </div>
-                {treatmentError && <p className="text-xs text-red-600">{treatmentError}</p>}
+                {treatmentError && <p className="text-xs text-destructive">{treatmentError}</p>}
                 <div className="flex gap-2">
-                  <button onClick={handleAddTreatment} disabled={treatmentSaving} className="px-4 py-1.5 text-sm bg-[#1E40AF] text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{treatmentSaving ? 'Saving…' : 'Save'}</button>
-                  <button onClick={() => setShowAddTreatment(false)} className="px-4 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
+                  <button onClick={handleAddTreatment} disabled={treatmentSaving} className="px-4 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-60">{treatmentSaving ? 'Saving…' : 'Save'}</button>
+                  <button onClick={() => setShowAddTreatment(false)} className="px-4 py-1.5 text-sm border border-border text-foreground rounded-lg hover:bg-gray-50">Cancel</button>
                 </div>
               </div>
             )}
             {allTreatments.length === 0 ? (
-              <p className="text-center text-gray-500 text-sm py-12">No treatment records yet.</p>
+              <p className="text-center text-muted-foreground text-sm py-12">No treatment records yet.</p>
             ) : (
             <>
-            <div className="hidden md:block overflow-x-auto rounded-lg border border-gray-200">
+            <div className="hidden md:block overflow-x-auto rounded-lg border border-border">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200">
+                <thead className="bg-gray-50 border-b border-border">
                   <tr>{['Date', 'Diagnosis', 'Treatment Done', 'Dentist', 'Remarks'].map((h) => (
-                    <th key={h} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
+                    <th key={h} className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{h}</th>
                   ))}</tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
+                <tbody className="divide-y divide-gray-100 bg-card">
                   {allTreatments.map((t) => (
                     <tr key={t._id} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 whitespace-nowrap font-medium text-gray-900 text-xs">{new Date(t.date).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
-                      <td className="px-4 py-2 text-xs text-gray-900">{t.diagnosis}</td>
-                      <td className="px-4 py-2 text-xs text-gray-900">{t.treatment_done}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-700">{dentistNameById.get(t.dentist_id) ?? 'Unknown'}</td>
-                      <td className="px-4 py-2 text-xs text-gray-500">{t.remarks}</td>
+                      <td className="px-4 py-2 whitespace-nowrap font-medium text-foreground text-xs">{new Date(t.date).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
+                      <td className="px-4 py-2 text-xs text-foreground">{t.diagnosis}</td>
+                      <td className="px-4 py-2 text-xs text-foreground">{t.treatment_done}</td>
+                      <td className="px-4 py-2 whitespace-nowrap text-xs text-foreground">{dentistNameById.get(t.dentist_id) ?? 'Unknown'}</td>
+                      <td className="px-4 py-2 text-xs text-muted-foreground">{t.remarks}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1282,14 +1282,14 @@ export const DentalChart = () => {
             </div>
             <div className="md:hidden space-y-3">
               {allTreatments.map((t) => (
-                <div key={t._id} className="rounded-lg border bg-white border-gray-200 p-3 space-y-1.5">
+                <div key={t._id} className="rounded-lg border bg-card border-border p-3 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-gray-900 text-xs">{new Date(t.date).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
-                    <span className="text-xs text-gray-500">{dentistNameById.get(t.dentist_id) ?? 'Unknown'}</span>
+                    <span className="font-medium text-foreground text-xs">{new Date(t.date).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                    <span className="text-xs text-muted-foreground">{dentistNameById.get(t.dentist_id) ?? 'Unknown'}</span>
                   </div>
-                  <p className="text-xs text-gray-600"><span className="font-medium">Dx:</span> {t.diagnosis}</p>
-                  <p className="text-xs text-gray-600"><span className="font-medium">Tx:</span> {t.treatment_done}</p>
-                  {t.remarks && <p className="text-xs text-gray-500 italic">{t.remarks}</p>}
+                  <p className="text-xs text-muted-foreground"><span className="font-medium">Dx:</span> {t.diagnosis}</p>
+                  <p className="text-xs text-muted-foreground"><span className="font-medium">Tx:</span> {t.treatment_done}</p>
+                  {t.remarks && <p className="text-xs text-muted-foreground italic">{t.remarks}</p>}
                 </div>
               ))}
             </div>
@@ -1303,9 +1303,9 @@ export const DentalChart = () => {
              persistence that doesn't exist. ── */}
         {activeTab === 'referrals' && (
           <div className="p-4">
-            <div className="text-center py-12 text-gray-500">
+            <div className="text-center py-12 text-muted-foreground">
               <FileText className="w-8 h-8 mx-auto mb-2 opacity-30" />
-              <p className="text-sm font-medium text-gray-500">Referral Tracking Not Yet Available</p>
+              <p className="text-sm font-medium text-muted-foreground">Referral Tracking Not Yet Available</p>
               <p className="text-xs mt-1 max-w-sm mx-auto">There's no referral-tracking model in the system yet. Referrals to outside facilities should be noted in Treatment History remarks for now.</p>
             </div>
           </div>
@@ -1316,11 +1316,11 @@ export const DentalChart = () => {
              this tab just points there rather than duplicating that UI. ── */}
         {activeTab === 'ai' && (
           <div className="p-4">
-            <div className="text-center py-12 text-gray-500">
+            <div className="text-center py-12 text-muted-foreground">
               <Brain className="w-8 h-8 mx-auto mb-2 opacity-30" />
-              <p className="text-sm font-medium text-gray-500">Risk assessments live on the Risk Classification page</p>
+              <p className="text-sm font-medium text-muted-foreground">Risk assessments live on the Risk Classification page</p>
               <p className="text-xs mt-1 max-w-sm mx-auto">Generate, validate, and save AI-assisted risk assessments for this student from the dedicated page. The current model is trained on synthetic placeholder data until real IPTR records are available.</p>
-              <Link to="/ai-analytics" className="inline-block mt-4 px-4 py-2 bg-[#1E40AF] hover:bg-blue-700 text-white text-sm rounded-lg">Open Risk Classification</Link>
+              <Link to="/ai-analytics" className="inline-block mt-4 px-4 py-2 bg-primary hover:bg-primary-hover text-white text-sm rounded-lg">Open Risk Classification</Link>
             </div>
           </div>
         )}
