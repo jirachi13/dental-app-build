@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FileSpreadsheet, FileText, Printer, Download, AlertTriangle, AlertCircle, CheckCircle, Users, Calendar, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ChartTooltip } from './ChartTooltip';
@@ -11,8 +11,9 @@ import { exportDohReportToXlsx } from '../utils/exportDohXlsx';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { activatable } from '../utils/a11y';
 import { apiClient } from '../api/client';
-import type { ApiTreatment } from '../api/types';
+import type { ApiTreatment, ApiToothRecord, ApiDentalChart, ApiStudentIptr } from '../api/types';
 import { useStudents } from '../hooks/useStudents';
+import { treatmentCodes } from './DentalChart';
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -125,15 +126,14 @@ const REPORT_SCHOOLS = [
 ];
 
 const ALL_GRADES_INT = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
-const PROCEDURES = ['Fluoride Varnish','Oral Prophylaxis','Temp Filling','Perm Filling','Extraction (Primary)','Extraction (Permanent)','Sealant','SDF Application','OHE / Counseling'];
 const CONDITIONS  = ['Caries (Primary)','Caries (Permanent)','Gingivitis','Malocclusion','Orally Fit'];
 type GX = Record<string,{M:number,F:number}>;
 
-// No real per-procedure/per-condition breakdown by grade+gender exists --
-// Treatment.treatment_done and OralHealthCondition's fields don't cleanly
-// map to these exact categories. Genuinely empty until that aggregation is
-// built for real, never fabricated counts.
-const treatmentMatrix: Record<string,GX> = {};
+// No real per-condition breakdown by grade+gender exists --
+// OralHealthCondition's fields don't cleanly map to these exact categories.
+// Genuinely empty until that aggregation is built for real, never fabricated
+// counts. (The treatment matrix IS real now — computed in the component from
+// tooth-level treatment records.)
 const conditionMatrix: Record<string,GX> = {};
 
 const getCount = (matrix: Record<string,GX>, key: string, grade: string, gender: string): number => {
@@ -178,14 +178,29 @@ export const Reports = () => {
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [downloadingExcel, setDownloadingExcel] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
-  const [realTreatmentCount, setRealTreatmentCount] = useState(0);
   const { students: realStudents } = useStudents();
+
+  // Raw collections for the Treatment Summary's real per-procedure counts:
+  // tooth records carry the procedure codes, their chart carries the date,
+  // the IPTR links back to the student (school / grade / gender).
+  const [treatments, setTreatments] = useState<ApiTreatment[]>([]);
+  const [toothRecords, setToothRecords] = useState<ApiToothRecord[]>([]);
+  const [dentalCharts, setDentalCharts] = useState<ApiDentalChart[]>([]);
+  const [iptrs, setIptrs] = useState<ApiStudentIptr[]>([]);
 
   useEffect(() => {
     (async () => {
       try {
-        const treatments = await apiClient.get<ApiTreatment[]>('/treatments');
-        setRealTreatmentCount(treatments.length);
+        const [t, tr, dc, ip] = await Promise.all([
+          apiClient.get<ApiTreatment[]>('/treatments'),
+          apiClient.get<ApiToothRecord[]>('/tooth-records'),
+          apiClient.get<ApiDentalChart[]>('/dental-charts'),
+          apiClient.get<ApiStudentIptr[]>('/student-iptrs'),
+        ]);
+        setTreatments(t);
+        setToothRecords(tr);
+        setDentalCharts(dc);
+        setIptrs(ip);
       } catch (err) {
         console.error('Reports extra data fetch failed:', err);
       }
@@ -229,10 +244,72 @@ export const Reports = () => {
     }
   };
   const [internalSection, setInternalSection] = useState<'treatment'|'conditions'|'admin'>('treatment');
-  const [periodType, setPeriodType] = useState<'monthly'|'biannual'|'annual'>('monthly');
+  const [periodType, setPeriodType] = useState<'monthly'|'quarterly'|'biannual'|'annual'>('monthly');
+  const [intSchoolFilter, setIntSchoolFilter] = useState('all');
   const [intGradeFilter, setIntGradeFilter] = useState('all');
   const [intGenderFilter, setIntGenderFilter] = useState('all');
   const [intAgeFilter, setIntAgeFilter] = useState('all');
+
+  // Reporting period anchored to the header's month/year selectors: the
+  // quarter / half-year / year containing the selected month (per the
+  // dentist's cadence: monthly → quarterly → semiannual → annual, where an
+  // aggregate is just the sum of its months).
+  const periodRange = useMemo(() => {
+    const y = reportYear;
+    const m = reportMonth - 1;
+    if (periodType === 'monthly')   return { start: new Date(y, m, 1), end: new Date(y, m + 1, 1) };
+    if (periodType === 'quarterly') { const q = Math.floor(m / 3) * 3; return { start: new Date(y, q, 1), end: new Date(y, q + 3, 1) }; }
+    if (periodType === 'biannual')  { const h = m < 6 ? 0 : 6; return { start: new Date(y, h, 1), end: new Date(y, h + 6, 1) }; }
+    return { start: new Date(y, 0, 1), end: new Date(y + 1, 0, 1) };
+  }, [periodType, reportMonth, reportYear]);
+  const periodLabel = periodType === 'monthly'
+    ? `${MONTHS[reportMonth - 1]} ${reportYear}`
+    : `${periodRange.start.toLocaleDateString('en-US', { month: 'short' })}–${new Date(periodRange.end.getFullYear(), periodRange.end.getMonth() - 1, 1).toLocaleDateString('en-US', { month: 'short' })} ${reportYear}`;
+
+  // Real per-procedure counts from tooth-level treatment records. Tooth
+  // records carry no date of their own, so each is dated by its chart's
+  // date_charted (the closest real date the ERD provides — noted in the UI).
+  const TREATMENT_ROWS = useMemo(() => treatmentCodes.map((t) => t.label), []);
+  const realTreatmentMatrix = useMemo(() => {
+    const inPeriod = (d: string) => { const t = new Date(d); return t >= periodRange.start && t < periodRange.end; };
+    const chartById = new Map(dentalCharts.map((c) => [c._id, c]));
+    const iptrById = new Map(iptrs.map((i) => [i._id, i]));
+    const studentById = new Map(realStudents.map((s) => [s.id, s]));
+    const matrix: Record<string, GX> = {};
+    for (const tr of toothRecords) {
+      if (!tr.treatment_code) continue;
+      const chart = chartById.get(tr.chart_id);
+      if (!chart || !inPeriod(chart.date_charted)) continue;
+      const iptr = iptrById.get(chart.iptr_id);
+      const student = iptr ? studentById.get(iptr.student_id) : undefined;
+      if (!student) continue;
+      if (intSchoolFilter !== 'all' && student.school !== intSchoolFilter) continue;
+      const label = treatmentCodes.find((c) => c.code === tr.treatment_code)?.label ?? tr.treatment_code;
+      const sex: 'M' | 'F' = student.gender === 'Male' ? 'M' : 'F';
+      const row = (matrix[label] ??= {});
+      for (const g of [student.grade, 'all']) {
+        const cell = (row[g] ??= { M: 0, F: 0 });
+        cell[sex] += 1;
+      }
+    }
+    return matrix;
+  }, [toothRecords, dentalCharts, iptrs, realStudents, intSchoolFilter, periodRange]);
+
+  // Treatment entries (the Treatment model has real per-entry dates) within
+  // the same period + school filter, for the "Students Treated" card.
+  const periodTreatmentCount = useMemo(() => {
+    const inPeriod = (d: string) => { const t = new Date(d); return t >= periodRange.start && t < periodRange.end; };
+    const iptrById = new Map(iptrs.map((i) => [i._id, i]));
+    const studentById = new Map(realStudents.map((s) => [s.id, s]));
+    return treatments.filter((t) => {
+      if (!inPeriod(t.date)) return false;
+      if (intSchoolFilter === 'all') return true;
+      const iptr = iptrById.get(t.iptr_id);
+      const student = iptr ? studentById.get(iptr.student_id) : undefined;
+      return student?.school === intSchoolFilter;
+    }).length;
+  }, [treatments, iptrs, realStudents, intSchoolFilter, periodRange]);
+  const realTreatmentCount = treatments.length; // all-time, for the admin Overview tab
   const [expandedReferral, setExpandedReferral] = useState<number|null>(null);
 
   const AGE_TO_GRADES: Record<string,string[]> = {
@@ -252,8 +329,8 @@ export const Reports = () => {
       ? activeGrades.reduce((s, g) => s + getCount(matrix, key, g, gender), 0)
       : getCount(matrix, key, 'all', gender);
   const displayGrades = intAgeFilter !== 'all' ? AGE_TO_GRADES[intAgeFilter] : ALL_GRADES_INT;
-  const clearIntFilters = () => { setIntGradeFilter('all'); setIntGenderFilter('all'); setIntAgeFilter('all'); };
-  const hasIntFilters = intGradeFilter !== 'all' || intGenderFilter !== 'all' || intAgeFilter !== 'all';
+  const clearIntFilters = () => { setIntSchoolFilter('all'); setIntGradeFilter('all'); setIntGenderFilter('all'); setIntAgeFilter('all'); };
+  const hasIntFilters = intSchoolFilter !== 'all' || intGradeFilter !== 'all' || intGenderFilter !== 'all' || intAgeFilter !== 'all';
 
 // Build column definitions: for each grade, each age bracket, M and F
   const cols: { grade:string; age:string; sex:'M'|'F' }[] = [];
@@ -523,13 +600,18 @@ export const Reports = () => {
               {/* Filters */}
               <div className="bg-card rounded-xl border border-border p-4 flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-                  {(['monthly','biannual','annual'] as const).map(p => (
+                  {(['monthly','quarterly','biannual','annual'] as const).map(p => (
                     <button key={p} onClick={() => setPeriodType(p)}
                       className={`px-3 py-1 rounded-md text-xs font-medium capitalize transition-colors ${periodType===p ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground'}`}>
                       {p === 'biannual' ? 'Bi-annual' : p}
                     </button>
                   ))}
                 </div>
+                <select value={intSchoolFilter} onChange={e => setIntSchoolFilter(e.target.value)}
+                  className="text-sm border border-border rounded-lg px-3 py-1.5 bg-card focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="all">All Schools</option>
+                  {REPORT_SCHOOLS.map(s => <option key={s} value={s}>{getSchoolShortName(s)}</option>)}
+                </select>
                 <select value={intAgeFilter} onChange={e => { setIntAgeFilter(e.target.value); setIntGradeFilter('all'); }}
                   className="text-sm border border-border rounded-lg px-3 py-1.5 bg-card focus:outline-none focus:ring-2 focus:ring-ring">
                   <option value="all">All Ages</option>
@@ -556,26 +638,26 @@ export const Reports = () => {
                     <X className="w-3 h-3" /> Clear
                   </button>
                 )}
-                <span className="text-xs text-muted-foreground ml-auto">{MONTHS[reportMonth-1]} {reportYear}{periodType==='biannual'?' (6-month period)':periodType==='annual'?' (full year)':''}</span>
+                <span className="text-xs text-muted-foreground ml-auto">{periodLabel}</span>
               </div>
 
               {/* Summary cards */}
               {(() => {
-                const totals = PROCEDURES.map(p => cnt(treatmentMatrix, p, intGenderFilter));
+                const totals = TREATMENT_ROWS.map(p => cnt(realTreatmentMatrix, p, intGenderFilter));
                 const grandTotal = totals.reduce((a,b) => a+b, 0);
                 const topIdx = totals.indexOf(Math.max(...totals));
                 // With no real per-procedure breakdown, every total is 0 --
                 // indexOf(max) would misleadingly point at PROCEDURES[0] as
                 // if it were genuinely "most common". Only claim a most-
                 // common procedure when there's real data behind it.
-                const mostCommon = grandTotal > 0 ? PROCEDURES[topIdx] : 'N/A';
+                const mostCommon = grandTotal > 0 ? TREATMENT_ROWS[topIdx] : 'N/A';
                 return (
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     {[
                       { label:'Total Procedures', value: grandTotal, color:'text-blue-700 bg-blue-50 border-blue-200' },
                       { label:'Most Common', value: mostCommon, color:'text-green-700 bg-green-50 border-green-200', small: true },
                       { label:'Sessions', value: mockSessions.length, color:'text-cyan-700 bg-cyan-50 border-cyan-200' },
-                      { label:'Students Treated', value: realTreatmentCount, color:'text-purple-700 bg-purple-50 border-purple-200' },
+                      { label:'Students Treated', value: periodTreatmentCount, color:'text-purple-700 bg-purple-50 border-purple-200' },
                     ].map((c,i) => (
                       <div key={i} className={`rounded-xl border p-4 ${c.color}`}>
                         <div className={`font-bold mt-1 ${(c as any).small ? 'text-sm' : 'text-2xl'}`}>{c.value}</div>
@@ -590,7 +672,7 @@ export const Reports = () => {
               <div className="bg-card rounded-xl border border-border p-4">
                 <h3 className="text-sm font-bold text-foreground mb-3">Procedures Performed</h3>
                 <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={PROCEDURES.map(p => ({ name: p, count: cnt(treatmentMatrix, p, intGenderFilter) }))}
+                  <BarChart data={TREATMENT_ROWS.map(p => ({ name: p, count: cnt(realTreatmentMatrix, p, intGenderFilter) }))}
                     margin={{top:4,right:8,bottom:40,left:0}}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                     <XAxis dataKey="name" tick={{fontSize:10}} angle={-25} textAnchor="end" interval={0} />
@@ -619,9 +701,9 @@ export const Reports = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {PROCEDURES.map(p => {
-                      const m = cnt(treatmentMatrix, p, 'M');
-                      const f = cnt(treatmentMatrix, p, 'F');
+                    {TREATMENT_ROWS.map(p => {
+                      const m = cnt(realTreatmentMatrix, p, 'M');
+                      const f = cnt(realTreatmentMatrix, p, 'F');
                       const t = m + f;
                       return (
                         <tr key={p} className="hover:bg-gray-50">
@@ -634,12 +716,15 @@ export const Reports = () => {
                     })}
                     <tr className="bg-gray-50 border-t-2 border-border">
                       <td className="px-4 py-2.5 font-bold text-foreground">TOTAL</td>
-                      <td className="px-4 py-2.5 text-center font-bold text-blue-700">{PROCEDURES.reduce((s,p)=>s+cnt(treatmentMatrix,p,'M'),0)}</td>
-                      <td className="px-4 py-2.5 text-center font-bold text-pink-700">{PROCEDURES.reduce((s,p)=>s+cnt(treatmentMatrix,p,'F'),0)}</td>
-                      <td className="px-4 py-2.5 text-center font-bold text-foreground">{PROCEDURES.reduce((s,p)=>s+cnt(treatmentMatrix,p,'all'),0)}</td>
+                      <td className="px-4 py-2.5 text-center font-bold text-blue-700">{TREATMENT_ROWS.reduce((s,p)=>s+cnt(realTreatmentMatrix,p,'M'),0)}</td>
+                      <td className="px-4 py-2.5 text-center font-bold text-pink-700">{TREATMENT_ROWS.reduce((s,p)=>s+cnt(realTreatmentMatrix,p,'F'),0)}</td>
+                      <td className="px-4 py-2.5 text-center font-bold text-foreground">{TREATMENT_ROWS.reduce((s,p)=>s+cnt(realTreatmentMatrix,p,'all'),0)}</td>
                     </tr>
                   </tbody>
                 </table>
+                <p className="px-4 py-2 text-[11px] text-muted-foreground border-t border-gray-100">
+                  Counted from tooth-level treatment records; each is dated by its chart's charting date (tooth records carry no individual date).
+                </p>
               </div>
             </div>
           )}
