@@ -363,7 +363,7 @@ export const Dashboard = () => {
             {todaySessions.length} appointment{todaySessions.length !== 1 ? 's' : ''} today
           </div>
           <Link
-            to="/appointments"
+            to="/appointments?new=1"
             className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
           >
             <Plus className="w-4 h-4" />

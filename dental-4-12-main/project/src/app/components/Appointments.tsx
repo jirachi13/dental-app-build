@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate, Link } from 'react-router';
+import { useNavigate, Link, useSearchParams } from 'react-router';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, X, Check, Clock, Users, Stethoscope, AlertCircle, RotateCcw, FileText, Download } from 'lucide-react';
 import { getGradeColor } from '../utils/gradeColors';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
@@ -42,9 +42,15 @@ export const Appointments = () => {
   const [typeFilter, setTypeFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Modals
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  // Modals — ?new=1 (e.g. the dashboard's New Appointment CTA) opens the create
+  // form directly; the param is stripped below so refresh/back doesn't reopen it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [showCreateModal, setShowCreateModal] = useState(searchParams.get('new') === '1');
   const [showRotationModal, setShowRotationModal] = useState(false);
+  useEffect(() => {
+    if (searchParams.has('new')) setSearchParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [currentDate, setCurrentDate] = useState(() => { const now = new Date(); return new Date(now.getFullYear(), now.getMonth(), 1); });
 
   // Escape closes whichever modal is open (a mis-click otherwise traps the user)
