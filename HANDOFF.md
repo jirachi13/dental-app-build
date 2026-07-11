@@ -20,8 +20,12 @@
 5. **Dark mode — NICE-TO-HAVE** (build only if time allows before defense). Do it via token migration, NOT scattered `dark:` classes. Safe build order: (1) re-add `.dark` token block (recover via `git show 36902173~1:dental-4-12-main/project/src/styles/theme.css`, retune to brand) + hidden localStorage toggle; (2) migrate surfaces component-by-component (Root → Dashboard → lists → DentalChart → Reports → forms → Login); (3) status/brand colors get explicit `dark:` variants; (4) edge cases — **PDF export + print MUST force LIGHT** (html2canvas captures live DOM), charts onto `--chart-N` tokens, Skeleton/gradeColors/schoolColors; (5) only then expose the toggle. Light stays default (daytime clinic tool).
 6. **Route-level React.lazy** — only if bundle size ever matters (main ~990KB is mostly recharts/react; heavy libs already split).
 
+## Dentist interview distilled (2026-07-11) → `docs/dentist-interview-findings.md`
+Mostly confirms the build (SDF code, age brackets, RPC window, consent, auto-counting all match). NEW backlog candidates (each needs approval): (a) **D-count risk thresholds** (1–2 Low / 3–5 Med / >5 High; filled+missing NOT contributing) — feeds the Sprint 21a-d real-data labeling, dentist will send the DOH classification study (CHASE IT); (b) quarterly/semiannual/annual report aggregation (monthly-only today); (c) RPC school-year cutoff flag (visit 2 must fit June–April to count for DOH/PhilHealth); (d) fluoride-specific wording on the RPC interval; (e) future work: adult/staff records, 18–25-school scale-out. Chapter 1/4/5 material in the doc.
+
 ## User-only items (no sprint)
 - Locate real dental IPTR Excel files (unblocks 21a-d). Verify new files with an openpyxl header check before trusting them.
+- Chase the dentist's promised documents: DOH risk-classification lecture/study (citable labeling source for 21a-d), blank standard forms, factor list. Send her the questionnaire digitally.
 - Verify DOH form typo spellings (Transfussion/Scalling/Flouride) against the paper form before "fixing".
 - Enable 2FA per account in Account Management once real staff emails are set (no account has it yet).
 - Post-Sprint-26 live smoke (expected fine — seeder already exercised decrypt): Students list renders names; open one chart's medical history.
