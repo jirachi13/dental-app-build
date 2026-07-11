@@ -114,7 +114,6 @@ Full field-level specs for all 16 models live in **`/docs/DATA-MODEL.md`** — R
 - Sprint 21a-d (real data) → re-run clean→features→experiments→select once real IPTR files located (only remaining Phase 3 work)
 - Sprint 23 beautify remainder → per-region loading (X3) + state motion (X4) + polish; optional chip/banner token pass (token migration of all screens DONE 07-11); ranked audit in `docs/beautify-audit.md`, done list in BUILD-LOG; anti-slop rules in HANDOFF apply
 - Live TODO (from Sprint 25): no account has 2FA enabled yet — enable per account in Account Management once real staff emails are set
-- Other roles' dashboard upgrades (NOT small — punted, needs its own scope)
 - User-only items (no sprint): locate real IPTR files; verify DOH form typo spellings (Transfussion/Scalling/Flouride) against paper form
 
 **Before Defense:** encode real IPTR paper records to CSV, replace synthetic dataset, re-run algo experiments, update Chapter 4 results; ISO 25010:2023 evaluation (30 respondents, 5-point Likert, weighted mean); final ZAP scan.
