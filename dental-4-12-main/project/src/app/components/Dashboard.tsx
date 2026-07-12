@@ -707,10 +707,10 @@ export const Dashboard = () => {
             <ResponsiveContainer width="100%" height={220} key="appt-status-container">
               <BarChart data={appointmentsByStatusData} id="appointments-status-chart">
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" key="appt-grid" />
-                <XAxis dataKey="day" key="appt-xaxis" />
-                <YAxis key="appt-yaxis" />
+                <XAxis dataKey="day" tick={{ fontSize: 12 }} key="appt-xaxis" />
+                <YAxis allowDecimals={false} tick={{ fontSize: 12 }} key="appt-yaxis" />
                 <Tooltip key="appt-tooltip" content={<ChartTooltip />} />
-                <Legend key="appt-legend" />
+                <Legend wrapperStyle={{ fontSize: 12 }} key="appt-legend" />
                 <Bar dataKey="completed" stackId="a" fill="#15803D" name="Completed" key="appt-bar-completed" maxBarSize={48} />
                 <Bar dataKey="scheduled" stackId="a" fill={COLORS.blue} name="Scheduled" key="appt-bar-scheduled" maxBarSize={48} />
                 <Bar dataKey="cancelled" stackId="a" fill="#DC2626" name="Missed" key="appt-bar-cancelled" maxBarSize={48} />
@@ -851,7 +851,7 @@ export const Dashboard = () => {
                   cornerRadius={10}
                   key="screening-radial-bar"
                 />
-                <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="text-4xl font-bold fill-gray-900">
+                <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="text-4xl font-bold fill-foreground">
                   {coveragePct}%
                 </text>
               </RadialBarChart>
@@ -1038,10 +1038,10 @@ export const Dashboard = () => {
             <ResponsiveContainer width="100%" height={220} key="school-comparison-container">
               <BarChart data={schoolComparisonData} id="school-comparison-chart">
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" key="school-grid" />
-                <XAxis dataKey="school" angle={-15} textAnchor="end" height={80} key="school-xaxis" />
-                <YAxis key="school-yaxis" />
+                <XAxis dataKey="school" angle={-15} textAnchor="end" height={80} tick={{ fontSize: 12 }} key="school-xaxis" />
+                <YAxis allowDecimals={false} tick={{ fontSize: 12 }} key="school-yaxis" />
                 <Tooltip key="school-tooltip" content={<ChartTooltip />} />
-                <Legend key="school-legend" />
+                <Legend wrapperStyle={{ fontSize: 12 }} key="school-legend" />
                 <Bar dataKey="screened" fill={COLORS.blue} name="Screened" key="school-bar-screened" maxBarSize={40} />
                 <Bar dataKey="treated" fill="#15803D" name="Treated" key="school-bar-treated" maxBarSize={40} />
                 <Bar dataKey="highRisk" fill="#DC2626" name="High Risk" key="school-bar-risk" maxBarSize={40} />
@@ -1066,15 +1066,17 @@ export const Dashboard = () => {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-border">
+                {/* header vocabulary matches the shared table convention
+                    (studentListTableStyles, 23q) — no tracked-uppercase one-off */}
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Age Bracket</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Total Students</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Orally Fit</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Needs Treatment</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Fitness Rate</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-foreground">Age Bracket</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-foreground">Total Students</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-foreground">Orally Fit</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-foreground">Needs Treatment</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-foreground">Fitness Rate</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-100">
                 {ageGroupData.map((group, idx) => (
                   <tr key={idx}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{group.bracket}</td>
@@ -1210,8 +1212,8 @@ export const Dashboard = () => {
             <ResponsiveContainer width="100%" height={220} key="login-activity-container">
               <LineChart data={loginActivityData} id="login-activity-chart">
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" key="login-grid" />
-                <XAxis dataKey="day" key="login-xaxis" />
-                <YAxis key="login-yaxis" allowDecimals={false} />
+                <XAxis dataKey="day" tick={{ fontSize: 12 }} key="login-xaxis" />
+                <YAxis tick={{ fontSize: 12 }} key="login-yaxis" allowDecimals={false} />
                 <Tooltip key="login-tooltip" content={<ChartTooltip />} />
                 <Line type="monotone" dataKey="logins" stroke={COLORS.blue} strokeWidth={2} dot={{ r: 5 }} key="login-line" />
               </LineChart>
@@ -1230,8 +1232,8 @@ export const Dashboard = () => {
               <ResponsiveContainer width="100%" height={220} key="actions-module-container">
                 <BarChart data={actionsByModuleData} layout="vertical" id="actions-module-chart">
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" key="actions-grid" />
-                  <XAxis type="number" key="actions-xaxis" allowDecimals={false} />
-                  <YAxis dataKey="module" type="category" width={100} key="actions-yaxis" />
+                  <XAxis type="number" tick={{ fontSize: 12 }} key="actions-xaxis" allowDecimals={false} />
+                  <YAxis dataKey="module" type="category" width={100} tick={{ fontSize: 12 }} key="actions-yaxis" />
                   <Tooltip key="actions-tooltip" content={<ChartTooltip />} />
                   <Bar dataKey="actions" fill={COLORS.blue} key="actions-bar" />
                 </BarChart>

@@ -204,13 +204,15 @@ export const Root = () => {
           <button
             onClick={handleSwitchSchool}
             title={collapsed ? getSchoolShortName(selectedSchool) : undefined}
-            className={`mx-3 my-2 items-start gap-2 px-3 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors text-left w-[calc(100%-24px)] ${collapsed ? 'hidden' : 'hidden md:flex'}`}
+            className={`mx-3 my-2 items-start gap-2 px-3 py-2 rounded-lg bg-primary-surface hover:bg-blue-100 transition-colors text-left w-[calc(100%-24px)] ${collapsed ? 'hidden' : 'hidden md:flex'}`}
           >
             <div className="min-w-0 flex-1">
-              <div className="text-[10px] font-medium text-blue-400 uppercase tracking-wide leading-none mb-0.5">Current School</div>
+              {/* label carries the blue fill's own hue at AA contrast (audit U4:
+                  was 10px tracked-uppercase blue-400 on blue-50, ~2.2:1) */}
+              <div className="text-[11px] font-medium text-blue-700 leading-none mb-0.5">Current school</div>
               <div className="text-xs font-semibold text-blue-900 leading-snug truncate">{getSchoolShortName(selectedSchool)}</div>
             </div>
-            <span className="text-[10px] text-blue-500 font-medium mt-0.5 shrink-0">Switch</span>
+            <span className="text-[11px] text-blue-700 font-medium mt-0.5 shrink-0">Switch</span>
           </button>
         )}
 
