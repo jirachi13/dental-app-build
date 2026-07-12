@@ -31,6 +31,10 @@ interface CrudOptions {
   readRoles?: string[];
   writeRoles?: string[];
   archiveRoles?: string[];
+  /** Override the create audit action string from the request body (e.g.
+   *  RISK_STRATIFICATION records whether the dentist accepted or changed the
+   *  AI suggestion). Return undefined to keep the default "Created X". */
+  auditCreateAction?: (body: Record<string, unknown>) => string | undefined;
 }
 
 export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
@@ -90,7 +94,8 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
     requireRole(...writeRoles),
     asyncHandler(async (req, res) => {
       const doc = await model.create(sanitizeBody(req.body));
-      await logAudit(req.user!.id, `Created ${modelName}`, doc._id.toString(), modelName);
+      const action = options.auditCreateAction?.(req.body) ?? `Created ${modelName}`;
+      await logAudit(req.user!.id, action, doc._id.toString(), modelName);
       res.status(201).json(decryptForResponse(doc));
     }),
   );

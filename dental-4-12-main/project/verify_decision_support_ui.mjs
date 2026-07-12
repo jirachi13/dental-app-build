@@ -1,5 +1,8 @@
 // E2E verification: Sprint 21g (overview tiles, priority queue, bulk assess,
 // per-student validation) + PatientList toggleable queue / tick-box bulk queue.
+// Updated for Sprint 31 (dentist-validation UX): model output pre-fills
+// editable fields marked "AI-suggested", one "Validate & Save" button, audit
+// trail records accepted-vs-changed (checked via admin API at the end).
 import { chromium } from 'playwright';
 import { readFileSync } from 'fs';
 
@@ -83,15 +86,44 @@ await page.waitForSelector('text=Model Assessment', { timeout: 10000 });
 console.log('REVIEW opened', openedName.trim(), '- Model Assessment card shown from cached bulk result (no Generate click)');
 await page.screenshot({ path: SHOTS + '/21g-3-review.png', fullPage: true });
 
-// validate + save (if student has an RPC visit — otherwise report)
-const saveBtn = page.locator('button:has-text("Save Validated Assessment")');
+// validate + save (if student has an RPC visit — otherwise report).
+// Sprint 31 UI: editable pre-filled fields with AI-suggested chips + one
+// Validate & Save button.
+const saveBtn = page.locator('button:has-text("Validate & Save")');
 if (await saveBtn.count()) {
-  await page.fill('textarea', 'Bulk-generated assessment reviewed; concur with model.');
+  const chips = await page.locator('span:text-is("AI-suggested")').count();
+  console.log('AI-SUGGESTED chips on pre-filled fields (expect 2):', chips);
+  // probe the edited-state chip: change the risk level away and back
+  const levelSelect = page.locator('select[aria-label="Validated risk level"]');
+  const suggested = await levelSelect.inputValue();
+  await levelSelect.selectOption(suggested === 'High' ? 'Low' : 'High');
+  const editedChip = await page.locator('span:has-text("edited — model suggested")').count();
+  console.log('PROBE edited chip after changing level:', editedChip === 1 ? 'shown' : 'MISSING');
+  await page.screenshot({ path: SHOTS + '/21g-3b-edited-chip.png', fullPage: true });
+  await levelSelect.selectOption(suggested); // accept as-is for the save
+  await page.fill('textarea[aria-label="Clinical notes"]', 'Bulk-generated assessment reviewed; concur with model.');
   await saveBtn.click();
   await page.waitForSelector('text=Validated assessment saved', { timeout: 15000 });
   const badgesAfter = await page.locator('span:has-text("review")').count();
   console.log('VALIDATED saved; review badges now:', badgesAfter, '(was', reviewBadges + ')');
   await page.screenshot({ path: SHOTS + '/21g-4-validated.png', fullPage: true });
+
+  // audit trail must record accepted-vs-changed (server-side comparison)
+  const adminCtx = await browser.newContext();
+  const login = await adminCtx.request.post(BASE + '/api/auth/login', {
+    data: { email: env.SEED_ADMIN_EMAIL, password: env.SEED_ADMIN_PASSWORD },
+  });
+  if (login.ok()) {
+    const audits = await (await adminCtx.request.get(BASE + '/api/audit-trails')).json();
+    const latest = audits
+      .filter((a) => a.affected_model === 'RISK_STRATIFICATION')
+      .sort((a, b) => b.timestamp.localeCompare(a.timestamp))[0];
+    console.log('AUDIT latest RISK_STRATIFICATION action:', latest?.action ?? 'NONE FOUND');
+    console.log('AUDIT records accepted/changed:', /accepted AI suggestion|changed AI suggestion/.test(latest?.action ?? '') ? 'YES' : 'NO — REGRESSION');
+  } else {
+    console.log('AUDIT check skipped: admin login failed', login.status());
+  }
+  await adminCtx.close();
 } else {
   console.log('NOTE: opened student has no RPC visit — validation panel shows guidance instead (expected path)');
 }

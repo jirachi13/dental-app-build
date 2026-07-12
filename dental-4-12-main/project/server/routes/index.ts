@@ -113,7 +113,21 @@ router.use("/dental-charts", createCrudRouter(DentalChart, { writeRoles: CLINICA
 router.use("/tooth-records", createCrudRouter(ToothRecord, { writeRoles: CLINICAL_WRITE_ROLES }));
 router.use("/treatments", createCrudRouter(Treatment, { writeRoles: CLINICAL_WRITE_ROLES }));
 router.use("/preventive-care-records", createCrudRouter(PreventiveCareRecord, { writeRoles: CLINICAL_WRITE_ROLES }));
-router.use("/risk-stratifications", createCrudRouter(RiskStratification, { writeRoles: CLINICAL_WRITE_ROLES }));
+// The audit action records whether the dentist accepted the AI suggestion
+// as-is or changed it (Chapter 4 evidence for the dentist-validates-model
+// gate). `model_risk_level` / `recommendation_edited` ride in the request
+// body for this comparison only — the schema is strict, so they never persist.
+router.use("/risk-stratifications", createCrudRouter(RiskStratification, {
+  writeRoles: CLINICAL_WRITE_ROLES,
+  auditCreateAction: (body) => {
+    if (typeof body.model_risk_level !== "string") return undefined;
+    const accepted = body.model_risk_level === body.risk_level;
+    const recEdited = body.recommendation_edited === true ? "; recommendation edited" : "";
+    return accepted
+      ? `Created RISK_STRATIFICATION (dentist validated: accepted AI suggestion ${body.risk_level}${recEdited})`
+      : `Created RISK_STRATIFICATION (dentist validated: changed AI suggestion ${body.model_risk_level} → ${body.risk_level}${recEdited})`;
+  },
+}));
 router.use("/appointments", createCrudRouter(Appointment, { writeRoles: CLINICAL_WRITE_ROLES }));
 router.use("/dentist-rotations", createCrudRouter(DentistRotation, { writeRoles: CLINICAL_WRITE_ROLES }));
 

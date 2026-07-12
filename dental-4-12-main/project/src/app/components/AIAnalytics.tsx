@@ -73,9 +73,12 @@ export const AIAnalytics = () => {
   // Shown on the result card so re-generating visibly changes something
   const [generatedAt, setGeneratedAt] = useState<Date | null>(null);
   const [predictError, setPredictError] = useState<string | null>(null);
-  // validation panel state
-  const [decision, setDecision] = useState<'accept' | 'override'>('accept');
-  const [overrideLevel, setOverrideLevel] = useState<'High' | 'Medium' | 'Low'>('Medium');
+  // Validation panel state (pattern locked 2026-07-07): the model output is
+  // auto-filled into these EDITABLE fields, visibly marked "AI-suggested".
+  // The dentist reviews/edits, then one deliberate "Validate & Save" — no
+  // reflexive Accept/Override toggle, no modal stack.
+  const [finalLevel, setFinalLevel] = useState<'High' | 'Medium' | 'Low'>('Medium');
+  const [finalRec, setFinalRec] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -166,11 +169,13 @@ export const AIAnalytics = () => {
     const cached = bulkResults[id] ?? null;
     setPrediction(cached);
     setGeneratedAt(cached ? new Date() : null);
-    if (cached) setOverrideLevel(cached.risk_level);
+    if (cached) {
+      setFinalLevel(cached.risk_level);
+      setFinalRec(cached.recommendation);
+    }
     setPredictError(null);
     setSaveMessage(null);
     setNotes('');
-    setDecision('accept');
   };
 
   const toggleChecked = (id: string) => {
@@ -219,7 +224,8 @@ export const AIAnalytics = () => {
     // if the currently open student was in the batch, surface their result
     if (selectedId && results[selectedId]) {
       setPrediction(results[selectedId]);
-      setOverrideLevel(results[selectedId].risk_level);
+      setFinalLevel(results[selectedId].risk_level);
+      setFinalRec(results[selectedId].recommendation);
     }
   };
 
@@ -235,7 +241,8 @@ export const AIAnalytics = () => {
       });
       setPrediction(result);
       setGeneratedAt(new Date());
-      setOverrideLevel(result.risk_level);
+      setFinalLevel(result.risk_level);
+      setFinalRec(result.recommendation);
     } catch (err) {
       setPredictError(
         err instanceof ApiError && err.status === 503
@@ -251,19 +258,25 @@ export const AIAnalytics = () => {
     if (!selected || !prediction || !selected.latestPreventiveId) return;
     setSaving(true);
     try {
-      const finalLevel = decision === 'accept' ? prediction.risk_level : overrideLevel;
+      const riskChanged = finalLevel !== prediction.risk_level;
+      const recEdited = finalRec.trim() !== prediction.recommendation.trim();
       await apiClient.post('/risk-stratifications', {
         preventive_id: selected.latestPreventiveId,
         risk_level: finalLevel,
         recommendation:
-          `${prediction.recommendation}\n\nDentist notes: ${notes.trim()}` +
-          (decision === 'override'
-            ? ` [Dentist override: model predicted ${prediction.risk_level}, dentist assessed ${finalLevel}]`
+          `${finalRec.trim()}\n\nDentist notes: ${notes.trim()}` +
+          (riskChanged
+            ? ` [Dentist assessment: model predicted ${prediction.risk_level}, dentist assessed ${finalLevel}]`
             : ''),
         dmf_score: selected.features.dmf_score,
         dmf_index: selected.dmfIndex,
         validated_by_dentist: true,
         validated_at: new Date().toISOString(),
+        // audit-only metadata — the server compares these to record whether
+        // the dentist accepted or changed the AI suggestion; never persisted
+        // (strict schema drops them)
+        model_risk_level: prediction.risk_level,
+        recommendation_edited: recEdited,
       });
       setSaveMessage(`Validated assessment saved: ${finalLevel} risk.`);
       setPrediction(null);
@@ -578,12 +591,10 @@ export const AIAnalytics = () => {
                         </div>
                       </div>
                     )}
-                    <div className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">
-                      <span className="font-medium">Suggested recommendation: </span>
-                      {prediction.recommendation}
-                    </div>
-
-                    {/* Dentist validation — the only path to saving anything */}
+                    {/* Dentist validation — the only path to saving anything.
+                        The model output is pre-filled into EDITABLE fields
+                        marked "AI-suggested"; one deliberate Validate & Save.
+                        The audit trail records accepted-as-is vs changed. */}
                     <div className="mt-4 border-t border-gray-200 pt-4">
                       <h4 className="font-semibold text-gray-900 text-sm mb-2">Dentist Validation</h4>
                       {!isDentist ? (
@@ -598,48 +609,71 @@ export const AIAnalytics = () => {
                         </Notice>
                       ) : (
                         <div className="space-y-3">
-                          <div className="flex flex-wrap gap-4 text-sm">
-                            <label className="flex items-center gap-2">
-                              <input
-                                type="radio"
-                                checked={decision === 'accept'}
-                                onChange={() => setDecision('accept')}
-                              />
-                              Accept model assessment ({prediction.risk_level})
-                            </label>
-                            <label className="flex items-center gap-2">
-                              <input
-                                type="radio"
-                                checked={decision === 'override'}
-                                onChange={() => setDecision('override')}
-                              />
-                              Override:
-                              <select
-                                value={overrideLevel}
-                                onChange={(e) => setOverrideLevel(e.target.value as 'High' | 'Medium' | 'Low')}
-                                disabled={decision !== 'override'}
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-sm"
-                              >
-                                <option>High</option>
-                                <option>Medium</option>
-                                <option>Low</option>
-                              </select>
-                            </label>
+                          <p className="flex items-center gap-1.5 text-xs text-gray-500">
+                            <Brain className="w-3.5 h-3.5 text-[#1E40AF] shrink-0" />
+                            Pre-filled from the model — review, edit where your clinical judgment
+                            differs, then validate.
+                          </p>
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-medium text-gray-700">Risk level</span>
+                              {finalLevel === prediction.risk_level ? (
+                                <span className="text-[11px] px-2 py-0.5 rounded-full border bg-blue-100 text-blue-700 border-blue-200">
+                                  AI-suggested
+                                </span>
+                              ) : (
+                                <span className="text-[11px] px-2 py-0.5 rounded-full border bg-amber-100 text-amber-700 border-amber-200">
+                                  edited — model suggested {prediction.risk_level}
+                                </span>
+                              )}
+                            </div>
+                            <select
+                              value={finalLevel}
+                              onChange={(e) => setFinalLevel(e.target.value as 'High' | 'Medium' | 'Low')}
+                              aria-label="Validated risk level"
+                              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option>High</option>
+                              <option>Medium</option>
+                              <option>Low</option>
+                            </select>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-medium text-gray-700">Recommendation</span>
+                              {finalRec.trim() === prediction.recommendation.trim() ? (
+                                <span className="text-[11px] px-2 py-0.5 rounded-full border bg-blue-100 text-blue-700 border-blue-200">
+                                  AI-suggested
+                                </span>
+                              ) : (
+                                <span className="text-[11px] px-2 py-0.5 rounded-full border bg-amber-100 text-amber-700 border-amber-200">
+                                  edited by dentist
+                                </span>
+                              )}
+                            </div>
+                            <textarea
+                              value={finalRec}
+                              onChange={(e) => setFinalRec(e.target.value)}
+                              rows={3}
+                              aria-label="Validated recommendation"
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
                           </div>
                           <textarea
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
-                            placeholder="Clinical notes (required) — basis for accepting or overriding this assessment"
+                            placeholder="Clinical notes (required) — basis for validating this assessment"
                             rows={2}
+                            aria-label="Clinical notes"
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                           <button
                             onClick={saveValidated}
-                            disabled={saving || notes.trim().length === 0}
+                            disabled={saving || notes.trim().length === 0 || finalRec.trim().length === 0}
                             className="flex items-center gap-2 bg-[#1E40AF] hover:bg-blue-700 disabled:bg-gray-300 text-white text-sm font-medium px-4 py-2 rounded-lg"
                           >
                             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                            Save Validated Assessment
+                            Validate &amp; Save
                           </button>
                         </div>
                       )}
