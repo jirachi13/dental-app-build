@@ -17,7 +17,7 @@ import {
   ArrowRight,
   ArrowLeft
 } from 'lucide-react';
-import { SkeletonPageHeader, SkeletonStatGrid, SkeletonChartCards } from './Skeleton';
+import { SkeletonBlock } from './Skeleton';
 import { getGradeColor } from '../utils/gradeColors';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
 import { toLocalDateString } from '../utils/localDate';
@@ -40,7 +40,7 @@ import {
 } from 'recharts';
 import { ChartTooltip } from './ChartTooltip';
 import { Link } from 'react-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useStudents } from '../hooks/useStudents';
 import { useAppointments } from '../hooks/useAppointments';
 import { useRPCTracking } from '../hooks/useRPCTracking';
@@ -129,8 +129,6 @@ export const Dashboard = () => {
       }
     })();
   }, []);
-
-  const loading = studentsLoading || appointmentsLoading || rpcLoading || extraLoading;
 
   const allStudents = useMemo(
     () => (selectedSchool ? allStudentsRaw.filter((s) => s.school === selectedSchool) : allStudentsRaw),
@@ -256,7 +254,10 @@ export const Dashboard = () => {
     'text-success': { chip: 'bg-success-surface text-success', val: 'text-success', foot: 'text-muted-foreground' },
     'text-cyan-600': { chip: 'bg-cyan-50 text-cyan-700', val: 'text-foreground', foot: 'text-muted-foreground' },
   };
-  const StatCard = ({ icon: Icon, label, value, color, trend, progress, linkTo }: any) => {
+  // `loading` (Sprint 23w / audit X3): the tile shell + icon + label render
+  // immediately; only the value pulses until this tile's own data source
+  // lands — stat tiles no longer wait on the slowest dashboard fetch.
+  const StatCard = ({ icon: Icon, label, value, color, trend, progress, linkTo, loading }: any) => {
     const style = STAT_CHIP[color] ?? { chip: 'bg-primary-surface text-primary', val: 'text-foreground', foot: 'text-muted-foreground' };
     const content = (
       <>
@@ -268,14 +269,18 @@ export const Dashboard = () => {
             <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
           )}
         </div>
-        <p className={`text-3xl font-extrabold leading-none tracking-tight tabular-nums ${style.val}`}>{value}</p>
+        {loading ? (
+          <SkeletonBlock className="h-[30px] w-16" />
+        ) : (
+          <p className={`text-3xl font-extrabold leading-none tracking-tight tabular-nums ${style.val}`}>{value}</p>
+        )}
         <p className="text-xs text-muted-foreground font-medium mt-1.5">{label}</p>
-        {trend && (
+        {!loading && trend && (
           <p className={`text-[11px] mt-2.5 flex items-center gap-1 ${style.foot}`}>
             {trend}
           </p>
         )}
-        {progress !== undefined && (
+        {!loading && progress !== undefined && (
           <div className="mt-2.5 w-full bg-muted rounded-full h-1.5" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
             <div
               className={`h-1.5 rounded-full grow-x ${color.replace('text-', 'bg-')}`}
@@ -310,6 +315,19 @@ export const Dashboard = () => {
     </div>
   );
 
+  // Per-region loading (Sprint 23w / audit X3): each chart card swaps its own
+  // body from skeleton to content as its data source arrives, instead of one
+  // global gate on the slowest of 8 parallel fetches. The `.rise` on arrival
+  // is the X4 state motion for "this region's data just landed".
+  const ChartBody = ({ ready, children }: { ready: boolean; children: ReactNode }) =>
+    ready ? (
+      <div className="rise">{children}</div>
+    ) : (
+      <div aria-busy="true">
+        <SkeletonBlock className="h-[220px] w-full" />
+      </div>
+    );
+
   // School context banner
   const SchoolBanner = () => {
     if (!selectedSchool) return null;
@@ -331,16 +349,6 @@ export const Dashboard = () => {
     );
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-4" aria-busy="true" aria-label="Loading dashboard">
-        <SkeletonPageHeader />
-        <SkeletonStatGrid />
-        <SkeletonChartCards />
-      </div>
-    );
-  }
-
   // ===== DENTIST DASHBOARD =====
   if (user?.role === 'dentist') {
     const riskDistributionData = [
@@ -360,7 +368,11 @@ export const Dashboard = () => {
             <span className="block text-[13px] font-semibold text-foreground">
               {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </span>
-            {todaySessions.length} appointment{todaySessions.length !== 1 ? 's' : ''} today
+            {appointmentsLoading ? (
+              <SkeletonBlock className="h-4 w-32 ml-auto" />
+            ) : (
+              <>{todaySessions.length} appointment{todaySessions.length !== 1 ? 's' : ''} today</>
+            )}
           </div>
           <Link
             to="/appointments?new=1"
@@ -379,6 +391,7 @@ export const Dashboard = () => {
             value={String(allStudents.length)}
             color="text-primary"
             linkTo="/patients"
+            loading={studentsLoading}
           />
           <StatCard
             icon={Calendar}
@@ -387,6 +400,7 @@ export const Dashboard = () => {
             color="text-cyan-600"
             trend={todaySessions[0] ? `Next: ${todaySessions[0].time}` : undefined}
             linkTo="/appointments"
+            loading={appointmentsLoading}
           />
           <StatCard
             icon={AlertCircle}
@@ -395,6 +409,7 @@ export const Dashboard = () => {
             color="text-destructive"
             trend={highRiskCount > 0 ? 'review in Risk Classification' : undefined}
             linkTo="/patients?risk=high"
+            loading={studentsLoading}
           />
           <StatCard
             icon={Shield}
@@ -403,6 +418,7 @@ export const Dashboard = () => {
             color="text-success"
             progress={rpcCompletionRate}
             linkTo="/rpc"
+            loading={rpcLoading}
           />
         </div>
 
@@ -411,6 +427,7 @@ export const Dashboard = () => {
           <div className="bg-card p-4 rounded-xl border border-border">
             <h2 className="text-sm font-bold text-foreground">Risk Distribution</h2>
             <p className="text-[11px] text-muted-foreground mb-3">Validated caries-risk classification</p>
+            <ChartBody ready={!studentsLoading}>
             <div className="relative">
               <ResponsiveContainer width="100%" height={220} key="risk-dist-container">
                 <PieChart id="risk-distribution-chart">
@@ -450,6 +467,7 @@ export const Dashboard = () => {
                 </div>
               ))}
             </div>
+            </ChartBody>
           </div>
 
           <div className="bg-card p-4 rounded-xl border border-border">
@@ -471,6 +489,7 @@ export const Dashboard = () => {
               </div>
               <Link to="/rpc" className="text-xs text-primary hover:underline">RPC Tracking →</Link>
             </div>
+            <ChartBody ready={!rpcLoading}>
             {scopedRpc.length === 0 ? (
               <NoDataYet message="No enrolled students yet." />
             ) : (
@@ -505,11 +524,13 @@ export const Dashboard = () => {
                 </p>
               </div>
             )}
+            </ChartBody>
           </div>
 
           <div className="bg-card p-4 rounded-xl border border-border">
             <h2 className="text-sm font-bold text-foreground">Procedures Performed</h2>
             <p className="text-[11px] text-muted-foreground mb-3">From dental chart treatment records</p>
+            <ChartBody ready={!extraLoading}>
             {procedureBreakdown.length === 0 ? (
               <NoDataYet message="No procedures recorded on dental charts yet." />
             ) : (
@@ -525,6 +546,7 @@ export const Dashboard = () => {
                 ))}
               </div>
             )}
+            </ChartBody>
           </div>
         </div>
 
@@ -533,6 +555,7 @@ export const Dashboard = () => {
           <div className="bg-card p-4 rounded-xl border border-border">
             <h2 className="text-sm font-bold text-foreground">Validated Risk Assessments</h2>
             <p className="text-[11px] text-muted-foreground mb-3">Dentist-validated each month</p>
+            <ChartBody ready={!extraLoading}>
             {assessmentsByMonth.length === 0 ? (
               <NoDataYet message="No dentist-validated assessments yet — validated assessments will chart here by month." />
             ) : (
@@ -552,6 +575,7 @@ export const Dashboard = () => {
                 </BarChart>
               </ResponsiveContainer>
             )}
+            </ChartBody>
           </div>
 
           <div className="bg-card p-4 rounded-xl border border-border">
@@ -562,6 +586,7 @@ export const Dashboard = () => {
               </div>
               <Link to="/rpc" className="text-xs text-primary hover:underline">View all →</Link>
             </div>
+            <ChartBody ready={!rpcLoading}>
             {upcomingFollowUps.length === 0 ? (
               <NoDataYet message="No follow-ups overdue or due within 60 days." />
             ) : (
@@ -598,6 +623,7 @@ export const Dashboard = () => {
                 })}
               </div>
             )}
+            </ChartBody>
           </div>
         </div>
       </div>
@@ -619,7 +645,11 @@ export const Dashboard = () => {
             <span className="block text-[13px] font-semibold text-foreground">
               {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </span>
-            {todaySessions.length} appointment{todaySessions.length !== 1 ? 's' : ''} today
+            {appointmentsLoading ? (
+              <SkeletonBlock className="h-4 w-32 ml-auto" />
+            ) : (
+              <>{todaySessions.length} appointment{todaySessions.length !== 1 ? 's' : ''} today</>
+            )}
           </div>
           <Link
             to="/appointments?new=1"
@@ -638,6 +668,7 @@ export const Dashboard = () => {
             value={String(todaySessions.length)}
             color="text-primary"
             linkTo="/appointments"
+            loading={appointmentsLoading}
           />
           <StatCard
             icon={FileText}
@@ -646,6 +677,7 @@ export const Dashboard = () => {
             color="text-yellow-600"
             trend="to complete"
             linkTo="/dental-charts"
+            loading={studentsLoading || extraLoading}
           />
           <StatCard
             icon={AlertCircle}
@@ -653,6 +685,7 @@ export const Dashboard = () => {
             value={String(rpcOverdueCount)}
             color="text-destructive"
             linkTo="/rpc"
+            loading={rpcLoading}
           />
           <StatCard
             icon={Shield}
@@ -660,6 +693,7 @@ export const Dashboard = () => {
             value={String(rpcPendingCount)}
             color="text-cyan-600"
             linkTo="/rpc"
+            loading={rpcLoading}
           />
         </div>
 
@@ -669,6 +703,7 @@ export const Dashboard = () => {
           <div className="bg-card p-4 rounded-xl border border-border">
             <h2 className="text-sm font-bold text-foreground mb-0.5">Appointments by Status (This Week)</h2>
             <p className="text-[11px] text-muted-foreground mb-3">Completed · scheduled · missed, per day</p>
+            <ChartBody ready={!appointmentsLoading}>
             <ResponsiveContainer width="100%" height={220} key="appt-status-container">
               <BarChart data={appointmentsByStatusData} id="appointments-status-chart">
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" key="appt-grid" />
@@ -681,6 +716,7 @@ export const Dashboard = () => {
                 <Bar dataKey="cancelled" stackId="a" fill="#DC2626" name="Missed" key="appt-bar-cancelled" maxBarSize={48} />
               </BarChart>
             </ResponsiveContainer>
+            </ChartBody>
           </div>
 
           {/* Pending Tasks by Priority - no Task entity exists in the ERD,
@@ -739,7 +775,11 @@ export const Dashboard = () => {
             <span className="block text-[13px] font-semibold text-foreground">
               {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </span>
-            {schoolStudents.length} student{schoolStudents.length !== 1 ? 's' : ''} enrolled
+            {studentsLoading ? (
+              <SkeletonBlock className="h-4 w-32 ml-auto" />
+            ) : (
+              <>{schoolStudents.length} student{schoolStudents.length !== 1 ? 's' : ''} enrolled</>
+            )}
           </div>
           <Link
             to="/reports"
@@ -758,6 +798,7 @@ export const Dashboard = () => {
             value={String(schoolStudents.length)}
             color="text-primary"
             linkTo="/reports"
+            loading={studentsLoading}
           />
           <StatCard
             icon={CheckCircle}
@@ -766,6 +807,7 @@ export const Dashboard = () => {
             color="text-success"
             trend={`${coveragePct}% coverage`}
             linkTo="/reports"
+            loading={studentsLoading}
           />
           <StatCard
             icon={Activity}
@@ -773,6 +815,7 @@ export const Dashboard = () => {
             value={String(treatmentCount)}
             color="text-cyan-600"
             linkTo="/reports"
+            loading={extraLoading}
           />
           <StatCard
             icon={Calendar}
@@ -780,6 +823,7 @@ export const Dashboard = () => {
             value={nextUpcomingSession ? nextUpcomingSession.date : 'None scheduled'}
             color="text-yellow-600"
             linkTo="/appointments"
+            loading={appointmentsLoading}
           />
         </div>
 
@@ -789,6 +833,7 @@ export const Dashboard = () => {
           <div className="bg-card p-4 rounded-xl border border-border">
             <h2 className="text-sm font-bold text-foreground mb-0.5">Screening Coverage</h2>
             <p className="text-[11px] text-muted-foreground mb-3">Share of enrolled students already screened</p>
+            <ChartBody ready={!studentsLoading}>
             <ResponsiveContainer width="100%" height={220} key="screening-coverage-container">
               <RadialBarChart 
                 cx="50%" 
@@ -812,12 +857,14 @@ export const Dashboard = () => {
               </RadialBarChart>
             </ResponsiveContainer>
             <p className="text-center text-sm text-muted-foreground mt-2">Students Screened</p>
+            </ChartBody>
           </div>
 
           {/* Oral Health Status - Pie Chart */}
           <div className="bg-card p-4 rounded-xl border border-border">
             <h2 className="text-sm font-bold text-foreground mb-0.5">Oral Health Status Breakdown</h2>
             <p className="text-[11px] text-muted-foreground mb-3">Latest recorded status per student</p>
+            <ChartBody ready={!studentsLoading}>
             <ResponsiveContainer width="100%" height={220} key="oral-health-status-container">
               <PieChart id="oral-health-status-chart">
                 <Pie
@@ -844,6 +891,7 @@ export const Dashboard = () => {
                 </div>
               ))}
             </div>
+            </ChartBody>
           </div>
         </div>
 
@@ -851,6 +899,7 @@ export const Dashboard = () => {
         <div className="bg-card p-4 rounded-xl border border-border rise rise-3">
           <h2 className="text-sm font-bold text-foreground mb-0.5">Upcoming Bayanihan Events</h2>
           <p className="text-[11px] text-muted-foreground mb-3">Scheduled outreach missions at this school</p>
+          <ChartBody ready={!appointmentsLoading}>
           {upcomingEvents.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-12">No upcoming Bayanihan Mission events scheduled.</p>
           ) : (
@@ -869,6 +918,7 @@ export const Dashboard = () => {
               ))}
             </div>
           )}
+          </ChartBody>
         </div>
       </div>
     );
@@ -925,7 +975,11 @@ export const Dashboard = () => {
             <span className="block text-[13px] font-semibold text-foreground">
               {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </span>
-            {totalStudents} student{totalStudents !== 1 ? 's' : ''} across {schoolsParticipating} school{schoolsParticipating !== 1 ? 's' : ''}
+            {studentsLoading ? (
+              <SkeletonBlock className="h-4 w-40 ml-auto" />
+            ) : (
+              <>{totalStudents} student{totalStudents !== 1 ? 's' : ''} across {schoolsParticipating} school{schoolsParticipating !== 1 ? 's' : ''}</>
+            )}
           </div>
           <Link
             to="/reports"
@@ -945,6 +999,7 @@ export const Dashboard = () => {
             color="text-primary"
             trend={`across ${schoolsParticipating} schools`}
             linkTo="/reports"
+            loading={studentsLoading}
           />
           <StatCard
             icon={Activity}
@@ -953,6 +1008,7 @@ export const Dashboard = () => {
             color="text-success"
             progress={programCoveragePct}
             linkTo="/reports"
+            loading={studentsLoading}
           />
           <StatCard
             icon={CheckCircle}
@@ -960,6 +1016,7 @@ export const Dashboard = () => {
             value={`${orallyFitPct}%`}
             color="text-cyan-600"
             linkTo="/reports"
+            loading={studentsLoading}
           />
           <StatCard
             icon={Shield}
@@ -967,6 +1024,7 @@ export const Dashboard = () => {
             value={`${schoolsParticipating} of 3`}
             color="text-muted-foreground"
             linkTo="/reports"
+            loading={studentsLoading}
           />
         </div>
 
@@ -976,6 +1034,7 @@ export const Dashboard = () => {
           <div className="bg-card p-4 rounded-xl border border-border">
             <h2 className="text-sm font-bold text-foreground mb-0.5">School Comparison</h2>
             <p className="text-[11px] text-muted-foreground mb-3">Screened · treated · high-risk counts per school</p>
+            <ChartBody ready={!studentsLoading}>
             <ResponsiveContainer width="100%" height={220} key="school-comparison-container">
               <BarChart data={schoolComparisonData} id="school-comparison-chart">
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" key="school-grid" />
@@ -988,6 +1047,7 @@ export const Dashboard = () => {
                 <Bar dataKey="highRisk" fill="#DC2626" name="High Risk" key="school-bar-risk" maxBarSize={40} />
               </BarChart>
             </ResponsiveContainer>
+            </ChartBody>
           </div>
 
           {/* Monthly Coverage Trend - Area Chart */}
@@ -1002,6 +1062,7 @@ export const Dashboard = () => {
         <div className="bg-card p-4 rounded-xl border border-border rise rise-3">
           <h2 className="text-sm font-bold text-foreground mb-0.5">Age Group Breakdown</h2>
           <p className="text-[11px] text-muted-foreground mb-3">Oral health status by DOH age bracket, all schools</p>
+          <ChartBody ready={!studentsLoading}>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-border">
@@ -1028,6 +1089,7 @@ export const Dashboard = () => {
               </tbody>
             </table>
           </div>
+          </ChartBody>
         </div>
       </div>
     );
@@ -1085,7 +1147,11 @@ export const Dashboard = () => {
             <span className="block text-[13px] font-semibold text-foreground">
               {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </span>
-            {activeUsersCount} active user{activeUsersCount !== 1 ? 's' : ''}
+            {extraLoading ? (
+              <SkeletonBlock className="h-4 w-24 ml-auto" />
+            ) : (
+              <>{activeUsersCount} active user{activeUsersCount !== 1 ? 's' : ''}</>
+            )}
           </div>
           <Link
             to="/accounts"
@@ -1104,6 +1170,7 @@ export const Dashboard = () => {
             value={String(activeUsersCount)}
             color="text-primary"
             linkTo="/accounts"
+            loading={extraLoading}
           />
           {/* System uptime and failed-login tracking aren't measured anywhere
               in this system — honest "N/A", not a fabricated specific number. */}
@@ -1139,6 +1206,7 @@ export const Dashboard = () => {
           <div className="bg-card p-4 rounded-xl border border-border">
             <h2 className="text-sm font-bold text-foreground mb-0.5">Login Activity (Last 7 Days)</h2>
             <p className="text-[11px] text-muted-foreground mb-3">Users seen per day, from last-login timestamps</p>
+            <ChartBody ready={!extraLoading}>
             <ResponsiveContainer width="100%" height={220} key="login-activity-container">
               <LineChart data={loginActivityData} id="login-activity-chart">
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" key="login-grid" />
@@ -1148,12 +1216,14 @@ export const Dashboard = () => {
                 <Line type="monotone" dataKey="logins" stroke={COLORS.blue} strokeWidth={2} dot={{ r: 5 }} key="login-line" />
               </LineChart>
             </ResponsiveContainer>
+            </ChartBody>
           </div>
 
           {/* Actions by Module - Horizontal Bar Chart (real, from audit trail) */}
           <div className="bg-card p-4 rounded-xl border border-border">
             <h2 className="text-sm font-bold text-foreground mb-0.5">Actions by Module</h2>
             <p className="text-[11px] text-muted-foreground mb-3">Audit-trail entries per data model</p>
+            <ChartBody ready={!extraLoading}>
             {actionsByModuleData.length === 0 ? (
               <NoDataYet message="No audit trail activity recorded yet." />
             ) : (
@@ -1167,6 +1237,7 @@ export const Dashboard = () => {
                 </BarChart>
               </ResponsiveContainer>
             )}
+            </ChartBody>
           </div>
         </div>
 
@@ -1174,6 +1245,7 @@ export const Dashboard = () => {
         <div className="bg-card p-4 rounded-xl border border-border rise rise-3">
           <h2 className="text-sm font-bold text-foreground mb-0.5">Recent Audit Activity</h2>
           <p className="text-[11px] text-muted-foreground mb-3">Five most recent recorded actions</p>
+          <ChartBody ready={!extraLoading}>
           {recentAudit.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-12">No audit trail activity recorded yet.</p>
           ) : (
@@ -1192,6 +1264,7 @@ export const Dashboard = () => {
               ))}
             </div>
           )}
+          </ChartBody>
           <Link
             to="/audit"
             className="block mt-4 text-center text-sm text-primary hover:text-primary font-medium"

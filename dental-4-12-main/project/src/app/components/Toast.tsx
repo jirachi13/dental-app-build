@@ -12,6 +12,8 @@ interface ToastItem {
   id: number;
   variant: Variant;
   message: string;
+  /** exit animation in progress (Sprint 23w) — removed ~160ms after set */
+  leaving?: boolean;
 }
 
 interface ToastApi {
@@ -38,8 +40,14 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const nextId = useRef(1);
 
+  // two-step removal so the exit can animate: mark leaving (CSS .toast-leave
+  // plays, 150ms), then actually remove. Under prefers-reduced-motion the
+  // animation is a no-op and the toast just disappears 160ms later.
   const dismiss = useCallback((id: number) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, leaving: true } : t)));
+    window.setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 160);
   }, []);
 
   const push = useCallback(
@@ -75,7 +83,7 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
               <div
                 key={t.id}
                 role={t.variant === 'error' ? 'alert' : 'status'}
-                className="rise pointer-events-auto bg-card rounded-xl border border-border shadow-lg px-4 py-3 flex items-center gap-2.5 max-w-sm"
+                className={`${t.leaving ? 'toast-leave' : 'rise'} pointer-events-auto bg-card rounded-xl border border-border shadow-lg px-4 py-3 flex items-center gap-2.5 max-w-sm`}
               >
                 <Icon className={`w-4 h-4 shrink-0 ${icon}`} />
                 <span className="text-sm text-foreground min-w-0">{t.message}</span>

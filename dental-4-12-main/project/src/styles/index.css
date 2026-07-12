@@ -33,6 +33,32 @@ input::-ms-clear {
     from { transform: scaleX(0); }
     to { transform: scaleX(1); }
   }
+
+  /* ── State motion (Sprint 23w / audit X4) ──────────────────────────────
+     Modal entrance covers every <dialog> from the shared Modal.tsx; exits
+     stay instant (faster than entrances, and native dialog close can't be
+     delayed without JS). Toast exit pairs with its .rise entrance —
+     Toast.tsx keeps the item mounted ~160ms with .toast-leave applied. */
+  dialog[open] {
+    animation: modal-in 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  dialog[open]::backdrop {
+    animation: backdrop-in 0.2s ease-out;
+  }
+  @keyframes modal-in {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes backdrop-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .toast-leave {
+    animation: toast-out 0.15s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  }
+  @keyframes toast-out {
+    to { opacity: 0; transform: translateY(6px); }
+  }
 }
 
 /* ── Print Styles ────────────────────────────────────────────────────────── */
