@@ -119,7 +119,7 @@ Full field-level specs for all 16 models live in **`/docs/DATA-MODEL.md`** — R
 **Before Defense:** encode real IPTR paper records to CSV, replace synthetic dataset, re-run algo experiments, update Chapter 4 results; ISO 25010:2023 evaluation (30 respondents, 5-point Likert, weighted mean); final ZAP scan.
 
 ## SPRINT LOOP (every session)
-- **Start:** read HANDOFF.md, /compact if resuming. Complex sprints use /grill-me first: Sprints 1, 2, 7, 8, 16, 19, 21.
+- **Start:** `git pull` first (HANDOFF/CLAUDE.md may be stale if last sprint ran on another device), then read HANDOFF.md, /compact if resuming. Complex sprints use /grill-me first: Sprints 1, 2, 7, 8, 16, 19, 21.
 - **End:** save HANDOFF.md → git add . → git commit -m "Sprint X: description" → git push.
 
 ## CHAPTER REFERENCES
