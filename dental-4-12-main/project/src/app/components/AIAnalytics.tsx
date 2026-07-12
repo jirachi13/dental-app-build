@@ -98,10 +98,28 @@ export const AIAnalytics = () => {
   const isDentist = user?.role === 'dentist';
 
   useEffect(() => {
-    apiClient
-      .get<ModelStatus>('/predictions/status')
-      .then((s) => setModelStatus(s))
-      .catch(() => setServiceDown(true));
+    // The free-tier ML service sleeps after ~15min idle and takes 30-60s to
+    // wake — and this very status probe is what wakes it. So a single failed
+    // check must NOT declare it dead for the whole session: keep retrying
+    // (~2 min total) and clear the banner the moment it responds.
+    let cancelled = false;
+    let attempts = 0;
+    const check = () => {
+      apiClient
+        .get<ModelStatus>('/predictions/status')
+        .then((s) => {
+          if (cancelled) return;
+          setModelStatus(s);
+          setServiceDown(false);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setServiceDown(true);
+          if (attempts++ < 8) setTimeout(check, 15000);
+        });
+    };
+    check();
+    return () => { cancelled = true; };
   }, []);
 
   // Priority order for the queue: validated High first, then Medium, then
@@ -321,8 +339,10 @@ export const AIAnalytics = () => {
       </div>
 
       {serviceDown && (
-        <Notice variant="error">
-          The prediction service is currently unavailable. Assessments cannot be generated right now.
+        <Notice variant="warning">
+          The prediction service isn't responding — it sleeps when idle and usually takes under a
+          minute to wake up. This page keeps checking automatically; assessments can be generated
+          as soon as it's back.
         </Notice>
       )}
       {modelStatus?.model?.synthetic_data && (
