@@ -116,9 +116,9 @@ if (await saveBtn.count()) {
   if (login.ok()) {
     const audits = await (await adminCtx.request.get(BASE + '/api/audit-trails')).json();
     const latest = audits
-      .filter((a) => a.affected_model === 'RISK_STRATIFICATION')
+      .filter((a) => a.affected_model === 'RiskStratification')
       .sort((a, b) => b.timestamp.localeCompare(a.timestamp))[0];
-    console.log('AUDIT latest RISK_STRATIFICATION action:', latest?.action ?? 'NONE FOUND');
+    console.log('AUDIT latest RiskStratification action:', latest?.action ?? 'NONE FOUND');
     console.log('AUDIT records accepted/changed:', /accepted AI suggestion|changed AI suggestion/.test(latest?.action ?? '') ? 'YES' : 'NO — REGRESSION');
   } else {
     console.log('AUDIT check skipped: admin login failed', login.status());

@@ -124,8 +124,8 @@ router.use("/risk-stratifications", createCrudRouter(RiskStratification, {
     const accepted = body.model_risk_level === body.risk_level;
     const recEdited = body.recommendation_edited === true ? "; recommendation edited" : "";
     return accepted
-      ? `Created RISK_STRATIFICATION (dentist validated: accepted AI suggestion ${body.risk_level}${recEdited})`
-      : `Created RISK_STRATIFICATION (dentist validated: changed AI suggestion ${body.model_risk_level} → ${body.risk_level}${recEdited})`;
+      ? `Created RiskStratification (dentist validated: accepted AI suggestion ${body.risk_level}${recEdited})`
+      : `Created RiskStratification (dentist validated: changed AI suggestion ${body.model_risk_level} → ${body.risk_level}${recEdited})`;
   },
 }));
 router.use("/appointments", createCrudRouter(Appointment, { writeRoles: CLINICAL_WRITE_ROLES }));
