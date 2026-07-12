@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { ChartTooltip } from './ChartTooltip';
 import { useAuth } from '../context/AuthContext';
 import { getSchoolShortName } from '../utils/schoolColors';
+import { CHART } from '../utils/chartColors';
 import { GradePill } from './GradePill';
 import { useDohReportData } from '../hooks/useDohReportData';
 import { exportDohReportToPdf } from '../utils/exportPdf';
@@ -678,7 +679,7 @@ export const Reports = () => {
                     <XAxis dataKey="name" tick={{fontSize:10}} angle={-25} textAnchor="end" interval={0} />
                     <YAxis tick={{fontSize:11}} />
                     <Tooltip content={<ChartTooltip />} />
-                    <Bar dataKey="count" name="Count" fill="#1E40AF" radius={[4,4,0,0]} />
+                    <Bar dataKey="count" name="Count" fill={CHART.brand} radius={[4,4,0,0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -873,7 +874,7 @@ export const Reports = () => {
                   <div className="space-y-4">
                     {consentBySchool.map((s, i) => {
                       const pct = s.total ? Math.round((s.complete/s.total)*100) : 0;
-                      const color = ['#1E40AF', '#0D9488', '#EA580C'][i % 3];
+                      const color = [CHART.brand, CHART.teal, CHART.orange][i % 3];
                       return (
                         <div key={s.school}>
                           <div className="flex items-center justify-between mb-1">

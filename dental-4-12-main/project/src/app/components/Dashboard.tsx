@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { SkeletonBlock } from './Skeleton';
 import { getGradeColor } from '../utils/gradeColors';
+import { CHART, RISK_COLORS } from '../utils/chartColors';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
 import { toLocalDateString } from '../utils/localDate';
 import { 
@@ -29,10 +30,7 @@ import {
   CartesianGrid, 
   Tooltip, 
   Legend, 
-  ResponsiveContainer, 
-  PieChart, 
-  Pie, 
-  Cell, 
+  ResponsiveContainer,
   LineChart,
   Line,
   RadialBarChart,
@@ -57,17 +55,8 @@ export const Dashboard = () => {
     navigate('/select-school');
   };
 
-  const COLORS = {
-    red: '#E31E24',
-    blue: '#1E40AF',
-    yellow: '#FBBF24',
-    cyan: '#06B6D4',
-    green: '#16A34A',
-  };
-  // Ordered semantic risk palette (Sprint 23h / audit U3): risk charts always
-  // use these three, Low→High, matching the app's status tokens — never the
-  // generic rainbow above.
-  const RISK_COLORS = { low: '#15803D', medium: '#B45309', high: '#DC2626' };
+  // Chart colors live in one shared module (Sprint 32 / audit U3) so every
+  // screen's charts speak the same semantic color language.
 
   const { students: allStudentsRaw, loading: studentsLoading } = useStudents();
   const { sessions: allSessions, loading: appointmentsLoading } = useAppointments();
@@ -351,10 +340,13 @@ export const Dashboard = () => {
 
   // ===== DENTIST DASHBOARD =====
   if (user?.role === 'dentist') {
+    // High first — the tier that needs attention reads first (audit U3:
+    // horizontal bars over pie slices; easier magnitude comparison for
+    // older/non-technical staff, colors stay the semantic risk palette)
     const riskDistributionData = [
-      { name: 'Low Risk', value: lowRiskCount, color: RISK_COLORS.low },
-      { name: 'Medium Risk', value: mediumRiskCount, color: RISK_COLORS.medium },
-      { name: 'High Risk', value: highRiskCount, color: RISK_COLORS.high },
+      { name: 'High', value: highRiskCount, color: RISK_COLORS.high },
+      { name: 'Medium', value: mediumRiskCount, color: RISK_COLORS.medium },
+      { name: 'Low', value: lowRiskCount, color: RISK_COLORS.low },
     ];
     const riskTotal = highRiskCount + mediumRiskCount + lowRiskCount;
     return (
@@ -428,45 +420,36 @@ export const Dashboard = () => {
             <h2 className="text-sm font-bold text-foreground">Risk Distribution</h2>
             <p className="text-[11px] text-muted-foreground mb-3">Validated caries-risk classification</p>
             <ChartBody ready={!studentsLoading}>
-            <div className="relative">
-              <ResponsiveContainer width="100%" height={220} key="risk-dist-container">
-                <PieChart id="risk-distribution-chart">
-                  <Pie
-                    data={riskDistributionData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={58}
-                    outerRadius={85}
-                    paddingAngle={3}
-                    dataKey="value"
-                    key="risk-pie"
-                  >
-                    {riskDistributionData.map((entry, index) => (
-                      <Cell key={`risk-cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip key="risk-tooltip" content={<ChartTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
-              {/* center total — overlay, pointer-events off so tooltips still work */}
-              <div className="absolute inset-0 grid place-items-center pointer-events-none">
-                <div className="text-center">
-                  <span className="block text-2xl font-extrabold leading-none tabular-nums text-foreground">{riskTotal}</span>
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">students</span>
-                </div>
+            {riskTotal === 0 ? (
+              <NoDataYet message="No students with a validated risk level yet." />
+            ) : (
+              <div className="space-y-2.5">
+                {/* same horizontal-bar idiom as the RPC funnel/procedures cards:
+                    label · track · count inside the bar when it fits */}
+                {riskDistributionData.map((item) => {
+                  const pct = Math.round((item.value / riskTotal) * 100);
+                  const fits = pct >= 22;
+                  return (
+                    <div key={item.name} className="flex items-center gap-3">
+                      <span className="text-xs text-muted-foreground w-36 shrink-0">{item.name} risk</span>
+                      <div className="flex-1 bg-muted rounded-md h-7 relative overflow-hidden">
+                        <div className="h-full rounded-md grow-x" style={{ width: `${pct}%`, backgroundColor: item.color }} />
+                        <span
+                          className="absolute inset-y-0 flex items-center text-xs font-bold tabular-nums whitespace-nowrap"
+                          style={fits ? { right: `calc(${100 - pct}% + 8px)`, color: '#FFFFFF' } : { left: `calc(${pct}% + 8px)`, color: 'var(--foreground)' }}
+                        >
+                          {item.value} ({pct}%)
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+                <p className="text-xs text-muted-foreground pt-1">
+                  {riskTotal} student{riskTotal !== 1 ? 's' : ''} with a validated risk level
+                  {screenedCount !== riskTotal ? ` · ${screenedCount} screened in total` : ''}
+                </p>
               </div>
-            </div>
-            <div className="flex justify-center gap-5 mt-2">
-              {riskDistributionData.map((item, idx) => (
-                <div key={`risk-legend-${idx}`} className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-[3px]" style={{ backgroundColor: item.color }} />
-                  <span className="text-xs text-muted-foreground">
-                    {item.name.replace(' Risk', '')} <span className="font-semibold text-foreground tabular-nums">{item.value}</span>
-                    {riskTotal > 0 && <span className="text-muted-foreground"> · {Math.round((item.value / riskTotal) * 100)}%</span>}
-                  </span>
-                </div>
-              ))}
-            </div>
+            )}
             </ChartBody>
           </div>
 
@@ -711,9 +694,9 @@ export const Dashboard = () => {
                 <YAxis allowDecimals={false} tick={{ fontSize: 12 }} key="appt-yaxis" />
                 <Tooltip key="appt-tooltip" content={<ChartTooltip />} />
                 <Legend wrapperStyle={{ fontSize: 12 }} key="appt-legend" />
-                <Bar dataKey="completed" stackId="a" fill="#15803D" name="Completed" key="appt-bar-completed" maxBarSize={48} />
-                <Bar dataKey="scheduled" stackId="a" fill={COLORS.blue} name="Scheduled" key="appt-bar-scheduled" maxBarSize={48} />
-                <Bar dataKey="cancelled" stackId="a" fill="#DC2626" name="Missed" key="appt-bar-cancelled" maxBarSize={48} />
+                <Bar dataKey="completed" stackId="a" fill={CHART.success} name="Completed" key="appt-bar-completed" maxBarSize={48} />
+                <Bar dataKey="scheduled" stackId="a" fill={CHART.brand} name="Scheduled" key="appt-bar-scheduled" maxBarSize={48} />
+                <Bar dataKey="cancelled" stackId="a" fill={CHART.danger} name="Missed" key="appt-bar-cancelled" maxBarSize={48} />
               </BarChart>
             </ResponsiveContainer>
             </ChartBody>
@@ -744,16 +727,16 @@ export const Dashboard = () => {
     const coveragePct = schoolStudents.length ? Math.round((schoolScreenedCount / schoolStudents.length) * 100) : 0;
 
     const screeningCoverageData = [
-      { name: 'Screened', value: coveragePct, fill: COLORS.blue },
+      { name: 'Screened', value: coveragePct, fill: CHART.brand },
     ];
 
     const oralHealthStatusData = [
       // semantic status colors (Sprint 23o): good=green, needs-care=red,
       // in-progress=brand blue, no-data-yet=neutral gray (not warning-amber)
-      { name: 'Orally Fit', value: schoolStudents.filter((s) => s.oralStatus === 'Orally Fit').length, color: '#15803D' },
-      { name: 'Needs Treatment', value: schoolStudents.filter((s) => s.oralStatus === 'Needs Treatment').length, color: '#DC2626' },
-      { name: 'Under Treatment', value: schoolStudents.filter((s) => s.oralStatus === 'Under Treatment').length, color: COLORS.blue },
-      { name: 'Not Yet Screened', value: schoolStudents.filter((s) => s.oralStatus === 'Not Yet Screened').length, color: '#9CA3AF' },
+      { name: 'Orally Fit', value: schoolStudents.filter((s) => s.oralStatus === 'Orally Fit').length, color: CHART.success },
+      { name: 'Needs Treatment', value: schoolStudents.filter((s) => s.oralStatus === 'Needs Treatment').length, color: CHART.danger },
+      { name: 'Under Treatment', value: schoolStudents.filter((s) => s.oralStatus === 'Under Treatment').length, color: CHART.brand },
+      { name: 'Not Yet Screened', value: schoolStudents.filter((s) => s.oralStatus === 'Not Yet Screened').length, color: CHART.neutral },
     ];
 
     const schoolSessions = schoolName ? allSessions.filter((s) => s.school === schoolName) : [];
@@ -860,37 +843,40 @@ export const Dashboard = () => {
             </ChartBody>
           </div>
 
-          {/* Oral Health Status - Pie Chart */}
+          {/* Oral Health Status - horizontal bars (Sprint 32) */}
           <div className="bg-card p-4 rounded-xl border border-border">
             <h2 className="text-sm font-bold text-foreground mb-0.5">Oral Health Status Breakdown</h2>
             <p className="text-[11px] text-muted-foreground mb-3">Latest recorded status per student</p>
             <ChartBody ready={!studentsLoading}>
-            <ResponsiveContainer width="100%" height={220} key="oral-health-status-container">
-              <PieChart id="oral-health-status-chart">
-                <Pie
-                  data={oralHealthStatusData}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  dataKey="value"
-                  label
-                  key="oral-health-pie"
-                >
-                  {oralHealthStatusData.map((entry, index) => (
-                    <Cell key={`oral-health-cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip key="oral-health-tooltip" content={<ChartTooltip />} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="grid grid-cols-2 gap-2 mt-4">
-              {oralHealthStatusData.map((item, idx) => (
-                <div key={`oral-health-legend-${idx}`} className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                  <span className="text-xs text-muted-foreground">{item.name}: {item.value}</span>
-                </div>
-              ))}
-            </div>
+            {schoolStudents.length === 0 ? (
+              <NoDataYet message="No students enrolled at this school yet." />
+            ) : (
+              <div className="space-y-2.5">
+                {/* horizontal bars (audit U3) — same idiom as the dentist
+                    dashboard's risk/funnel cards, semantic status colors */}
+                {oralHealthStatusData.map((item) => {
+                  const pct = Math.round((item.value / schoolStudents.length) * 100);
+                  const fits = pct >= 22;
+                  return (
+                    <div key={item.name} className="flex items-center gap-3">
+                      <span className="text-xs text-muted-foreground w-36 shrink-0">{item.name}</span>
+                      <div className="flex-1 bg-muted rounded-md h-7 relative overflow-hidden">
+                        <div className="h-full rounded-md grow-x" style={{ width: `${pct}%`, backgroundColor: item.color }} />
+                        <span
+                          className="absolute inset-y-0 flex items-center text-xs font-bold tabular-nums whitespace-nowrap"
+                          style={fits ? { right: `calc(${100 - pct}% + 8px)`, color: '#FFFFFF' } : { left: `calc(${pct}% + 8px)`, color: 'var(--foreground)' }}
+                        >
+                          {item.value} ({pct}%)
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+                <p className="text-xs text-muted-foreground pt-1">
+                  {schoolStudents.length} student{schoolStudents.length !== 1 ? 's' : ''} enrolled
+                </p>
+              </div>
+            )}
             </ChartBody>
           </div>
         </div>
@@ -1042,9 +1028,9 @@ export const Dashboard = () => {
                 <YAxis allowDecimals={false} tick={{ fontSize: 12 }} key="school-yaxis" />
                 <Tooltip key="school-tooltip" content={<ChartTooltip />} />
                 <Legend wrapperStyle={{ fontSize: 12 }} key="school-legend" />
-                <Bar dataKey="screened" fill={COLORS.blue} name="Screened" key="school-bar-screened" maxBarSize={40} />
-                <Bar dataKey="treated" fill="#15803D" name="Treated" key="school-bar-treated" maxBarSize={40} />
-                <Bar dataKey="highRisk" fill="#DC2626" name="High Risk" key="school-bar-risk" maxBarSize={40} />
+                <Bar dataKey="screened" fill={CHART.brand} name="Screened" key="school-bar-screened" maxBarSize={40} />
+                <Bar dataKey="treated" fill={CHART.success} name="Treated" key="school-bar-treated" maxBarSize={40} />
+                <Bar dataKey="highRisk" fill={CHART.danger} name="High Risk" key="school-bar-risk" maxBarSize={40} />
               </BarChart>
             </ResponsiveContainer>
             </ChartBody>
@@ -1215,7 +1201,7 @@ export const Dashboard = () => {
                 <XAxis dataKey="day" tick={{ fontSize: 12 }} key="login-xaxis" />
                 <YAxis tick={{ fontSize: 12 }} key="login-yaxis" allowDecimals={false} />
                 <Tooltip key="login-tooltip" content={<ChartTooltip />} />
-                <Line type="monotone" dataKey="logins" stroke={COLORS.blue} strokeWidth={2} dot={{ r: 5 }} key="login-line" />
+                <Line type="monotone" dataKey="logins" stroke={CHART.brand} strokeWidth={2} dot={{ r: 5 }} key="login-line" />
               </LineChart>
             </ResponsiveContainer>
             </ChartBody>
@@ -1235,7 +1221,7 @@ export const Dashboard = () => {
                   <XAxis type="number" tick={{ fontSize: 12 }} key="actions-xaxis" allowDecimals={false} />
                   <YAxis dataKey="module" type="category" width={100} tick={{ fontSize: 12 }} key="actions-yaxis" />
                   <Tooltip key="actions-tooltip" content={<ChartTooltip />} />
-                  <Bar dataKey="actions" fill={COLORS.blue} key="actions-bar" />
+                  <Bar dataKey="actions" fill={CHART.brand} key="actions-bar" />
                 </BarChart>
               </ResponsiveContainer>
             )}
