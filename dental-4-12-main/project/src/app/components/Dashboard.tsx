@@ -1,9 +1,7 @@
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router';
 import {
   Users,
   AlertCircle,
-  School as SchoolIcon,
   Calendar,
   Shield,
   Plus,
@@ -14,13 +12,12 @@ import {
   CheckCircle,
   Clock,
   BarChart3,
-  ArrowRight,
-  ArrowLeft
+  ArrowRight
 } from 'lucide-react';
 import { SkeletonBlock } from './Skeleton';
 import { getGradeColor } from '../utils/gradeColors';
 import { CHART, RISK_COLORS } from '../utils/chartColors';
-import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
+import { getSchoolShortName } from '../utils/schoolColors';
 import { toLocalDateString } from '../utils/localDate';
 import { 
   BarChart, 
@@ -47,13 +44,7 @@ import type { ApiUser, ApiTreatment, ApiStudentIptr, ApiAuditTrail, ApiRiskStrat
 import { treatmentCodes } from './DentalChart';
 
 export const Dashboard = () => {
-  const { user, selectedSchool, setSelectedSchool } = useAuth();
-  const navigate = useNavigate();
-
-  const handleSwitchSchool = () => {
-    setSelectedSchool(null);
-    navigate('/select-school');
-  };
+  const { user, selectedSchool } = useAuth();
 
   // Chart colors live in one shared module (Sprint 32 / audit U3) so every
   // screen's charts speak the same semantic color language.
@@ -317,26 +308,11 @@ export const Dashboard = () => {
       </div>
     );
 
-  // School context banner
-  const SchoolBanner = () => {
-    if (!selectedSchool) return null;
-    const sc = getSchoolColor(selectedSchool);
-    return (
-      <div style={{ backgroundColor: sc.light, borderColor: sc.border }} className="flex items-center justify-between px-4 py-3 rounded-xl border-2 mb-2">
-        <div className="flex items-center gap-3">
-          <SchoolIcon style={{ color: sc.solid }} className="w-5 h-5" />
-          <div>
-            <div style={{ color: sc.text }} className="font-bold text-sm">{getSchoolShortName(selectedSchool)}</div>
-            <div className="text-xs text-muted-foreground">Current workspace</div>
-          </div>
-        </div>
-        <button onClick={handleSwitchSchool} className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-card px-3 py-1.5 rounded-lg border border-border hover:border-border transition-colors">
-          <ArrowLeft className="w-3 h-3" />
-          Switch School
-        </button>
-      </div>
-    );
-  };
+  // NOTE: a `SchoolBanner` component used to be defined here and was never
+  // rendered anywhere -- dead code. It was the only mobile-reachable way to
+  // switch schools, which is why switching was impossible on a phone. Sprint 33
+  // put the switcher in the mobile drawer (Root.tsx), so it is removed rather
+  // than wired up; the drawer covers every screen, not just the dashboard.
 
   // ===== DENTIST DASHBOARD =====
   if (user?.role === 'dentist') {
