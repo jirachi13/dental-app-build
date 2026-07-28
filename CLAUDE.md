@@ -112,7 +112,7 @@ Full field-level specs for all 16 models live in **`/docs/DATA-MODEL.md`** — R
 
 **PENDING backlog (each needs approval, sprint loop applies):**
 - Sprint 21a-d (real data) → re-run clean→features→experiments→select once real IPTR files located (only remaining Phase 3 work)
-- Sprint 23 beautify CLOSED 2026-07-12 (23x polish was the last item). Optional leftovers only, each needs approval: chip/banner token pass; Dashboard pies→horizontal bars + centralize per-file COLORS. Audit: `docs/beautify-audit.md`; done list: BUILD-LOG
+- Sprint 23 beautify CLOSED 2026-07-12 (23x polish was the last item). Optional leftovers only, each needs approval: chip/banner token pass; unify chart axis tick fonts (10–12px drift). Audit: `docs/beautify-audit.md`; done list: BUILD-LOG
 - Live TODO (from Sprint 25): no account has 2FA enabled yet — enable per account in Account Management once real staff emails are set
 - User-only items (no sprint): locate real IPTR files; verify DOH form typo spellings (Transfussion/Scalling/Flouride) against paper form
 

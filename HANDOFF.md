@@ -70,7 +70,7 @@ Closes the last two ranked audit items before the final polish pass:
 1. **Sprint 23 beautify — remaining** (ranked audit: `docs/beautify-audit.md`; done list: BUILD-LOG):
    - **Screens-onto-tokens COMPLETE 07-11** (23q PatientList+shared table styles, 23r Appointments, 23s RPCTracking, 23t AccountManagement, 23u Reports incl. DOH printable region, 23v DentalChart — 218 swaps). Post-deploy eyeballs still wanted: one DOH PDF download (html2canvas resolves var()/oklch — should be identical) + general skim. Left literal by design (needs its own chip/banner token pass if ever): status/risk chips, info banners (blue-50/200/700), OCR confidence tints, tooth-palette active states + condition colors, neutral gray-50 hovers. (Root + Dashboard done in 23g; PatientList + shared StudentListTableStyles done in 23q 07-11 — the shared table styles also carried DentalChartList/DentalChartNav/TreatmentRecords table shells onto tokens, so those screens only need their non-table chrome migrated). Established swap list: grays/brand-blue/focus-rings → tokens; status chips, info banners (blue-50/200/700), OCR confidence tints, neutral gray-50 hovers stay literal until a chip/banner pass.
    - ~~X3 per-region loading, X4 state motion~~ DONE as 23w; ~~final `polish` pass~~ DONE as 23x (both 07-12). **Sprint 23 series CLOSED** — only the optional items below remain.
-   - Optional chart polish (from 07-06): the two Dashboard PieCharts → horizontal bars; unify axis tick fonts (10–12px drift); centralize per-file `COLORS` objects.
+   - Optional chart polish (from 07-06): ~~the two Dashboard PieCharts → horizontal bars~~ and ~~centralize per-file `COLORS`~~ both DONE as Sprint 32 (07-12). **Only remaining: unify axis tick fonts (10–12px drift).**
 2. **Other roles' dashboard/layout pass** — NOT small, needs its own scope (dentist dashboard is done; aide/school-admin/BHO/admin still on the old layout; their charts still use the old `COLORS` rainbow).
 3. **Sprint 21a-d re-run on real data** — blocked on the user locating the real IPTR files (see above).
 4. ~~Predictive-analytics dentist-validation UX~~ DONE as Sprint 31 (2026-07-12) — see section above.
@@ -96,6 +96,8 @@ Mostly confirms the build (SDF code, age brackets, RPC window, consent, auto-cou
 - Enable 2FA per account in Account Management once real staff emails are set (no account has it yet).
 - Post-Sprint-26 live smoke (expected fine — seeder already exercised decrypt): Students list renders names; open one chart's medical history.
 - Data quality: students with missing/invalid birthday get age 0 → FastAPI rejects them → can't be risk-assessed until the record is fixed.
+- **Decide: commit `docs/reference/` or not** (2026-07-28). 4 previous-group capstone PDFs, ~27MB, currently UNTRACKED — so they exist on this machine only and will NOT appear on the second device. Left untracked deliberately (other groups' work + repo weight); commit if you want them synced. LIKHA is a Capstone-1 proposal with no Ch4/5 — the other three are the usable references.
+- Capture Figure 4.1.5 (OCR module) by hand — needs a sample IPTR form image; it is the only Chapter 4 figure slot still empty.
 
 ## Live warnings
 - **REPORT PRINT (browser Print) cropped — NOT fixed.** `@media print` `zoom: 0.45` can't fit the 77-col DOH table; rows drop. PDF (single zoomable page) + Excel (real column pagination) already handle this — real options: (a) column-band print CSS (needs live print-preview iteration), or (b) de-emphasize/remove the DOH Print button and point users to PDF/Excel.
