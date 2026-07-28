@@ -9,7 +9,9 @@ import { fileURLToPath } from 'url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..', '..');
-const BASE = 'http://localhost:5173';
+// Defaults to the local dev stack; set BASE_URL to check the deployed site:
+//   BASE_URL=https://dental-app-build.vercel.app node verify_sprint33.mjs
+const BASE = process.env.BASE_URL || 'http://localhost:5173';
 const OUT = join(REPO, 'docs', 'figures', 'sprint33');
 if (!existsSync(OUT)) mkdirSync(OUT, { recursive: true });
 

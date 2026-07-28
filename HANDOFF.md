@@ -18,7 +18,7 @@ Not a sprint (docs only, no code). Read the 4 previous-group manuscripts in `doc
 - Kept as a separate file, NOT appended to `docs/Group404 - Manuscript.md` (7.4MB, mostly base64 images) — merge in when the pending blocks are filled.
 - Housekeeping: subagent left `_scan*.py` scratch files in `docs/reference/` (Windows file-lock blocked deletion); gitignored via `docs/reference/_scan*.py`.
 
-## Sprint 33 (mobile navigation drawer) — DONE 2026-07-28 (tsc both + build clean; 25/25 automated checks at 375px + 1440px)
+## Sprint 33 (mobile navigation drawer) — DONE 2026-07-28, LIVE-VERIFIED on Vercel (tsc both + build clean; 25/25 checks at 375px + 1440px, locally AND against prod)
 `Root.tsx` + `Dashboard.tsx` only. No models, no API, no data changes.
 - **Was**: below `md` the sidebar shrank to a permanently-docked 60px icon rail with every label hidden and the `title` fallback gated on the *desktop* `collapsed` flag — so ten unlabeled glyphs, no tooltip (and `title` doesn't fire on touch regardless). School switcher was `hidden md:flex`, and `Dashboard`'s `SchoolBanner` — the only mobile-reachable switcher — was **dead code, never rendered**, so with `RootLayout` refusing to render without a school a phone user had no route back to `/select-school`.
 - **Now**: `<md` gets a 56px top bar (hamburger + FLORAL + current school) and a 280px off-canvas drawer holding the fully **labeled** nav, school switcher, and user identity. Closes on nav click, backdrop, and Escape. Focus moves into the drawer on open and back to the hamburger on close, Tab is trapped, body scroll locked. `main` is full-width below `md`. **Desktop ≥md unchanged** (verified: 220px sidebar, main offset 220px, no hamburger, collapse toggle still →60px).
@@ -26,7 +26,7 @@ Not a sprint (docs only, no code). Read the 4 previous-group manuscripts in `doc
 - Label visibility pattern (reused for logo text, identity block, Change Password, Logout): `collapsed ? 'block md:hidden' : 'block'` — always visible below md, governed by `collapsed` at md+. Badge variant uses `inline-block`.
 - Offscreen drawer is `invisible` when closed (with `md:visible`) so it stays out of the tab order and a11y tree on mobile without hiding the desktop sidebar.
 - Removed dead `SchoolBanner` from `Dashboard.tsx` plus its now-orphaned imports (`useNavigate`, `ArrowLeft`, `School as SchoolIcon`, `getSchoolColor`) and `handleSwitchSchool`. Drawer covers every screen, not just the dashboard.
-- **Verification is reusable**: `dental-4-12-main/project/verify_sprint33.mjs` — runs the local stack (vite :5173 + `dev:server` :4000), 25 assertions across both breakpoints, screenshots to `docs/figures/sprint33/`. NOT yet live-verified on Vercel (verified locally only).
+- **Verification is reusable**: `dental-4-12-main/project/verify_sprint33.mjs` — 25 assertions across both breakpoints, screenshots to `docs/figures/sprint33/`. Defaults to the local stack (vite :5173 + `dev:server` :4000); pass `BASE_URL=https://dental-app-build.vercel.app` to run it against prod. Both passed 25/25 on 2026-07-28.
 
 ## Chapter 4 figures captured (2026-07-28) → `docs/figures/` (18 PNGs)
 Three reusable capture scripts in `dental-4-12-main/project/`: `capture_figures.mjs` (main walk, all 4 roles), `capture_ml_figures.mjs` (predictive figures — wakes/waits for Render), `capture_export.mjs` (export dropdown). 1440×900 @2×, creds read from `.env`, never printed. **Playwright lives in `dental-4-12-main/project/node_modules`, NOT repo root — scripts must sit and run there.**
