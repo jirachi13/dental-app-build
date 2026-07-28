@@ -9,6 +9,15 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
+## Chapter 4 + 5 draft (2026-07-28) → `docs/chapter4-5-draft.md`
+Not a sprint (docs only, no code). Read the 4 previous-group manuscripts in `docs/reference/` — LinkTech, Ethos, Nocturnal Coders are complete Chap I–V JRU manuscripts; **LIKHA is only a Capstone-1 proposal (no Ch4/5, useless for this)**. All three usable ones share one template: **Ch4 organized per Specific Objective** (not by module name), figures `Figure 4.x.y` as UI screenshots + 1–2 explanatory paragraphs each, ISO 25010 evaluation always LAST as its own SO, then Ch5 = Summary (one para per SO) → Conclusions (numbered, one per SO, each citing a concrete result) → Recommendations (grouped by audience). Draft follows this, mapped onto our 5 SOs (Ch1 line ~115) and 10 beneficiaries from Significance of the Study (Ch1 line ~145).
+- **Prose about what was BUILT is real** (sourced from BUILD-LOG) and safe to use.
+- **Two blocks are `[PENDING]` placeholders on purpose — do NOT let anyone fill them with invented numbers**: (1) §4.3 algo tables still carry the SYNTHETIC dry-run values, format-only, regenerate after 21a-d real-data re-run; (2) §4.5 ISO 25010 tables are empty — the 30-respondent survey has not been administered at all.
+- Draft also flags that Ch3 (line ~474) promises a **pilot test + Cronbach's Alpha instrument reliability check** before the formal evaluation — currently unaccounted for anywhere.
+- Screenshots for all `[SCREENSHOT — …]` figure slots are the one thing that can be done right now with no blockers.
+- Kept as a separate file, NOT appended to `docs/Group404 - Manuscript.md` (7.4MB, mostly base64 images) — merge in when the pending blocks are filled.
+- Housekeeping: subagent left `_scan*.py` scratch files in `docs/reference/` (Windows file-lock blocked deletion); gitignored via `docs/reference/_scan*.py`.
+
 ## Sprint 30 (other roles' dashboards) — DONE 2026-07-12 (tsc both + build clean, pushed, aide view live-verified via screenshot)
 Aide / school-admin / BHO / system-admin dashboards got the dentist-dashboard (23h/23j) layout treatment — Dashboard.tsx only, no data changes: header row with date block + role-appropriate primary CTA (aide → New Appointment `?new=1`; school-admin + BHO → View Reports; admin → Manage Accounts), `space-y-6` rhythm, `.rise` entrance stagger, `[11px]` subtitles under chart h2s. Honest empty states untouched. Aide view confirmed live (CTA + subtitle + date block render); the other three are code-symmetric — skim them when convenient. CLAUDE.md backlog line removed. Closes the last big beautify layout item; remaining beautify after 23w = final polish only.
 
@@ -49,6 +58,7 @@ Closes the last two ranked audit items before the final polish pass:
 4. ~~Predictive-analytics dentist-validation UX~~ DONE as Sprint 31 (2026-07-12) — see section above.
 5. **Dark mode — NICE-TO-HAVE** (build only if time allows before defense). Do it via token migration, NOT scattered `dark:` classes. Safe build order: (1) re-add `.dark` token block (recover via `git show 36902173~1:dental-4-12-main/project/src/styles/theme.css`, retune to brand) + hidden localStorage toggle; (2) migrate surfaces component-by-component (Root → Dashboard → lists → DentalChart → Reports → forms → Login); (3) status/brand colors get explicit `dark:` variants; (4) edge cases — **PDF export + print MUST force LIGHT** (html2canvas captures live DOM), charts onto `--chart-N` tokens, Skeleton/gradeColors/schoolColors; (5) only then expose the toggle. Light stays default (daytime clinic tool).
 6. **Route-level React.lazy** — only if bundle size ever matters (main ~990KB is mostly recharts/react; heavy libs already split).
+7. **Chapter 4 + 5 finalization** (draft: `docs/chapter4-5-draft.md`) — unblocked now: capture the UI screenshots for every `[SCREENSHOT — …]` slot. Blocked: §4.3 numbers (needs 21a-d real-data re-run), §4.5 ISO tables (needs the 30-respondent survey to actually be run), and the Ch3-promised pilot test + Cronbach's Alpha.
 
 ## Sprint 28 (period reports — Treatment Summary made REAL) — DONE 2026-07-11 (tsc both + build clean, pushed)
 From the dentist interview ask (monthly → quarterly → semiannual → annual). Reports.tsx only:

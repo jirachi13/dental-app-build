@@ -30,3 +30,6 @@ backups/
 
 # /impeccable design-hook cache — tooling metadata, not app code
 .impeccable/
+
+# Throwaway PDF-extraction scratch scripts (agent-generated, not app code)
+docs/reference/_scan*.py
