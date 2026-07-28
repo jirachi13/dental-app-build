@@ -15,7 +15,7 @@ Not a sprint (docs only, no code). Read the 4 previous-group manuscripts in `doc
 - **Two blocks are `[PENDING]` placeholders on purpose — do NOT let anyone fill them with invented numbers**: (1) §4.3 algo tables still carry the SYNTHETIC dry-run values, format-only, regenerate after 21a-d real-data re-run; (2) §4.5 ISO 25010 tables are empty — the 30-respondent survey has not been administered at all.
 - Draft also flags that Ch3 (line ~474) promises a **pilot test + Cronbach's Alpha instrument reliability check** before the formal evaluation — currently unaccounted for anywhere.
 - Screenshots for all `[SCREENSHOT — …]` figure slots are the one thing that can be done right now with no blockers.
-- Kept as a separate file, NOT appended to `docs/Group404 - Manuscript.md` (7.4MB, mostly base64 images) — merge in when the pending blocks are filled.
+- **STANDING RULE (user, 2026-07-28): NEVER merge this draft into `docs/Group404 - Manuscript.md`.** `docs/chapter4-5-draft.md` stays a separate file permanently — not "until the pending blocks are filled", not once the ISO/algo numbers land. The user assembles the manuscript themselves. Do not append, inline, or auto-sync Chapter 4/5 into the manuscript file under any circumstance.
 - Housekeeping: subagent left `_scan*.py` scratch files in `docs/reference/` (Windows file-lock blocked deletion); gitignored via `docs/reference/_scan*.py`.
 
 ## Sprint 33 (mobile navigation drawer) — DONE 2026-07-28, LIVE-VERIFIED on Vercel (tsc both + build clean; 25/25 checks at 375px + 1440px, locally AND against prod)

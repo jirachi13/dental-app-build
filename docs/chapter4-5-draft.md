@@ -1,5 +1,11 @@
 # Chapter 4 & 5 — Working Draft
 
+> **DO NOT MERGE THIS INTO THE MANUSCRIPT.** Standing instruction from the user
+> (2026-07-28): this file stays separate from `docs/Group404 - Manuscript.md`
+> permanently — not once the `[PENDING]` blocks are filled, not ever. The user
+> assembles the manuscript themselves. Do not append, inline, or auto-sync
+> Chapter 4/5 into the manuscript file.
+
 > **STATUS NOTICE — read before using this document.**
 > This is a *draft skeleton*, not defense-ready text. Two categories of content are
 > deliberately unfilled, and both are marked inline with `[PENDING]`:
