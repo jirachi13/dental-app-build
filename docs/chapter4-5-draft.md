@@ -60,7 +60,7 @@ than reconciling multiple physical forms.
 
 ### **Figure 4.1.1** *Student Record List with Search and Filter Controls*
 
-`[SCREENSHOT — PatientList view]`
+`docs/figures/fig-4.1.1-student-list.png`
 
 Figure 4.1.1 presents the student record list, which serves as the entry point to
 all patient information. Records are retrieved from the centralized MongoDB
@@ -70,13 +70,27 @@ identifier and filter by school, grade level, and risk level, allowing the singl
 assigned dentist to narrow approximately 8,000 records to a working subset within
 one operation.
 
-### **Figure 4.1.2** *Individual Patient Treatment Record — Personal Details and Medical History*
+### **Figure 4.1.2** *Individual Patient Treatment Record — Medical History, Dietary and Social Habits, and Oral Health Conditions*
 
-`[SCREENSHOT — Patient profile, History tab]`
+`docs/figures/fig-4.1.2-iptr-history-and-oral.png`
 
-Figure 4.1.2 shows the digital IPTR. The form captures the personal details
-previously handwritten on the DOH paper form, together with medical history
-covering known allergies, systemic conditions, and prior hospitalizations.
+Figure 4.1.2 shows the digital IPTR. The record header carries the personal
+details previously handwritten on the DOH paper form — birthday, age, sex,
+address, contact number, PhilHealth number, guardian name, and guardian contact.
+The record is organized into tabs, of which the first, History & Oral, presents
+three sections in a single view: medical history covering systemic conditions,
+hospitalization, transfusion, and allergies; dietary habits and social history
+covering sugar-sweetened beverage intake, tobacco and alcohol use, betel nut
+chewing, nail biting, and thumbsucking; and oral health conditions covering
+gingivitis, periodontal disease, debris, calculus, abnormal growth, and cleft
+lip or palate. Presenting these together mirrors the single-page layout of the
+DOH paper form, so that personnel encoding from the physical document work down
+the screen in the same order they read the page.
+
+The oral health condition fields serve a dual purpose: they document the clinical
+examination, and they supply input variables consumed by the predictive analytics
+module described in Section 4.3.
+
 Sensitive identifying fields — full name, address, contact number, guardian name,
 guardian contact, PhilHealth number, and 4Ps identifier — are encrypted using
 AES-256-CBC with a randomly generated initialization vector per value before they
@@ -85,21 +99,26 @@ underlying database is accessed directly. Non-sensitive fields required for
 querying, such as school identifier, grade level, and archival status, remain
 unencrypted so that filtering and reporting operations remain performant.
 
-### **Figure 4.1.3** *Dietary Habits, Social History, and Oral Health Conditions*
+Records are organized by school year, and the year selector shown above the tabs
+allows the dentist to review a prior year's record without altering it.
 
-`[SCREENSHOT — Patient profile, Oral tab]`
+### **Figure 4.1.3** *Remaining Record Tabs — Consent, Treatment History, and DMFT History*
 
-Figure 4.1.3 presents the dietary habits, social history, and oral health
-condition sections. The oral health condition fields mirror the DOH IPTR form and
-record the presence of dental caries, gingivitis, periodontal disease, debris,
-calculus, abnormal growth, and other findings identified during examination.
-These fields serve a dual purpose: they document the clinical examination, and
-they supply the input variables consumed by the predictive analytics module
-described in Section 4.3.
+`docs/figures/fig-4.1.3a-consent-tab.png`
+`docs/figures/fig-4.1.3b-treatment-history-tab.png`
+`docs/figures/fig-4.1.3c-dmft-history-tab.png`
+
+Figure 4.1.3 presents the remaining tabs of the patient record. The Consent tab
+records parental consent for the dental services enumerated in the clinic's
+existing Parental Consent Form. The Treatment History tab lists the student's
+prior visits and procedures. The DMFT History tab tracks the student's DMF index
+across school years, allowing the dentist to observe whether caries experience is
+increasing, stable, or improving over time. Two further tabs, Referrals and Risk
+Classification, are presented in Sections 4.2 and 4.3 respectively.
 
 ### **Figure 4.1.4** *Digital Dental Chart (Odontogram)*
 
-`[SCREENSHOT — DentalChart view mode]`
+`docs/figures/fig-4.1.4-dental-chart.png` (chart list: `fig-4.1.4a-dental-chart-list.png`)
 
 Figure 4.1.4 shows the digital dental chart, which records the condition of each
 tooth using standard dental notation. The chart opens in view mode by default and
@@ -115,7 +134,9 @@ the history and oral condition sections but cannot alter tooth records.
 
 ### **Figure 4.1.5** *Optical Character Recognition Scanning of Paper IPTR Forms*
 
-`[SCREENSHOT — OCR scan module]`
+`[SCREENSHOT STILL NEEDED — OCR scan module; the capture run could not reach it
+because it opens from within the student-creation flow and needs a sample IPTR
+form image to show a real extraction result. Capture this one by hand.]`
 
 Figure 4.1.5 presents the optical character recognition module, implemented using
 Tesseract.js, which accepts a photographed or scanned DOH IPTR paper form and
@@ -143,7 +164,7 @@ the format in which the source records are held at each clinic.
 
 ### **Figure 4.2.1** *Appointment Scheduling and Monitoring Module*
 
-`[SCREENSHOT — Appointments view]`
+`docs/figures/fig-4.2.1-appointments.png`
 
 Figure 4.2.1 shows the appointment scheduling module. Appointments are created
 against a student record and carry a scheduled date, purpose, attending
@@ -156,7 +177,7 @@ Consent Form for School Dental Health Services.
 
 ### **Figure 4.2.2** *Individual Treatment Record Entry*
 
-`[SCREENSHOT — Treatment entry]`
+`docs/figures/fig-4.2.2-treatment-records.png`
 
 Figure 4.2.2 presents treatment record entry. Each clinical visit is logged with
 the date, chief complaint, diagnosis, treatment performed, and attending dentist,
@@ -168,7 +189,7 @@ ensuring that encryption is applied consistently on every write.
 
 ### **Figure 4.2.3** *Routine Preventive Care Two-Visit Tracking*
 
-`[SCREENSHOT — RPC Tracking view]`
+`docs/figures/fig-4.2.3-rpc-tracking.png`
 
 Figure 4.2.3 shows the Routine Preventive Care monitoring module, which tracks
 the two-visit preventive care process mandated by the DOH School Dental Health
@@ -183,7 +204,7 @@ prompting the personnel to confirm the entry.
 
 ### **Figure 4.2.4** *Audit Trail*
 
-`[SCREENSHOT — Audit trail view]`
+`docs/figures/fig-4.2.4-audit-trail.png`
 
 Figure 4.2.4 presents the audit trail. Every addition, modification, and archival
 performed by any user across the three school sites is recorded with the acting
@@ -202,7 +223,7 @@ while still allowing erroneous entries to be withdrawn from active use.
 
 ### **Figure 4.2.5** *Role-Based Access Control and Account Management*
 
-`[SCREENSHOT — Account Management view]`
+`docs/figures/fig-4.2.5-account-management.png`
 
 Figure 4.2.5 shows account management. The system implements five roles — System
 Administrator, Dentist, Dental Aide, School Administrator, and Barangay Health
@@ -367,7 +388,7 @@ the application is aware of which algorithm is in use.
 
 ### **Figure 4.3.4** *Risk Stratification Interface*
 
-`[SCREENSHOT — AIAnalytics view]`
+`docs/figures/fig-4.3.4-risk-classification.png`
 
 Figure 4.3.4 presents the risk classification interface. The dentist may generate
 a risk assessment for an individual student or queue a batch of students for
@@ -376,7 +397,7 @@ factors, and a corresponding treatment recommendation.
 
 ### **Figure 4.3.5** *Dentist Validation of Recommendations*
 
-`[SCREENSHOT — validation form with pre-filled editable fields]`
+`docs/figures/fig-4.3.5-dentist-validation.png`
 
 Figure 4.3.5 shows the validation step. The predicted risk level and recommended
 treatment pre-fill editable fields rather than being presented as fixed output,
@@ -409,7 +430,7 @@ presenting a failure.
 
 ### **Figure 4.4.1** *Dentist Dashboard*
 
-`[SCREENSHOT — Dashboard, dentist role]`
+`docs/figures/fig-4.4.1-dashboard-dentist.png`
 
 Figure 4.4.1 presents the dentist dashboard. Summary indicators report the total
 student population under care, the distribution of risk classifications, the
@@ -420,7 +441,7 @@ no indicator on the dashboard displays a placeholder or sample value.
 
 ### **Figure 4.4.2** *Role-Specific Dashboard Views*
 
-`[SCREENSHOT — Dashboard, school administrator and Barangay Health Office roles]`
+`docs/figures/fig-4.4.2a-dashboard-school-admin.png` + `fig-4.4.2b-dashboard-bho.png`
 
 Figure 4.4.2 shows the dashboard as presented to the School Administrator and
 Barangay Health Office Staff roles. School Administrators view aggregate dental
@@ -431,7 +452,7 @@ purposes.
 
 ### **Figure 4.4.3** *Routine Preventive Care Progress and Procedure Distribution*
 
-`[SCREENSHOT — RPC funnel and procedures charts]`
+(crop the RPC funnel and procedures regions from `docs/figures/fig-4.4.1-dashboard-dentist.png`)
 
 Figure 4.4.3 presents the Routine Preventive Care completion funnel and the
 distribution of procedures performed. The funnel reports how many students have
@@ -441,7 +462,7 @@ twice-yearly mandate.
 
 ### **Figure 4.4.4** *DOH-Aligned Report Generation*
 
-`[SCREENSHOT — Reports view]`
+`docs/figures/fig-4.4.4-reports.png`
 
 Figure 4.4.4 shows the report generation module. The system produces the School
 Oral Health Status and Service Report and the Consolidated Report for submission
@@ -454,7 +475,7 @@ prior period.
 
 ### **Figure 4.4.5** *Report Export Formats*
 
-`[SCREENSHOT — export dropdown / exported document]`
+`docs/figures/fig-4.4.5-export-menu.png` (Reports' own PDF/Excel controls: `fig-4.4.5b-reports-download-controls.png`)
 
 Figure 4.4.5 presents the export facility. Reports and record lists may be
 exported in comma-separated value and Excel formats, and the Consolidated Report
@@ -834,10 +855,55 @@ established in this study.
 
 ---
 
+## Figure Capture Status (2026-07-28)
+
+18 figures captured from the live deployment at 1440×900, 2× scale, into
+`docs/figures/`. Reproduce with `node capture_figures.mjs` from
+`dental-4-12-main/project/` (plus `capture_ml_figures.mjs` and
+`capture_export.mjs`). Credentials are read from `.env`; nothing is printed.
+
+**Three things the capture run corrected in this draft:**
+
+1. **Medical history and oral conditions are ONE screen, not two.** The record's
+   first tab is literally "History & Oral" and contains medical history, dietary
+   and social habits, and oral health conditions together. The original 4.1.2 /
+   4.1.3 split described a UI that does not exist; they are now one figure.
+2. **The record has more tabs than the draft assumed** — Consent, Treatment
+   History, DMFT History, Referrals, and Risk Classification. Consent, Treatment
+   History and DMFT History are now Figure 4.1.3; Referrals and Risk
+   Classification still need placing in Sections 4.2 and 4.3.
+3. **The predictive figures needed a second run.** The first attempt caught the
+   Render ML service asleep, producing an amber "prediction service isn't
+   responding" banner over an empty panel. Wake the service before capturing:
+   `curl https://floral-ml-service.onrender.com/health`.
+
+**Two honesty issues visible IN the captured images — decide before submitting:**
+
+- **The synthetic-data banner is in shot.** `fig-4.3.5-dentist-validation.png`
+  clearly shows: *"The current model (Logistic Regression) was trained on
+  synthetic placeholder data — predictions are for demonstration and pipeline
+  testing only until it is retrained on real IPTR records."* This is the app
+  being honest and it is correct behaviour, but it means the figure openly
+  declares the Section 4.3 limitation. Either keep it (and let the text own the
+  limitation) or re-capture after the real-data retrain. Do NOT edit the banner
+  out of the image.
+- **The figures show demo data, not production scale.** The live database holds
+  roughly six seeded students, so counts read 0 High / 2 Medium / 3 Low and the
+  Treatment Summary totals are zero. Chapter 1 describes ~8,000 student records.
+  A panel will notice. Either state in the figure captions that these are
+  demonstration records, or re-capture after real records are encoded.
+
+**Still to capture by hand:** the OCR scan module (Figure 4.1.5) — it opens from
+inside the student-creation flow and needs a sample IPTR form image to show a
+real extraction.
+
+---
+
 ## Drafting Notes (delete before submission)
 
 **Immediately actionable now:**
-- Capture all `[SCREENSHOT — …]` figures from the deployed application.
+- Capture Figure 4.1.5 (OCR) by hand; all other figures are captured.
+- Place the Referrals and Risk Classification record tabs into Sections 4.2/4.3.
 - Confirm figure and table numbering continues correctly from Chapter 3, which
   ends at Table 3.4 and Figure 3.9. This draft begins at Table 4.1 and uses a
   section-based figure scheme (Figure 4.1.1, 4.2.1, …) matching the reference
