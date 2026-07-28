@@ -18,6 +18,17 @@ Not a sprint (docs only, no code). Read the 4 previous-group manuscripts in `doc
 - **STANDING RULE (user, 2026-07-28): NEVER merge this draft into `docs/Group404 - Manuscript.md`.** `docs/chapter4-5-draft.md` stays a separate file permanently — not "until the pending blocks are filled", not once the ISO/algo numbers land. The user assembles the manuscript themselves. Do not append, inline, or auto-sync Chapter 4/5 into the manuscript file under any circumstance.
 - Housekeeping: subagent left `_scan*.py` scratch files in `docs/reference/` (Windows file-lock blocked deletion); gitignored via `docs/reference/_scan*.py`.
 
+## DESIGN.md created + PRODUCT.md softened (2026-07-28) — prep for the dashboard redesign
+Derived via `/impeccable document` (per CLAUDE.md: DESIGN.md is RE-DERIVED, never hand-edited — re-run that command after any material design change).
+- **North Star = "The Clinical Ledger"** (user's pick): the DOH paper form made fast and trustworthy — ruled lines, ordered columns, official blue used sparingly. Drives every ambiguous call.
+- **PRODUCT.md hero-metric ban SOFTENED (user decision).** Decorative hero-metrics (big number + gradient + supporting stats) stay banned; **one** hero *reading* per surface is now allowed where it carries clinical meaning against a **named threshold** (DMFT vs WHO 3.0; RPC compliance vs the school-year deadline) and shows that threshold. Scale must be earned by meaning. Corollary written in: four equal-weight count tiles in a row is the absence of hierarchy, and is why the dashboard reads generic.
+- Also updated PRODUCT.md's context-of-use to reflect Sprint 33 (phone is now fully usable, was "primarily desktop/tablet").
+- **Two real findings the scan surfaced, both documented as rules in DESIGN.md:**
+  - **Dead tokens in `theme.css`** — `--chart-1..5` (superseded by `chartColors.ts`), the whole `--sidebar-*` family, `--popover*`, `--secondary*`, `--switch-background`, `--input-background` are declared but consumed by NO screen (grepped `src/app`, 0 hits). Figma-prototype residue. Optional cleanup sprint; harmless but misleading to anyone reading the theme.
+  - **Two different reds** — `--destructive` `#D4183D` (prototype crimson) vs `CHART.danger` `#DC2626` (semantic status red), both live. Close enough to look like a bug. New work uses `#DC2626`; don't add a third.
+- **`.impeccable/design.json` sidecar was written but is GITIGNORED** (`.gitignore:32` `.impeccable/`) — so it does NOT sync to the second device. It is fully regenerable via `/impeccable document`, so this is probably fine; un-ignore it only if you want it versioned.
+- Skill update available: installed Impeccable v3.9.0, latest v4.0.2 (`npx impeccable update` — applies next session). Not run.
+
 ## Sprint 33 (mobile navigation drawer) — DONE 2026-07-28, LIVE-VERIFIED on Vercel (tsc both + build clean; 25/25 checks at 375px + 1440px, locally AND against prod)
 `Root.tsx` + `Dashboard.tsx` only. No models, no API, no data changes.
 - **Was**: below `md` the sidebar shrank to a permanently-docked 60px icon rail with every label hidden and the `title` fallback gated on the *desktop* `collapsed` flag — so ten unlabeled glyphs, no tooltip (and `title` doesn't fire on touch regardless). School switcher was `hidden md:flex`, and `Dashboard`'s `SchoolBanner` — the only mobile-reachable switcher — was **dead code, never rendered**, so with `RootLayout` refusing to render without a school a phone user had no route back to `/select-school`.

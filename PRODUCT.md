@@ -18,7 +18,7 @@ Internal clinical + administrative staff at the Barangay Tanyag (Taguig City) sc
 - **School Administrator** — school-scoped reports and dashboards only (no clinical records).
 - **Barangay Health Office Staff** — consolidated cross-school reports for City Health Office submission.
 
-Context of use: office/clinic lighting during working hours, primarily desktop/tablet (installable PWA, works offline), often by non-technical and older staff. The job is fast, accurate record work — encode/lookup a student, chart, schedule, track RPC visits, generate a DOH report.
+Context of use: office/clinic lighting during working hours, primarily desktop/tablet but fully usable on a phone since Sprint 33 (installable PWA, works offline), often by non-technical and older staff. The job is fast, accurate record work — encode/lookup a student, chart, schedule, track RPC visits, generate a DOH report.
 
 ## Product Purpose
 
@@ -30,7 +30,9 @@ FLORAL — a Dental Health Record Management System with Predictive Analytics (u
 
 ## Anti-references
 
-*(inferred — adjust)* Should NOT look like a flashy consumer SaaS or marketing site: no gradient text, no hero-metric dashboards, no glassmorphism, no playful/gamified health-app styling, no decorative motion. Familiarity and restraint are features here — surprise is a liability in a clinical tool.
+*(inferred — adjust)* Should NOT look like a flashy consumer SaaS or marketing site: no gradient text, no glassmorphism, no playful/gamified health-app styling, no decorative motion. Familiarity and restraint are features here — surprise is a liability in a clinical tool.
+
+**On hero metrics (softened 2026-07-28).** The *decorative* hero-metric template — big number, small label, supporting stats, gradient accent — remains banned; it is the SaaS cliché. But **one** hero *reading* is permitted per surface where it carries genuine clinical meaning against a named threshold: a DMFT index against the WHO benchmark of 3.0, preventive-care compliance against the school-year deadline. It must answer a question a dentist actually asks, and it must show the threshold it is measured against. Scale is earned by clinical meaning, never used to make a screen look designed. Corollary: four equal-weight count tiles in a row is not restraint, it is the absence of hierarchy — it is why the dashboard currently reads like every other capstone project.
 
 ## Design Principles
 
