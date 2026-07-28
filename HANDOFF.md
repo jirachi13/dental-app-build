@@ -18,14 +18,20 @@ Not a sprint (docs only, no code). Read the 4 previous-group manuscripts in `doc
 - **STANDING RULE (user, 2026-07-28): NEVER merge this draft into `docs/Group404 - Manuscript.md`.** `docs/chapter4-5-draft.md` stays a separate file permanently — not "until the pending blocks are filled", not once the ISO/algo numbers land. The user assembles the manuscript themselves. Do not append, inline, or auto-sync Chapter 4/5 into the manuscript file under any circumstance.
 - Housekeeping: subagent left `_scan*.py` scratch files in `docs/reference/` (Windows file-lock blocked deletion); gitignored via `docs/reference/_scan*.py`.
 
+## Token cleanup (2026-07-28) — dead tokens deleted + the two reds unified (tsc both + build clean)
+`src/styles/theme.css` only. No component changes, no logic.
+- **Deleted ~23 dead tokens** (declared, consumed by zero screens — Figma-prototype residue): `--chart-1..5`, the whole `--sidebar-*` family (8), `--popover*`, `--secondary*`, `--accent*`, `--card-foreground`, `--destructive-foreground`, `--switch-background`, `--input-background`, plus their `@theme inline` `--color-*` mappings. **Method: grepped `src/` + `index.html` for every corresponding utility class (`bg-sidebar`, `text-accent`, …) and confirmed 0 hits before deleting.** Beware false positives when re-checking: `secondaryCell` (a `studentListTableStyles` property) and `sidebarCollapsed` (a localStorage key) match a naive grep for "secondary"/"sidebar" but are unrelated to the tokens.
+- **Two reds unified**: `--destructive` was `#d4183d` (prototype crimson), now `#DC2626` to match `CHART.danger` in `chartColors.ts`. This is a REAL visual change — it repaints ~35 `text-destructive` usages (Logout, destructive buttons, error text). Keep the two in step if either ever moves.
+- `--input: transparent` was KEPT — not verified as dead, and low-risk to leave.
+- DESIGN.md rules updated to match: "The Two Reds Debt" → **The One Red Rule**; "The Dead Token Rule" → **The No-Dead-Tokens Rule** (a token added must be consumed). Do's/Don'ts updated too.
+- `.impeccable/design.json` NOT updated (gitignored + regenerable) — re-run `/impeccable document` if you want the sidecar consistent.
+
 ## DESIGN.md created + PRODUCT.md softened (2026-07-28) — prep for the dashboard redesign
 Derived via `/impeccable document` (per CLAUDE.md: DESIGN.md is RE-DERIVED, never hand-edited — re-run that command after any material design change).
 - **North Star = "The Clinical Ledger"** (user's pick): the DOH paper form made fast and trustworthy — ruled lines, ordered columns, official blue used sparingly. Drives every ambiguous call.
 - **PRODUCT.md hero-metric ban SOFTENED (user decision).** Decorative hero-metrics (big number + gradient + supporting stats) stay banned; **one** hero *reading* per surface is now allowed where it carries clinical meaning against a **named threshold** (DMFT vs WHO 3.0; RPC compliance vs the school-year deadline) and shows that threshold. Scale must be earned by meaning. Corollary written in: four equal-weight count tiles in a row is the absence of hierarchy, and is why the dashboard reads generic.
 - Also updated PRODUCT.md's context-of-use to reflect Sprint 33 (phone is now fully usable, was "primarily desktop/tablet").
-- **Two real findings the scan surfaced, both documented as rules in DESIGN.md:**
-  - **Dead tokens in `theme.css`** — `--chart-1..5` (superseded by `chartColors.ts`), the whole `--sidebar-*` family, `--popover*`, `--secondary*`, `--switch-background`, `--input-background` are declared but consumed by NO screen (grepped `src/app`, 0 hits). Figma-prototype residue. Optional cleanup sprint; harmless but misleading to anyone reading the theme.
-  - **Two different reds** — `--destructive` `#D4183D` (prototype crimson) vs `CHART.danger` `#DC2626` (semantic status red), both live. Close enough to look like a bug. New work uses `#DC2626`; don't add a third.
+- **Two findings the scan surfaced — BOTH FIXED same day, see the token-cleanup section below.**
 - **`.impeccable/design.json` sidecar was written but is GITIGNORED** (`.gitignore:32` `.impeccable/`) — so it does NOT sync to the second device. It is fully regenerable via `/impeccable document`, so this is probably fine; un-ignore it only if you want it versioned.
 - Skill update available: installed Impeccable v3.9.0, latest v4.0.2 (`npx impeccable update` — applies next session). Not run.
 

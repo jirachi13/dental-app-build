@@ -223,17 +223,21 @@ never means "emphasis". A user must be able to learn the three colors once, on
 one screen, and be correct everywhere else forever. All chart color comes from
 `src/app/utils/chartColors.ts` — charts never invent their own hues.
 
-**The Two Reds Debt.** The system currently contains two different reds:
-`--destructive` (`#D4183D`, a crimson inherited from the original Figma
-prototype) and Alert Red (`#DC2626`, the semantic status red). They are close
-enough to look like a rendering bug and far enough apart to be visible when
-adjacent. New work uses Alert Red. Do not introduce a third.
+**The One Red Rule.** There is exactly one red: Alert Red (`#DC2626`).
+`--destructive` and `CHART.danger` now hold the same value and must be kept in
+step. The system previously carried a second, near-identical crimson
+(`#D4183D`) inherited from the Figma prototype — close enough to look like a
+rendering bug, far enough apart to be visible when adjacent. It was removed on
+2026-07-28. Never reintroduce a second red.
 
-**The Dead Token Rule.** `theme.css` still declares tokens no screen consumes:
-`--chart-1` through `--chart-5` (a leftover rainbow, fully superseded by
-`chartColors.ts`), the entire `--sidebar-*` family, `--popover*`, `--secondary*`,
-`--switch-background`, and `--input-background`. They are Figma-prototype
-residue, not part of this system. Never build against them.
+**The No-Dead-Tokens Rule.** `theme.css` contains only tokens that screens
+actually consume. Roughly twenty-three prototype leftovers — `--chart-1` through
+`--chart-5` (a rainbow fully superseded by `chartColors.ts`), the entire
+`--sidebar-*` family, `--popover*`, `--secondary*`, `--accent*`,
+`--card-foreground`, `--destructive-foreground`, `--switch-background`, and
+`--input-background` — were deleted on 2026-07-28 after grepping every
+corresponding utility class and finding zero uses. The theme file is meant to be
+readable as the actual system: if a token is added, a screen must use it.
 
 ## 3. Typography
 
@@ -479,11 +483,11 @@ model only assists.
   Four equal-weight tiles in a row is the most templated pattern in existence and
   is precisely why the dashboard currently reads as generic.
 - **Don't** nest a card inside a card.
-- **Don't** build against the dead tokens — `--chart-1` through `--chart-5`, the
-  `--sidebar-*` family, `--popover*`, `--secondary*`, `--switch-background`,
-  `--input-background`. They are prototype residue that no screen consumes.
-- **Don't** introduce a third red, and prefer Alert Red (`#DC2626`) over the
-  legacy `--destructive` crimson (`#D4183D`) in new work.
+- **Don't** add a token to `theme.css` that no screen consumes. The prototype
+  leftovers were deleted on 2026-07-28; the file is now readable as the real
+  system and should stay that way.
+- **Don't** introduce a second red. Alert Red (`#DC2626`) is the only one, and
+  `--destructive` must stay in step with `CHART.danger`.
 - **Don't** ship a solid red destructive button. Destructive actions are red text
   on white with a confirmation step.
 - **Don't** rely on `title` tooltips to name anything on a touch surface, and
