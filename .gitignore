@@ -33,3 +33,6 @@ backups/
 
 # Throwaway PDF-extraction scratch scripts (agent-generated, not app code)
 docs/reference/_scan*.py
+
+# Word exports generated from the .md sources — regenerate, don't commit binaries
+docs/*.docx
