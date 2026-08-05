@@ -233,6 +233,13 @@ export const Dashboard = () => {
     'text-destructive': { chip: 'bg-danger-surface text-destructive', val: 'text-destructive', foot: 'text-destructive font-semibold' },
     'text-success': { chip: 'bg-success-surface text-success', val: 'text-success', foot: 'text-muted-foreground' },
     'text-cyan-600': { chip: 'bg-cyan-50 text-cyan-700', val: 'text-foreground', foot: 'text-muted-foreground' },
+    // Watch Amber (--warning). Call sites used to pass `text-yellow-600`, which
+    // had no entry here and silently fell through to the blue default — the code
+    // said yellow, the screen said blue. Repointed to the token rather than
+    // adding a raw yellow-600 key, per DESIGN.md's status vocabulary. The value
+    // stays foreground-colored (like text-cyan-600, unlike the destructive /
+    // success alarm tiles) because one of these tiles renders a date, not a count.
+    'text-warning': { chip: 'bg-warning-surface text-warning', val: 'text-foreground', foot: 'text-muted-foreground' },
   };
   // `loading` (Sprint 23w / audit X3): the tile shell + icon + label render
   // immediately; only the value pulses until this tile's own data source
@@ -633,7 +640,7 @@ export const Dashboard = () => {
             icon={FileText}
             label="Pending Charts"
             value={String(pendingChartsCount)}
-            color="text-yellow-600"
+            color="text-warning"
             trend="to complete"
             linkTo="/dental-charts"
             loading={studentsLoading || extraLoading}
@@ -780,7 +787,7 @@ export const Dashboard = () => {
             icon={Calendar}
             label="Upcoming Visits"
             value={nextUpcomingSession ? nextUpcomingSession.date : 'None scheduled'}
-            color="text-yellow-600"
+            color="text-warning"
             linkTo="/appointments"
             loading={appointmentsLoading}
           />
