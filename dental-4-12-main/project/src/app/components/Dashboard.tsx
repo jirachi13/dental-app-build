@@ -259,7 +259,18 @@ export const Dashboard = () => {
         {loading ? (
           <SkeletonBlock className="h-[30px] w-16" />
         ) : (
-          <p className={`text-3xl font-extrabold leading-none tracking-tight tabular-nums ${style.val}`}>{value}</p>
+          // A few tiles legitimately carry prose instead of a figure ("None
+          // scheduled"). Rendering a sentence at stat-value size makes it shout
+          // louder than the real numbers beside it, so prose steps down to the
+          // Title role (18px/600). Detected rather than passed as a prop so no
+          // call site can forget it. Anything starting with a digit stays a
+          // figure — that deliberately keeps "17%", "2 of 3", and the ISO date
+          // at full size, since those ARE the reading.
+          <p className={
+            /^\d/.test(String(value).trim())
+              ? `text-3xl font-extrabold leading-none tracking-tight tabular-nums ${style.val}`
+              : `text-lg font-semibold leading-snug ${style.val}`
+          }>{value}</p>
         )}
         <p className="text-xs text-muted-foreground font-medium mt-1.5">{label}</p>
         {!loading && trend && (
