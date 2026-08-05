@@ -15,7 +15,7 @@ Capstone Thesis — Build Phase — Group 404 — AY 2025-2026
 - **DESIGN.md** (root, for /impeccable — not created yet) = visual system. Keep in sync by RE-DERIVING via `/impeccable document` when the design system materially changes, not by hand-editing.
 - Every ~5 sprints, do a CLAUDE.md hygiene pass: delete superseded lines, compress resolved sagas to one-liners, verify build-phase status markers.
 
-## MODEL STRATEGY (superseded 2026-07-04 → OPUS-ONLY)
+## MODEL STRATEGY (updated 2026-07-10 → Fable available again)
 - Fable is available again (2026-07-10). Split by task: **Fable = judgment** (scoping, plan mode, reviews, risky work), **Opus/Sonnet = execute written plans and light work** — premium capacity on light work is waste.
 - Leave a precise plan in HANDOFF (or a plan-mode plan file) before executing, so any session/model can execute without re-deriving intent.
 
@@ -110,13 +110,7 @@ Full field-level specs for all 16 models live in **`/docs/DATA-MODEL.md`** — R
 
 **Phase 3 — Algo (BUILD DONE on synthetic data; re-run against REAL data BLOCKED — see Predictive Analytics above):** full 21a–21g task breakdown is authoritative in **`/docs/phase3-sprint-prompts.md`** — read it before any Phase 3 work; each sub-sprint needs approval before the next. Chapter 4: state that real IPTR records (after cleaning) were the training data — stronger than synthetic.
 
-**PENDING backlog (each needs approval, sprint loop applies):**
-- Sprint 21a-d (real data) → re-run clean→features→experiments→select once real IPTR files located (only remaining Phase 3 work)
-- Sprint 23 beautify CLOSED 2026-07-12 (23x polish was the last item). Optional leftovers only, each needs approval: chip/banner token pass; unify chart axis tick fonts (10–12px drift). Audit: `docs/beautify-audit.md`; done list: BUILD-LOG
-- Live TODO (from Sprint 25): no account has 2FA enabled yet — enable per account in Account Management once real staff emails are set
-- User-only items (no sprint): locate real IPTR files; verify DOH form typo spellings (Transfussion/Scalling/Flouride) against paper form
-
-**Before Defense:** encode real IPTR paper records to CSV, replace synthetic dataset, re-run algo experiments, update Chapter 4 results; ISO 25010:2023 evaluation (30 respondents, 5-point Likert, weighted mean); final ZAP scan.
+**PENDING backlog + Before-Defense checklist:** authoritative in HANDOFF.md (`## Open work`, `## User-only items`, `## Live warnings`) — state belongs there per DOC ROLES above. Each item needs approval; sprint loop applies.
 
 ## SPRINT LOOP (every session)
 - **Two local dev devices in use.** Git-tracked files sync only via push/pull — never assume HANDOFF is current without pulling. Per-device (NOT synced): `.env`, `data/` Excel files, `.claude/settings.local.json`, Claude auto-memory, and machine quirks (Node 24 DNS workaround applies to one machine only).

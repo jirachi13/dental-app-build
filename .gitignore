@@ -31,6 +31,16 @@ backups/
 # /impeccable design-hook cache — tooling metadata, not app code
 .impeccable/
 
+# Vendored /impeccable skill (~195 files across both copies) — per-machine
+# tooling, reinstall it rather than syncing it. NOTE: .codex/hooks.json points
+# at .agents/skills/impeccable/scripts/hook.mjs, so that hook no-ops on a
+# machine where the skill isn't installed.
+.claude/skills/
+.agents/skills/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
 # Throwaway PDF-extraction scratch scripts (agent-generated, not app code)
 docs/reference/_scan*.py
 
