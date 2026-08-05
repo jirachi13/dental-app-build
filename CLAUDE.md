@@ -12,7 +12,8 @@ Capstone Thesis — Build Phase — Group 404 — AY 2025-2026
 - **CLAUDE.md** = rules/specs/decisions that constrain every session. Self-improves by REPLACEMENT: when a decision supersedes a line, rewrite/delete it the same turn — never just append. Injected into every session, so bloat here taxes everything.
 - **HANDOFF.md** = state journal (what happened, current status). All narrative goes here, never into CLAUDE.md.
 - **PRODUCT.md** (root, for /impeccable) = stable design identity. Update only on a genuine strategic pivot; a churning PRODUCT.md is noise.
-- **DESIGN.md** (root, for /impeccable — not created yet) = visual system. Keep in sync by RE-DERIVING via `/impeccable document` when the design system materially changes, not by hand-editing.
+- **DESIGN.md** (root, for /impeccable — created 2026-07-28) = visual system. Keep in sync by RE-DERIVING via `/impeccable document` when the design system materially changes, not by hand-editing.
+- **`/docs/technology-documentation.md`** = VERIFIED SNAPSHOT of platforms/services/libraries and where each surfaces in the app. Every entry was confirmed by locating a real `import` — never list a library because it appears in `package.json`. Re-run that import audit after any dependency change and once before defense; a stale snapshot here misrepresents the build in Chapter 4.
 - Every ~5 sprints, do a CLAUDE.md hygiene pass: delete superseded lines, compress resolved sagas to one-liners, verify build-phase status markers.
 
 ## MODEL STRATEGY (updated 2026-07-10 → Fable available again)

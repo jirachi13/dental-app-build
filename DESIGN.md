@@ -17,7 +17,6 @@ colors:
   watch-amber-surface: "#FFFBEB"
   alert-red: "#DC2626"
   alert-red-surface: "#FEF2F2"
-  destructive-crimson: "#D4183D"
   survey-teal: "#0D9488"
   survey-orange: "#EA580C"
   unassessed-gray: "#9CA3AF"
