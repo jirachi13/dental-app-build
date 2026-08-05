@@ -111,6 +111,8 @@ Closes the last two ranked audit items before the final polish pass:
 6. **Route-level React.lazy** — only if bundle size ever matters (main ~990KB is mostly recharts/react; heavy libs already split).
 7. **Chapter 4 + 5 finalization** (draft: `docs/chapter4-5-draft.md`) — 18 figures CAPTURED 2026-07-28 into `docs/figures/`. Still open: Fig 4.1.5 (OCR) by hand; place the Referrals + Risk Classification record tabs into §4.2/§4.3; decide the two honesty calls (synthetic-data banner visible in fig-4.3.5; figures show ~6 demo students vs Ch1's ~8,000). Blocked: §4.3 numbers (needs 21a-d real-data re-run), §4.5 ISO tables (needs the 30-respondent survey), and the Ch3-promised pilot test + Cronbach's Alpha.
 8. ~~Sprint 33 — mobile navigation drawer~~ **DONE 2026-07-28** — see section below.
+9. **Optional: enforce the session-start `git pull` with a SessionStart hook** (raised 2026-08-05, not decided). Today it is an instruction in CLAUDE.md + auto-memory, so a session that skips it is not mechanically blocked. `.claude/settings.json` is now git-tracked, so a hook added there applies on BOTH devices. Small change; only worth it if a stale-HANDOFF collision actually bites.
+10. **Optional: delete `dental-4-12-main/project/default_shadcn_theme.css`** (raised 2026-08-05, not approved). Dead Figma-prototype residue — grep shows zero imports, and it is the last place the retired `#d4183d` crimson still appears.
 
 ## Sprint 28 (period reports — Treatment Summary made REAL) — DONE 2026-07-11 (tsc both + build clean, pushed)
 From the dentist interview ask (monthly → quarterly → semiannual → annual). Reports.tsx only:
