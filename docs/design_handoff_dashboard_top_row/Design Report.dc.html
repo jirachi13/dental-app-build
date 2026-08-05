@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet" />
+<script src="./doc-page.js"></script>
+<style>
+  doc-page:not(:defined) { visibility:hidden; }
+  html, body { margin:0; padding:0; }
+  body { font-family:'Public Sans', system-ui, -apple-system, sans-serif; -webkit-font-smoothing:antialiased; }
+  a { color:#1E40AF; }
+  a:hover { color:#1D4ED8; }
+</style>
+</helmet>
+
+<doc-page margin="0.85in">
+  <div slot="footer" style="display:flex;justify-content:space-between;align-items:baseline;font-size:9.5pt;color:#717182;padding-top:8px;border-top:1px solid rgba(0,0,0,0.1)">
+    <span>FLORAL · Dashboard redesign · Group 404</span>
+    <span>Prepared 5 August 2026</span>
+  </div>
+
+  <h1 style="font-size:26pt;font-weight:700;line-height:1.2;margin:0 0 6px;color:oklch(0.145 0 0)">Redesigning the FLORAL dashboard</h1>
+  <p style="font-size:12.5pt;color:#717182;margin:0 0 4px;line-height:1.5">A design report on the dentist and school-administrator dashboards of FLORAL — Dental Health Record Management System with Predictive Analytics.</p>
+  <p style="font-size:10.5pt;color:#717182;margin:0 0 26px;line-height:1.5">Source: <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">jirachi13/dental-app-build</span> @ main · <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">dental-4-12-main/project/src</span></p>
+
+  <h2 style="font-size:14pt;font-weight:700;margin:0 0 8px;color:oklch(0.145 0 0)">The brief</h2>
+  <p style="font-size:11.5pt;line-height:1.65;margin:0 0 12px">The dashboard was to look more clearly like an AI-assisted system, and to stop resembling the dashboards other capstone groups had built. The specific complaint was the four counter boxes that greet the user on arrival: <em>"four box the immediately show on dashboard, other groups have that, i dont want that."</em></p>
+  <p style="font-size:11.5pt;line-height:1.65;margin:0 0 22px">That instinct is already written into the project's own design system. <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">DESIGN.md</span> states that four equal-weight tiles in a row <em>"is not restraint, it is the absence of hierarchy — it is why the dashboard currently reads like every other capstone project."</em> The redesign is therefore not a departure from the system; it is the system being obeyed.</p>
+
+  <h2 style="font-size:14pt;font-weight:700;margin:0 0 8px;color:oklch(0.145 0 0)">Method</h2>
+  <p style="font-size:11.5pt;line-height:1.65;margin:0 0 10px">Nothing was designed from memory of what a dental dashboard looks like. The sequence was:</p>
+  <ol style="font-size:11.5pt;line-height:1.65;margin:0 0 12px;padding-left:22px">
+    <li style="margin-bottom:5px">Read the repository's own governing documents — <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">README.md</span>, <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">PRODUCT.md</span>, <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">DESIGN.md</span>.</li>
+    <li style="margin-bottom:5px">Read the code that renders the screens: <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">Dashboard.tsx</span> (all role branches), <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">Root.tsx</span> (the page shell and sidebar), <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">theme.css</span>, <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">chartColors.ts</span>, <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">schoolColors.ts</span>, <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">Notice.tsx</span>, <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">ChartTooltip.tsx</span>.</li>
+    <li style="margin-bottom:5px">Read the manuscript figures for the real rendered values: the dentist dashboard, school-admin dashboard, and risk-classification screens.</li>
+    <li style="margin-bottom:5px">Recreate the existing screens faithfully, then design on top of the recreation rather than beside it.</li>
+  </ol>
+  <p style="font-size:11.5pt;line-height:1.65;margin:0 0 22px">Icon geometry was lifted from <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">lucide-icons/lucide</span> — the same icon set <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">Root.tsx</span> imports — so no glyph is an approximation.</p>
+
+  <h2 style="font-size:14pt;font-weight:700;margin:0 0 8px;color:oklch(0.145 0 0)">Findings</h2>
+
+  <h3 style="font-size:12pt;font-weight:600;margin:0 0 6px;color:oklch(0.145 0 0)">1. The four tiles are a hierarchy problem, not a styling problem</h3>
+  <p style="font-size:11.5pt;line-height:1.65;margin:0 0 14px">Total Patients (6), Today's Appointments (0), High-Risk Patients (0) and RPC Completion Rate (17%) are given identical visual weight: same card, same 30px number, same 36px icon chip. Three of the four are answers the dentist does not need at a glance, and two of them are zero. The one figure that carries a clinical obligation — 17% preventive-care completion, with a student 77 days overdue — is buried in the fourth position at the same size as a count of zero. Restyling the boxes cannot fix that; only re-weighting them can.</p>
+
+  <h3 style="font-size:12pt;font-weight:600;margin:0 0 6px;color:oklch(0.145 0 0)">2. The system already licenses exactly one hero reading</h3>
+  <p style="font-size:11.5pt;line-height:1.65;margin:0 0 14px"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">PRODUCT.md</span> bans decorative hero metrics but permits <strong style="font-weight:600">one</strong> hero reading per surface where it carries genuine clinical meaning measured against a named threshold — a DMFT index against the WHO benchmark of 3.0, or preventive-care compliance against the school-year deadline. Since no monthly DMFT snapshots exist yet, RPC compliance is the only reading currently available that satisfies the rule. It became the hero in two of the three options.</p>
+
+  <h3 style="font-size:12pt;font-weight:600;margin:0 0 6px;color:oklch(0.145 0 0)">3. The AI is invisible on the screen that should show it</h3>
+  <p style="font-size:11.5pt;line-height:1.65;margin:0 0 14px">The model's real output — a Medium classification at 70.9% confidence, with Gingivitis, Calculus and Debris as top contributing factors — lives entirely on the Risk Classification page. The dashboard reports only a validated-risk tally. The predictive module is the thesis contribution, and the landing screen does not evidence it. Every option surfaces model standing (assessments validated, awaiting assessment, worsening, improving) and carries the synthetic-training-data disclaimer, so the "AI-assisted, not a diagnosis" gate is visible from the first screen.</p>
+
+  <h3 style="font-size:12pt;font-weight:600;margin:0 0 6px;color:oklch(0.145 0 0)">4. Half the dashboard is honestly empty, and that is a design constraint</h3>
+  <p style="font-size:11.5pt;line-height:1.65;margin:0 0 14px">Oral Health Trend, Procedures Performed and Validated Risk Assessments all render truthful empty states, because no monthly snapshots, tooth-record treatment codes or in-window validations exist yet. <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">DESIGN.md</span> forbids fabricating a plausible number to fill them. So the redesign had to make a six-student, mostly-empty dataset read as deliberate rather than unfinished — which argues for fewer, larger, more meaningful surfaces, not more charts.</p>
+
+  <h3 style="font-size:12pt;font-weight:600;margin:0 0 6px;color:oklch(0.145 0 0)">5. A second red and a set of stray tokens</h3>
+  <p style="font-size:11.5pt;line-height:1.65;margin:0 0 22px">Worth noting for the manuscript: the system enumerates its whole palette and enforces one red, one blue and a three-tier status vocabulary. Two observations from the recreation. First, the School Admin dashboard's "Upcoming Visits" card passes <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">color="text-yellow-600"</span>, but <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">STAT_CHIP</span> has no key for it, so the tile silently renders in the blue fallback — the code says yellow and the screen says blue. Second, that card's value is the string "None scheduled" rendered at 30px extrabold in a slot designed for a number, which is why it visually shouts louder than the figures beside it.</p>
+
+  <h2 style="font-size:14pt;font-weight:700;margin:0 0 8px;color:oklch(0.145 0 0)">What was produced</h2>
+  <table style="width:100%;border-collapse:collapse;font-size:10.5pt;margin:0 0 22px">
+    <thead>
+      <tr style="background:#ECECF0">
+        <th style="text-align:left;padding:8px 10px;font-weight:600;border:1px solid rgba(0,0,0,0.12)">File</th>
+        <th style="text-align:left;padding:8px 10px;font-weight:600;border:1px solid rgba(0,0,0,0.12)">What it is</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding:8px 10px;border:1px solid rgba(0,0,0,0.12);vertical-align:top">Dentist Dashboard (current)</td>
+        <td style="padding:8px 10px;border:1px solid rgba(0,0,0,0.12);vertical-align:top">Faithful recreation of the shipped screen, built from <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9pt">Dashboard.tsx</span>, <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9pt">Root.tsx</span> and <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9pt">theme.css</span>. The baseline for a before/after figure.</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 10px;border:1px solid rgba(0,0,0,0.12);vertical-align:top">School Admin Dashboard (current)</td>
+        <td style="padding:8px 10px;border:1px solid rgba(0,0,0,0.12);vertical-align:top">The same, for the school-administrator role, including the 83% screening-coverage ring and the four-status oral-health breakdown.</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 10px;border:1px solid rgba(0,0,0,0.12);vertical-align:top">Dashboard Redesign</td>
+        <td style="padding:8px 10px;border:1px solid rgba(0,0,0,0.12);vertical-align:top">Six design directions across two rounds, side by side on one canvas. Filters, row selection and hover states are live.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2 style="font-size:14pt;font-weight:700;margin:0 0 8px;color:oklch(0.145 0 0)">Round one — whole-dashboard directions</h2>
+  <p style="font-size:11.5pt;line-height:1.65;margin:0 0 12px">The first round asked what the dashboard would be if the tile row were removed entirely.</p>
+  <p style="font-size:11.5pt;line-height:1.65;margin:0 0 8px"><strong style="font-weight:600">1a · Attention Queue.</strong> The worklist becomes the dashboard. Students are ordered by overdue days then risk tier, and the model panel — confidence distribution, contributing factors, the real IPTR feature row, and the validation gate — sits beside the student it is describing. This is the direction that most visibly evidences the predictive module.</p>
+  <p style="font-size:11.5pt;line-height:1.65;margin:0 0 8px"><strong style="font-weight:600">1b · One Reading.</strong> A single hero reading (17% against the end-of-school-year target, with the threshold marked on the track), then a filterable cohort ledger explaining it.</p>
+  <p style="font-size:11.5pt;line-height:1.65;margin:0 0 22px"><strong style="font-weight:600">1c · Cohort Grid.</strong> Counts become a ruled ledger column rather than tiles; the cohort becomes a hoverable grid of students banded by risk tier, alongside a model-versus-dentist agreement strip.</p>
+
+  <h2 style="font-size:14pt;font-weight:700;margin:0 0 8px;color:oklch(0.145 0 0)">Round two — the top row only</h2>
+  <p style="font-size:11.5pt;line-height:1.65;margin:0 0 12px">Round one moved individual student records onto the landing screen, which is not what the dashboard is for. Round two therefore holds the existing dashboard exactly as it is and changes only the strip between the page title and the charts — no student list, no per-student panel.</p>
+  <p style="font-size:11.5pt;line-height:1.65;margin:0 0 8px"><strong style="font-weight:600">2a · One reading, three figures.</strong> RPC compliance takes the scale and the threshold marker; patients, appointments and high-risk report in as a small ruled column beside it. Same information, real hierarchy.</p>
+  <p style="font-size:11.5pt;line-height:1.65;margin:0 0 8px"><strong style="font-weight:600">2b · Standing line.</strong> No cards at all. The clinic's standing is written as one sentence with the figures set inside it, followed by three quiet navigation links. The most distinct from other groups' work, and the most dependent on good copy.</p>
+  <p style="font-size:11.5pt;line-height:1.65;margin:0 0 22px"><strong style="font-weight:600">2c · Ruled ledger band.</strong> The same footprint as today, but one white band with ruled columns, weighted so the figure needing action reads first. The lowest-risk change to implement.</p>
+
+  <h2 style="font-size:14pt;font-weight:700;margin:0 0 8px;color:oklch(0.145 0 0)">Constraints held throughout</h2>
+  <ul style="font-size:11.5pt;line-height:1.65;margin:0 0 22px;padding-left:22px">
+    <li style="margin-bottom:5px">Every figure is a real seeded value read from the app's own screens. No number was invented, and empty states were left empty.</li>
+    <li style="margin-bottom:5px">One blue (<span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">#1E40AF</span>) for primary action, selection and state; one red (<span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">#DC2626</span>); green, amber and red keep their fixed clinical meanings.</li>
+    <li style="margin-bottom:5px">Structure drawn with 1px rule lines and tonal fills; no shadows except where an element genuinely occludes content.</li>
+    <li style="margin-bottom:5px">Public Sans throughout, at fixed rem steps; hierarchy built from weight before size.</li>
+    <li style="margin-bottom:5px">No pie or donut charts introduced. No gradients, no glassmorphism, no decorative motion, light theme only.</li>
+    <li style="margin-bottom:5px">Every predictive output is framed as a proposal, with the synthetic-training-data disclaimer attached.</li>
+  </ul>
+
+  <h2 style="font-size:14pt;font-weight:700;margin:0 0 8px;color:oklch(0.145 0 0)">Recommendation and open items</h2>
+  <p style="font-size:11.5pt;line-height:1.65;margin:0 0 12px">For the defense, <strong style="font-weight:600">2a</strong> is the recommended change: it removes the templated tile row, earns its hero reading against a named threshold, keeps every figure the current screen reports, and is a contained edit to one block of <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">Dashboard.tsx</span>. If the panel is likely to ask what the AI contributes to the landing screen, pair 2a's top row with 1a's model-standing panel in place of one of the empty chart cards.</p>
+  <p style="font-size:11.5pt;line-height:1.65;margin:0 0 6px">Still open:</p>
+  <ul style="font-size:11.5pt;line-height:1.65;margin:0 0 12px;padding-left:22px">
+    <li style="margin-bottom:5px">The Barangay Health Office dashboard branch has not been recreated — its source was truncated on read.</li>
+    <li style="margin-bottom:5px">The <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">text-yellow-600</span> / <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5pt">STAT_CHIP</span> mismatch is a live inconsistency in the codebase, not a design decision.</li>
+    <li style="margin-bottom:5px">Once monthly DMFT snapshots accumulate, mean DMFT against the WHO benchmark of 3.0 becomes the stronger hero reading and should replace RPC compliance.</li>
+    <li style="margin-bottom:5px">The deployed model is still trained on synthetic data; the confidence figures shown are real model output but not yet clinically meaningful.</li>
+  </ul>
+</doc-page>
+
+</x-dc>
+</body>
+</html>
