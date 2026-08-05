@@ -20,6 +20,9 @@ colors:
   survey-teal: "#0D9488"
   survey-orange: "#EA580C"
   unassessed-gray: "#9CA3AF"
+  funnel-mid: "#4E74D6"
+  funnel-pale: "#9DB2EC"
+  funnel-ink: "#26355C"
 typography:
   headline:
     fontFamily: "'Public Sans Variable', system-ui, -apple-system, sans-serif"
@@ -169,6 +172,23 @@ drifts.
 - **Filed Blue** (`#EFF6FF`): The pale institutional wash. Navigation hover,
   selected rows, informational banners, the current-school indicator, and
   secondary-button hover. This is how the system says "this one" without shouting.
+
+### Primary — the funnel depth ramp
+
+Nested-subset funnels (the RPC Two-Visit Funnel: enrolled → Visit 1 done →
+both visits done) step down a single blue rather than changing hue. Each bar is
+a subset of the one above it, and one hue at deepening lightness says "same
+measure, later stage". Three different hues would imply category or status
+meaning the stages do not carry.
+
+- **Funnel Mid** (`#4E74D6`): The middle stage. White label.
+- **Funnel Pale** (`#9DB2EC`): The final, narrowest stage. Too pale for white
+  text, so it takes Funnel Ink.
+- **Funnel Ink** (`#26355C`): Label color on Funnel Pale only.
+
+These sit between the Official Blue tonal-ramp steps because they were tuned
+against the label sitting on each bar, not sampled from the ramp. They live in
+`chartColors.ts` as `FUNNEL_RAMP` — never re-typed into a component.
 
 ### Secondary
 

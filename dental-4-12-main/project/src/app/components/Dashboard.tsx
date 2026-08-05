@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { SkeletonBlock } from './Skeleton';
 import { getGradeColor } from '../utils/gradeColors';
-import { CHART, RISK_COLORS } from '../utils/chartColors';
+import { CHART, RISK_COLORS, FUNNEL_RAMP } from '../utils/chartColors';
 import { getSchoolShortName } from '../utils/schoolColors';
 import { toLocalDateString } from '../utils/localDate';
 import { 
@@ -475,9 +475,9 @@ export const Dashboard = () => {
                     darkest = widest. Count sits inside the bar when it fits,
                     beside it in ink when the bar is too short. */}
                 {[
-                  { label: 'Enrolled', value: scopedRpc.length, color: '#1E40AF', ink: '#FFFFFF' },
-                  { label: 'Visit 1 completed', value: scopedRpc.filter((r) => r.visit1Status === 'Completed').length, color: '#4E74D6', ink: '#FFFFFF' },
-                  { label: 'Both visits completed', value: scopedRpc.filter((r) => r.visit2Status === 'Completed').length, color: '#9DB2EC', ink: '#26355C' },
+                  { label: 'Enrolled', value: scopedRpc.length, ...FUNNEL_RAMP[0] },
+                  { label: 'Visit 1 completed', value: scopedRpc.filter((r) => r.visit1Status === 'Completed').length, ...FUNNEL_RAMP[1] },
+                  { label: 'Both visits completed', value: scopedRpc.filter((r) => r.visit2Status === 'Completed').length, ...FUNNEL_RAMP[2] },
                 ].map((step) => {
                   const pct = Math.round((step.value / scopedRpc.length) * 100);
                   const fits = pct >= 22;

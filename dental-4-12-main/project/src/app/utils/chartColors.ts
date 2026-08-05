@@ -19,3 +19,17 @@ export const RISK_COLORS = {
   medium: CHART.warning,
   high: CHART.danger,
 } as const;
+
+// Single-hue depth ramp for nested-subset funnels (the RPC Two-Visit Funnel):
+// one measure at deepening stages, darkest = widest. The single hue is
+// deliberate — three DIFFERENT hues would imply category or status meaning the
+// stages don't carry, and green/amber/red are reserved for clinical status
+// (DESIGN.md, The Fixed Meaning Rule). These sit between the official-blue
+// tonal-ramp steps because they were tuned against the label that sits on each
+// bar: `ink` is the text color for that step, dark on the palest one where
+// white would fail contrast. Lived inline in Dashboard.tsx until 2026-08-06.
+export const FUNNEL_RAMP = [
+  { color: CHART.brand, ink: '#FFFFFF' },
+  { color: '#4E74D6', ink: '#FFFFFF' },
+  { color: '#9DB2EC', ink: '#26355C' },
+] as const;
