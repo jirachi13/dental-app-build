@@ -12,8 +12,6 @@ import { apiClient, ApiError } from '../api/client';
 import { useToast } from './Toast';
 import { Modal } from './Modal';
 
-// Fallback logo — replace with actual Barangay Tanyag logo file
-const logoImage = null;
 
 export const Root = () => {
   const { user, logout, selectedSchool, setSelectedSchool } = useAuth();
@@ -282,13 +280,7 @@ export const Root = () => {
             {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
           </button>
           <div className="flex items-center gap-3">
-            {logoImage ? (
-              <img src={logoImage} alt="Barangay Tanyag" className="w-8 h-8 md:w-10 md:h-10 object-contain flex-shrink-0" />
-            ) : (
-              <div className="w-8 h-8 md:w-10 md:h-10 bg-[#E31E24] rounded-full flex items-center justify-center flex-shrink-0">
-                <span className="text-white font-bold text-xs">BT</span>
-              </div>
-            )}
+            <img src="/logo.svg" alt="FLORAL" className="w-8 h-8 md:w-10 md:h-10 object-contain flex-shrink-0" />
             <div className={labelCls}>
               <div className="text-lg font-bold text-primary">FLORAL</div>
               <div className="text-xs text-muted-foreground leading-tight">Dental Health Record Management System</div>

@@ -4,8 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, Eye, EyeOff, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { apiClient, ApiError } from '../api/client';
 import { Notice } from './Notice';
-// Logo placeholder — replace with actual Barangay Tanyag logo file
-const logoImage = null;
 
 type Step = 'credentials' | 'otp' | 'forgot' | 'forgot-sent';
 
@@ -96,13 +94,7 @@ export const Login = () => {
         {/* Logo and Title */}
         <div className="text-center mb-4">
           <div className="flex justify-center mb-2">
-            {logoImage ? (
-              <img src={logoImage} alt="Barangay Tanyag" className="w-14 h-14 object-contain" />
-            ) : (
-              <div className="w-14 h-14 bg-[#E31E24] rounded-full flex items-center justify-center mx-auto">
-                <span className="text-white font-bold text-lg">BT</span>
-              </div>
-            )}
+            <img src="/logo.svg" alt="FLORAL" className="w-14 h-14 object-contain" />
           </div>
           <h1 className="text-2xl font-bold text-[#1E40AF] mb-1">FLORAL</h1>
           <p className="text-sm text-gray-600">Dental Health Record Management System</p>
