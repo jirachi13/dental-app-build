@@ -15,7 +15,7 @@
   --primary-foreground: oklch(1 0 0);
   --muted: #ececf0;
   --muted-foreground: #717182;
-  --destructive: #DC2626;        /* the one red — keep in step with CHART.danger */
+  --destructive: #DC2626;
   /* Semantic state vocabulary (Sprint 23g). Each state = a solid color for
      text/icon/border on white, plus a light `-surface` fill for banners,
      tints, and selected rows. Replaces ad-hoc blue-50/green-700/amber-* etc.
