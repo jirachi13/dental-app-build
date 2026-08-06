@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:host": "vite --host",
     "build": "vite build",
     "dev:server": "tsx watch server/local.ts",
     "seed:admin": "tsx server/scripts/seedAdmin.ts",

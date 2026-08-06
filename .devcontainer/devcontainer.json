@@ -1,0 +1,32 @@
+{
+  "name": "FLORAL frontend",
+
+  // Matches the Node 24 both local dev machines run, so a Codespace can't
+  // diverge from what the team actually builds against.
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-24-bookworm",
+
+  // The app is nested two levels down. Opening the container straight into
+  // it means terminals land where package.json is, instead of at the repo
+  // root where `npm install` would fail.
+  "workspaceFolder": "/workspaces/dental-app-build/dental-4-12-main/project",
+
+  "postCreateCommand": "npm install",
+
+  "forwardPorts": [5173, 4000],
+  "portsAttributes": {
+    "5173": {
+      "label": "Vite dev server",
+      "onAutoForward": "openBrowser"
+    },
+    "4000": {
+      "label": "Express API (only if running npm run dev:server)",
+      "onAutoForward": "silent"
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": ["bradlc.vscode-tailwindcss"]
+    }
+  }
+}
