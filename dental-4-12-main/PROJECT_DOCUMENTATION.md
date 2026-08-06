@@ -144,7 +144,7 @@ Browser (React SPA)
 | Tool | Purpose |
 |------|---------|
 | **Vite** | Bundler / dev server |
-| **Netlify** | Hosting and continuous deployment |
+| **Vercel** | Hosting and continuous deployment |
 | **TypeScript** | Static type checking (0 errors at build time) |
 
 ### Design System
@@ -433,8 +433,8 @@ dental-4-12/
 │   ├── package.json             # Dependencies
 │   ├── vite.config.ts           # Vite configuration
 │   ├── tsconfig.json            # TypeScript configuration
-│   └── postcss.config.mjs       # PostCSS / Tailwind config
-├── netlify.toml                 # Netlify deployment config
+│   ├── postcss.config.mjs       # PostCSS / Tailwind config
+│   └── vercel.json              # Vercel routing / rewrites
 └── PROJECT_DOCUMENTATION.md    # This file
 ```
 
@@ -444,16 +444,14 @@ dental-4-12/
 
 ### Prerequisites
 
-- **Node.js** v18 or higher
-- **pnpm** (recommended) or npm
+- **Node.js** v24 (what both dev machines and the Codespace run)
+- **npm** — the committed lockfile is `package-lock.json`
 
 ### Install Dependencies
 
 ```bash
 cd project
 npm install
-# or
-pnpm install
 ```
 
 ### Run Development Server
@@ -461,8 +459,6 @@ pnpm install
 ```bash
 cd project
 npm run dev
-# or
-pnpm dev
 ```
 
 Open `http://localhost:5173` in your browser.
@@ -480,10 +476,12 @@ The production build output is placed in `project/dist/`.
 
 ## 11. Deployment
 
-The project is deployed on **Netlify**. The `netlify.toml` at the repository root configures:
-- Build command: `npm run build` (from the `project` directory)
-- Publish directory: `project/dist`
-- SPA redirect: all routes redirect to `index.html` for client-side routing
+The project is deployed on **Vercel**. `project/vercel.json` configures:
+- API rewrite: `/api/*` routes to the serverless handler at `project/api`
+- SPA rewrite: all non-API routes fall through to `index.html` for client-side routing
+
+The build command (`npm run build`) and output directory (`project/dist`) are set in the
+Vercel project settings rather than in the repository.
 
 ---
 
