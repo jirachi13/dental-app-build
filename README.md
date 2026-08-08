@@ -106,6 +106,7 @@ npx vercel --prod
 
 ## Project docs
 
+- `docs/ARCHITECTURE.md` — folder map, MVC request flow, the crudFactory pattern, full API surface, conventions
 - `CLAUDE.md` — build rules, ERD, sprint plan (Phases 1-4), model strategy
 - `HANDOFF.md` — full build journal: every sprint's decisions, bugs found, and verification notes
 - `docs/Group404 - Manuscript.md` — thesis manuscript (Chapters 1 & 3 drive the spec)
