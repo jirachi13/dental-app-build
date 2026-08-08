@@ -3,7 +3,10 @@
 
   // Matches the Node 24 both local dev machines run, so a Codespace can't
   // diverge from what the team actually builds against.
-  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-24-bookworm",
+  // Tag verified against mcr.microsoft.com's tag list 2026-08-08. There is no
+  // "1-24-*" tag — the "1-" image-version prefix only pairs with older Node
+  // lines. Check the registry before changing this.
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:24-bookworm",
 
   // The app is nested two levels down. Opening the container straight into
   // it means terminals land where package.json is, instead of at the repo
