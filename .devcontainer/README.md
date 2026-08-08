@@ -6,11 +6,15 @@ For a collaborator doing UI work with **no local setup** — no Node, no MongoDB
 
 1. On the repo page: **Code → Codespaces → Create codespace on main**.
 2. Wait for `npm install` to finish (first build ~2–3 min).
-3. Run:
+3. Move into the app folder and run it:
 
    ```bash
+   cd dental-4-12-main/project
    npm run dev:host
    ```
+
+   The `cd` is required — the terminal opens at the repo root despite the
+   `workspaceFolder` setting, and there is no `package.json` there.
 
 4. Click the forwarded **5173** link when it pops up.
 
