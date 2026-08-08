@@ -90,24 +90,35 @@ To design, develop, and evaluate FLORAL, a Dental Health Record Management Syste
 - Predictive analytics functions as a clinical decision-support tool only — does not replace the professional judgment of the dentist
 - Standalone platform with no integration to national government databases
 - No computer vision–based caries detection, biometric authentication, or tele-dentistry
-- No real-time backend yet (current prototype uses mock data)
 - Accuracy of the predictive module depends on completeness and correctness of historical data
-- SMS notifications are UI-only (require backend integration to function)
+- No SMS notifications — transactional email only (Brevo), used for password reset and 2FA
+- Browser Print of the 77-column DOH report is cropped; PDF and Excel export are the supported paths
 
 ---
 
 ## 4. System Architecture
 
-The system is a single-page web application (SPA) following a client-side architecture:
+Three tiers: a React PWA, an Express/MongoDB backend, and a separate Python ML service.
 
 ```
-Browser (React SPA)
+Browser (React PWA)
+    │  React Router v7 (role-protected routes) · AuthContext · Tailwind v4 + Radix
+    │  Service Worker + IndexedDB — offline queue, FIFO sync
     │
-    ├── React Router v7 — Client-side routing with role-based route protection
-    ├── AuthContext — Global authentication and school-selection state
-    ├── Component Layer — Feature modules (Dashboard, Patients, Charts, etc.)
-    └── UI Layer — shadcn/ui (Radix UI) + Tailwind CSS v4
+    │  fetch('/api/…')   JWT in an httpOnly cookie
+    ▼
+Express (MVC)  —  Vercel serverless function via api/index.ts
+    │  middleware (requireAuth, requireRole) → routes → controllers → Mongoose models
+    │  audit trail written on every data change; sensitive fields encrypted at rest
+    ▼
+MongoDB Atlas
+    │
+    └── Express is the ONLY caller of ▶ Python ML service (FastAPI, Render)
+                                        predictor.py → active/model.pkl
 ```
+
+Full folder map, request flow, and the complete API surface:
+[`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md).
 
 ### Data Flow (Input–Process–Output)
 
@@ -138,6 +149,35 @@ Browser (React SPA)
 | **React Day Picker** | 8.10.1 | Calendar component |
 | **motion** | 12.23.24 | Animation |
 | **sonner** | 2.0.3 | Toast notifications |
+| **vite-plugin-pwa / Workbox** | 1.2.0 | PWA install, service worker, offline caching |
+| **Tesseract.js** | 7.x | OCR of paper DOH IPTR forms |
+| **exceljs · jsPDF · html2canvas-pro** | — | Excel and PDF report export |
+
+### Backend
+
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| **Node.js** | 24 | Runtime |
+| **Express** | 4.22.2 | HTTP server, MVC structure |
+| **Mongoose** | 8.24.1 | MongoDB ODM, schema validation |
+| **jsonwebtoken** | 9.0.2 | JWT auth (access + refresh, httpOnly cookies) |
+| **bcryptjs** | 2.4.3 | Password hashing |
+| **mongoose-field-encryption** | 7.0.1 | AES-256-CBC encryption of sensitive patient fields |
+| **helmet · express-rate-limit** | 8.x | Security headers, brute-force protection on auth |
+| **Brevo** (HTTP API) | — | Transactional email: password reset, 2FA codes |
+
+### Database
+
+| Technology | Purpose |
+|------------|---------|
+| **MongoDB Atlas (M0)** | Cloud database, 17 collections — see [`../docs/DATA-MODEL.md`](../docs/DATA-MODEL.md) |
+
+### Machine Learning
+
+| Technology | Purpose |
+|------------|---------|
+| **Python + FastAPI** | ML service, hosted on Render |
+| **scikit-learn · pandas · numpy · XGBoost** | Five algorithms compared: Logistic Regression, Decision Tree, Random Forest, SVM, XGBoost |
 
 ### Build & Deployment
 
@@ -151,11 +191,13 @@ Browser (React SPA)
 
 | Color | Hex | Usage |
 |-------|-----|-------|
-| Primary Red | `#E31E24` | Critical alerts, high-risk badges, branding |
+| Alert Red | `#DC2626` | Critical alerts, high-risk badges — **the only red in the system** |
 | Primary Blue | `#1E40AF` | Navigation, primary buttons, active states |
-| Yellow | `#FBBF24` | Warnings, medium-risk badges, highlights |
-| Cyan | `#06B6D4` | Info badges, secondary accents |
-| Green | `#16A34A` | Success, low-risk, orally fit status |
+| Watch Amber | `#B45309` | Warnings, medium risk, pending / deadline approaching |
+| Fit Green | `#15803D` | Success, low risk, orally fit status |
+
+Authoritative source: [`../DESIGN.md`](../DESIGN.md). Colors are consumed as design
+tokens (`theme.css`), never as literal hex values in components.
 
 ---
 
@@ -169,15 +211,11 @@ Browser (React SPA)
 | **Barangay Health Office** | Aggregate reports and statistics (no individual patient access) |
 | **System Admin** | Account management and audit trail only (no clinical data) |
 
-### Test Credentials (Prototype)
+### Demo accounts
 
-| Role | Email | Password |
-|------|-------|---------|
-| Dentist | `dentist@floral.ph` | `dentist123` |
-| Dental Aide | `aide@floral.ph` | `aide123` |
-| School Admin | `school@floral.ph` | `school123` |
-| Barangay Health | `barangay@floral.ph` | `barangay123` |
-| System Admin | `admin@floral.ph` | `admin123` |
+Demo logins are `admin`, `dentist`, `aide`, `schooladmin`, and `bho` at **`@floral.com`**.
+Passwords have been rotated and live only in `.env` (`SEED_*`) — they are deliberately not
+documented here. Accounts are created by `npm run seed:admin` / `seed:demo`.
 
 ---
 
@@ -185,10 +223,12 @@ Browser (React SPA)
 
 ### 7.1 Login (`/login`)
 
-- Email and password authentication
+- Email and password authentication (bcrypt; JWT access + refresh in httpOnly cookies)
+- Optional two-factor authentication via emailed one-time code
+- Forgot-password / reset flow by emailed link
+- Rate limiting on login, OTP, and reset endpoints
 - Role auto-detection and route redirection
-- Demo quick-login buttons (prototype)
-- FLORAL branding with Barangay Tanyag logo
+- FLORAL branding and logo
 - Fully mobile responsive
 
 ---
@@ -400,42 +440,38 @@ Implements the DOH **Individual Patient Treatment Record (IPTR)** standard:
 
 ## 9. Project Structure
 
+Summarised below. The authoritative map — including the backend, the ML service, and the
+request flow — is [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md).
+
 ```
-dental-4-12/
-├── project/                     # Main application
+dental-4-12-main/
+├── project/
 │   ├── src/
 │   │   ├── app/
-│   │   │   ├── components/      # Feature components
-│   │   │   │   ├── AIAnalytics.tsx        (~870 lines)
-│   │   │   │   ├── AccountManagement.tsx
-│   │   │   │   ├── Appointments.tsx       (~585 lines)
-│   │   │   │   ├── AuditTrail.tsx
-│   │   │   │   ├── Dashboard.tsx
-│   │   │   │   ├── DentalChart.tsx        (~800 lines)
-│   │   │   │   ├── DentalChartList.tsx
-│   │   │   │   ├── DentalChartNav.tsx
-│   │   │   │   ├── FollowUpAlerts.tsx
-│   │   │   │   ├── Login.tsx
-│   │   │   │   ├── PatientList.tsx        (~754 lines)
-│   │   │   │   ├── PatientProfile.tsx     (~620 lines)
-│   │   │   │   ├── RPCTracking.tsx
-│   │   │   │   ├── Reports.tsx            (~500 lines)
-│   │   │   │   ├── Root.tsx               (layout + route guard)
-│   │   │   │   ├── TreatmentLog.tsx
-│   │   │   │   └── TreatmentRecords.tsx   (~170 lines)
-│   │   │   ├── context/         # React context (Auth, School)
-│   │   │   └── utils/           # Helper functions
-│   │   ├── imports/             # Shared imports / re-exports
-│   │   ├── styles/              # Global CSS + print styles
-│   │   └── main.tsx             # Application entry point
-│   ├── public/                  # Static assets
-│   ├── index.html               # HTML shell
-│   ├── package.json             # Dependencies
-│   ├── vite.config.ts           # Vite configuration
-│   ├── tsconfig.json            # TypeScript configuration
-│   ├── postcss.config.mjs       # PostCSS / Tailwind config
-│   └── vercel.json              # Vercel routing / rewrites
-└── PROJECT_DOCUMENTATION.md    # This file
+│   │   │   ├── components/      # screens + UI (Dashboard, DentalChart, PatientList,
+│   │   │   │                    #   Reports, Appointments, RPCTracking, AIAnalytics,
+│   │   │   │                    #   AccountManagement, AuditTrail, Login, Root, …)
+│   │   │   ├── api/             # fetch wrappers calling /api/*
+│   │   │   ├── hooks/           # data hooks (useStudents, …)
+│   │   │   ├── context/         # auth + school-selection state
+│   │   │   ├── offline/         # IndexedDB queue, background sync
+│   │   │   ├── utils/           # chartColors.ts, iptrOcr.ts, helpers
+│   │   │   ├── App.tsx
+│   │   │   └── routes.tsx       # client-side route table
+│   │   ├── imports/             # shared re-exports
+│   │   ├── styles/              # theme.css design tokens + print styles
+│   │   ├── main.tsx             # application entry point
+│   │   └── sw.ts                # service worker (PWA / offline)
+│   ├── server/                  # Express backend (MVC)
+│   │   ├── routes/ controllers/ models/ middleware/ utils/ config/ scripts/
+│   ├── api/index.ts             # Vercel serverless entry (re-exports server/app)
+│   ├── public/                  # static assets (logo, icons, manifest)
+│   ├── vite.config.ts · tsconfig*.json · postcss.config.mjs · vercel.json
+│   └── index.html
+└── PROJECT_DOCUMENTATION.md     # this file
+
+../ml-service/                   # Python FastAPI ML service (separate deploy target)
+    main.py · predictor.py · config.py · algorithms/ · pipeline/ · experiments/ · active/
 ```
 
 ---
@@ -508,15 +544,16 @@ The system is evaluated against **ISO 25010:2023** across six quality characteri
 | Dashboard (all roles) | ✅ Fully Compliant |
 | Patient Records | ✅ Fully Compliant |
 | Digital Dental Chart (IPTR) | ✅ Fully Compliant |
-| Appointments | ⚠️ Partial (conflict checking and Bayanihan event mode pending) |
+| Appointments | ✅ Fully Compliant |
 | RPC Tracking | ✅ Fully Compliant |
-| AI Analytics | ✅ Fully Compliant |
-| Follow-Up Alerts | ⚠️ Partial (SMS backend not implemented) |
-| Reports (DOH + Internal) | ✅ Fully Compliant |
+| Predictive Analytics | ⚠️ Pipeline complete; model trained on synthetic data pending the real-data run |
+| Reports (DOH + Internal) | ⚠️ PDF and Excel complete; browser Print of the 77-column DOH table is cropped |
 | Account Management | ✅ Fully Compliant |
 | Audit Trail | ✅ Fully Compliant |
 
-**Overall Compliance Score: ~88%**
+> The formal ISO 25010:2023 evaluation (30 respondents) has **not** been conducted yet.
+> The table above is an internal implementation check, not an evaluation result, and no
+> overall compliance score is claimed until the survey is run.
 
 ---
 
@@ -524,15 +561,15 @@ The system is evaluated against **ISO 25010:2023** across six quality characteri
 
 | Issue | Priority | Notes |
 |-------|----------|-------|
-| No real backend / database | High | All data is mock/in-memory; Supabase integration planned |
-| Appointment conflict checking missing | High | Required per spec; not yet implemented |
-| Bayanihan mass-event mode missing | High | Required per spec; not yet implemented |
-| SMS notifications are UI-only | Medium | Requires SMS service + backend integration |
-| DOH report is 77 columns wide | Low | Sticky columns + horizontal scroll implemented; compact view toggle not yet added |
-| Prev/next patient navigation covers only 10 patients | Low | Falls back to "—" for patients outside the hardcoded list |
-| Print-specific HTML layout for IPTR | Low | Print CSS exists; dedicated print layout not yet done |
-| Editable DOH report cells | Low | Read-only for now |
-| Link appointments → individual dental form | Low | Currently links to chart list only |
+| ML model trained on synthetic data | High | Real dental records exist only on paper; a hand-encoded sample must be captured before the model reflects real cases. The UI shows a synthetic-data banner until then |
+| ISO 25010:2023 evaluation not conducted | High | Requires 30 respondents |
+| Browser Print of the DOH report is cropped | Medium | 77 columns cannot fit; PDF (zoomable single page) and Excel (real pagination) are the supported paths |
+| No SMS notifications | Low | Out of scope — transactional email (Brevo) covers password reset and 2FA |
+| iOS evicts PWA storage after ~7 days idle | Low | Platform limitation; affects the IndexedDB offline queue. Standardise clinics on Android + Windows |
+| Render free tier sleeps after ~15 min idle | Low | First prediction request takes 30–60s and may 503 once; retry succeeds |
+
+The live backlog is maintained in `HANDOFF.md` (`## Open work`), which supersedes this
+table if the two disagree.
 
 ---
 
