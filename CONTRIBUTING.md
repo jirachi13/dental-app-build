@@ -32,6 +32,12 @@ You should land on the FLORAL login screen.
 
 More detail, including troubleshooting, is in [`.devcontainer/README.md`](.devcontainer/README.md).
 
+**Running the full stack locally instead** (backend + database + ML service) is documented
+in the root [`README.md`](README.md) — see *Prerequisites*, *Environment variables*, and
+*Run locally*. That path needs a `.env` with real credentials, so it's for maintainers, not
+for frontend contributions. Ask first; you'd get a throwaway development database, never
+production.
+
 ### What works, and what won't
 
 **Works:** every screen, all components, styling, layout, routing, Tailwind, hot reload.
