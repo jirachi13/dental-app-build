@@ -41,8 +41,10 @@ backups/
 # TypeScript incremental build cache
 *.tsbuildinfo
 
-# Throwaway PDF-extraction scratch scripts (agent-generated, not app code)
-docs/reference/_scan*.py
+# Other teams' capstone manuscripts, kept locally as writing reference only.
+# ~28MB of PDFs that are not ours to redistribute — read them, never commit
+# them. Covers the throwaway _scan*.py PDF-extraction scratch scripts too.
+docs/reference/
 
 # Word exports generated from the .md sources — regenerate, don't commit binaries
 docs/*.docx
