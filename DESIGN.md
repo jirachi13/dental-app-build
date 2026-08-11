@@ -280,7 +280,9 @@ readable as the actual system: if a token is added, a screen must use it.
 
 **Display Font:** none — this system has no display face by design.
 **Body Font:** Public Sans Variable (with `system-ui`, `-apple-system`, sans-serif)
-**Label/Mono Font:** none distinct; tabular numerals are enabled locally where digits must align.
+**Mono Font:** Consolas / Cascadia Mono / ui-monospace (`--font-mono`), used only
+for hex record identifiers and dental notation codes. Tabular numerals are
+enabled locally wherever digits must align, in either family.
 
 **Character:** One family, many weights. Public Sans is the United States federal
 government typeface — institutional, quietly distinctive, and drawn for
@@ -289,6 +291,16 @@ experience. It gives the app a type identity instead of defaulting to the
 operating system's Segoe UI, without ever calling attention to itself. Product
 UI does not need a display/body pairing, and a second family here would read as
 decoration.
+
+**The Monospace Exception.** One narrow exception to "Public Sans throughout":
+audit-trail record IDs and dental notation codes (`✓/✓`, `D/d`, `FV`, `PFS`) set
+in `--font-mono`. Both are read character by character rather than as words — a
+24-character hex ObjectId is compared digit by digit, and a tooth code is a field
+value on a form, not prose. Declared 2026-08-11 because the app was already using
+Tailwind's built-in `font-mono` stack, which is not defined here, so the face
+changed with the operating system. Pinned Windows-first, since the clinic runs
+Windows. **This is the only permitted second family.** Anything else — headings,
+labels, body copy, figures — is Public Sans.
 
 ### Hierarchy
 
