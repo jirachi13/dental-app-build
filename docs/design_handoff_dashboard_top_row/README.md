@@ -8,6 +8,73 @@
 
 ---
 
+## Version history
+
+Nothing in this history has been applied to the repository. All versions are design files
+only; `main` still holds the original dashboard.
+
+### v0 — Current build (the "before")
+Four equal-weight stat cards: Total Patients, Today's Appointments, High-Risk Patients, RPC
+Completion Rate. Each a white `rounded-xl` card with `shadow-sm`, a 36px tinted icon chip,
+a 30px extrabold value, and `hover:shadow-md hover:-translate-y-0.5`. Preserved verbatim in
+`Dentist Dashboard (current).dc.html`. **This is the rollback target.**
+
+### v1 — Whole-dashboard explorations (turn 1: 1a, 1b, 1c)
+Attention Queue, One Reading, Cohort Grid. Rejected: all three moved individual student
+records onto the landing screen, which is not what the dashboard is for.
+
+### v2 — Top row only (turn 2: 2a, 2b, 2c)
+Hero reading + supporting column; prose standing line; ruled ledger band. Everything below
+the top strip held identical to v0.
+
+### v3 — Clinical-record language (turn 3: 3a, 3b, 3c)
+All four figures retained, but presented as clinical paperwork rather than KPI cards: ruled
+cells, uppercase field labels, tabular figures, no icon chips, no tint.
+**3a selected.**
+
+### v4 — Color semantics (turn 4: 4a, 4b, 4c)
+Addressed a collision found in 3a: amber meant both "medium caries risk" and "behind on
+preventive care" on the same screen. 4c's rule adopted — blue for operational state, the
+clinical palette reserved for patient condition.
+
+### v5 — 3a as built (current)
+`Dentist Dashboard (3a).dc.html`. Changes from v0, in order applied:
+
+1. Four stat cards → one "Clinic summary" block with ruled cells and uppercase field labels.
+2. Icon chips removed; each figure gained a context line drawn from data already on the page.
+3. Date moved from the page header into the summary bar (school name left in the sidebar and
+   subtitle only, to avoid a third repetition).
+4. Navigation preserved — all four cells are links; card lift replaced with a cell tint plus
+   a chevron affordance.
+5. RPC figure, fill and footer switched from amber to blue (v4 rule).
+6. 83% threshold marker removed — unlabelled in a compact cell, and the footer already
+   states the figure.
+7. Progress stub under 17% removed; footer line muted to grey with only the overdue phrase in
+   blue; keyboard focus rings added to all four cells.
+8. Bar labels restructured out of the track (see known issue 3).
+
+### Reverting
+`git checkout main` restores v0 in code. In this project, the `(current)` files are v0 and
+are never modified by redesign work.
+
+## Before you start — branch and rollback
+
+Work on a branch, never on `main`:
+
+```
+git tag pre-dashboard-redesign
+git checkout -b dashboard-top-row
+```
+
+The current dashboard is the fallback. It is preserved in two places: the pre-change commit
+on `main` (tagged above), and `Dentist Dashboard (current).dc.html` in this bundle, which is a
+faithful recreation of the shipped screen. If the redesign is rejected, `git checkout main`
+restores it exactly — nothing in this change is destructive.
+
+The only file the recommended change touches is
+`dental-4-12-main/project/src/app/components/Dashboard.tsx` (dentist branch, the `StatCard`
+grid around L247–294). Leave the other role branches alone.
+
 ## Overview
 
 The FLORAL dentist dashboard opens with a row of four equal-weight counter cards
@@ -124,12 +191,20 @@ card is red-valued — keep that conditional, just at 20px instead of 30px.
 
 Deliberately minimal — this is a reporting surface.
 
-- **No hover state on the container.** The current tile row has
-  `hover:shadow-md hover:-translate-y-0.5` on each card; drop it. Nothing here is clickable,
-  so nothing should invite a click.
-- **The three supporting rows are static text.** If the team wants them navigable later, make
-  the whole row a link to Students / Appointments / Risk Classification and add
-  `hover:bg-[#EFF6FF]` — but ship it static.
+- **Navigation is preserved.** `StatCard` currently takes a `linkTo` prop and renders as a
+  `<Link>` with `cursor-pointer` when it is present. Every figure that has a `linkTo` today
+  must remain navigable — do not turn these into static text.
+- **Change the affordance, not the behaviour.** Drop the card lift
+  (`hover:shadow-md hover:-translate-y-0.5`) — it is part of what makes the row read as
+  templated. Replace it with a cell tint: `hover:bg-[#EFF6FF]`, `transition-colors 150ms`,
+  matching the `hover:bg-gray-50` row pattern already used in `RPCTracking.tsx` and
+  `StudentListTableStyles.ts`.
+- **Affordance marker.** Each navigable cell carries a 12px `chevron-right` in `#1E40AF` at
+  the top right, aligned with the field label. Cells without a `linkTo` omit it and take no
+  hover state.
+- **Focus states.** Since these are links, give them a visible keyboard focus ring —
+  `outline: 2px solid #1E40AF; outline-offset: -2px`. The current card row relies on the
+  browser default; do better.
 - **Progress fill animation** is optional. If used: `transform: scaleX()` from 0,
   `transform-origin: left`, `700ms cubic-bezier(0.22, 1, 0.36, 1)`, `300ms` delay, once on
   mount. Respect `prefers-reduced-motion`. `DESIGN.md` bans decorative motion, so a single
@@ -275,7 +350,7 @@ Open any `.dc.html` directly in a browser.
 
 ## Known issues found while reading the codebase
 
-Two things worth fixing independently of this redesign:
+Three things worth fixing independently of this redesign:
 
 1. **`STAT_CHIP` has no yellow key.** The School Admin dashboard's "Upcoming Visits" card
    passes `color="text-yellow-600"`, but `STAT_CHIP` has no entry for it, so the tile silently
@@ -284,6 +359,16 @@ Two things worth fixing independently of this redesign:
 2. **A string in a numeric slot.** That same card's value is the string `"None scheduled"`
    rendered at `30px / 800` in a slot designed for a numeral, so it visually shouts louder
    than the real figures beside it. Render non-numeric states at body size.
+3. **Bar labels clip at narrow viewports.** In the horizontal bar charts (Risk Distribution,
+   Oral Health Status Breakdown, RPC funnel) the `n (n%)` label is absolutely positioned
+   *inside* the `overflow:hidden` track. Any percentage-based `left`/`right` fails at some
+   fill/viewport combination: placing it inside the fill clips on short fills, placing it
+   after the fill clips on long ones — the space after a 60% fill on a 114px track is ~38px
+   against a 47px label. **Structural fix:** take the label out of the track entirely and make
+   the row `label | track (flex:1) | value`, where the value is a fixed-width
+   (~68px) right-aligned `flex-shrink:0` sibling *outside* the `overflow:hidden` element.
+   Then no fill percentage or viewport width can clip it. All prototypes in this bundle use
+   this structure; the shipped app does not.
 
 ## Out of scope
 
