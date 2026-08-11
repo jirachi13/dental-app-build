@@ -545,10 +545,16 @@ export const Dashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 rise rise-2">
           <div className="bg-card p-4 rounded-xl border border-border">
             <h2 className="text-sm font-bold text-foreground">Risk Distribution</h2>
-            <p className="text-[11px] text-muted-foreground mb-3">Validated caries-risk classification</p>
+            {/* "Recorded", not "Validated": this card reads
+                RiskStratification.risk_level straight through
+                (useStudents.ts:80) with no filter on validated_at, so the old
+                wording claimed a dentist sign-off the data does not carry. The
+                "Validated Risk Assessments" card lower down DOES filter on
+                validated_at and keeps its wording. */}
+            <p className="text-[11px] text-muted-foreground mb-3">Recorded caries-risk classification</p>
             <ChartBody ready={!studentsLoading}>
             {riskTotal === 0 ? (
-              <NoDataYet message="No students with a validated risk level yet." />
+              <NoDataYet message="No students with a recorded risk level yet." />
             ) : (
               <div className="space-y-2.5">
                 {/* same horizontal-bar idiom as the RPC funnel/procedures cards */}
@@ -562,7 +568,7 @@ export const Dashboard = () => {
                   />
                 ))}
                 <p className="text-xs text-muted-foreground pt-1">
-                  {riskTotal} student{riskTotal !== 1 ? 's' : ''} with a validated risk level
+                  {riskTotal} student{riskTotal !== 1 ? 's' : ''} with a recorded risk level
                   {screenedCount !== riskTotal ? ` · ${screenedCount} screened in total` : ''}
                 </p>
               </div>
