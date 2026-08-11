@@ -164,9 +164,11 @@ drifts.
 ### Primary
 
 - **Official Blue** (`#1E40AF`): The stamp. Primary buttons, the active
-  navigation item's fill, focus rings, the FLORAL wordmark, and the primary data
-  series in every chart. Used on roughly a tenth of any given screen — its
-  scarcity is what makes it read as official rather than decorative.
+  navigation item's fill, focus rings, the FLORAL wordmark, the primary data
+  series in every chart, and **operational state** — progress against an
+  administrative target, coverage, completion. Used on roughly a tenth of any
+  given screen — its scarcity is what makes it read as official rather than
+  decorative.
 - **Official Blue Deep** (`#1D4ED8`): Hover state on primary buttons only. Never
   a resting color.
 - **Filed Blue** (`#EFF6FF`): The pale institutional wash. Navigation hover,
@@ -241,6 +243,19 @@ nothing else. Green never means "brand", amber never means "highlight", red
 never means "emphasis". A user must be able to learn the three colors once, on
 one screen, and be correct everywhere else forever. All chart color comes from
 `src/app/utils/chartColors.ts` — charts never invent their own hues.
+
+**The Operational-vs-Clinical Rule.** Blue carries operational state; green,
+amber, and red carry clinical condition. A figure that reports how the clinic is
+doing against an administrative target — RPC completion, screening coverage,
+report submission — is Official Blue regardless of whether it is good or bad
+news. A figure that reports a patient's condition takes the clinical vocabulary.
+Adopted 2026-08-11 with the dentist clinic summary strip: at 17% RPC completion
+the status thresholds would have made the figure amber, on a screen where the
+Risk Distribution bar directly beneath it uses amber for medium caries risk. One
+color cannot mean both "this child needs watching" and "we are behind on
+paperwork". The consequence is deliberate: **blue figures are not graded.** A
+blue reading says "this is where we stand", and the surrounding context line —
+not the color — says whether that is acceptable.
 
 **The One Red Rule.** There is exactly one red: Alert Red (`#DC2626`).
 `--destructive` and `CHART.danger` now hold the same value and must be kept in
