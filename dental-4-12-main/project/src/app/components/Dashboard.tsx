@@ -1064,7 +1064,11 @@ export const Dashboard = () => {
     const totalStudents = allStudentsRaw.length;
     const totalScreened = allStudentsRaw.filter((s) => s.riskLevel !== null).length;
     const programCoveragePct = totalStudents ? Math.round((totalScreened / totalStudents) * 100) : 0;
-    const orallyFitPct = totalStudents ? Math.round((allStudentsRaw.filter((s) => s.oralStatus === 'Orally Fit').length / totalStudents) * 100) : 0;
+    // Counts behind the percentages, so the summary strip can show "6 of 18"
+    // beside "33%" instead of asking the reader to do the arithmetic.
+    const orallyFitCount = allStudentsRaw.filter((s) => s.oralStatus === 'Orally Fit').length;
+    const needsTreatmentCount = allStudentsRaw.filter((s) => s.oralStatus === 'Needs Treatment').length;
+    const orallyFitPct = totalStudents ? Math.round((orallyFitCount / totalStudents) * 100) : 0;
     const schoolsParticipating = new Set(allStudentsRaw.map((s) => s.school)).size;
 
     return (
@@ -1074,61 +1078,75 @@ export const Dashboard = () => {
             <h1 className="text-2xl font-bold text-foreground">Barangay Health Office Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-0.5">Aggregated data across all schools</p>
           </div>
-          <div className="ml-auto text-right text-xs text-muted-foreground hidden sm:block">
-            <span className="block text-[13px] font-semibold text-foreground">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-            </span>
-            {studentsLoading ? (
-              <SkeletonBlock className="h-4 w-40 ml-auto" />
-            ) : (
-              <>{totalStudents} student{totalStudents !== 1 ? 's' : ''} across {schoolsParticipating} school{schoolsParticipating !== 1 ? 's' : ''}</>
-            )}
-          </div>
+          {/* Date + totals moved into the barangay summary (Sprint F). */}
           <Link
             to="/reports"
-            className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
+            className="ml-auto inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
           >
             <FileText className="w-4 h-4" />
             View Reports
           </Link>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 rise rise-1">
-          <StatCard
-            icon={Users}
-            label="Total Students Served"
-            value={String(totalStudents)}
-            color="text-primary"
-            trend={`across ${schoolsParticipating} schools`}
-            linkTo="/reports"
-            loading={studentsLoading}
-          />
-          <StatCard
-            icon={Activity}
-            label="Program Coverage"
-            value={`${programCoveragePct}%`}
-            color="text-success"
-            progress={programCoveragePct}
-            linkTo="/reports"
-            loading={studentsLoading}
-          />
-          <StatCard
-            icon={CheckCircle}
-            label="Orally Fit"
-            value={`${orallyFitPct}%`}
-            color="text-cyan-600"
-            linkTo="/reports"
-            loading={studentsLoading}
-          />
-          <StatCard
-            icon={Shield}
-            label="Schools Participating"
-            value={`${schoolsParticipating} of 3`}
-            color="text-muted-foreground"
-            linkTo="/reports"
-            loading={studentsLoading}
-          />
+        {/* Barangay summary (Sprint F, design 3a) */}
+        <div className="bg-card border border-border rounded-sm overflow-hidden rise rise-1">
+          <div className="flex items-baseline justify-between gap-4 px-4 py-2.5 bg-muted border-b border-border">
+            <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-foreground">Barangay summary</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+              {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-border">
+            <SummaryCell
+              icon={Users}
+              label="Students served"
+              value={String(totalStudents)}
+              context={`Across ${schoolsParticipating} school${schoolsParticipating !== 1 ? 's' : ''}`}
+              linkTo="/reports"
+              loading={studentsLoading}
+            />
+            {/* Coverage is BLUE and orally-fit is GREEN, per the mock and the
+                Operational-vs-Clinical Rule: how much of the programme has been
+                delivered is operational, what state the children's mouths are
+                in is clinical. */}
+            <SummaryCell
+              icon={Activity}
+              label="Program coverage"
+              value={`${programCoveragePct}%`}
+              valueClass="text-primary"
+              trailing={`${totalScreened} of ${totalStudents}`}
+              context={
+                totalStudents - totalScreened > 0
+                  ? `${totalStudents - totalScreened} student${totalStudents - totalScreened !== 1 ? 's' : ''} not yet screened`
+                  : 'All students screened'
+              }
+              linkTo="/reports"
+              loading={studentsLoading}
+            />
+            <SummaryCell
+              icon={CheckCircle}
+              label="Orally fit"
+              value={`${orallyFitPct}%`}
+              valueClass="text-success"
+              trailing={`${orallyFitCount} of ${totalStudents}`}
+              context={
+                needsTreatmentCount > 0
+                  ? `${needsTreatmentCount} need${needsTreatmentCount === 1 ? 's' : ''} treatment`
+                  : 'None needing treatment'
+              }
+              linkTo="/reports"
+              loading={studentsLoading}
+            />
+            <SummaryCell
+              icon={Shield}
+              label="Schools participating"
+              value={`${schoolsParticipating} of 3`}
+              context={schoolsParticipating === 3 ? 'All barangay schools' : `${3 - schoolsParticipating} with no records yet`}
+              linkTo="/reports"
+              loading={studentsLoading}
+            />
+          </div>
         </div>
 
         {/* Charts Row */}
