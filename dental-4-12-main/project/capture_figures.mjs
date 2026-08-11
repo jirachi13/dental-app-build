@@ -102,7 +102,16 @@ try {
   try {
     const row = page.locator('tbody tr').first();
     if (await row.count()) {
-      await row.click(); await page.waitForTimeout(2500);
+      await row.click();
+      // Wait for the tab strip itself, not a fixed timeout. On 2026-08-11 all
+      // three tab figures failed with `no "Consent" tab` against production:
+      // the tabs exist and are plain buttons with exactly these labels
+      // (verified in the DOM), the detail view was simply still loading when
+      // the 2.5s timer expired. A count() check on a not-yet-rendered element
+      // returns 0 and reports a missing feature rather than a slow one.
+      await page.getByRole('button', { name: /^History & Oral$/i }).first()
+        .waitFor({ state: 'visible', timeout: 20000 });
+      await page.waitForTimeout(800);
       await shot(page, 'fig-4.1.2-iptr-history-and-oral');
       for (const [label, name] of [
         ['Consent',           'fig-4.1.3a-consent-tab'],
@@ -110,8 +119,10 @@ try {
         ['DMFT History',      'fig-4.1.3c-dmft-history-tab'],
       ]) {
         const tab = page.getByRole('button', { name: new RegExp(`^${label}$`, 'i') }).first();
-        if (await tab.count()) { await tab.click(); await page.waitForTimeout(1800); await shot(page, name); }
-        else fail(name, `no "${label}" tab`);
+        try {
+          await tab.waitFor({ state: 'visible', timeout: 15000 });
+          await tab.click(); await page.waitForTimeout(1800); await shot(page, name);
+        } catch { fail(name, `no "${label}" tab (waited 15s)`); }
       }
     } else fail('fig-4.1.2-iptr-history-and-oral', 'no student rows on /patients');
   } catch (e) { fail('fig-4.1.2/4.1.3 student detail', e.message.split('\n')[0]); }
@@ -129,11 +140,12 @@ try {
   await go(page, '/ai-analytics');       await shot(page, 'fig-4.3.4-risk-classification', 'ML service may be cold');
   await go(page, '/reports');            await shot(page, 'fig-4.4.4-reports');
 
-  try {
-    const btn = page.getByRole('button', { name: /export/i }).first();
-    if (await btn.count()) { await btn.click(); await page.waitForTimeout(900); await shot(page, 'fig-4.4.5-export-menu'); }
-    else fail('fig-4.4.5-export-menu', 'no Export button on /reports');
-  } catch (e) { fail('fig-4.4.5-export-menu', e.message.split('\n')[0]); }
+  // fig-4.4.5 (the ExportMenu dropdown) is NOT captured here. It used to look
+  // for an Export button on /reports, which has never had one -- Reports offers
+  // "Download PDF" and "Download Excel" directly, while ExportMenu lives on
+  // Students / Appointments / RPC / Audit. The block reported a missing feature
+  // on every run. `capture_export.mjs` owns 4.4.5 (from /patients) and 4.4.5b
+  // (Reports' own download controls); run it after this script.
 
   // ===== SYSTEM ADMIN =====
   console.log('\n[system_admin]');
