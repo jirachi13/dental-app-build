@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { getModel } from "./shared/getModel.js";
+import { softDeleteFields } from "./shared/softDelete.js";
 
 const dietarySocialHabitsSchema = new mongoose.Schema(
   {
@@ -11,6 +12,7 @@ const dietarySocialHabitsSchema = new mongoose.Schema(
     body_piercing: { type: Boolean, default: false },
     nail_biting: { type: Boolean, default: false },
     thumb_sucking: { type: Boolean, default: false },
+    ...softDeleteFields,
   },
   { timestamps: { createdAt: "created_at", updatedAt: false } },
 );

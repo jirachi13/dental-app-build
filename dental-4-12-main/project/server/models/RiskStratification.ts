@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { getModel } from "./shared/getModel.js";
+import { softDeleteFields } from "./shared/softDelete.js";
 
 const riskStratificationSchema = new mongoose.Schema({
   preventive_id: { type: mongoose.Schema.Types.ObjectId, ref: "PreventiveCareRecord", required: true },
@@ -9,6 +10,7 @@ const riskStratificationSchema = new mongoose.Schema({
   dmf_index: { type: String, enum: ["DMF", "dmf"], required: true },
   validated_by_dentist: { type: Boolean, default: false },
   validated_at: { type: Date, default: null },
+  ...softDeleteFields,
 });
 
 export default getModel("RiskStratification", riskStratificationSchema);
