@@ -326,15 +326,23 @@ export const DentalChart = () => {
     return lastYearIndex >= 0 ? ALL_SCHOOL_YEARS[lastYearIndex + 1] ?? null : null;
   };
 
+  // `addingYear` closes the double-submit that put two 2026-2027 records on one
+  // student a second apart. The API rejects the duplicate too (uniqueBy on
+  // student_id + school_year); this stops the second request being sent at all.
+  const [addingYear, setAddingYear] = useState(false);
+
   const handleAddYear = async () => {
     const nextYear = getNextSchoolYear();
-    if (!nextYear || !id) return;
+    if (!nextYear || !id || addingYear) return;
+    setAddingYear(true);
     try {
       await apiClient.post('/student-iptrs', { student_id: id, school_year: nextYear });
       await reload();
       toast.success(`School year ${nextYear} added.`);
     } catch (err) {
       setSaveError(err instanceof ApiError ? err.message : 'Failed to add school year');
+    } finally {
+      setAddingYear(false);
     }
   };
 
@@ -866,7 +874,7 @@ export const DentalChart = () => {
                     {isManagingYears ? 'Done' : 'Edit Years'}
                   </button>
                   {isManagingYears && !!getNextSchoolYear() && (
-                    <button type="button" onClick={handleAddYear} className="flex-shrink-0 px-3 py-2 text-xs text-muted-foreground hover:text-blue-600 border-b-2 border-transparent hover:border-blue-300 transition-all">
+                    <button type="button" onClick={handleAddYear} disabled={addingYear} className="flex-shrink-0 px-3 py-2 text-xs text-muted-foreground hover:text-blue-600 border-b-2 border-transparent hover:border-blue-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                       + Add Year
                     </button>
                   )}
@@ -885,7 +893,7 @@ export const DentalChart = () => {
         {years.length === 0 ? (
           <div className="p-12 text-center text-muted-foreground">
             <p className="text-sm">No IPTR school-year records yet for this student.</p>
-            {canEdit && <button onClick={handleAddYear} className="mt-3 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover">+ Start {getNextSchoolYear()}</button>}
+            {canEdit && <button onClick={handleAddYear} disabled={addingYear} className="mt-3 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed">+ Start {getNextSchoolYear()}</button>}
           </div>
         ) : (
         <>

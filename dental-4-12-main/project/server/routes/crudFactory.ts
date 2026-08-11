@@ -35,6 +35,12 @@ interface CrudOptions {
    *  RISK_STRATIFICATION records whether the dentist accepted or changed the
    *  AI suggestion). Return undefined to keep the default "Created X". */
   auditCreateAction?: (body: Record<string, unknown>) => string | undefined;
+  /** Reject a POST that would duplicate an existing record on these fields.
+   *  Added 2026-08-11 after a double-submit on "Add Year" created two
+   *  StudentIptr rows for one school year a second apart, which surfaced as a
+   *  repeated year in the DMFT History table and an inflated "Years tracked".
+   *  Guards every client, not just the button that caused it. */
+  uniqueBy?: string[];
 }
 
 export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
@@ -93,7 +99,19 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
     requireAuth,
     requireRole(...writeRoles),
     asyncHandler(async (req, res) => {
-      const doc = await model.create(sanitizeBody(req.body));
+      const body = sanitizeBody(req.body);
+      if (options.uniqueBy && options.uniqueBy.every((f) => body[f] !== undefined)) {
+        const filter: Record<string, unknown> = {};
+        for (const f of options.uniqueBy) filter[f] = body[f];
+        // Archived records still count: restoring one would otherwise
+        // resurrect a duplicate that passed this check while hidden.
+        const existing = await model.findOne(filter).lean();
+        if (existing) {
+          res.status(409).json({ error: `A ${modelName} already exists for that ${options.uniqueBy.join(" + ")}` });
+          return;
+        }
+      }
+      const doc = await model.create(body);
       const action = options.auditCreateAction?.(req.body) ?? `Created ${modelName}`;
       await logAudit(req.user!.id, action, doc._id.toString(), modelName);
       res.status(201).json(decryptForResponse(doc));
