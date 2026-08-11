@@ -390,14 +390,17 @@ export const Dashboard = () => {
   // leaves no room after it. Narrow viewports make it worse. The value is now a
   // fixed-width sibling OUTSIDE the track, so no fill/width combination can
   // clip it, and the label truncates instead of squeezing the bar.
-  const BarRow = ({ label, value, pct, color }: { label: string; value: number; pct: number; color: string }) => (
+  // `valueText` overrides the default "N (P%)" for charts where each row has
+  // its own denominator -- "1 (50%)" is ambiguous when the total differs per
+  // row, so those pass "1 of 2" instead. Widens the value column to match.
+  const BarRow = ({ label, value, pct, color, valueText }: { label: string; value: number; pct: number; color: string; valueText?: string }) => (
     <div className="flex items-center gap-3">
       <span className="text-xs text-muted-foreground basis-36 shrink min-w-0 truncate">{label}</span>
       <div className="flex-1 min-w-[110px] bg-muted rounded-md h-7 overflow-hidden">
         <div className="h-full rounded-md grow-x" style={{ width: `${pct}%`, backgroundColor: color }} />
       </div>
-      <span className="w-[68px] shrink-0 text-right text-xs font-bold tabular-nums text-foreground">
-        {value} ({pct}%)
+      <span className={`${valueText ? 'w-[92px]' : 'w-[68px]'} shrink-0 text-right text-xs font-bold tabular-nums text-foreground`}>
+        {valueText ?? `${value} (${pct}%)`}
       </span>
     </div>
   );
@@ -843,6 +846,24 @@ export const Dashboard = () => {
     const schoolScreenedCount = schoolStudents.filter((s) => s.riskLevel !== null).length;
     const coveragePct = schoolStudents.length ? Math.round((schoolScreenedCount / schoolStudents.length) * 100) : 0;
 
+    // Screening coverage per grade (Sprint H). Replaces the deleted donut with
+    // a reading the summary strip cannot carry: the strip says 83% overall,
+    // this says WHICH grades are behind, which is the actionable half for a
+    // school administrator. Grades are sorted by the numeral in the label so
+    // "Grade 10" files after "Grade 2" rather than between 1 and 2; anything
+    // without a numeral (e.g. "Kinder") sorts first.
+    const gradeOrder = (g: string) => {
+      const n = g.match(/\d+/);
+      return n ? Number(n[0]) : -1;
+    };
+    const coverageByGrade = [...new Set(schoolStudents.map((s) => s.grade))]
+      .sort((a, b) => gradeOrder(a) - gradeOrder(b))
+      .map((grade) => {
+        const inGrade = schoolStudents.filter((s) => s.grade === grade);
+        const screened = inGrade.filter((s) => s.riskLevel !== null).length;
+        return { grade, screened, total: inGrade.length };
+      });
+
     const oralHealthStatusData = [
       // semantic status colors (Sprint 23o): good=green, needs-care=red,
       // in-progress=brand blue, no-data-yet=neutral gray (not warning-amber)
@@ -931,14 +952,45 @@ export const Dashboard = () => {
         </div>
 
         {/* Charts Row.
-            The "Screening Coverage" donut was removed in Sprint G. It rendered
-            `coveragePct` -- the same figure the summary strip's second cell now
-            reports, with better context ("1 not yet screened" beats "Students
-            Screened"), so it was the same number twice on one screen. It was
-            also the last radial/donut in the app, and DESIGN.md's don't-list
-            names the donut reflex explicitly. Oral Health Status takes the full
-            width, which suits a bar chart read by non-technical staff. */}
+            The "Screening Coverage" donut was removed in Sprint G -- it rendered
+            `coveragePct`, the same figure the summary strip's second cell now
+            reports with better context, and it was the last radial/donut in the
+            app. Sprint H put a per-grade breakdown in its place: a reading the
+            strip cannot carry, since "83% overall" does not say WHICH grades are
+            behind.
+
+            Both cards are full width, stacked. The grade chart renders one row
+            per grade that has students -- three on demo data, but up to twelve
+            at a K-G10 school -- so side by side it would end up roughly three
+            times the height of its neighbour. Full width also lets twelve grade
+            labels and their "18 of 40" counts breathe. */}
         <div className="grid grid-cols-1 gap-4 rise rise-2">
+          <div className="bg-card p-4 rounded-xl border border-border">
+            <h2 className="text-sm font-bold text-foreground mb-0.5">Screening Coverage by Grade</h2>
+            <p className="text-[11px] text-muted-foreground mb-3">Students screened per grade level</p>
+            <ChartBody ready={!studentsLoading}>
+            {coverageByGrade.length === 0 ? (
+              <NoDataYet message="No students enrolled at this school yet." />
+            ) : (
+              <div className="space-y-2.5">
+                {coverageByGrade.map((g) => (
+                  <BarRow
+                    key={g.grade}
+                    label={g.grade}
+                    value={g.screened}
+                    pct={Math.round((g.screened / g.total) * 100)}
+                    color={CHART.brand}
+                    valueText={`${g.screened} of ${g.total}`}
+                  />
+                ))}
+                <p className="text-xs text-muted-foreground pt-1">
+                  {schoolScreenedCount} of {schoolStudents.length} screened overall ({coveragePct}%)
+                </p>
+              </div>
+            )}
+            </ChartBody>
+          </div>
+
           {/* Oral Health Status - horizontal bars (Sprint 32) */}
           <div className="bg-card p-4 rounded-xl border border-border">
             <h2 className="text-sm font-bold text-foreground mb-0.5">Oral Health Status Breakdown</h2>
