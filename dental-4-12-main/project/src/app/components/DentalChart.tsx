@@ -974,7 +974,12 @@ export const DentalChart = () => {
                 </div>
                 )}
                 {iptrContext !== 'dental-queue' && (
-                <div>
+                // Conditions and treatments are different vocabularies -- one
+                // records what IS, the other what was DONE -- but unselected
+                // buttons in both groups look identical, so without a rule the
+                // two grids read as one long palette. Divider only when both
+                // are on screen: side by side from lg, stacked below it.
+                <div className={iptrContext === 'default' ? 'border-t border-border pt-4 lg:border-t-0 lg:pt-0 lg:border-l lg:pl-4' : undefined}>
                   <div className="text-sm font-semibold text-foreground mb-2 uppercase tracking-wide">Treatment Codes</div>
                   <div className={`grid gap-1.5 ${iptrContext === 'treatment' ? 'grid-cols-4 sm:grid-cols-6 lg:grid-cols-9' : 'grid-cols-4 sm:grid-cols-5'}`}>
                     {treatmentCodes.map((t) => (
