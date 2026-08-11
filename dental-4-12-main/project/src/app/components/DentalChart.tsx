@@ -502,14 +502,32 @@ export const DentalChart = () => {
     return (
       <button
         onClick={() => editingChart && handleToothClick(num)}
-        className={`relative flex h-12 w-10 shrink-0 flex-col items-center justify-between rounded-md border-2 px-0.5 py-1 text-center transition-all md:h-[54px] md:w-[44px] ${colorClass} ${isSelected ? 'hover:border-teal-500 hover:ring-2 hover:ring-teal-300 hover:bg-teal-50 cursor-pointer' : 'cursor-default'}`}
+        // Grows to fill the card instead of leaving ~100px of slack on each
+        // side, capped so the boxes stay tooth-shaped rather than becoming wide
+        // rectangles on a large screen. flex-1 is also what keeps the primary
+        // row aligned with the permanent one -- both rows are 16 equal slots.
+        className={`relative flex h-[52px] min-w-[40px] max-w-[56px] flex-1 flex-col items-center justify-between rounded-md border-2 px-0.5 py-1 text-center transition-all md:h-[64px] ${colorClass} ${isSelected ? 'hover:border-teal-500 hover:ring-2 hover:ring-teal-300 hover:bg-teal-50 cursor-pointer' : 'cursor-default'}`}
       >
         <div className="text-[8px] font-medium text-slate-500 leading-none">{num}</div>
-        {cond && <div className="text-[11px] md:text-xs font-bold text-slate-700 leading-none">{cond}</div>}
-        {treat && <div className="text-[8px] md:text-[9px] font-semibold text-teal-700 leading-none">{treat}</div>}
+        {cond && <div className="text-[11px] md:text-sm font-bold text-slate-700 leading-none">{cond}</div>}
+        {/* Blue, not teal: the palette selects conditions in teal and
+            treatments in blue, but this rendered the treatment code in the
+            condition colour, crossing the two vocabularies on the teeth. */}
+        {treat && <div className="text-[8px] md:text-[10px] font-semibold text-blue-700 leading-none">{treat}</div>}
       </button>
     );
   };
+
+  // A primary arch holds 10 teeth against the permanent arch's 16. The three
+  // missing positions at each end are the molars that have no primary
+  // predecessor (18/17/16 and 26/27/28), so blank slots there put every
+  // primary tooth under its successor. Same flex sizing as ToothButton, so the
+  // columns cannot drift apart.
+  const padToArch = (teeth: number[]) => [
+    ...Array.from({ length: 3 }, (_, i) => <div key={`pad-l${i}`} aria-hidden className="min-w-[40px] max-w-[56px] flex-1" />),
+    ...teeth.map((n) => <ToothButton key={n} num={n} />),
+    ...Array.from({ length: 3 }, (_, i) => <div key={`pad-r${i}`} aria-hidden className="min-w-[40px] max-w-[56px] flex-1" />),
+  ];
 
   const treatmentCodeCounts = treatmentCodes.reduce<Record<string, number>>((acc, code) => {
     acc[code.code] = Object.values(currentChart).filter((entry) => entry.treatment === code.code).length;
@@ -1013,19 +1031,19 @@ export const DentalChart = () => {
             </div>
 
             <div className="bg-card rounded-xl border border-border p-4 overflow-x-auto">
+              {/* Every row is 16 equal slots, so a primary tooth sits directly
+                  under the permanent tooth it will replace: 55↔15, 54↔14 …
+                  51↔11, 61↔21 … 65↔25 (FDI). The primary rows previously used
+                  `5 teeth + a w-9 midline spacer + 5 teeth`, centred — but the
+                  permanent row has no midline gap (11 and 21 are adjacent), so
+                  the spacer pushed both halves outward and nothing lined up.
+                  Three blank slots at each end replace it, and alignment now
+                  holds at any tooth size because both rows flex identically. */}
               <div className="min-w-[680px] space-y-2.5">
                 <div className="flex justify-center gap-1">{upperPermanent.map((n) => <ToothButton key={n} num={n} />)}</div>
-                <div className="flex justify-center gap-1">
-                  <div className="flex gap-1">{upperTemporary.slice(0, 5).map((n) => <ToothButton key={n} num={n} />)}</div>
-                  <div className="w-9" />
-                  <div className="flex gap-1">{upperTemporary.slice(5).map((n) => <ToothButton key={n} num={n} />)}</div>
-                </div>
+                <div className="flex justify-center gap-1">{padToArch(upperTemporary)}</div>
                 <div className="border-t-2 border-dashed border-border my-2" />
-                <div className="flex justify-center gap-1">
-                  <div className="flex gap-1">{lowerTemporary.slice(0, 5).map((n) => <ToothButton key={n} num={n} />)}</div>
-                  <div className="w-9" />
-                  <div className="flex gap-1">{lowerTemporary.slice(5).map((n) => <ToothButton key={n} num={n} />)}</div>
-                </div>
+                <div className="flex justify-center gap-1">{padToArch(lowerTemporary)}</div>
                 <div className="flex justify-center gap-1">{lowerPermanent.map((n) => <ToothButton key={n} num={n} />)}</div>
               </div>
             </div>
