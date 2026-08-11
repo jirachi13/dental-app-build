@@ -347,7 +347,19 @@ export const Dashboard = () => {
           <SkeletonBlock className="h-7 w-16" />
         ) : (
           <div className="flex items-baseline gap-2">
-            <span className={`text-[28px] font-bold leading-none tabular-nums ${valueClass ?? 'text-foreground'}`}>{value}</span>
+            {/* Some cells legitimately carry prose or a date rather than a
+                figure ("None scheduled"). Rendering a sentence at 28px makes it
+                shout louder than the real numbers beside it, so it steps down
+                to 15px/600 muted -- the treatment the 3a school-admin mock
+                specifies. Detected the same way StatCard does it (`:269`) so no
+                call site can forget the prop. Anything starting with a digit
+                stays a figure, which keeps "17%", "2 of 3" and ISO dates at
+                full size, since those ARE the reading. */}
+            <span className={
+              /^\d/.test(String(value).trim())
+                ? `text-[28px] font-bold leading-none tabular-nums ${valueClass ?? 'text-foreground'}`
+                : 'text-[15px] font-semibold leading-tight py-[5px] text-muted-foreground'
+            }>{value}</span>
             {trailing && <span className="text-[11px] text-muted-foreground">{trailing}</span>}
           </div>
         )}
@@ -861,60 +873,67 @@ export const Dashboard = () => {
             <h1 className="text-2xl font-bold text-foreground">School Admin Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-0.5">{user.schools?.[0]}</p>
           </div>
-          <div className="ml-auto text-right text-xs text-muted-foreground hidden sm:block">
-            <span className="block text-[13px] font-semibold text-foreground">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-            </span>
-            {studentsLoading ? (
-              <SkeletonBlock className="h-4 w-32 ml-auto" />
-            ) : (
-              <>{schoolStudents.length} student{schoolStudents.length !== 1 ? 's' : ''} enrolled</>
-            )}
-          </div>
+          {/* Date + enrolled count moved into the school summary (Sprint E). */}
           <Link
             to="/reports"
-            className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
+            className="ml-auto inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
           >
             <FileText className="w-4 h-4" />
             View Reports
           </Link>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 rise rise-1">
-          <StatCard
-            icon={Users}
-            label="Students Enrolled"
-            value={String(schoolStudents.length)}
-            color="text-primary"
-            linkTo="/reports"
-            loading={studentsLoading}
-          />
-          <StatCard
-            icon={CheckCircle}
-            label="Students Screened"
-            value={String(schoolScreenedCount)}
-            color="text-success"
-            trend={`${coveragePct}% coverage`}
-            linkTo="/reports"
-            loading={studentsLoading}
-          />
-          <StatCard
-            icon={Activity}
-            label="Treatments Completed"
-            value={String(treatmentCount)}
-            color="text-cyan-600"
-            linkTo="/reports"
-            loading={extraLoading}
-          />
-          <StatCard
-            icon={Calendar}
-            label="Upcoming Visits"
-            value={nextUpcomingSession ? nextUpcomingSession.date : 'None scheduled'}
-            color="text-warning"
-            linkTo="/appointments"
-            loading={appointmentsLoading}
-          />
+        {/* School summary (Sprint E, design 3a) */}
+        <div className="bg-card border border-border rounded-sm overflow-hidden rise rise-1">
+          <div className="flex items-baseline justify-between gap-4 px-4 py-2.5 bg-muted border-b border-border">
+            <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-foreground">School summary</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+              {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-border">
+            <SummaryCell
+              icon={Users}
+              label="Students enrolled"
+              value={String(schoolStudents.length)}
+              context={schoolName ? getSchoolShortName(schoolName) : 'No school assigned'}
+              linkTo="/reports"
+              loading={studentsLoading}
+            />
+            <SummaryCell
+              icon={CheckCircle}
+              label="Students screened"
+              value={String(schoolScreenedCount)}
+              trailing={`${coveragePct}%`}
+              context={
+                schoolStudents.length - schoolScreenedCount > 0
+                  ? `${schoolStudents.length - schoolScreenedCount} not yet screened`
+                  : 'All students screened'
+              }
+              linkTo="/reports"
+              loading={studentsLoading}
+            />
+            <SummaryCell
+              icon={Activity}
+              label="Treatments completed"
+              value={String(treatmentCount)}
+              context={treatmentCount > 0 ? 'From dental chart records' : 'None recorded yet'}
+              linkTo="/reports"
+              loading={extraLoading}
+            />
+            {/* Value is a DATE or the words "None scheduled" -- SummaryCell's
+                prose detection steps the sentence down so it does not outshout
+                the three figures beside it. */}
+            <SummaryCell
+              icon={Calendar}
+              label="Upcoming visits"
+              value={nextUpcomingSession ? nextUpcomingSession.date : 'None scheduled'}
+              context={upcomingEvents.length > 0 ? `${upcomingEvents.length} Bayanihan event${upcomingEvents.length !== 1 ? 's' : ''} booked` : 'No Bayanihan events booked'}
+              linkTo="/appointments"
+              loading={appointmentsLoading}
+            />
+          </div>
         </div>
 
         {/* Charts Row */}
