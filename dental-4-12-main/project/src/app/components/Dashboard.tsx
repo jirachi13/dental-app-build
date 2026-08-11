@@ -394,7 +394,11 @@ export const Dashboard = () => {
   // its own denominator -- "1 (50%)" is ambiguous when the total differs per
   // row, so those pass "1 of 2" instead. Widens the value column to match.
   const BarRow = ({ label, value, pct, color, valueText }: { label: string; value: number; pct: number; color: string; valueText?: string }) => (
-    <div className="flex items-center gap-3">
+    // max-w caps the row in FULL-WIDTH cards, where a 100% bar became a very
+    // long slab of solid color -- a lot of ink for "2 of 2". Self-limiting: the
+    // half-width chart cards are already narrower than the cap, so they are
+    // unaffected and no call site needs to opt in.
+    <div className="flex items-center gap-3 max-w-3xl">
       <span className="text-xs text-muted-foreground basis-36 shrink min-w-0 truncate">{label}</span>
       <div className="flex-1 min-w-[110px] bg-muted rounded-md h-7 overflow-hidden">
         <div className="h-full rounded-md grow-x" style={{ width: `${pct}%`, backgroundColor: color }} />
