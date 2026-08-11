@@ -715,60 +715,76 @@ export const Dashboard = () => {
             <h1 className="text-2xl font-bold text-foreground">Dental Aide Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-0.5">Welcome back, {user?.name}{selectedSchool ? ` — ${getSchoolShortName(selectedSchool)}` : ''}</p>
           </div>
-          <div className="ml-auto text-right text-xs text-muted-foreground hidden sm:block">
-            <span className="block text-[13px] font-semibold text-foreground">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-            </span>
-            {appointmentsLoading ? (
-              <SkeletonBlock className="h-4 w-32 ml-auto" />
-            ) : (
-              <>{todaySessions.length} appointment{todaySessions.length !== 1 ? 's' : ''} today</>
-            )}
-          </div>
+          {/* Date + appointment count moved into the clinic summary (Sprint D),
+              same as the dentist branch. */}
           <Link
             to="/appointments?new=1"
-            className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
+            className="ml-auto inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
           >
             <Plus className="w-4 h-4" />
             New Appointment
           </Link>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 rise rise-1">
-          <StatCard
-            icon={Calendar}
-            label="Appointments Today"
-            value={String(todaySessions.length)}
-            color="text-primary"
-            linkTo="/appointments"
-            loading={appointmentsLoading}
-          />
-          <StatCard
-            icon={FileText}
-            label="Pending Charts"
-            value={String(pendingChartsCount)}
-            color="text-warning"
-            trend="to complete"
-            linkTo="/dental-charts"
-            loading={studentsLoading || extraLoading}
-          />
-          <StatCard
-            icon={AlertCircle}
-            label="RPC Follow-ups Overdue"
-            value={String(rpcOverdueCount)}
-            color="text-destructive"
-            linkTo="/rpc"
-            loading={rpcLoading}
-          />
-          <StatCard
-            icon={Shield}
-            label="RPC Visits Pending"
-            value={String(rpcPendingCount)}
-            color="text-cyan-600"
-            linkTo="/rpc"
-            loading={rpcLoading}
-          />
+        {/* Clinic summary (Sprint D) — same strip as the dentist branch */}
+        <div className="bg-card border border-border rounded-sm overflow-hidden rise rise-1">
+          <div className="flex items-baseline justify-between gap-4 px-4 py-2.5 bg-muted border-b border-border">
+            <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-foreground">Clinic summary</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+              {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-border">
+            <SummaryCell
+              icon={Calendar}
+              label="Appointments today"
+              value={String(todaySessions.length)}
+              context={todaySessions[0] ? `Next at ${todaySessions[0].time}` : 'None scheduled'}
+              linkTo="/appointments"
+              loading={appointmentsLoading}
+            />
+            <SummaryCell
+              icon={FileText}
+              label="Pending charts"
+              value={String(pendingChartsCount)}
+              context={`${allStudents.length - pendingChartsCount} of ${allStudents.length} charted`}
+              linkTo="/dental-charts"
+              loading={studentsLoading || extraLoading}
+            />
+            <SummaryCell
+              icon={AlertCircle}
+              label="RPC follow-ups overdue"
+              value={String(rpcOverdueCount)}
+              // Matches the old tile, which carried its color on the number.
+              valueClass={rpcOverdueCount > 0 ? 'text-destructive' : undefined}
+              context={mostOverdueDays !== null ? `Most overdue by ${mostOverdueDays} days` : 'None overdue'}
+              linkTo="/rpc"
+              loading={rpcLoading}
+            />
+            <SummaryCell
+              icon={Shield}
+              label="RPC visits pending"
+              value={String(rpcPendingCount)}
+              context={`${rpcBothVisitsCount} of ${scopedRpc.length} complete`}
+              linkTo="/rpc"
+              loading={rpcLoading}
+            />
+          </div>
+
+          {!rpcLoading && scopedRpc.length > 0 && (
+            <div className="px-4 py-2.5 border-t border-border text-[11px] text-muted-foreground">
+              {mostOverdueDays !== null && (
+                <span className="text-primary font-semibold">
+                  {rpcOverdueCount === 1
+                    ? `1 student ${mostOverdueDays} day${mostOverdueDays !== 1 ? 's' : ''} overdue for Visit 2`
+                    : `${rpcOverdueCount} students overdue for Visit 2, most by ${mostOverdueDays} days`}
+                </span>
+              )}
+              {mostOverdueDays !== null && ' · '}
+              Visit 1 done for {rpcVisit1Count} of {scopedRpc.length} ({rpcVisit1Rate}%) · target 100% by end of school year
+            </div>
+          )}
         </div>
 
         {/* Charts Row */}
