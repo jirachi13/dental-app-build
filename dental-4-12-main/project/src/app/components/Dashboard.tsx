@@ -369,6 +369,29 @@ export const Dashboard = () => {
     );
   };
 
+  // ===== HORIZONTAL BAR ROW (Sprint C) =====
+  // One row for all three bar charts (risk distribution, RPC funnel, school
+  // oral-health status), which were three copies of the same markup.
+  //
+  // The value used to be absolutely positioned INSIDE the track, flipping
+  // between "on the fill" and "after the fill" at a 22% threshold. Both
+  // branches clip, because the track is overflow:hidden and the offsets are
+  // percentages: a short fill pushes the label past the right edge, a long one
+  // leaves no room after it. Narrow viewports make it worse. The value is now a
+  // fixed-width sibling OUTSIDE the track, so no fill/width combination can
+  // clip it, and the label truncates instead of squeezing the bar.
+  const BarRow = ({ label, value, pct, color }: { label: string; value: number; pct: number; color: string }) => (
+    <div className="flex items-center gap-3">
+      <span className="text-xs text-muted-foreground basis-36 shrink min-w-0 truncate">{label}</span>
+      <div className="flex-1 min-w-[110px] bg-muted rounded-md h-7 overflow-hidden">
+        <div className="h-full rounded-md grow-x" style={{ width: `${pct}%`, backgroundColor: color }} />
+      </div>
+      <span className="w-[68px] shrink-0 text-right text-xs font-bold tabular-nums text-foreground">
+        {value} ({pct}%)
+      </span>
+    </div>
+  );
+
   // Shown in place of a chart/list when there's genuinely no real data
   // source to compute it from yet (e.g. no historical snapshots, no backing
   // model) -- never fabricate numbers just to make a chart look populated.
@@ -511,26 +534,16 @@ export const Dashboard = () => {
               <NoDataYet message="No students with a validated risk level yet." />
             ) : (
               <div className="space-y-2.5">
-                {/* same horizontal-bar idiom as the RPC funnel/procedures cards:
-                    label · track · count inside the bar when it fits */}
-                {riskDistributionData.map((item) => {
-                  const pct = Math.round((item.value / riskTotal) * 100);
-                  const fits = pct >= 22;
-                  return (
-                    <div key={item.name} className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground w-36 shrink-0">{item.name} risk</span>
-                      <div className="flex-1 bg-muted rounded-md h-7 relative overflow-hidden">
-                        <div className="h-full rounded-md grow-x" style={{ width: `${pct}%`, backgroundColor: item.color }} />
-                        <span
-                          className="absolute inset-y-0 flex items-center text-xs font-bold tabular-nums whitespace-nowrap"
-                          style={fits ? { right: `calc(${100 - pct}% + 8px)`, color: '#FFFFFF' } : { left: `calc(${pct}% + 8px)`, color: 'var(--foreground)' }}
-                        >
-                          {item.value} ({pct}%)
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+                {/* same horizontal-bar idiom as the RPC funnel/procedures cards */}
+                {riskDistributionData.map((item) => (
+                  <BarRow
+                    key={item.name}
+                    label={`${item.name} risk`}
+                    value={item.value}
+                    pct={Math.round((item.value / riskTotal) * 100)}
+                    color={item.color}
+                  />
+                ))}
                 <p className="text-xs text-muted-foreground pt-1">
                   {riskTotal} student{riskTotal !== 1 ? 's' : ''} with a validated risk level
                   {screenedCount !== riskTotal ? ` · ${screenedCount} screened in total` : ''}
@@ -571,24 +584,15 @@ export const Dashboard = () => {
                   { label: 'Enrolled', value: scopedRpc.length, ...FUNNEL_RAMP[0] },
                   { label: 'Visit 1 completed', value: scopedRpc.filter((r) => r.visit1Status === 'Completed').length, ...FUNNEL_RAMP[1] },
                   { label: 'Both visits completed', value: scopedRpc.filter((r) => r.visit2Status === 'Completed').length, ...FUNNEL_RAMP[2] },
-                ].map((step) => {
-                  const pct = Math.round((step.value / scopedRpc.length) * 100);
-                  const fits = pct >= 22;
-                  return (
-                    <div key={step.label} className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground w-36 shrink-0">{step.label}</span>
-                      <div className="flex-1 bg-muted rounded-md h-7 relative overflow-hidden">
-                        <div className="h-full rounded-md grow-x" style={{ width: `${pct}%`, backgroundColor: step.color }} />
-                        <span
-                          className="absolute inset-y-0 flex items-center text-xs font-bold tabular-nums whitespace-nowrap"
-                          style={fits ? { right: `calc(${100 - pct}% + 8px)`, color: step.ink } : { left: `calc(${pct}% + 8px)`, color: 'var(--foreground)' }}
-                        >
-                          {step.value} ({pct}%)
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+                ].map((step) => (
+                  <BarRow
+                    key={step.label}
+                    label={step.label}
+                    value={step.value}
+                    pct={Math.round((step.value / scopedRpc.length) * 100)}
+                    color={step.color}
+                  />
+                ))}
                 <p className="text-xs text-muted-foreground pt-1">
                   {rpcOverdueCount > 0 ? `${rpcOverdueCount} student${rpcOverdueCount !== 1 ? 's' : ''} overdue for Visit 2` : 'No students overdue for Visit 2'}
                 </p>
@@ -941,24 +945,15 @@ export const Dashboard = () => {
               <div className="space-y-2.5">
                 {/* horizontal bars (audit U3) — same idiom as the dentist
                     dashboard's risk/funnel cards, semantic status colors */}
-                {oralHealthStatusData.map((item) => {
-                  const pct = Math.round((item.value / schoolStudents.length) * 100);
-                  const fits = pct >= 22;
-                  return (
-                    <div key={item.name} className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground w-36 shrink-0">{item.name}</span>
-                      <div className="flex-1 bg-muted rounded-md h-7 relative overflow-hidden">
-                        <div className="h-full rounded-md grow-x" style={{ width: `${pct}%`, backgroundColor: item.color }} />
-                        <span
-                          className="absolute inset-y-0 flex items-center text-xs font-bold tabular-nums whitespace-nowrap"
-                          style={fits ? { right: `calc(${100 - pct}% + 8px)`, color: '#FFFFFF' } : { left: `calc(${pct}% + 8px)`, color: 'var(--foreground)' }}
-                        >
-                          {item.value} ({pct}%)
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+                {oralHealthStatusData.map((item) => (
+                  <BarRow
+                    key={item.name}
+                    label={item.name}
+                    value={item.value}
+                    pct={Math.round((item.value / schoolStudents.length) * 100)}
+                    color={item.color}
+                  />
+                ))}
                 <p className="text-xs text-muted-foreground pt-1">
                   {schoolStudents.length} student{schoolStudents.length !== 1 ? 's' : ''} enrolled
                 </p>
