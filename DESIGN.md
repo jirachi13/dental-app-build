@@ -22,7 +22,6 @@ colors:
   unassessed-gray: "#9CA3AF"
   funnel-mid: "#4E74D6"
   funnel-pale: "#9DB2EC"
-  funnel-ink: "#26355C"
 typography:
   headline:
     fontFamily: "'Public Sans Variable', system-ui, -apple-system, sans-serif"
@@ -184,9 +183,13 @@ measure, later stage". Three different hues would imply category or status
 meaning the stages do not carry.
 
 - **Funnel Mid** (`#4E74D6`): The middle stage. White label.
-- **Funnel Pale** (`#9DB2EC`): The final, narrowest stage. Too pale for white
-  text, so it takes Funnel Ink.
-- **Funnel Ink** (`#26355C`): Label color on Funnel Pale only.
+- **Funnel Pale** (`#9DB2EC`): The final, narrowest stage.
+
+A fourth entry, **Funnel Ink** (`#26355C`), was removed on 2026-08-11. It was
+the label color for text sitting *on* the palest bar, where white failed
+contrast. Bar values now sit outside the track entirely — a fixed-width column
+to the right of every horizontal bar — so no label is ever on a fill, and the
+No-Dead-Tokens Rule applies.
 
 These sit between the Official Blue tonal-ramp steps because they were tuned
 against the label sitting on each bar, not sampled from the ramp. They live in

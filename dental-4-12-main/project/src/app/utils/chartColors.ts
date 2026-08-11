@@ -25,11 +25,17 @@ export const RISK_COLORS = {
 // deliberate — three DIFFERENT hues would imply category or status meaning the
 // stages don't carry, and green/amber/red are reserved for clinical status
 // (DESIGN.md, The Fixed Meaning Rule). These sit between the official-blue
-// tonal-ramp steps because they were tuned against the label that sits on each
-// bar: `ink` is the text color for that step, dark on the palest one where
-// white would fail contrast. Lived inline in Dashboard.tsx until 2026-08-06.
+// tonal-ramp steps because they were tuned against a label that used to sit ON
+// each bar. Lived inline in Dashboard.tsx until 2026-08-06.
+//
+// The `ink` field is gone (2026-08-11). It carried the label color for each
+// step — dark on the palest bar, where white failed contrast — but Sprint C
+// moved every bar value OUTSIDE the track, so no text sits on a fill any more
+// and every value is foreground-colored. Keeping an unused key would have
+// violated DESIGN.md's No-Dead-Tokens Rule. The three hues stay: they were
+// chosen for the bars themselves, not for the labels.
 export const FUNNEL_RAMP = [
-  { color: CHART.brand, ink: '#FFFFFF' },
-  { color: '#4E74D6', ink: '#FFFFFF' },
-  { color: '#9DB2EC', ink: '#26355C' },
+  { color: CHART.brand },
+  { color: '#4E74D6' },
+  { color: '#9DB2EC' },
 ] as const;
