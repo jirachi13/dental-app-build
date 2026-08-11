@@ -1,3 +1,7 @@
+// Must precede any driver import: on Node 24 this machine's local resolver
+// stub fails the Atlas SRV lookup (querySrv ECONNREFUSED). Same preload
+// `server/local.ts` uses -- harmless on machines that don't need it.
+import "../dnsFix.js";
 import "dotenv/config";
 import { connectDB } from "../config/db.js";
 import {
