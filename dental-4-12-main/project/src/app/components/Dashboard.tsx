@@ -12,7 +12,8 @@ import {
   CheckCircle,
   Clock,
   BarChart3,
-  ArrowRight
+  ArrowRight,
+  ChevronRight
 } from 'lucide-react';
 import { SkeletonBlock } from './Skeleton';
 import { getGradeColor } from '../utils/gradeColors';
@@ -134,6 +135,14 @@ export const Dashboard = () => {
   }).length;
   const rpcOverdueCount = scopedRpc.filter((r) => r.status === 'overdue').length;
   const rpcPendingCount = scopedRpc.filter((r) => r.status === 'pending').length;
+  // Clinic summary strip (Sprint A): the numerator behind rpcCompletionRate, and
+  // the Visit-1 rate the funnel card used to compute inline. Both are over
+  // scopedRpc (RPC records), NOT allStudents -- a student with no RPC record is
+  // absent from this denominator, so these must never be captioned as a share
+  // of enrolled patients.
+  const rpcBothVisitsCount = scopedRpc.filter((r) => r.status === 'complete').length;
+  const rpcVisit1Count = scopedRpc.filter((r) => r.visit1Status === 'Completed').length;
+  const rpcVisit1Rate = scopedRpc.length ? Math.round((rpcVisit1Count / scopedRpc.length) * 100) : 0;
 
   // School lookup for records that reach a student via chart→iptr or preventive→iptr chains
   const studentSchoolById = useMemo(
@@ -203,6 +212,16 @@ export const Dashboard = () => {
     // daysUntilDue is negative when overdue, so ascending = most overdue first
     return due.sort((a, b) => a.daysUntilDue - b.daysUntilDue).slice(0, 6);
   }, [scopedRpc]);
+
+  // Most-overdue student, for the clinic summary footer. upcomingFollowUps is
+  // sorted ascending and daysUntilDue is negative when overdue, so [0] is the
+  // worst case -- but it also carries not-yet-due records, hence the < 0 guard.
+  // null means nothing is overdue, and the footer drops that clause entirely
+  // rather than printing "0 days overdue".
+  const mostOverdueDays =
+    upcomingFollowUps[0] && upcomingFollowUps[0].daysUntilDue < 0
+      ? Math.abs(upcomingFollowUps[0].daysUntilDue)
+      : null;
 
   // Real appointment sessions for the current calendar week, bucketed by day + status.
   const weekAppointmentsByDay = useMemo(() => {
@@ -304,6 +323,52 @@ export const Dashboard = () => {
     );
   };
 
+  // ===== CLINIC SUMMARY STRIP (Sprint A, design direction 3a) =====
+  // Replaces the four equal-weight StatCards, which DESIGN.md calls out by name
+  // as "the absence of hierarchy". Presented as clinical paperwork: ruled cells,
+  // uppercase field labels, tabular figures, no icon chips, no tint, no shadow.
+  // The strip is NOT clickable as a whole -- each cell is its own link.
+  const SummaryCell = ({ icon: Icon, label, value, valueClass, context, linkTo, loading, trailing }: {
+    icon: any; label: string; value: string; valueClass?: string; context: string;
+    linkTo?: string; loading?: boolean; trailing?: string;
+  }) => {
+    const body = (
+      <>
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          <span className="flex items-center gap-[7px] min-w-0">
+            <Icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" strokeWidth={2} />
+            <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-muted-foreground truncate">{label}</span>
+          </span>
+          {/* Chevron only where the cell actually navigates -- an affordance on a
+              dead cell is a lie about what a click will do. */}
+          {linkTo && <ChevronRight className="w-3 h-3 text-primary shrink-0" strokeWidth={2.5} />}
+        </div>
+        {loading ? (
+          <SkeletonBlock className="h-7 w-16" />
+        ) : (
+          <div className="flex items-baseline gap-2">
+            <span className={`text-[28px] font-bold leading-none tabular-nums ${valueClass ?? 'text-foreground'}`}>{value}</span>
+            {trailing && <span className="text-[11px] text-muted-foreground">{trailing}</span>}
+          </div>
+        )}
+        <div className="text-[11px] text-muted-foreground mt-1.5">{loading ? ' ' : context}</div>
+      </>
+    );
+
+    // Cell tint replaces the old card lift; focus ring is explicit because these
+    // are links and the previous tiles relied on the browser default.
+    const cell = 'px-4 py-3.5 border-border';
+    if (!linkTo) return <div className={cell}>{body}</div>;
+    return (
+      <Link
+        to={linkTo}
+        className={`${cell} block transition-colors duration-150 hover:bg-primary-surface focus-visible:bg-primary-surface focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2`}
+      >
+        {body}
+      </Link>
+    );
+  };
+
   // Shown in place of a chart/list when there's genuinely no real data
   // source to compute it from yet (e.g. no historical snapshots, no backing
   // model) -- never fabricate numbers just to make a chart look populated.
@@ -350,62 +415,90 @@ export const Dashboard = () => {
             <h1 className="text-2xl font-bold text-foreground">Dentist Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-0.5">Welcome back, {user?.name} — {selectedSchool ? getSchoolShortName(selectedSchool) : 'All Schools'}</p>
           </div>
-          <div className="ml-auto text-right text-xs text-muted-foreground hidden sm:block">
-            <span className="block text-[13px] font-semibold text-foreground">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-            </span>
-            {appointmentsLoading ? (
-              <SkeletonBlock className="h-4 w-32 ml-auto" />
-            ) : (
-              <>{todaySessions.length} appointment{todaySessions.length !== 1 ? 's' : ''} today</>
-            )}
-          </div>
+          {/* The date moved into the clinic summary title bar (Sprint A) and the
+              appointment count is now cell 2, so this header block is gone --
+              both would otherwise appear twice on the same screen. */}
           <Link
             to="/appointments?new=1"
-            className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
+            className="ml-auto inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
           >
             <Plus className="w-4 h-4" />
             New Appointment
           </Link>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 rise rise-1">
-          <StatCard
-            icon={Users}
-            label="Total Patients"
-            value={String(allStudents.length)}
-            color="text-primary"
-            linkTo="/patients"
-            loading={studentsLoading}
-          />
-          <StatCard
-            icon={Calendar}
-            label="Today's Appointments"
-            value={String(todaySessions.length)}
-            color="text-cyan-600"
-            trend={todaySessions[0] ? `Next: ${todaySessions[0].time}` : undefined}
-            linkTo="/appointments"
-            loading={appointmentsLoading}
-          />
-          <StatCard
-            icon={AlertCircle}
-            label="High-Risk Patients"
-            value={String(highRiskCount)}
-            color="text-destructive"
-            trend={highRiskCount > 0 ? 'review in Risk Classification' : undefined}
-            linkTo="/patients?risk=high"
-            loading={studentsLoading}
-          />
-          <StatCard
-            icon={Shield}
-            label="RPC Completion Rate"
-            value={`${rpcCompletionRate}%`}
-            color="text-success"
-            progress={rpcCompletionRate}
-            linkTo="/rpc"
-            loading={rpcLoading}
-          />
+        {/* Clinic summary (Sprint A, direction 3a) — replaces the four KPI tiles */}
+        <div className="bg-card border border-border rounded-sm overflow-hidden rise rise-1">
+          <div className="flex items-baseline justify-between gap-4 px-4 py-2.5 bg-muted border-b border-border">
+            <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-foreground">Clinic summary</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+              {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </span>
+          </div>
+
+          {/* 1 column stacked with horizontal rules, 4 columns with vertical
+              rules from lg. No 2-column middle step: at that width the context
+              lines wrap and the ledger stops reading as a single row. */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-border">
+            <SummaryCell
+              icon={Users}
+              label="Patients enrolled"
+              value={String(allStudents.length)}
+              // "screened", not "validated" -- nothing filters on validated_at,
+              // so claiming validation here would be false (see HANDOFF item 13).
+              context={`${screenedCount} screened`}
+              linkTo="/patients"
+              loading={studentsLoading}
+            />
+            <SummaryCell
+              icon={Calendar}
+              label="Appointments today"
+              value={String(todaySessions.length)}
+              context={todaySessions[0] ? `Next at ${todaySessions[0].time}` : 'None scheduled'}
+              linkTo="/appointments"
+              loading={appointmentsLoading}
+            />
+            <SummaryCell
+              icon={AlertCircle}
+              label="High-risk patients"
+              value={String(highRiskCount)}
+              // Same conditional as the old tile: foreground at 0, red above it.
+              valueClass={highRiskCount > 0 ? 'text-destructive' : undefined}
+              context={`${mediumRiskCount} medium · ${lowRiskCount} low`}
+              linkTo="/patients?risk=high"
+              loading={studentsLoading}
+            />
+            <SummaryCell
+              icon={Shield}
+              label="RPC completion"
+              value={`${rpcCompletionRate}%`}
+              // Blue = operational state, per the v4 color rule: amber already
+              // means "medium caries risk" on this same screen.
+              valueClass="text-primary"
+              trailing={`${rpcBothVisitsCount} of ${scopedRpc.length}`}
+              context="Both visits completed"
+              linkTo="/rpc"
+              loading={rpcLoading}
+            />
+          </div>
+
+          {!rpcLoading && scopedRpc.length > 0 && (
+            <div className="px-4 py-2.5 border-t border-border text-[11px] text-muted-foreground">
+              {/* mostOverdueDays belongs to ONE student, so it can only be
+                  attached to the figure when there is exactly one. With several
+                  overdue it becomes "most by N days" rather than implying they
+                  are all that far behind. */}
+              {mostOverdueDays !== null && (
+                <span className="text-primary font-semibold">
+                  {rpcOverdueCount === 1
+                    ? `1 student ${mostOverdueDays} day${mostOverdueDays !== 1 ? 's' : ''} overdue for Visit 2`
+                    : `${rpcOverdueCount} students overdue for Visit 2, most by ${mostOverdueDays} days`}
+                </span>
+              )}
+              {mostOverdueDays !== null && ' · '}
+              Visit 1 done for {rpcVisit1Count} of {scopedRpc.length} ({rpcVisit1Rate}%) · target 100% by end of school year
+            </div>
+          )}
         </div>
 
         {/* Charts Row: Risk Distribution (LEFT) + Oral Health Trend (RIGHT, illustrative — see note above) */}
