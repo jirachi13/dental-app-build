@@ -959,13 +959,20 @@ export const DentalChart = () => {
               {canEdit && !editMode && <p className="text-xs text-muted-foreground mb-2 italic">View mode — click "Edit Chart" to record conditions/treatments</p>}
               <div className={`grid grid-cols-1 ${iptrContext === 'default' ? 'lg:grid-cols-2' : ''} gap-4`}>
                 {iptrContext !== 'treatment' && (
-                <div>
+                // Symmetric padding with the treatment column so the two grids
+                // get identical width -- the divider's padding on one side only
+                // made its buttons 3px smaller than its neighbour's.
+                <div className={iptrContext === 'default' ? 'lg:pr-4' : undefined}>
                   <div className="text-sm font-semibold text-foreground mb-2 uppercase tracking-wide">Condition Codes</div>
-                  {/* solo (full-width) group flows to more columns so buttons keep the same size as the paired two-column layout */}
-                  <div className={`grid gap-1.5 ${iptrContext === 'dental-queue' ? 'grid-cols-4 sm:grid-cols-6 lg:grid-cols-9' : 'grid-cols-4 sm:grid-cols-5'}`}>
+                  {/* Solo (full-width) flows to more columns so buttons stay the
+                      size they are in the paired layout. More columns alone was
+                      not enough -- 9 across a full-width card still measured
+                      101px against the pair's 89px -- so the buttons also carry
+                      a max width. Verified by measurement, not by eye. */}
+                  <div className={`grid gap-1.5 justify-items-center ${iptrContext ==='dental-queue' ? 'grid-cols-4 sm:grid-cols-6 lg:grid-cols-9' : 'grid-cols-4 sm:grid-cols-5'}`}>
                     {conditionCodes.map((c) => (
                       <button key={c.code} onClick={() => { setSelectedCondition(selectedCondition === c.code ? null : c.code); setSelectedTreatment(null); }}
-                        className={`aspect-square min-h-[54px] rounded-lg border p-1.5 text-center transition-all flex flex-col items-center justify-center gap-1 ${selectedCondition === c.code ? 'bg-teal-600 text-white ring-2 ring-teal-300 border-teal-600' : 'bg-card border-border text-foreground hover:border-teal-400'}`}>
+                        className={`aspect-square w-full max-w-[86px] min-h-[54px] rounded-lg border p-1.5 text-center transition-all flex flex-col items-center justify-center gap-1 ${selectedCondition === c.code ? 'bg-teal-600 text-white ring-2 ring-teal-300 border-teal-600' : 'bg-card border-border text-foreground hover:border-teal-400'}`}>
                         <div className="text-[13px] sm:text-[15px] font-bold font-mono leading-none">{c.perm}/{c.temp}</div>
                         <div className="text-[9px] sm:text-[10px] font-medium leading-tight">{c.label}</div>
                       </button>
@@ -974,12 +981,17 @@ export const DentalChart = () => {
                 </div>
                 )}
                 {iptrContext !== 'dental-queue' && (
-                <div>
+                // Conditions and treatments are different vocabularies -- one
+                // records what IS, the other what was DONE -- but unselected
+                // buttons in both groups look identical, so without a rule the
+                // two grids read as one long palette. Divider only when both
+                // are on screen: side by side from lg, stacked below it.
+                <div className={iptrContext === 'default' ? 'border-t border-border pt-4 lg:border-t-0 lg:pt-0 lg:border-l lg:pl-4' : undefined}>
                   <div className="text-sm font-semibold text-foreground mb-2 uppercase tracking-wide">Treatment Codes</div>
-                  <div className={`grid gap-1.5 ${iptrContext === 'treatment' ? 'grid-cols-4 sm:grid-cols-6 lg:grid-cols-9' : 'grid-cols-4 sm:grid-cols-5'}`}>
+                  <div className={`grid gap-1.5 justify-items-center ${iptrContext ==='treatment' ? 'grid-cols-4 sm:grid-cols-6 lg:grid-cols-9' : 'grid-cols-4 sm:grid-cols-5'}`}>
                     {treatmentCodes.map((t) => (
                       <button key={t.code} onClick={() => { setSelectedTreatment(selectedTreatment === t.code ? null : t.code); setSelectedCondition(null); }}
-                        className={`aspect-square min-h-[54px] rounded-lg border p-1.5 text-center transition-all flex flex-col items-center justify-center gap-1 ${selectedTreatment === t.code ? 'bg-blue-600 text-white ring-2 ring-blue-300 border-blue-600' : 'bg-card border-border text-foreground hover:border-blue-400'}`}>
+                        className={`aspect-square w-full max-w-[86px] min-h-[54px] rounded-lg border p-1.5 text-center transition-all flex flex-col items-center justify-center gap-1 ${selectedTreatment === t.code ? 'bg-blue-600 text-white ring-2 ring-blue-300 border-blue-600' : 'bg-card border-border text-foreground hover:border-blue-400'}`}>
                         <span className="text-[13px] sm:text-[15px] font-bold font-mono leading-none">{t.code}</span>
                         <span className="text-[9px] sm:text-[10px] font-medium leading-tight">{t.label}</span>
                       </button>

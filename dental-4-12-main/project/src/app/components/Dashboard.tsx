@@ -12,7 +12,8 @@ import {
   CheckCircle,
   Clock,
   BarChart3,
-  ArrowRight
+  ArrowRight,
+  ChevronRight
 } from 'lucide-react';
 import { SkeletonBlock } from './Skeleton';
 import { getGradeColor } from '../utils/gradeColors';
@@ -29,9 +30,7 @@ import {
   Legend, 
   ResponsiveContainer,
   LineChart,
-  Line,
-  RadialBarChart,
-  RadialBar
+  Line
 } from 'recharts';
 import { ChartTooltip } from './ChartTooltip';
 import { Link } from 'react-router';
@@ -134,6 +133,14 @@ export const Dashboard = () => {
   }).length;
   const rpcOverdueCount = scopedRpc.filter((r) => r.status === 'overdue').length;
   const rpcPendingCount = scopedRpc.filter((r) => r.status === 'pending').length;
+  // Clinic summary strip (Sprint A): the numerator behind rpcCompletionRate, and
+  // the Visit-1 rate the funnel card used to compute inline. Both are over
+  // scopedRpc (RPC records), NOT allStudents -- a student with no RPC record is
+  // absent from this denominator, so these must never be captioned as a share
+  // of enrolled patients.
+  const rpcBothVisitsCount = scopedRpc.filter((r) => r.status === 'complete').length;
+  const rpcVisit1Count = scopedRpc.filter((r) => r.visit1Status === 'Completed').length;
+  const rpcVisit1Rate = scopedRpc.length ? Math.round((rpcVisit1Count / scopedRpc.length) * 100) : 0;
 
   // School lookup for records that reach a student via chart→iptr or preventive→iptr chains
   const studentSchoolById = useMemo(
@@ -203,6 +210,16 @@ export const Dashboard = () => {
     // daysUntilDue is negative when overdue, so ascending = most overdue first
     return due.sort((a, b) => a.daysUntilDue - b.daysUntilDue).slice(0, 6);
   }, [scopedRpc]);
+
+  // Most-overdue student, for the clinic summary footer. upcomingFollowUps is
+  // sorted ascending and daysUntilDue is negative when overdue, so [0] is the
+  // worst case -- but it also carries not-yet-due records, hence the < 0 guard.
+  // null means nothing is overdue, and the footer drops that clause entirely
+  // rather than printing "0 days overdue".
+  const mostOverdueDays =
+    upcomingFollowUps[0] && upcomingFollowUps[0].daysUntilDue < 0
+      ? Math.abs(upcomingFollowUps[0].daysUntilDue)
+      : null;
 
   // Real appointment sessions for the current calendar week, bucketed by day + status.
   const weekAppointmentsByDay = useMemo(() => {
@@ -304,6 +321,94 @@ export const Dashboard = () => {
     );
   };
 
+  // ===== CLINIC SUMMARY STRIP (Sprint A, design direction 3a) =====
+  // Replaces the four equal-weight StatCards, which DESIGN.md calls out by name
+  // as "the absence of hierarchy". Presented as clinical paperwork: ruled cells,
+  // uppercase field labels, tabular figures, no icon chips, no tint, no shadow.
+  // The strip is NOT clickable as a whole -- each cell is its own link.
+  const SummaryCell = ({ icon: Icon, label, value, valueClass, context, linkTo, loading, trailing }: {
+    icon: any; label: string; value: string; valueClass?: string; context: string;
+    linkTo?: string; loading?: boolean; trailing?: string;
+  }) => {
+    const body = (
+      <>
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          <span className="flex items-center gap-[7px] min-w-0">
+            <Icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" strokeWidth={2} />
+            <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-muted-foreground truncate">{label}</span>
+          </span>
+          {/* Chevron only where the cell actually navigates -- an affordance on a
+              dead cell is a lie about what a click will do. */}
+          {linkTo && <ChevronRight className="w-3 h-3 text-primary shrink-0" strokeWidth={2.5} />}
+        </div>
+        {loading ? (
+          <SkeletonBlock className="h-7 w-16" />
+        ) : (
+          <div className="flex items-baseline gap-2">
+            {/* Some cells legitimately carry prose or a date rather than a
+                figure ("None scheduled"). Rendering a sentence at 28px makes it
+                shout louder than the real numbers beside it, so it steps down
+                to 15px/600 muted -- the treatment the 3a school-admin mock
+                specifies. Detected the same way StatCard does it (`:269`) so no
+                call site can forget the prop. Anything starting with a digit
+                stays a figure, which keeps "17%", "2 of 3" and ISO dates at
+                full size, since those ARE the reading. */}
+            <span className={
+              /^\d/.test(String(value).trim())
+                ? `text-[28px] font-bold leading-none tabular-nums ${valueClass ?? 'text-foreground'}`
+                : 'text-[15px] font-semibold leading-tight py-[5px] text-muted-foreground'
+            }>{value}</span>
+            {trailing && <span className="text-[11px] text-muted-foreground">{trailing}</span>}
+          </div>
+        )}
+        <div className="text-[11px] text-muted-foreground mt-1.5">{loading ? ' ' : context}</div>
+      </>
+    );
+
+    // Cell tint replaces the old card lift; focus ring is explicit because these
+    // are links and the previous tiles relied on the browser default.
+    const cell = 'px-4 py-3.5 border-border';
+    if (!linkTo) return <div className={cell}>{body}</div>;
+    return (
+      <Link
+        to={linkTo}
+        className={`${cell} block transition-colors duration-150 hover:bg-primary-surface focus-visible:bg-primary-surface focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2`}
+      >
+        {body}
+      </Link>
+    );
+  };
+
+  // ===== HORIZONTAL BAR ROW (Sprint C) =====
+  // One row for all three bar charts (risk distribution, RPC funnel, school
+  // oral-health status), which were three copies of the same markup.
+  //
+  // The value used to be absolutely positioned INSIDE the track, flipping
+  // between "on the fill" and "after the fill" at a 22% threshold. Both
+  // branches clip, because the track is overflow:hidden and the offsets are
+  // percentages: a short fill pushes the label past the right edge, a long one
+  // leaves no room after it. Narrow viewports make it worse. The value is now a
+  // fixed-width sibling OUTSIDE the track, so no fill/width combination can
+  // clip it, and the label truncates instead of squeezing the bar.
+  // `valueText` overrides the default "N (P%)" for charts where each row has
+  // its own denominator -- "1 (50%)" is ambiguous when the total differs per
+  // row, so those pass "1 of 2" instead. Widens the value column to match.
+  const BarRow = ({ label, value, pct, color, valueText }: { label: string; value: number; pct: number; color: string; valueText?: string }) => (
+    // max-w caps the row in FULL-WIDTH cards, where a 100% bar became a very
+    // long slab of solid color -- a lot of ink for "2 of 2". Self-limiting: the
+    // half-width chart cards are already narrower than the cap, so they are
+    // unaffected and no call site needs to opt in.
+    <div className="flex items-center gap-3 max-w-3xl">
+      <span className="text-xs text-muted-foreground basis-36 shrink min-w-0 truncate">{label}</span>
+      <div className="flex-1 min-w-[110px] bg-muted rounded-md h-7 overflow-hidden">
+        <div className="h-full rounded-md grow-x" style={{ width: `${pct}%`, backgroundColor: color }} />
+      </div>
+      <span className={`${valueText ? 'w-[92px]' : 'w-[68px]'} shrink-0 text-right text-xs font-bold tabular-nums text-foreground`}>
+        {valueText ?? `${value} (${pct}%)`}
+      </span>
+    </div>
+  );
+
   // Shown in place of a chart/list when there's genuinely no real data
   // source to compute it from yet (e.g. no historical snapshots, no backing
   // model) -- never fabricate numbers just to make a chart look populated.
@@ -350,62 +455,90 @@ export const Dashboard = () => {
             <h1 className="text-2xl font-bold text-foreground">Dentist Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-0.5">Welcome back, {user?.name} — {selectedSchool ? getSchoolShortName(selectedSchool) : 'All Schools'}</p>
           </div>
-          <div className="ml-auto text-right text-xs text-muted-foreground hidden sm:block">
-            <span className="block text-[13px] font-semibold text-foreground">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-            </span>
-            {appointmentsLoading ? (
-              <SkeletonBlock className="h-4 w-32 ml-auto" />
-            ) : (
-              <>{todaySessions.length} appointment{todaySessions.length !== 1 ? 's' : ''} today</>
-            )}
-          </div>
+          {/* The date moved into the clinic summary title bar (Sprint A) and the
+              appointment count is now cell 2, so this header block is gone --
+              both would otherwise appear twice on the same screen. */}
           <Link
             to="/appointments?new=1"
-            className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
+            className="ml-auto inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
           >
             <Plus className="w-4 h-4" />
             New Appointment
           </Link>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 rise rise-1">
-          <StatCard
-            icon={Users}
-            label="Total Patients"
-            value={String(allStudents.length)}
-            color="text-primary"
-            linkTo="/patients"
-            loading={studentsLoading}
-          />
-          <StatCard
-            icon={Calendar}
-            label="Today's Appointments"
-            value={String(todaySessions.length)}
-            color="text-cyan-600"
-            trend={todaySessions[0] ? `Next: ${todaySessions[0].time}` : undefined}
-            linkTo="/appointments"
-            loading={appointmentsLoading}
-          />
-          <StatCard
-            icon={AlertCircle}
-            label="High-Risk Patients"
-            value={String(highRiskCount)}
-            color="text-destructive"
-            trend={highRiskCount > 0 ? 'review in Risk Classification' : undefined}
-            linkTo="/patients?risk=high"
-            loading={studentsLoading}
-          />
-          <StatCard
-            icon={Shield}
-            label="RPC Completion Rate"
-            value={`${rpcCompletionRate}%`}
-            color="text-success"
-            progress={rpcCompletionRate}
-            linkTo="/rpc"
-            loading={rpcLoading}
-          />
+        {/* Clinic summary (Sprint A, direction 3a) — replaces the four KPI tiles */}
+        <div className="bg-card border border-border rounded-sm overflow-hidden rise rise-1">
+          <div className="flex items-baseline justify-between gap-4 px-4 py-2.5 bg-muted border-b border-border">
+            <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-foreground">Clinic summary</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+              {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </span>
+          </div>
+
+          {/* 1 column stacked with horizontal rules, 4 columns with vertical
+              rules from lg. No 2-column middle step: at that width the context
+              lines wrap and the ledger stops reading as a single row. */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-border">
+            <SummaryCell
+              icon={Users}
+              label="Patients enrolled"
+              value={String(allStudents.length)}
+              // "screened", not "validated" -- nothing filters on validated_at,
+              // so claiming validation here would be false (see HANDOFF item 13).
+              context={`${screenedCount} screened`}
+              linkTo="/patients"
+              loading={studentsLoading}
+            />
+            <SummaryCell
+              icon={Calendar}
+              label="Appointments today"
+              value={String(todaySessions.length)}
+              context={todaySessions[0] ? `Next at ${todaySessions[0].time}` : 'None scheduled'}
+              linkTo="/appointments"
+              loading={appointmentsLoading}
+            />
+            <SummaryCell
+              icon={AlertCircle}
+              label="High-risk patients"
+              value={String(highRiskCount)}
+              // Same conditional as the old tile: foreground at 0, red above it.
+              valueClass={highRiskCount > 0 ? 'text-destructive' : undefined}
+              context={`${mediumRiskCount} medium · ${lowRiskCount} low`}
+              linkTo="/patients?risk=high"
+              loading={studentsLoading}
+            />
+            <SummaryCell
+              icon={Shield}
+              label="RPC completion"
+              value={`${rpcCompletionRate}%`}
+              // Blue = operational state, per the v4 color rule: amber already
+              // means "medium caries risk" on this same screen.
+              valueClass="text-primary"
+              trailing={`${rpcBothVisitsCount} of ${scopedRpc.length}`}
+              context="Both visits completed"
+              linkTo="/rpc"
+              loading={rpcLoading}
+            />
+          </div>
+
+          {!rpcLoading && scopedRpc.length > 0 && (
+            <div className="px-4 py-2.5 border-t border-border text-[11px] text-muted-foreground">
+              {/* mostOverdueDays belongs to ONE student, so it can only be
+                  attached to the figure when there is exactly one. With several
+                  overdue it becomes "most by N days" rather than implying they
+                  are all that far behind. */}
+              {mostOverdueDays !== null && (
+                <span className="text-primary font-semibold">
+                  {rpcOverdueCount === 1
+                    ? `1 student ${mostOverdueDays} day${mostOverdueDays !== 1 ? 's' : ''} overdue for Visit 2`
+                    : `${rpcOverdueCount} students overdue for Visit 2, most by ${mostOverdueDays} days`}
+                </span>
+              )}
+              {mostOverdueDays !== null && ' · '}
+              Visit 1 done for {rpcVisit1Count} of {scopedRpc.length} ({rpcVisit1Rate}%) · target 100% by end of school year
+            </div>
+          )}
         </div>
 
         {/* Charts Row: Risk Distribution (LEFT) + Oral Health Trend (RIGHT, illustrative — see note above) */}
@@ -418,26 +551,16 @@ export const Dashboard = () => {
               <NoDataYet message="No students with a validated risk level yet." />
             ) : (
               <div className="space-y-2.5">
-                {/* same horizontal-bar idiom as the RPC funnel/procedures cards:
-                    label · track · count inside the bar when it fits */}
-                {riskDistributionData.map((item) => {
-                  const pct = Math.round((item.value / riskTotal) * 100);
-                  const fits = pct >= 22;
-                  return (
-                    <div key={item.name} className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground w-36 shrink-0">{item.name} risk</span>
-                      <div className="flex-1 bg-muted rounded-md h-7 relative overflow-hidden">
-                        <div className="h-full rounded-md grow-x" style={{ width: `${pct}%`, backgroundColor: item.color }} />
-                        <span
-                          className="absolute inset-y-0 flex items-center text-xs font-bold tabular-nums whitespace-nowrap"
-                          style={fits ? { right: `calc(${100 - pct}% + 8px)`, color: '#FFFFFF' } : { left: `calc(${pct}% + 8px)`, color: 'var(--foreground)' }}
-                        >
-                          {item.value} ({pct}%)
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+                {/* same horizontal-bar idiom as the RPC funnel/procedures cards */}
+                {riskDistributionData.map((item) => (
+                  <BarRow
+                    key={item.name}
+                    label={`${item.name} risk`}
+                    value={item.value}
+                    pct={Math.round((item.value / riskTotal) * 100)}
+                    color={item.color}
+                  />
+                ))}
                 <p className="text-xs text-muted-foreground pt-1">
                   {riskTotal} student{riskTotal !== 1 ? 's' : ''} with a validated risk level
                   {screenedCount !== riskTotal ? ` · ${screenedCount} screened in total` : ''}
@@ -478,24 +601,15 @@ export const Dashboard = () => {
                   { label: 'Enrolled', value: scopedRpc.length, ...FUNNEL_RAMP[0] },
                   { label: 'Visit 1 completed', value: scopedRpc.filter((r) => r.visit1Status === 'Completed').length, ...FUNNEL_RAMP[1] },
                   { label: 'Both visits completed', value: scopedRpc.filter((r) => r.visit2Status === 'Completed').length, ...FUNNEL_RAMP[2] },
-                ].map((step) => {
-                  const pct = Math.round((step.value / scopedRpc.length) * 100);
-                  const fits = pct >= 22;
-                  return (
-                    <div key={step.label} className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground w-36 shrink-0">{step.label}</span>
-                      <div className="flex-1 bg-muted rounded-md h-7 relative overflow-hidden">
-                        <div className="h-full rounded-md grow-x" style={{ width: `${pct}%`, backgroundColor: step.color }} />
-                        <span
-                          className="absolute inset-y-0 flex items-center text-xs font-bold tabular-nums whitespace-nowrap"
-                          style={fits ? { right: `calc(${100 - pct}% + 8px)`, color: step.ink } : { left: `calc(${pct}% + 8px)`, color: 'var(--foreground)' }}
-                        >
-                          {step.value} ({pct}%)
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+                ].map((step) => (
+                  <BarRow
+                    key={step.label}
+                    label={step.label}
+                    value={step.value}
+                    pct={Math.round((step.value / scopedRpc.length) * 100)}
+                    color={step.color}
+                  />
+                ))}
                 <p className="text-xs text-muted-foreground pt-1">
                   {rpcOverdueCount > 0 ? `${rpcOverdueCount} student${rpcOverdueCount !== 1 ? 's' : ''} overdue for Visit 2` : 'No students overdue for Visit 2'}
                 </p>
@@ -618,60 +732,76 @@ export const Dashboard = () => {
             <h1 className="text-2xl font-bold text-foreground">Dental Aide Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-0.5">Welcome back, {user?.name}{selectedSchool ? ` — ${getSchoolShortName(selectedSchool)}` : ''}</p>
           </div>
-          <div className="ml-auto text-right text-xs text-muted-foreground hidden sm:block">
-            <span className="block text-[13px] font-semibold text-foreground">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-            </span>
-            {appointmentsLoading ? (
-              <SkeletonBlock className="h-4 w-32 ml-auto" />
-            ) : (
-              <>{todaySessions.length} appointment{todaySessions.length !== 1 ? 's' : ''} today</>
-            )}
-          </div>
+          {/* Date + appointment count moved into the clinic summary (Sprint D),
+              same as the dentist branch. */}
           <Link
             to="/appointments?new=1"
-            className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
+            className="ml-auto inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
           >
             <Plus className="w-4 h-4" />
             New Appointment
           </Link>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 rise rise-1">
-          <StatCard
-            icon={Calendar}
-            label="Appointments Today"
-            value={String(todaySessions.length)}
-            color="text-primary"
-            linkTo="/appointments"
-            loading={appointmentsLoading}
-          />
-          <StatCard
-            icon={FileText}
-            label="Pending Charts"
-            value={String(pendingChartsCount)}
-            color="text-warning"
-            trend="to complete"
-            linkTo="/dental-charts"
-            loading={studentsLoading || extraLoading}
-          />
-          <StatCard
-            icon={AlertCircle}
-            label="RPC Follow-ups Overdue"
-            value={String(rpcOverdueCount)}
-            color="text-destructive"
-            linkTo="/rpc"
-            loading={rpcLoading}
-          />
-          <StatCard
-            icon={Shield}
-            label="RPC Visits Pending"
-            value={String(rpcPendingCount)}
-            color="text-cyan-600"
-            linkTo="/rpc"
-            loading={rpcLoading}
-          />
+        {/* Clinic summary (Sprint D) — same strip as the dentist branch */}
+        <div className="bg-card border border-border rounded-sm overflow-hidden rise rise-1">
+          <div className="flex items-baseline justify-between gap-4 px-4 py-2.5 bg-muted border-b border-border">
+            <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-foreground">Clinic summary</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+              {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-border">
+            <SummaryCell
+              icon={Calendar}
+              label="Appointments today"
+              value={String(todaySessions.length)}
+              context={todaySessions[0] ? `Next at ${todaySessions[0].time}` : 'None scheduled'}
+              linkTo="/appointments"
+              loading={appointmentsLoading}
+            />
+            <SummaryCell
+              icon={FileText}
+              label="Pending charts"
+              value={String(pendingChartsCount)}
+              context={`${allStudents.length - pendingChartsCount} of ${allStudents.length} charted`}
+              linkTo="/dental-charts"
+              loading={studentsLoading || extraLoading}
+            />
+            <SummaryCell
+              icon={AlertCircle}
+              label="RPC follow-ups overdue"
+              value={String(rpcOverdueCount)}
+              // Matches the old tile, which carried its color on the number.
+              valueClass={rpcOverdueCount > 0 ? 'text-destructive' : undefined}
+              context={mostOverdueDays !== null ? `Most overdue by ${mostOverdueDays} days` : 'None overdue'}
+              linkTo="/rpc"
+              loading={rpcLoading}
+            />
+            <SummaryCell
+              icon={Shield}
+              label="RPC visits pending"
+              value={String(rpcPendingCount)}
+              context={`${rpcBothVisitsCount} of ${scopedRpc.length} complete`}
+              linkTo="/rpc"
+              loading={rpcLoading}
+            />
+          </div>
+
+          {!rpcLoading && scopedRpc.length > 0 && (
+            <div className="px-4 py-2.5 border-t border-border text-[11px] text-muted-foreground">
+              {mostOverdueDays !== null && (
+                <span className="text-primary font-semibold">
+                  {rpcOverdueCount === 1
+                    ? `1 student ${mostOverdueDays} day${mostOverdueDays !== 1 ? 's' : ''} overdue for Visit 2`
+                    : `${rpcOverdueCount} students overdue for Visit 2, most by ${mostOverdueDays} days`}
+                </span>
+              )}
+              {mostOverdueDays !== null && ' · '}
+              Visit 1 done for {rpcVisit1Count} of {scopedRpc.length} ({rpcVisit1Rate}%) · target 100% by end of school year
+            </div>
+          )}
         </div>
 
         {/* Charts Row */}
@@ -720,9 +850,23 @@ export const Dashboard = () => {
     const schoolScreenedCount = schoolStudents.filter((s) => s.riskLevel !== null).length;
     const coveragePct = schoolStudents.length ? Math.round((schoolScreenedCount / schoolStudents.length) * 100) : 0;
 
-    const screeningCoverageData = [
-      { name: 'Screened', value: coveragePct, fill: CHART.brand },
-    ];
+    // Screening coverage per grade (Sprint H). Replaces the deleted donut with
+    // a reading the summary strip cannot carry: the strip says 83% overall,
+    // this says WHICH grades are behind, which is the actionable half for a
+    // school administrator. Grades are sorted by the numeral in the label so
+    // "Grade 10" files after "Grade 2" rather than between 1 and 2; anything
+    // without a numeral (e.g. "Kinder") sorts first.
+    const gradeOrder = (g: string) => {
+      const n = g.match(/\d+/);
+      return n ? Number(n[0]) : -1;
+    };
+    const coverageByGrade = [...new Set(schoolStudents.map((s) => s.grade))]
+      .sort((a, b) => gradeOrder(a) - gradeOrder(b))
+      .map((grade) => {
+        const inGrade = schoolStudents.filter((s) => s.grade === grade);
+        const screened = inGrade.filter((s) => s.riskLevel !== null).length;
+        return { grade, screened, total: inGrade.length };
+      });
 
     const oralHealthStatusData = [
       // semantic status colors (Sprint 23o): good=green, needs-care=red,
@@ -748,92 +892,106 @@ export const Dashboard = () => {
             <h1 className="text-2xl font-bold text-foreground">School Admin Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-0.5">{user.schools?.[0]}</p>
           </div>
-          <div className="ml-auto text-right text-xs text-muted-foreground hidden sm:block">
-            <span className="block text-[13px] font-semibold text-foreground">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-            </span>
-            {studentsLoading ? (
-              <SkeletonBlock className="h-4 w-32 ml-auto" />
-            ) : (
-              <>{schoolStudents.length} student{schoolStudents.length !== 1 ? 's' : ''} enrolled</>
-            )}
-          </div>
+          {/* Date + enrolled count moved into the school summary (Sprint E). */}
           <Link
             to="/reports"
-            className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
+            className="ml-auto inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
           >
             <FileText className="w-4 h-4" />
             View Reports
           </Link>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 rise rise-1">
-          <StatCard
-            icon={Users}
-            label="Students Enrolled"
-            value={String(schoolStudents.length)}
-            color="text-primary"
-            linkTo="/reports"
-            loading={studentsLoading}
-          />
-          <StatCard
-            icon={CheckCircle}
-            label="Students Screened"
-            value={String(schoolScreenedCount)}
-            color="text-success"
-            trend={`${coveragePct}% coverage`}
-            linkTo="/reports"
-            loading={studentsLoading}
-          />
-          <StatCard
-            icon={Activity}
-            label="Treatments Completed"
-            value={String(treatmentCount)}
-            color="text-cyan-600"
-            linkTo="/reports"
-            loading={extraLoading}
-          />
-          <StatCard
-            icon={Calendar}
-            label="Upcoming Visits"
-            value={nextUpcomingSession ? nextUpcomingSession.date : 'None scheduled'}
-            color="text-warning"
-            linkTo="/appointments"
-            loading={appointmentsLoading}
-          />
+        {/* School summary (Sprint E, design 3a) */}
+        <div className="bg-card border border-border rounded-sm overflow-hidden rise rise-1">
+          <div className="flex items-baseline justify-between gap-4 px-4 py-2.5 bg-muted border-b border-border">
+            <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-foreground">School summary</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+              {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-border">
+            <SummaryCell
+              icon={Users}
+              label="Students enrolled"
+              value={String(schoolStudents.length)}
+              context={schoolName ? getSchoolShortName(schoolName) : 'No school assigned'}
+              linkTo="/reports"
+              loading={studentsLoading}
+            />
+            <SummaryCell
+              icon={CheckCircle}
+              label="Students screened"
+              value={String(schoolScreenedCount)}
+              trailing={`${coveragePct}%`}
+              context={
+                schoolStudents.length - schoolScreenedCount > 0
+                  ? `${schoolStudents.length - schoolScreenedCount} not yet screened`
+                  : 'All students screened'
+              }
+              linkTo="/reports"
+              loading={studentsLoading}
+            />
+            <SummaryCell
+              icon={Activity}
+              label="Treatments completed"
+              value={String(treatmentCount)}
+              context={treatmentCount > 0 ? 'From dental chart records' : 'None recorded yet'}
+              linkTo="/reports"
+              loading={extraLoading}
+            />
+            {/* Value is a DATE or the words "None scheduled" -- SummaryCell's
+                prose detection steps the sentence down so it does not outshout
+                the three figures beside it. */}
+            <SummaryCell
+              icon={Calendar}
+              label="Upcoming visits"
+              value={nextUpcomingSession ? nextUpcomingSession.date : 'None scheduled'}
+              context={upcomingEvents.length > 0 ? `${upcomingEvents.length} Bayanihan event${upcomingEvents.length !== 1 ? 's' : ''} booked` : 'No Bayanihan events booked'}
+              linkTo="/appointments"
+              loading={appointmentsLoading}
+            />
+          </div>
         </div>
 
-        {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 rise rise-2">
-          {/* Screening Coverage - Radial Chart */}
+        {/* Charts Row.
+            The "Screening Coverage" donut was removed in Sprint G -- it rendered
+            `coveragePct`, the same figure the summary strip's second cell now
+            reports with better context, and it was the last radial/donut in the
+            app. Sprint H put a per-grade breakdown in its place: a reading the
+            strip cannot carry, since "83% overall" does not say WHICH grades are
+            behind.
+
+            Both cards are full width, stacked. The grade chart renders one row
+            per grade that has students -- three on demo data, but up to twelve
+            at a K-G10 school -- so side by side it would end up roughly three
+            times the height of its neighbour. Full width also lets twelve grade
+            labels and their "18 of 40" counts breathe. */}
+        <div className="grid grid-cols-1 gap-4 rise rise-2">
           <div className="bg-card p-4 rounded-xl border border-border">
-            <h2 className="text-sm font-bold text-foreground mb-0.5">Screening Coverage</h2>
-            <p className="text-[11px] text-muted-foreground mb-3">Share of enrolled students already screened</p>
+            <h2 className="text-sm font-bold text-foreground mb-0.5">Screening Coverage by Grade</h2>
+            <p className="text-[11px] text-muted-foreground mb-3">Students screened per grade level</p>
             <ChartBody ready={!studentsLoading}>
-            <ResponsiveContainer width="100%" height={220} key="screening-coverage-container">
-              <RadialBarChart 
-                cx="50%" 
-                cy="50%" 
-                innerRadius="60%" 
-                outerRadius="90%" 
-                data={screeningCoverageData}
-                startAngle={90}
-                endAngle={-270}
-                id="screening-coverage-chart"
-              >
-                <RadialBar
-                  background
-                  dataKey="value"
-                  cornerRadius={10}
-                  key="screening-radial-bar"
-                />
-                <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="text-4xl font-bold fill-foreground">
-                  {coveragePct}%
-                </text>
-              </RadialBarChart>
-            </ResponsiveContainer>
-            <p className="text-center text-sm text-muted-foreground mt-2">Students Screened</p>
+            {coverageByGrade.length === 0 ? (
+              <NoDataYet message="No students enrolled at this school yet." />
+            ) : (
+              <div className="space-y-2.5">
+                {coverageByGrade.map((g) => (
+                  <BarRow
+                    key={g.grade}
+                    label={g.grade}
+                    value={g.screened}
+                    pct={Math.round((g.screened / g.total) * 100)}
+                    color={CHART.brand}
+                    valueText={`${g.screened} of ${g.total}`}
+                  />
+                ))}
+                <p className="text-xs text-muted-foreground pt-1">
+                  {schoolScreenedCount} of {schoolStudents.length} screened overall ({coveragePct}%)
+                </p>
+              </div>
+            )}
             </ChartBody>
           </div>
 
@@ -848,24 +1006,15 @@ export const Dashboard = () => {
               <div className="space-y-2.5">
                 {/* horizontal bars (audit U3) — same idiom as the dentist
                     dashboard's risk/funnel cards, semantic status colors */}
-                {oralHealthStatusData.map((item) => {
-                  const pct = Math.round((item.value / schoolStudents.length) * 100);
-                  const fits = pct >= 22;
-                  return (
-                    <div key={item.name} className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground w-36 shrink-0">{item.name}</span>
-                      <div className="flex-1 bg-muted rounded-md h-7 relative overflow-hidden">
-                        <div className="h-full rounded-md grow-x" style={{ width: `${pct}%`, backgroundColor: item.color }} />
-                        <span
-                          className="absolute inset-y-0 flex items-center text-xs font-bold tabular-nums whitespace-nowrap"
-                          style={fits ? { right: `calc(${100 - pct}% + 8px)`, color: '#FFFFFF' } : { left: `calc(${pct}% + 8px)`, color: 'var(--foreground)' }}
-                        >
-                          {item.value} ({pct}%)
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+                {oralHealthStatusData.map((item) => (
+                  <BarRow
+                    key={item.name}
+                    label={item.name}
+                    value={item.value}
+                    pct={Math.round((item.value / schoolStudents.length) * 100)}
+                    color={item.color}
+                  />
+                ))}
                 <p className="text-xs text-muted-foreground pt-1">
                   {schoolStudents.length} student{schoolStudents.length !== 1 ? 's' : ''} enrolled
                 </p>
@@ -941,7 +1090,11 @@ export const Dashboard = () => {
     const totalStudents = allStudentsRaw.length;
     const totalScreened = allStudentsRaw.filter((s) => s.riskLevel !== null).length;
     const programCoveragePct = totalStudents ? Math.round((totalScreened / totalStudents) * 100) : 0;
-    const orallyFitPct = totalStudents ? Math.round((allStudentsRaw.filter((s) => s.oralStatus === 'Orally Fit').length / totalStudents) * 100) : 0;
+    // Counts behind the percentages, so the summary strip can show "6 of 18"
+    // beside "33%" instead of asking the reader to do the arithmetic.
+    const orallyFitCount = allStudentsRaw.filter((s) => s.oralStatus === 'Orally Fit').length;
+    const needsTreatmentCount = allStudentsRaw.filter((s) => s.oralStatus === 'Needs Treatment').length;
+    const orallyFitPct = totalStudents ? Math.round((orallyFitCount / totalStudents) * 100) : 0;
     const schoolsParticipating = new Set(allStudentsRaw.map((s) => s.school)).size;
 
     return (
@@ -951,61 +1104,75 @@ export const Dashboard = () => {
             <h1 className="text-2xl font-bold text-foreground">Barangay Health Office Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-0.5">Aggregated data across all schools</p>
           </div>
-          <div className="ml-auto text-right text-xs text-muted-foreground hidden sm:block">
-            <span className="block text-[13px] font-semibold text-foreground">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-            </span>
-            {studentsLoading ? (
-              <SkeletonBlock className="h-4 w-40 ml-auto" />
-            ) : (
-              <>{totalStudents} student{totalStudents !== 1 ? 's' : ''} across {schoolsParticipating} school{schoolsParticipating !== 1 ? 's' : ''}</>
-            )}
-          </div>
+          {/* Date + totals moved into the barangay summary (Sprint F). */}
           <Link
             to="/reports"
-            className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
+            className="ml-auto inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
           >
             <FileText className="w-4 h-4" />
             View Reports
           </Link>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 rise rise-1">
-          <StatCard
-            icon={Users}
-            label="Total Students Served"
-            value={String(totalStudents)}
-            color="text-primary"
-            trend={`across ${schoolsParticipating} schools`}
-            linkTo="/reports"
-            loading={studentsLoading}
-          />
-          <StatCard
-            icon={Activity}
-            label="Program Coverage"
-            value={`${programCoveragePct}%`}
-            color="text-success"
-            progress={programCoveragePct}
-            linkTo="/reports"
-            loading={studentsLoading}
-          />
-          <StatCard
-            icon={CheckCircle}
-            label="Orally Fit"
-            value={`${orallyFitPct}%`}
-            color="text-cyan-600"
-            linkTo="/reports"
-            loading={studentsLoading}
-          />
-          <StatCard
-            icon={Shield}
-            label="Schools Participating"
-            value={`${schoolsParticipating} of 3`}
-            color="text-muted-foreground"
-            linkTo="/reports"
-            loading={studentsLoading}
-          />
+        {/* Barangay summary (Sprint F, design 3a) */}
+        <div className="bg-card border border-border rounded-sm overflow-hidden rise rise-1">
+          <div className="flex items-baseline justify-between gap-4 px-4 py-2.5 bg-muted border-b border-border">
+            <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-foreground">Barangay summary</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+              {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-border">
+            <SummaryCell
+              icon={Users}
+              label="Students served"
+              value={String(totalStudents)}
+              context={`Across ${schoolsParticipating} school${schoolsParticipating !== 1 ? 's' : ''}`}
+              linkTo="/reports"
+              loading={studentsLoading}
+            />
+            {/* Coverage is BLUE and orally-fit is GREEN, per the mock and the
+                Operational-vs-Clinical Rule: how much of the programme has been
+                delivered is operational, what state the children's mouths are
+                in is clinical. */}
+            <SummaryCell
+              icon={Activity}
+              label="Program coverage"
+              value={`${programCoveragePct}%`}
+              valueClass="text-primary"
+              trailing={`${totalScreened} of ${totalStudents}`}
+              context={
+                totalStudents - totalScreened > 0
+                  ? `${totalStudents - totalScreened} student${totalStudents - totalScreened !== 1 ? 's' : ''} not yet screened`
+                  : 'All students screened'
+              }
+              linkTo="/reports"
+              loading={studentsLoading}
+            />
+            <SummaryCell
+              icon={CheckCircle}
+              label="Orally fit"
+              value={`${orallyFitPct}%`}
+              valueClass="text-success"
+              trailing={`${orallyFitCount} of ${totalStudents}`}
+              context={
+                needsTreatmentCount > 0
+                  ? `${needsTreatmentCount} need${needsTreatmentCount === 1 ? 's' : ''} treatment`
+                  : 'None needing treatment'
+              }
+              linkTo="/reports"
+              loading={studentsLoading}
+            />
+            <SummaryCell
+              icon={Shield}
+              label="Schools participating"
+              value={`${schoolsParticipating} of 3`}
+              context={schoolsParticipating === 3 ? 'All barangay schools' : `${3 - schoolsParticipating} with no records yet`}
+              linkTo="/reports"
+              loading={studentsLoading}
+            />
+          </div>
         </div>
 
         {/* Charts Row */}
@@ -1081,6 +1248,42 @@ export const Dashboard = () => {
   if (user?.role === 'system_admin') {
     const activeUsersCount = users.filter((u) => !u.isArchived).length;
 
+    // System summary figures (Sprint I). These replace three tiles that read
+    // literal "N/A" -- uptime and failed logins are measured nowhere, and no
+    // Task entity exists for "pending actions". Everything below comes from
+    // /users and /audit-trails, both already fetched above.
+    const archivedUsersCount = users.filter((u) => u.isArchived).length;
+    const todayKey = toLocalDateString(new Date());
+    // APPROXIMATE, and deliberately so: last_login holds one timestamp per
+    // user, not a session log, so a user who signed in twice counts once and
+    // one who signed in yesterday and is still active counts zero. Same
+    // caveat the login-activity chart below already carries.
+    const signedInTodayCount = users.filter(
+      (u) => u.last_login && toLocalDateString(new Date(u.last_login)) === todayKey,
+    ).length;
+    const auditEventsToday = auditEntries.filter(
+      (a) => toLocalDateString(new Date(a.timestamp)) === todayKey,
+    ).length;
+    // Role mix, shortened -- "1 dentist · 1 aide · 3 staff" says more about the
+    // account list than the bare total does.
+    const ROLE_SHORT: Record<string, string> = {
+      dentist: 'dentist', dental_aide: 'aide', school_admin: 'school admin',
+      bho_staff: 'BHO', system_admin: 'admin',
+    };
+    const roleMix = Object.entries(
+      users.filter((u) => !u.isArchived).reduce<Record<string, number>>((acc, u) => {
+        const key = ROLE_SHORT[u.role] ?? u.role;
+        acc[key] = (acc[key] ?? 0) + 1;
+        return acc;
+      }, {}),
+    )
+      .sort((a, b) => b[1] - a[1])
+      .map(([role, n]) => `${n} ${role}${n !== 1 && !role.endsWith('s') ? 's' : ''}`)
+      .join(' · ');
+    const busiestModule = [...auditEntries.filter((a) => toLocalDateString(new Date(a.timestamp)) === todayKey)
+      .reduce<Map<string, number>>((m, a) => m.set(a.affected_model, (m.get(a.affected_model) ?? 0) + 1), new Map())
+      .entries()].sort((a, b) => b[1] - a[1])[0];
+
     // Real, computed from users' last_login timestamps -- an approximation
     // (one login per user per day, not a full session log) but genuinely
     // real, not fabricated.
@@ -1125,61 +1328,64 @@ export const Dashboard = () => {
             <h1 className="text-2xl font-bold text-foreground">System Admin Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-0.5">System monitoring and management</p>
           </div>
-          <div className="ml-auto text-right text-xs text-muted-foreground hidden sm:block">
-            <span className="block text-[13px] font-semibold text-foreground">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-            </span>
-            {extraLoading ? (
-              <SkeletonBlock className="h-4 w-24 ml-auto" />
-            ) : (
-              <>{activeUsersCount} active user{activeUsersCount !== 1 ? 's' : ''}</>
-            )}
-          </div>
+          {/* Date + active-user count moved into the system summary (Sprint I). */}
           <Link
             to="/accounts"
-            className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
+            className="ml-auto inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
           >
             <Users className="w-4 h-4" />
             Manage Accounts
           </Link>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 rise rise-1">
-          <StatCard
-            icon={Users}
-            label="Active Users"
-            value={String(activeUsersCount)}
-            color="text-primary"
-            linkTo="/accounts"
-            loading={extraLoading}
-          />
-          {/* System uptime and failed-login tracking aren't measured anywhere
-              in this system — honest "N/A", not a fabricated specific number. */}
-          <StatCard
-            icon={CheckCircle}
-            label="System Uptime"
-            value="N/A"
-            color="text-muted-foreground"
-            trend="not monitored"
-            linkTo="/audit"
-          />
-          <StatCard
-            icon={AlertCircle}
-            label="Failed Logins Today"
-            value="N/A"
-            color="text-muted-foreground"
-            trend="not tracked"
-            linkTo="/audit"
-          />
-          <StatCard
-            icon={Clock}
-            label="Pending Actions"
-            value="N/A"
-            color="text-muted-foreground"
-            trend="no task-tracking system"
-            linkTo="/audit"
-          />
+        {/* System summary (Sprint I). No 3a mock exists for this role — it was
+            excluded from the design work because three of its four tiles read
+            literal "N/A", and a ruled strip would have presented three
+            absences as if they were readings. Replaced with four figures the
+            system actually holds; uptime and failed logins are still not
+            measured anywhere, so they are simply gone rather than shown empty. */}
+        <div className="bg-card border border-border rounded-sm overflow-hidden rise rise-1">
+          <div className="flex items-baseline justify-between gap-4 px-4 py-2.5 bg-muted border-b border-border">
+            <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-foreground">System summary</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+              {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-border">
+            <SummaryCell
+              icon={Users}
+              label="Active users"
+              value={String(activeUsersCount)}
+              context={roleMix || 'No active accounts'}
+              linkTo="/accounts"
+              loading={extraLoading}
+            />
+            <SummaryCell
+              icon={CheckCircle}
+              label="Signed in today"
+              value={String(signedInTodayCount)}
+              context={`of ${activeUsersCount} active`}
+              linkTo="/audit"
+              loading={extraLoading}
+            />
+            <SummaryCell
+              icon={Activity}
+              label="Audit events today"
+              value={String(auditEventsToday)}
+              context={busiestModule ? `Most in ${busiestModule[0]}` : 'No activity recorded today'}
+              linkTo="/audit"
+              loading={extraLoading}
+            />
+            <SummaryCell
+              icon={Clock}
+              label="Archived accounts"
+              value={String(archivedUsersCount)}
+              context={archivedUsersCount > 0 ? 'Restorable from Accounts' : 'None archived'}
+              linkTo="/accounts"
+              loading={extraLoading}
+            />
+          </div>
         </div>
 
         {/* Charts Row */}

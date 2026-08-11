@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { getModel } from "./shared/getModel.js";
 import { fieldEncryption } from "mongoose-field-encryption";
 import { fieldEncryptionOptions } from "./shared/fieldEncryption.js";
+import { softDeleteFields } from "./shared/softDelete.js";
 
 const medicalHistorySchema = new mongoose.Schema(
   {
@@ -18,6 +19,7 @@ const medicalHistorySchema = new mongoose.Schema(
     blood_transfusion: { type: Boolean, default: false },
     tattoo: { type: Boolean, default: false },
     others: { type: String, default: "" },
+    ...softDeleteFields,
   },
   { timestamps: { createdAt: "created_at", updatedAt: false } },
 );

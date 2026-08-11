@@ -200,7 +200,13 @@ export const Root = () => {
         onClick={() => setDrawerOpen(false)}
         title={collapsed ? tab.label : undefined}
         aria-current={isActive ? 'page' : undefined}
+        // Collapsed, the rail is 60px and px-4 left the 20px icon centred at
+        // 26px against the rail's 30px -- 4px off, and misaligned with the
+        // footer buttons, which already re-centre themselves when collapsed.
+        // Matches what Change Password / Logout do further down.
         className={`flex items-center gap-3 px-4 py-3 transition-colors ${
+          collapsed ? 'md:justify-center md:px-0' : ''
+        } ${
           isActive
             ? 'bg-primary text-primary-foreground'
             : 'text-foreground hover:bg-primary-surface'

@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { getModel } from "./shared/getModel.js";
+import { softDeleteFields } from "./shared/softDelete.js";
 
 const oralHealthConditionSchema = new mongoose.Schema(
   {
@@ -12,6 +13,7 @@ const oralHealthConditionSchema = new mongoose.Schema(
     abnormal_growth: { type: Boolean, default: false },
     cleft_lip_palate: { type: Boolean, default: false },
     others: { type: String, default: "" },
+    ...softDeleteFields,
   },
   { timestamps: { createdAt: "created_at", updatedAt: false } },
 );
