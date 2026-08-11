@@ -30,9 +30,7 @@ import {
   Legend, 
   ResponsiveContainer,
   LineChart,
-  Line,
-  RadialBarChart,
-  RadialBar
+  Line
 } from 'recharts';
 import { ChartTooltip } from './ChartTooltip';
 import { Link } from 'react-router';
@@ -845,10 +843,6 @@ export const Dashboard = () => {
     const schoolScreenedCount = schoolStudents.filter((s) => s.riskLevel !== null).length;
     const coveragePct = schoolStudents.length ? Math.round((schoolScreenedCount / schoolStudents.length) * 100) : 0;
 
-    const screeningCoverageData = [
-      { name: 'Screened', value: coveragePct, fill: CHART.brand },
-    ];
-
     const oralHealthStatusData = [
       // semantic status colors (Sprint 23o): good=green, needs-care=red,
       // in-progress=brand blue, no-data-yet=neutral gray (not warning-amber)
@@ -936,39 +930,15 @@ export const Dashboard = () => {
           </div>
         </div>
 
-        {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 rise rise-2">
-          {/* Screening Coverage - Radial Chart */}
-          <div className="bg-card p-4 rounded-xl border border-border">
-            <h2 className="text-sm font-bold text-foreground mb-0.5">Screening Coverage</h2>
-            <p className="text-[11px] text-muted-foreground mb-3">Share of enrolled students already screened</p>
-            <ChartBody ready={!studentsLoading}>
-            <ResponsiveContainer width="100%" height={220} key="screening-coverage-container">
-              <RadialBarChart 
-                cx="50%" 
-                cy="50%" 
-                innerRadius="60%" 
-                outerRadius="90%" 
-                data={screeningCoverageData}
-                startAngle={90}
-                endAngle={-270}
-                id="screening-coverage-chart"
-              >
-                <RadialBar
-                  background
-                  dataKey="value"
-                  cornerRadius={10}
-                  key="screening-radial-bar"
-                />
-                <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="text-4xl font-bold fill-foreground">
-                  {coveragePct}%
-                </text>
-              </RadialBarChart>
-            </ResponsiveContainer>
-            <p className="text-center text-sm text-muted-foreground mt-2">Students Screened</p>
-            </ChartBody>
-          </div>
-
+        {/* Charts Row.
+            The "Screening Coverage" donut was removed in Sprint G. It rendered
+            `coveragePct` -- the same figure the summary strip's second cell now
+            reports, with better context ("1 not yet screened" beats "Students
+            Screened"), so it was the same number twice on one screen. It was
+            also the last radial/donut in the app, and DESIGN.md's don't-list
+            names the donut reflex explicitly. Oral Health Status takes the full
+            width, which suits a bar chart read by non-technical staff. */}
+        <div className="grid grid-cols-1 gap-4 rise rise-2">
           {/* Oral Health Status - horizontal bars (Sprint 32) */}
           <div className="bg-card p-4 rounded-xl border border-border">
             <h2 className="text-sm font-bold text-foreground mb-0.5">Oral Health Status Breakdown</h2>
