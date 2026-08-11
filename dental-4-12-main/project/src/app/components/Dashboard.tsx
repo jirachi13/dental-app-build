@@ -1248,6 +1248,42 @@ export const Dashboard = () => {
   if (user?.role === 'system_admin') {
     const activeUsersCount = users.filter((u) => !u.isArchived).length;
 
+    // System summary figures (Sprint I). These replace three tiles that read
+    // literal "N/A" -- uptime and failed logins are measured nowhere, and no
+    // Task entity exists for "pending actions". Everything below comes from
+    // /users and /audit-trails, both already fetched above.
+    const archivedUsersCount = users.filter((u) => u.isArchived).length;
+    const todayKey = toLocalDateString(new Date());
+    // APPROXIMATE, and deliberately so: last_login holds one timestamp per
+    // user, not a session log, so a user who signed in twice counts once and
+    // one who signed in yesterday and is still active counts zero. Same
+    // caveat the login-activity chart below already carries.
+    const signedInTodayCount = users.filter(
+      (u) => u.last_login && toLocalDateString(new Date(u.last_login)) === todayKey,
+    ).length;
+    const auditEventsToday = auditEntries.filter(
+      (a) => toLocalDateString(new Date(a.timestamp)) === todayKey,
+    ).length;
+    // Role mix, shortened -- "1 dentist · 1 aide · 3 staff" says more about the
+    // account list than the bare total does.
+    const ROLE_SHORT: Record<string, string> = {
+      dentist: 'dentist', dental_aide: 'aide', school_admin: 'school admin',
+      bho_staff: 'BHO', system_admin: 'admin',
+    };
+    const roleMix = Object.entries(
+      users.filter((u) => !u.isArchived).reduce<Record<string, number>>((acc, u) => {
+        const key = ROLE_SHORT[u.role] ?? u.role;
+        acc[key] = (acc[key] ?? 0) + 1;
+        return acc;
+      }, {}),
+    )
+      .sort((a, b) => b[1] - a[1])
+      .map(([role, n]) => `${n} ${role}${n !== 1 && !role.endsWith('s') ? 's' : ''}`)
+      .join(' · ');
+    const busiestModule = [...auditEntries.filter((a) => toLocalDateString(new Date(a.timestamp)) === todayKey)
+      .reduce<Map<string, number>>((m, a) => m.set(a.affected_model, (m.get(a.affected_model) ?? 0) + 1), new Map())
+      .entries()].sort((a, b) => b[1] - a[1])[0];
+
     // Real, computed from users' last_login timestamps -- an approximation
     // (one login per user per day, not a full session log) but genuinely
     // real, not fabricated.
@@ -1292,61 +1328,64 @@ export const Dashboard = () => {
             <h1 className="text-2xl font-bold text-foreground">System Admin Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-0.5">System monitoring and management</p>
           </div>
-          <div className="ml-auto text-right text-xs text-muted-foreground hidden sm:block">
-            <span className="block text-[13px] font-semibold text-foreground">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-            </span>
-            {extraLoading ? (
-              <SkeletonBlock className="h-4 w-24 ml-auto" />
-            ) : (
-              <>{activeUsersCount} active user{activeUsersCount !== 1 ? 's' : ''}</>
-            )}
-          </div>
+          {/* Date + active-user count moved into the system summary (Sprint I). */}
           <Link
             to="/accounts"
-            className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
+            className="ml-auto inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
           >
             <Users className="w-4 h-4" />
             Manage Accounts
           </Link>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 rise rise-1">
-          <StatCard
-            icon={Users}
-            label="Active Users"
-            value={String(activeUsersCount)}
-            color="text-primary"
-            linkTo="/accounts"
-            loading={extraLoading}
-          />
-          {/* System uptime and failed-login tracking aren't measured anywhere
-              in this system — honest "N/A", not a fabricated specific number. */}
-          <StatCard
-            icon={CheckCircle}
-            label="System Uptime"
-            value="N/A"
-            color="text-muted-foreground"
-            trend="not monitored"
-            linkTo="/audit"
-          />
-          <StatCard
-            icon={AlertCircle}
-            label="Failed Logins Today"
-            value="N/A"
-            color="text-muted-foreground"
-            trend="not tracked"
-            linkTo="/audit"
-          />
-          <StatCard
-            icon={Clock}
-            label="Pending Actions"
-            value="N/A"
-            color="text-muted-foreground"
-            trend="no task-tracking system"
-            linkTo="/audit"
-          />
+        {/* System summary (Sprint I). No 3a mock exists for this role — it was
+            excluded from the design work because three of its four tiles read
+            literal "N/A", and a ruled strip would have presented three
+            absences as if they were readings. Replaced with four figures the
+            system actually holds; uptime and failed logins are still not
+            measured anywhere, so they are simply gone rather than shown empty. */}
+        <div className="bg-card border border-border rounded-sm overflow-hidden rise rise-1">
+          <div className="flex items-baseline justify-between gap-4 px-4 py-2.5 bg-muted border-b border-border">
+            <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-foreground">System summary</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+              {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-border">
+            <SummaryCell
+              icon={Users}
+              label="Active users"
+              value={String(activeUsersCount)}
+              context={roleMix || 'No active accounts'}
+              linkTo="/accounts"
+              loading={extraLoading}
+            />
+            <SummaryCell
+              icon={CheckCircle}
+              label="Signed in today"
+              value={String(signedInTodayCount)}
+              context={`of ${activeUsersCount} active`}
+              linkTo="/audit"
+              loading={extraLoading}
+            />
+            <SummaryCell
+              icon={Activity}
+              label="Audit events today"
+              value={String(auditEventsToday)}
+              context={busiestModule ? `Most in ${busiestModule[0]}` : 'No activity recorded today'}
+              linkTo="/audit"
+              loading={extraLoading}
+            />
+            <SummaryCell
+              icon={Clock}
+              label="Archived accounts"
+              value={String(archivedUsersCount)}
+              context={archivedUsersCount > 0 ? 'Restorable from Accounts' : 'None archived'}
+              linkTo="/accounts"
+              loading={extraLoading}
+            />
+          </div>
         </div>
 
         {/* Charts Row */}
