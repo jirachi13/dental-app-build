@@ -5,11 +5,25 @@ import { useRegisterSW } from 'virtual:pwa-register/react';
 // vite.config.ts and the SKIP_WAITING listener in sw.ts — after a deploy the
 // new service worker waits until the user clicks Refresh, instead of open
 // tabs silently running stale assets until a hard refresh.
+// Hourly: often enough that a clinic PC left open all day picks up a deploy
+// the same session, rare enough to be irrelevant against the offline budget.
+const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+
 export const UpdateToast = () => {
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
-  } = useRegisterSW();
+  } = useRegisterSW({
+    // Without this the toast can never appear on a tab that stays open: the
+    // browser only re-checks sw.js on a real page load in scope, and SPA route
+    // changes are client-side, so they never trigger a check. A deploy would
+    // then go unnoticed until someone happened to press F5 — which is exactly
+    // what happened after the Sprint 34/35 deploy.
+    onRegisteredSW(_swUrl, registration) {
+      if (!registration) return;
+      setInterval(() => { void registration.update(); }, UPDATE_CHECK_INTERVAL_MS);
+    },
+  });
 
   // Guarantee the page reloads onto the new assets once the fresh service
   // worker takes control. vite-plugin-pwa's own reload doesn't reliably fire
