@@ -28,7 +28,8 @@
 - `useStudents` exposes `lastName`/`firstName`/`middleName` and sets `name` to surname-first, so every list and any sort on `name` is surname order for free. Same for `useAppointments` + `useRiskClassification`.
 - Chart prev/next buttons showed `name.split(' ')[0]` = the FIRST name; now the surname, matching the order being stepped through.
 - Chart info editor: one "Full Name" box → three boxes (Last / First / Middle), matching the DOH form. `seedStudents` reuses the migration's splitter; `reencryptFieldIVs` now covers the new fields (**it would otherwise silently skip them on a future IV rotation**); `splitStudentNames` has a direct-invocation guard so the seeder's import cannot trigger the migration.
-- **Still to do:** `/docs/DATA-MODEL.md` + the Chapter 3 ERD must record the three new fields — CLAUDE.md forbids undocumented ERD deviations. NOT done yet.
+- **Docs DONE 2026-08-25:** `/docs/DATA-MODEL.md` STUDENT entry now lists the three fields with the derived-`full_name` rationale, and CLAUDE.md's encryption scope line includes them. Defense point worth keeping: **DENTAL_AIDE already splits `last_name`/`first_name` in the original ERD**, so this extends the ERD's own convention rather than inventing one.
+- **⚠ USER-ONLY, before defense: the Chapter 3 ERD FIGURE still shows STUDENT with a single `full_name`.** The manuscript prose (~line 411) describes only entities and relationships and needed no edit — it never lists attributes — and there is no data dictionary section. The attributes exist **only inside the Figure 3.6 image**, which cannot be edited from here. Regenerate that diagram to add `last_name` / `first_name` / `middle_name`, or a panelist comparing the ERD to the live app will find the mismatch.
 - Noticed, not changed: the Student Records list is not sorted at all (seed order); `name` is now surname-first so adding a sort is one line whenever wanted.
 
 ## Chapter 4 + 5 draft (2026-07-28) → `docs/chapter4-5-draft.md`
