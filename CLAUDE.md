@@ -30,7 +30,8 @@ Capstone Thesis — Build Phase — Group 404 — AY 2025-2026
 - Before starting a sprint, give a one-line scope estimate (files touched, new models, complexity). Claude Code has no token/cost visibility here — this is the substitute for a usage warning.
 
 ## APP CONTEXT
-- Floral — web app only (no mobile), internal use only, Barangay Tanyag, Taguig City
+- Floral — web app only (no NATIVE mobile app), internal use only, Barangay Tanyag, Taguig City
+- **Three target device classes: phone, tablet, laptop/PC** (established 2026-08-25). "No mobile" above means no native app — the PWA IS used on phones in the field, so every screen must be checked at all three widths (~390px / ~768px / ~1280px+). Page headers stack below `sm:` and go side-by-side above it; tab strips and wide tables scroll inside their own container. Never leave a header or control row as a bare `flex items-center justify-between`.
 - ~8,000 student records; 1 dentist, 1 dental aide, 3 clinic staff
 - Three schools: (1) Bagong Tanyag Integrated School (primary, K-G10), (2) Bagong Tanyag Elementary School Annex A (K-G6), (3) South Daang Hari Elementary School Main (K-G6)
 

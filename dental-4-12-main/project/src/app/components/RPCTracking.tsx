@@ -147,7 +147,7 @@ export const RPCTracking = () => {
       {error && (
         <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{error}</div>
       )}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">RPC Records</h1>
           <p className="text-sm text-muted-foreground">Routine Preventive Care — Fluoride application tracking (2nd fluoride dose due 4–6 months after Visit 1; other treatments may be done anytime)</p>

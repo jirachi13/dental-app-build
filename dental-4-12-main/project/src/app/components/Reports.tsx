@@ -692,6 +692,7 @@ export const Reports = () => {
                     <Printer className="w-3 h-3" /> Print
                   </button>
                 </div>
+                <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead className="bg-gray-50 border-b border-border">
                     <tr>
@@ -723,6 +724,7 @@ export const Reports = () => {
                     </tr>
                   </tbody>
                 </table>
+                </div>
                 <p className="px-4 py-2 text-[11px] text-muted-foreground border-t border-gray-100">
                   Counted from tooth-level treatment records; each is dated by its chart's charting date (tooth records carry no individual date).
                 </p>

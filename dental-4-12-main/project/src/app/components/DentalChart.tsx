@@ -29,6 +29,9 @@ const conditionColors: Record<string, string> = {
   'm': 'bg-slate-200 border-slate-300',
   'F': 'bg-blue-100 border-blue-400',
   'f': 'bg-blue-100 border-blue-300',
+  'X': 'bg-orange-100 border-orange-400',
+  'x': 'bg-orange-100 border-orange-300',
+  // Legacy: charts saved before the code was corrected to X/x still hold DX/dx.
   'DX': 'bg-orange-100 border-orange-400',
   'dx': 'bg-orange-100 border-orange-300',
   'Un': 'bg-purple-50 border-purple-300',
@@ -90,12 +93,12 @@ const computeDMFT = (chart: Record<number, ChartEntry>) => {
       if (c === 'd') d++;
       else if (c === 'm') m++;
       else if (c === 'f') f++;
-      else if (c === 'dx') x++;
+      else if (c === 'x' || c === 'dx') x++;
     } else {
       if (c === 'D') D++;
       else if (c === 'M') M++;
       else if (c === 'F') F++;
-      else if (c === 'DX') X++;
+      else if (c === 'X' || c === 'DX') X++;
     }
   });
   return { d, m, f, x, t: d + m + f + x, D, M, F, X, T: D + M + F + X };
@@ -107,7 +110,7 @@ const conditionCodes = [
   { code: 'D', label: 'Decayed', perm: 'D', temp: 'd' },
   { code: 'M', label: 'Missing', perm: 'M', temp: 'm' },
   { code: 'F', label: 'Filled', perm: 'F', temp: 'f' },
-  { code: 'DX', label: 'Indicated for Extr.', perm: 'DX', temp: 'dx' },
+  { code: 'X', label: 'Indicated for Extr.', perm: 'X', temp: 'x' },
   { code: 'Un', label: 'Unerupted', perm: 'Un', temp: 'un' },
   { code: 'S', label: 'Supernumerary Tooth', perm: 'S', temp: 's' },
   { code: 'JC', label: 'Jacket Crown', perm: 'JC', temp: 'jc' },
@@ -185,6 +188,7 @@ export const DentalChart = () => {
 
   const [selectedCondition, setSelectedCondition] = useState<string | null>(null);
   const [selectedTreatment, setSelectedTreatment] = useState<string | null>(null);
+  const [confirmClear, setConfirmClear] = useState<'condition' | 'treatment' | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   // View-by-default (like the Patient Info card): clinical fields are a read
@@ -507,6 +511,9 @@ export const DentalChart = () => {
     const treat = data?.treatment || '';
     const colorClass = conditionColors[cond] || conditionColors[cond.toLowerCase()] || 'bg-card border-border';
     const isSelected = editingChart && (selectedCondition || selectedTreatment);
+    const hoverClass = isSelected
+      ? 'hover:border-teal-500 hover:ring-2 hover:ring-teal-300 hover:bg-teal-50 cursor-pointer'
+      : 'cursor-default';
     return (
       <button
         onClick={() => editingChart && handleToothClick(num)}
@@ -514,7 +521,7 @@ export const DentalChart = () => {
         // side, capped so the boxes stay tooth-shaped rather than becoming wide
         // rectangles on a large screen. flex-1 is also what keeps the primary
         // row aligned with the permanent one -- both rows are 16 equal slots.
-        className={`relative flex h-[52px] min-w-[40px] max-w-[56px] flex-1 flex-col items-center justify-between rounded-md border-2 px-0.5 py-1 text-center transition-all md:h-[64px] ${colorClass} ${isSelected ? 'hover:border-teal-500 hover:ring-2 hover:ring-teal-300 hover:bg-teal-50 cursor-pointer' : 'cursor-default'}`}
+        className={`relative flex h-[52px] min-w-[40px] max-w-[56px] flex-1 flex-col items-center justify-between rounded-md border-2 px-0.5 py-1 text-center transition-all md:h-[64px] ${colorClass} ${hoverClass}`}
       >
         <div className="text-[8px] font-medium text-slate-500 leading-none">{num}</div>
         {cond && <div className="text-[11px] md:text-sm font-bold text-slate-700 leading-none">{cond}</div>}
@@ -536,6 +543,22 @@ export const DentalChart = () => {
     ...teeth.map((n) => <ToothButton key={n} num={n} />),
     ...Array.from({ length: 3 }, (_, i) => <div key={`pad-r${i}`} aria-hidden className="min-w-[40px] max-w-[56px] flex-1" />),
   ];
+
+  const chartedConditionCount = Object.values(currentChart).filter((e) => e.condition).length;
+  const chartedTreatmentCount = Object.values(currentChart).filter((e) => e.treatment).length;
+
+  // Clears one vocabulary across every tooth, leaving the other untouched.
+  // Draft-only: nothing reaches the DB until Save, so Cancel still undoes it.
+  const clearAll = (field: 'condition' | 'treatment') => {
+    setDraftChart((prev) => {
+      const next: Record<number, ChartEntry> = {};
+      Object.entries(prev).forEach(([tooth, entry]) => {
+        next[Number(tooth)] = { ...entry, [field]: '' };
+      });
+      return next;
+    });
+    setConfirmClear(null);
+  };
 
   const treatmentCodeCounts = treatmentCodes.reduce<Record<string, number>>((acc, code) => {
     acc[code.code] = Object.values(currentChart).filter((entry) => entry.treatment === code.code).length;
@@ -1026,6 +1049,27 @@ export const DentalChart = () => {
                 </div>
                 )}
               </div>
+              {/* Bulk clear: wiping a mis-charted arch one tooth at a time is
+                  32 clicks. Conditions and treatments clear separately so
+                  re-charting one vocabulary does not discard the other. */}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setConfirmClear('condition')}
+                  disabled={chartedConditionCount === 0}
+                  className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-all hover:border-red-400 hover:text-destructive disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Clear All Conditions ({chartedConditionCount})
+                </button>
+                <button
+                  onClick={() => setConfirmClear('treatment')}
+                  disabled={chartedTreatmentCount === 0}
+                  className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-all hover:border-red-400 hover:text-destructive disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Clear All Treatments ({chartedTreatmentCount})
+                </button>
+              </div>
               {(selectedCondition || selectedTreatment) && (
                 <div className="mt-3 flex items-center gap-2">
                   {selectedCondition && (() => {
@@ -1048,11 +1092,13 @@ export const DentalChart = () => {
                   Three blank slots at each end replace it, and alignment now
                   holds at any tooth size because both rows flex identically. */}
               <div className="min-w-[680px] space-y-2.5">
-                <div className="flex justify-center gap-1">{upperPermanent.map((n) => <ToothButton key={n} num={n} />)}</div>
+                {/* DOH IPTR form order: temporary arches on the outside (rows 1
+                    and 4), permanent arches on the inside (rows 2 and 3). */}
                 <div className="flex justify-center gap-1">{padToArch(upperTemporary)}</div>
+                <div className="flex justify-center gap-1">{upperPermanent.map((n) => <ToothButton key={n} num={n} />)}</div>
                 <div className="border-t-2 border-dashed border-border my-2" />
-                <div className="flex justify-center gap-1">{padToArch(lowerTemporary)}</div>
                 <div className="flex justify-center gap-1">{lowerPermanent.map((n) => <ToothButton key={n} num={n} />)}</div>
+                <div className="flex justify-center gap-1">{padToArch(lowerTemporary)}</div>
               </div>
             </div>
 
@@ -1105,7 +1151,7 @@ export const DentalChart = () => {
                     { codes: 'D/d', label: 'Decayed', bg: 'bg-red-100' },
                     { codes: 'M/m', label: 'Missing', bg: 'bg-slate-200' },
                     { codes: 'F/f', label: 'Filled', bg: 'bg-blue-100' },
-                    { codes: 'DX/dx', label: 'Indicated for Extraction', bg: 'bg-orange-100' },
+                    { codes: 'X/x', label: 'Indicated for Extraction', bg: 'bg-orange-100' },
                     { codes: 'Un/un', label: 'Unerupted', bg: 'bg-purple-50' },
                     { codes: 'S/s', label: 'Supernumerary Tooth', bg: 'bg-yellow-50' },
                     { codes: 'JC/jc', label: 'Jacket Crown', bg: 'bg-pink-50' },
@@ -1373,6 +1419,14 @@ export const DentalChart = () => {
         busy={deletingYear}
         onConfirm={confirmDeleteYearNow}
         onCancel={() => setConfirmDeleteYear(null)}
+      />
+      <ConfirmDialog
+        open={confirmClear !== null}
+        title={confirmClear === 'treatment' ? `Clear all ${chartedTreatmentCount} treatments?` : `Clear all ${chartedConditionCount} conditions?`}
+        message={`This removes every ${confirmClear === 'treatment' ? 'treatment code' : 'condition code'} on this chart, leaving the ${confirmClear === 'treatment' ? 'conditions' : 'treatments'} untouched. Nothing is saved until you click Save Chart — Cancel Edit still discards it.`}
+        confirmLabel={confirmClear === 'treatment' ? 'Clear treatments' : 'Clear conditions'}
+        onConfirm={() => confirmClear && clearAll(confirmClear)}
+        onCancel={() => setConfirmClear(null)}
       />
     </div>
   );

@@ -31,6 +31,10 @@ interface CrudOptions {
   readRoles?: string[];
   writeRoles?: string[];
   archiveRoles?: string[];
+  /** Who may un-archive. Split from archiveRoles so a model can let clinical
+   *  staff archive their own records while restore stays System Admin only,
+   *  per the soft-delete rule in CLAUDE.md. */
+  restoreRoles?: string[];
   /** Override the create audit action string from the request body (e.g.
    *  RISK_STRATIFICATION records whether the dentist accepted or changed the
    *  AI suggestion). Return undefined to keep the default "Created X". */
@@ -50,6 +54,7 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
   const readRoles = options.readRoles ?? ALL_ROLES;
   const writeRoles = options.writeRoles ?? ADMIN_ONLY;
   const archiveRoles = options.archiveRoles ?? ADMIN_ONLY;
+  const restoreRoles = options.restoreRoles ?? ADMIN_ONLY;
   const modelName = model.modelName;
 
   router.get(
@@ -170,7 +175,7 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
     router.patch(
       "/:id/restore",
       requireAuth,
-      requireRole(...archiveRoles),
+      requireRole(...restoreRoles),
       asyncHandler(async (req, res) => {
         if (!mongoose.isValidObjectId(req.params.id)) {
           res.status(400).json({ error: "Invalid id" });

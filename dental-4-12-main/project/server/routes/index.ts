@@ -105,7 +105,11 @@ router.get("/stats/high-risk-count", requireAuth, asyncHandler(async (req, res) 
 // restore/view-archived stays System Admin only everywhere (crudFactory's
 // default), matching CLAUDE.md's SOFT DELETE RULES exactly.
 router.use("/students", createCrudRouter(Student, { writeRoles: CLINICAL_WRITE_ROLES }));
-router.use("/student-iptrs", createCrudRouter(StudentIptr, { writeRoles: CLINICAL_WRITE_ROLES, uniqueBy: ["student_id", "school_year"] }));
+// archiveRoles: the chart's "Edit Years → remove year" button is shown to the
+// dentist, but archive defaulted to System Admin only, so every click 403'd and
+// an accidentally added school year could not be removed. Restore stays admin
+// only (restoreRoles default), per the soft-delete rule in CLAUDE.md.
+router.use("/student-iptrs", createCrudRouter(StudentIptr, { writeRoles: CLINICAL_WRITE_ROLES, archiveRoles: ["system_admin", "dentist"], uniqueBy: ["student_id", "school_year"] }));
 router.use("/medical-histories", createCrudRouter(MedicalHistory, { writeRoles: CLINICAL_WRITE_ROLES }));
 router.use("/dietary-social-habits", createCrudRouter(DietarySocialHabits, { writeRoles: CLINICAL_WRITE_ROLES }));
 router.use("/oral-health-conditions", createCrudRouter(OralHealthCondition, { writeRoles: CLINICAL_WRITE_ROLES }));

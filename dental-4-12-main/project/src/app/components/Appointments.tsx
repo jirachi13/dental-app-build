@@ -355,7 +355,7 @@ export const Appointments = () => {
     <div className="space-y-4">
       {appointmentsError && <Notice variant="error">{appointmentsError}</Notice>}
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Appointments</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{appointments.length} appointment{appointments.length !== 1 ? 's' : ''} total</p>
@@ -421,7 +421,9 @@ export const Appointments = () => {
       </div>
 
       {/* ── TABS: Today / Upcoming / Completed / Missed ── */}
-      <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+      {/* max-w-full + scroll: five tabs do not fit a phone, so "Rotation" was
+          cut off past the right edge with no way to reach it. */}
+      <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 w-fit max-w-full overflow-x-auto">
         {[
           { key: 'today',     label: `Today (${todayAppts.length})`            },
           { key: 'upcoming',  label: `Upcoming (${upcomingAppts.length})`      },
@@ -430,7 +432,7 @@ export const Appointments = () => {
           { key: 'rotation',  label: 'Rotation'                                },
         ].map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === tab.key ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+            className={`flex-shrink-0 whitespace-nowrap px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === tab.key ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
             {tab.label}
           </button>
         ))}

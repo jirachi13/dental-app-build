@@ -68,7 +68,9 @@ async function main() {
       full_name: s.full_name,
       birthday: new Date(s.birthday),
       sex: s.sex,
-      address: `${s.school}, Taguig City`,
+      // HOME address, not the school. This previously seeded the school name,
+      // which made every demo record show its school in the Address field.
+      address: "Barangay Tanyag, Taguig City",
       grade_level: s.grade_level,
       section: s.section,
     });
