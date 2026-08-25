@@ -9,10 +9,16 @@ import type {
   ApiPreventiveCareRecord,
   ApiRiskStratification,
 } from '../api/types';
+import { surnameFirst } from '../utils/studentName';
 
 export interface StudentRow {
   id: string;
+  /** Surname-first ("Morales, Juan") — every list and heading reads this, so
+   *  sorting on it is surname order for free. Parts kept below for forms. */
   name: string;
+  lastName: string;
+  firstName: string;
+  middleName: string;
   birthdate: string;
   gender: string;
   grade: string;
@@ -81,7 +87,10 @@ export function useStudents() {
 
         return {
           id: s._id,
-          name: s.full_name,
+          name: surnameFirst(s),
+          lastName: s.last_name ?? '',
+          firstName: s.first_name ?? '',
+          middleName: s.middle_name ?? '',
           birthdate: s.birthday.slice(0, 10),
           gender: s.sex,
           grade: s.grade_level,
@@ -123,10 +132,13 @@ export function useStudents() {
   const studentsWithPending = useMemo(() => {
     const schoolNameById = new Map(schools.map((s) => [s._id, s.school_name]));
     const pendingRows: StudentRow[] = pendingWrites.map((w) => {
-      const body = w.body as Partial<{ full_name: string; birthday: string; sex: string; grade_level: string; section: string; school_id: string }>;
+      const body = w.body as Partial<{ full_name: string; last_name: string; first_name: string; middle_name: string; birthday: string; sex: string; grade_level: string; section: string; school_id: string }>;
       return {
         id: `pending-${w.id}`,
-        name: body.full_name ?? '(pending sync)',
+        name: surnameFirst(body) || '(pending sync)',
+        lastName: body.last_name ?? '',
+        firstName: body.first_name ?? '',
+        middleName: body.middle_name ?? '',
         birthdate: body.birthday?.slice(0, 10) ?? '',
         gender: body.sex ?? '',
         grade: body.grade_level ?? '',

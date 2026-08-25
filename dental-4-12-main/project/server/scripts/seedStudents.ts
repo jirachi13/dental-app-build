@@ -1,5 +1,7 @@
 import "dotenv/config";
+import "../dnsFix.js"; // this machine's Node 24 + Atlas SRV workaround
 import { connectDB } from "../config/db.js";
+import { splitFullName } from "./splitStudentNames.js";
 import { School, Student, StudentIptr, DentalChart, Dentist, PreventiveCareRecord, RiskStratification } from "../models/index.js";
 import mongoose from "mongoose";
 
@@ -63,9 +65,14 @@ async function main() {
       continue;
     }
 
+    // Name parts are required now; reuse the migration's splitter rather than
+    // duplicating the suffix/particle rules here.
+    const parts = splitFullName(s.full_name);
     const student = await Student.create({
       school_id: school._id,
-      full_name: s.full_name,
+      last_name: parts.last_name,
+      first_name: parts.first_name,
+      middle_name: parts.middle_name,
       birthday: new Date(s.birthday),
       sex: s.sex,
       // HOME address, not the school. This previously seeded the school name,

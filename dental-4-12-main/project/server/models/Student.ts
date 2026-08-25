@@ -7,7 +7,15 @@ import { fieldEncryptionOptions } from "./shared/fieldEncryption.js";
 const studentSchema = new mongoose.Schema(
   {
     school_id: { type: mongoose.Schema.Types.ObjectId, ref: "School", required: true },
-    full_name: { type: String, maxlength: 150, required: true },
+    // The DOH IPTR paper form has separate name boxes, and reports/lists are
+    // ordered by surname, which a single string cannot support. `full_name`
+    // stays as the canonical display value so every existing reader keeps
+    // working — it is DERIVED from the parts below by the pre-save hook, so
+    // the parts are the single source of truth and the two cannot drift.
+    full_name: { type: String, maxlength: 150 },
+    last_name: { type: String, maxlength: 60, required: true },
+    first_name: { type: String, maxlength: 60, required: true },
+    middle_name: { type: String, maxlength: 60, default: "" },
     birthday: { type: Date, required: true },
     sex: { type: String, maxlength: 10, required: true },
     address: { type: String, maxlength: 200, required: true },
@@ -29,9 +37,24 @@ const studentSchema = new mongoose.Schema(
   { timestamps: { createdAt: "created_at", updatedAt: false } },
 );
 
+// Registered BEFORE the encryption plugin on purpose: mongoose runs pre('save')
+// hooks in registration order, so full_name is rebuilt from the parts while it
+// is still plaintext and only then encrypted. Registering it after the plugin
+// would write a plaintext full_name over the encrypted one.
+studentSchema.pre("save", function (this: any, next) {
+  const parts = [this.first_name, this.middle_name, this.last_name]
+    .map((p: unknown) => (typeof p === "string" ? p.trim() : ""))
+    .filter(Boolean);
+  if (parts.length) this.full_name = parts.join(" ");
+  next();
+});
+
 studentSchema.plugin(
   fieldEncryption,
-  fieldEncryptionOptions(["full_name", "address", "contact_number", "guardian_name", "guardian_contact", "philhealth_number", "fourps_id"]),
+  // The name parts are patient PII exactly as full_name is, so they carry the
+  // same encryption. Sprint 26 random-IV rule applies: plaintext equality
+  // queries on these fields NEVER match — fetch and filter in JS instead.
+  fieldEncryptionOptions(["full_name", "last_name", "first_name", "middle_name", "address", "contact_number", "guardian_name", "guardian_contact", "philhealth_number", "fourps_id"]),
 );
 
 export default getModel("Student", studentSchema);

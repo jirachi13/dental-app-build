@@ -22,7 +22,11 @@ export interface ApiSchool {
 export interface ApiStudent {
   _id: string;
   school_id: string;
+  /** Derived server-side from the name parts below; kept for display/compat. */
   full_name: string;
+  last_name: string;
+  first_name: string;
+  middle_name?: string;
   birthday: string;
   sex: string;
   address: string;

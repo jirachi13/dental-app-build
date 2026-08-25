@@ -3,6 +3,7 @@ import { apiClient } from '../api/client';
 import { usePendingWritesFor } from './useOfflineQueue';
 import { toLocalDateString, toLocalTimeString } from '../utils/localDate';
 import type { ApiAppointment, ApiStudent, ApiDentist, ApiSchool } from '../api/types';
+import { surnameFirst } from '../utils/studentName';
 
 export interface SessionStudent {
   id: string;
@@ -78,7 +79,7 @@ function buildSessions(
     group.studentCount++;
     group.students.push({
       id: student._id,
-      name: student.full_name,
+      name: surnameFirst(student),
       gender: student.sex,
       age: calculateAge(student.birthday),
       riskLevel: null,

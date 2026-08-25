@@ -8,7 +8,6 @@ import { ExportMenu, type ExportFormat } from './ExportMenu';
 import { toLocalDateString } from '../utils/localDate';
 import { OCR_CONFIDENCE_THRESHOLD, type IptrOcrFieldKey } from '../utils/iptrOcrShared';
 import { getGradeColor } from '../utils/gradeColors';
-import { formatStudentName } from '../utils/formatStudentName';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
 import { GradePill } from './GradePill';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
@@ -208,7 +207,10 @@ export const PatientList = () => {
       try {
         await apiClient.post('/students', {
           school_id: school._id,
-          full_name: [r.firstName, r.middleName, r.lastName].filter(Boolean).join(' '),
+          // The parts are the stored truth; full_name is derived server-side.
+          last_name: r.lastName,
+          first_name: r.firstName,
+          middle_name: r.middleName,
           birthday: r.birthday,
           sex: r.sex,
           address: r.address,
@@ -306,10 +308,11 @@ export const PatientList = () => {
     }
     setAddingPatient(true);
     try {
-      const full_name = [newPatient.firstName, newPatient.middleName, newPatient.lastName].filter(Boolean).join(' ');
       await apiClient.post('/students', {
         school_id: school._id,
-        full_name,
+        last_name: newPatient.lastName,
+        first_name: newPatient.firstName,
+        middle_name: newPatient.middleName,
         birthday: newPatient.birthdate,
         sex: newPatient.gender,
         address: newPatient.address,
@@ -422,7 +425,7 @@ export const PatientList = () => {
     if (ageGroupFilter !== 'all' && ag !== ageGroupFilter) return false;
     if (searchTerm) {
       const query = searchTerm.toLowerCase();
-      const formattedName = formatStudentName(s.name).toLowerCase();
+      const formattedName = s.name.toLowerCase();
       if (!formattedName.includes(query) && !s.grade.toLowerCase().includes(query) && !s.section.toLowerCase().includes(query)) return false;
     }
     return true;
@@ -445,7 +448,7 @@ export const PatientList = () => {
   const handleExport = (format: ExportFormat) => {
     const rows = filtered.filter((s) => !s.pending);
     const columns: ExportColumn<(typeof rows)[number]>[] = [
-      { label: 'Name', value: (s) => formatStudentName(s.name) },
+      { label: 'Name', value: (s) => s.name },
       { label: 'Birthdate', value: (s) => s.birthdate },
       { label: 'Gender', value: (s) => s.gender },
       { label: 'Grade', value: (s) => s.grade },
@@ -614,7 +617,7 @@ export const PatientList = () => {
                           {!student.pending && (
                             <input
                               type="checkbox"
-                              aria-label={`Select ${formatStudentName(student.name)} for queueing`}
+                              aria-label={`Select ${student.name} for queueing`}
                               checked={tickedIds.has(student.id)}
                               onChange={() => toggleTicked(student.id)}
                               className="w-4 h-4 accent-primary align-middle"
@@ -622,7 +625,7 @@ export const PatientList = () => {
                           )}
                         </td>
                         <td className={studentListTableStyles.primaryCell}>
-                          {formatStudentName(student.name)}
+                          {student.name}
                           {student.pending && (
                             <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200">Pending sync</span>
                           )}

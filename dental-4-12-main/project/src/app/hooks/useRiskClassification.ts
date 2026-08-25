@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
+import { surnameFirst } from '../utils/studentName';
 import type {
   ApiStudent,
   ApiSchool,
@@ -157,7 +158,7 @@ export function useRiskClassification() {
         const b = (v: boolean | undefined): 0 | 1 => (v ? 1 : 0);
         return {
           id: s._id,
-          name: s.full_name,
+          name: surnameFirst(s),
           school: schoolNameById.get(s.school_id) ?? 'Unknown School',
           grade: s.grade_level,
           section: s.section,

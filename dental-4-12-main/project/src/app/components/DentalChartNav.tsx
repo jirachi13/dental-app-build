@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { X } from 'lucide-react';
-import { formatStudentName } from '../utils/formatStudentName';
 import { GradeTableCell } from './GradeTableCell';
 import { ListSearchInput } from './ListSearchInput';
 import { studentListTableStyles } from './StudentListTableStyles';
@@ -67,7 +66,7 @@ export const DentalChartNav = () => {
     if (ageGroupFilter !== 'all' && ag !== ageGroupFilter) return false;
     if (searchTerm) {
       const query = searchTerm.toLowerCase();
-      const formattedName = formatStudentName(p.name).toLowerCase();
+      const formattedName = p.name.toLowerCase();
       if (!formattedName.includes(query) && !p.grade.toLowerCase().includes(query) && !p.section.toLowerCase().includes(query)) return false;
     }
     return true;
@@ -150,7 +149,7 @@ export const DentalChartNav = () => {
                 const age = calculateAge(p.birthdate);
                 return (
                   <tr key={p.id} {...activatable(() => navigate(`/dental-chart/${p.id}?tab=history&context=dental-queue`))} className={studentListTableStyles.row}>
-                    <td className={studentListTableStyles.primaryCell}>{formatStudentName(p.name)}</td>
+                    <td className={studentListTableStyles.primaryCell}>{p.name}</td>
                     <GradeTableCell grade={p.grade} />
                     <td className={studentListTableStyles.secondaryCell}>{p.section}</td>
                     <td className={studentListTableStyles.secondaryCell}>{p.gender}</td>

@@ -10,6 +10,7 @@ import { useAppointments } from '../hooks/useAppointments';
 import { useDentalChartData } from '../hooks/useDentalChartData';
 import { apiClient, ApiError } from '../api/client';
 import { toLocalDateString } from '../utils/localDate';
+import { surnameFirst, surnameFirstWithInitial } from '../utils/studentName';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
 
@@ -650,7 +651,7 @@ export const DentalChart = () => {
           </Link>
           <div className="min-w-0">
             <h1 className="text-lg font-bold text-foreground">Individual Patient Treatment Record</h1>
-            <p className="text-xs text-muted-foreground">{student.full_name} · {student.grade_level} {student.section} · {student.sex} · {patientAge} yrs</p>
+            <p className="text-xs text-muted-foreground">{surnameFirst(student)} · {student.grade_level} {student.section} · {student.sex} · {patientAge} yrs</p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -662,7 +663,9 @@ export const DentalChart = () => {
               className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-gray-100 disabled:opacity-30 disabled:cursor-default border-r border-border"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
-              {prevPatient ? <span className="max-w-[80px] truncate">{prevPatient.name.split(' ')[0]}</span> : 'First'}
+              {/* Surname, not the given name: the list is ordered by surname,
+                  so the button must name the same thing you are stepping through. */}
+              {prevPatient ? <span className="max-w-[80px] truncate">{prevPatient.lastName || prevPatient.name}</span> : 'First'}
             </button>
             <span className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-muted-foreground">
               <Users className="w-3 h-3" />
@@ -674,7 +677,7 @@ export const DentalChart = () => {
               title={nextPatient ? `${nextPatient.name} →` : undefined}
               className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-gray-100 disabled:opacity-30 disabled:cursor-default border-l border-border"
             >
-              {nextPatient ? <span className="max-w-[80px] truncate">{nextPatient.name.split(' ')[0]}</span> : 'Last'}
+              {nextPatient ? <span className="max-w-[80px] truncate">{nextPatient.lastName || nextPatient.name}</span> : 'Last'}
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -706,9 +709,21 @@ export const DentalChart = () => {
             </div>
             {infoError && <p className="text-xs text-destructive">{infoError}</p>}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
-              <div className="md:col-span-2">
-                <label className="block text-muted-foreground font-medium mb-0.5">Full Name</label>
-                <input type="text" value={draftInfo.full_name ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, full_name: e.target.value }))}
+              {/* Three boxes, matching the DOH IPTR paper form. full_name is
+                  derived server-side from these, so it is not edited directly. */}
+              <div>
+                <label className="block text-muted-foreground font-medium mb-0.5">Last Name</label>
+                <input type="text" value={draftInfo.last_name ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, last_name: e.target.value }))}
+                  className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs" />
+              </div>
+              <div>
+                <label className="block text-muted-foreground font-medium mb-0.5">First Name</label>
+                <input type="text" value={draftInfo.first_name ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, first_name: e.target.value }))}
+                  className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs" />
+              </div>
+              <div>
+                <label className="block text-muted-foreground font-medium mb-0.5">Middle Name</label>
+                <input type="text" value={draftInfo.middle_name ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, middle_name: e.target.value }))}
                   className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs" />
               </div>
               <div>
@@ -785,10 +800,10 @@ export const DentalChart = () => {
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-3">
                 <div style={{ backgroundColor: gc.light, color: gc.solid }} className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg">
-                  {student.full_name.split(' ').map((n) => n[0]).slice(0, 2).join('')}
+                  {[student.first_name?.[0], student.last_name?.[0]].filter(Boolean).join('') || student.full_name?.[0]}
                 </div>
                 <div>
-                  <div className="font-bold text-foreground">{student.full_name}</div>
+                  <div className="font-bold text-foreground">{surnameFirstWithInitial(student)}</div>
                   <div className="text-xs text-muted-foreground">{student.grade_level} • {student.section} • {student.sex} • Age {patientAge}</div>
                   <div className="flex items-center gap-2 mt-1">
                     <GradePill grade={student.grade_level} />
