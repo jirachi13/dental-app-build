@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { WifiOff, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useOfflineQueue } from '../hooks/useOfflineQueue';
-import { retryQueue, keepMyChange, discardMyChange } from '../offline/queueProcessor';
+import { retryQueue, discardFailedWrite, keepMyChange, discardMyChange } from '../offline/queueProcessor';
 import type { QueuedWrite } from '../offline/db';
 
 // "/appointments/6a44ad4..." -> "Appointment"
@@ -39,10 +39,14 @@ function describeChanges(write: QueuedWrite): { field: string; mine: string; cur
 }
 
 export const OfflineBanner = () => {
-  const { isOnline, pendingCount, failedCount, conflicts } = useOfflineQueue();
+  const { isOnline, pendingCount, failed, authBlocked, conflicts } = useOfflineQueue();
   const [showConflicts, setShowConflicts] = useState(false);
 
-  const nothingToShow = isOnline && pendingCount === 0 && failedCount === 0 && conflicts.length === 0;
+  const blocked = authBlocked.length > 0 ? authBlocked : failed;
+  const isAuthBlock = authBlocked.length > 0;
+
+  const nothingToShow =
+    isOnline && pendingCount === 0 && blocked.length === 0 && conflicts.length === 0;
   if (nothingToShow) return null;
 
   return (
@@ -52,18 +56,38 @@ export const OfflineBanner = () => {
           <WifiOff className="w-4 h-4" />
           <span>You're offline — changes are being saved locally and will sync automatically once you're back online{pendingCount > 0 ? ` (${pendingCount} pending)` : ''}.</span>
         </div>
-      ) : (pendingCount > 0 || failedCount > 0) ? (
-        <div className={`text-white text-sm px-4 py-2 flex items-center justify-center gap-2 ${failedCount > 0 ? 'bg-red-600' : 'bg-blue-600'}`}>
-          {failedCount > 0 ? (
-            <span>{failedCount} change{failedCount > 1 ? 's' : ''} failed to sync — check with a system admin. Other pending changes are paused until this is resolved.</span>
+      ) : (pendingCount > 0 || blocked.length > 0) ? (
+        <div
+          className={`text-white text-sm px-4 py-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center ${
+            blocked.length > 0 ? (isAuthBlock ? 'bg-amber-600' : 'bg-red-600') : 'bg-blue-600'
+          }`}
+        >
+          {blocked.length > 0 ? (
+            <>
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>
+                {isAuthBlock
+                  ? `Your session expired — sign in again to sync ${blocked.length} change${blocked.length > 1 ? 's' : ''}.`
+                  : `1 change couldn't be saved: ${blocked[0].errorMessage ?? 'the server rejected it.'}`}
+                {pendingCount > 0 && ` ${pendingCount} other change${pendingCount > 1 ? 's are' : ' is'} waiting behind it.`}
+              </span>
+              <button onClick={() => retryQueue()} className="underline hover:no-underline">
+                Retry
+              </button>
+              {!isAuthBlock && (
+                <button
+                  onClick={() => discardFailedWrite(blocked[0].id!)}
+                  className="underline hover:no-underline"
+                >
+                  Discard this change
+                </button>
+              )}
+            </>
           ) : (
             <>
-              <RefreshCw className="w-4 h-4 animate-spin" />
+              <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
               <span>Syncing {pendingCount} pending change{pendingCount > 1 ? 's' : ''}…</span>
             </>
-          )}
-          {failedCount > 0 && (
-            <button onClick={() => retryQueue()} className="underline ml-2 hover:no-underline">Retry</button>
           )}
         </div>
       ) : null}

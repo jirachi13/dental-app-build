@@ -28,7 +28,8 @@ export function useOfflineQueue() {
     queue,
     isOnline,
     pendingCount: queue.filter((w) => w.status === 'pending').length,
-    failedCount: queue.filter((w) => w.status === 'failed').length,
+    failed: queue.filter((w) => w.status === 'failed'),
+    authBlocked: queue.filter((w) => w.status === 'auth'),
     conflicts: queue.filter((w) => w.status === 'conflict'),
   };
 }

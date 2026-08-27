@@ -9,6 +9,24 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
+## Sprint 36 (offline-queue retry that actually retries) — DONE 2026-08-27 (tsc clean, build clean)
+**Reported by the user:** the red banner "1 change failed to sync — check with a system admin. Other pending changes are paused until this is resolved" appeared in the live app and **pressing Retry did nothing**.
+
+**Root cause — three defects in the Sprint 19/20 offline queue:**
+1. `sendDirect()` tries a token refresh on 401; if the refresh ALSO fails it returned `{ok:false, status:401}`, and `processQueue()` treated every non-OK response as "server actively rejected it, retrying won't help" → `markFailed` forever. An expired session while offline therefore looked like a permanent data error, and the copy told the user to see a system admin when they only needed to sign in again.
+2. `markFailed` stored an `errorMessage` that **no UI ever read**, so a 401 was indistinguishable from a 400 validation error — for the user AND for us when debugging.
+3. `processQueue()` does `break` on the first `failed` item and there was no discard path (conflicts had Keep/Discard, failures had nothing) — so ONE bad write wedged the entire FIFO queue permanently. The banner's own "other pending changes are paused" text was literally true and had no escape.
+
+**Fix (3 files, surgical):**
+- `offline/db.ts` — new `'auth'` status on `QueuedWrite` + `markAuthRequired()`. Separate from `'failed'` because it IS retryable once signed in.
+- `offline/queueProcessor.ts` — 401/403 → `markAuthRequired` (not `markFailed`); loop breaks on `'auth'` too; `retryQueue()` resets the oldest `failed` OR `auth` item; new `discardFailedWrite(id)` drops a permanently-bad write and resumes the queue. Error strings are now user-facing sentences.
+- `hooks/useOfflineQueue.ts` — `failedCount` → `failed[]` + `authBlocked[]` (the banner needs `id` and `errorMessage`, not just a count). Only `OfflineBanner` consumed `failedCount`.
+- `components/OfflineBanner.tsx` — amber "Your session expired — sign in again to sync N changes" + Retry for auth blocks; red "1 change couldn't be saved: <reason>" + Retry + **Discard this change** for real rejections; both append "N other changes are waiting behind it." Row is `flex-wrap … text-center` so it doesn't overflow at ~390px.
+
+**⚠ Migration note:** a write already sitting in a device's IndexedDB as `status:'failed'` keeps its OLD `errorMessage` ("Server rejected with status 401"). That still surfaces now — which is useful, it reveals the code — and Discard clears it. New failures get the new copy.
+
+**Not verified live yet** — needs a deploy + a real stuck-queue repro (go offline, edit a record, let the session expire, come back online). Add to the before-defense checklist.
+
 ## Sprint 34 (chart codes, year-archive permission, responsive headers) — DONE 2026-08-25 (tsc clean, pushed `3b95b9b3`)
 ⚠ **The commit message mislabels this "Sprint 28"** — 28 was already used (period reports, 07-11). This is 34. History not rewritten because the other device shares the repo.
 - **Extraction condition code is `X/x`, not `DX/dx`** (user correction). `conditionCodes`, the colour map, the legend, and DMFT counting all updated; counting and colours still accept legacy `DX/dx` so charts saved before today keep working. No migration run — old records keep the old string.

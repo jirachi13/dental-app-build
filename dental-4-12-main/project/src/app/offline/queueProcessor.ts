@@ -1,4 +1,4 @@
-import { getQueue, removeFromQueue, markFailed, markConflict, resetToPending, resolveConflictKeepMine, type QueuedWrite } from './db';
+import { getQueue, removeFromQueue, markFailed, markAuthRequired, markConflict, resetToPending, resolveConflictKeepMine, type QueuedWrite } from './db';
 import { notifyQueueChange } from './queueEvents';
 
 let processing = false;
@@ -63,7 +63,7 @@ export async function processQueue(): Promise<void> {
   try {
     const queue = await getQueue();
     for (const write of queue) {
-      if (write.status === 'failed') break;
+      if (write.status === 'failed' || write.status === 'auth') break;
       if (write.status === 'conflict') continue; // already flagged, waiting on manual resolution — doesn't block others
 
       const conflictRecord = await checkForConflict(write);
@@ -78,11 +78,19 @@ export async function processQueue(): Promise<void> {
         if (result.ok) {
           await removeFromQueue(write.id!);
           notifyQueueChange();
+        } else if (result.status === 401 || result.status === 403) {
+          // The session expired while this device was offline and the refresh
+          // token couldn't renew it. The write itself is perfectly valid, so
+          // this is NOT a permanent failure — flag it as needing sign-in and
+          // stop. Signing back in and hitting Retry will push it through.
+          await markAuthRequired(write.id!, 'Your session expired — sign in again to sync this change.');
+          notifyQueueChange();
+          break;
         } else {
           // Server actively rejected it (e.g. validation error) — not a
           // network problem, so retrying immediately won't help. Mark it
           // failed and stop; later items may depend on this one's data.
-          await markFailed(write.id!, `Server rejected with status ${result.status}`);
+          await markFailed(write.id!, `The server rejected this change (error ${result.status}).`);
           notifyQueueChange();
           break;
         }
@@ -103,15 +111,27 @@ export function initQueueProcessor(): void {
   if (navigator.onLine) processQueue();
 }
 
-// Manual retry (offline banner's "Retry" button): reset the oldest failed
-// item back to pending and resume normal FIFO processing from there.
+// Manual retry (offline banner's "Retry" button): reset the oldest blocked
+// item back to pending and resume normal FIFO processing from there. Note
+// that a retry only changes anything if the underlying cause is gone — a
+// deterministic server rejection will simply fail again, which is why the
+// banner also offers Discard.
 export async function retryQueue(): Promise<void> {
   const queue = await getQueue();
-  const firstFailed = queue.find((w) => w.status === 'failed');
-  if (firstFailed?.id !== undefined) {
-    await resetToPending(firstFailed.id);
+  const firstBlocked = queue.find((w) => w.status === 'failed' || w.status === 'auth');
+  if (firstBlocked?.id !== undefined) {
+    await resetToPending(firstBlocked.id);
     notifyQueueChange();
   }
+  await processQueue();
+}
+
+// Drop a write that the server will never accept. Without this a single bad
+// item wedges the whole FIFO queue permanently, since processQueue() stops at
+// the first failed entry.
+export async function discardFailedWrite(id: number): Promise<void> {
+  await removeFromQueue(id);
+  notifyQueueChange();
   await processQueue();
 }
 

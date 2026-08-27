@@ -12,7 +12,10 @@ export interface QueuedWrite {
   method: 'POST' | 'PUT' | 'PATCH';
   body: unknown;
   timestamp: number;
-  status: 'pending' | 'failed' | 'conflict';
+  // 'auth' = the server refused it for authentication reasons (expired
+  // session). Unlike 'failed' this IS retryable once the user signs back in —
+  // the request itself is fine — so it is tracked separately.
+  status: 'pending' | 'failed' | 'conflict' | 'auth';
   errorMessage?: string;
   // Best-effort snapshot of the record as this device last saw it (from the
   // GET-response cache), captured at enqueue time for PUT/PATCH only —
@@ -88,6 +91,10 @@ async function updateRecord(id: number, patch: Partial<QueuedWrite>): Promise<vo
 
 export function markFailed(id: number, errorMessage: string): Promise<void> {
   return updateRecord(id, { status: 'failed', errorMessage });
+}
+
+export function markAuthRequired(id: number, errorMessage: string): Promise<void> {
+  return updateRecord(id, { status: 'auth', errorMessage });
 }
 
 export function resetToPending(id: number): Promise<void> {
