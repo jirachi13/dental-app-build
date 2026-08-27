@@ -9,6 +9,26 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
+## Sprint 38 (house date format "Aug 27, 2026") — DONE 2026-08-27 (tsc clean, build clean)
+**User decision:** house format is `Mon dd, yyyy`. Asked and answered: the dashboard/appointments "today" headers **keep a short weekday** (`Wed, Aug 27, 2026`) because staff schedule by day of week; everything else is strictly `Aug 27, 2026`.
+
+**Why this needed a util, not a find-and-replace:** dates were formatted inline on every screen across **four** locales — `en-PH`, `en-US`, `en-GB` and the browser default — so the same date rendered as "27 Aug 2026", "Aug 27, 2026" and "Wednesday, 27 August 2026" depending on where you looked.
+
+**Three formatters now live in `src/app/utils/localDate.ts`** (joining `toLocalDateString`/`toLocalTimeString`), locale pinned to `en-US` deliberately — letting the browser locale decide is what caused the drift, and this is a house decision, not a user preference:
+- `formatDate(v)` → `Aug 27, 2026` — the default for any user-facing date
+- `formatDateWithWeekday(v)` → `Wed, Aug 27, 2026` — dashboard + appointments headers only
+- `formatDateTime(v)` → `Aug 27, 2026, 3:04 PM` — audit trail
+- All three take `Date | string | number | null | undefined` + a fallback string. **A bare `YYYY-MM-DD` is pinned to LOCAL midnight before formatting** — `new Date('2026-08-27')` is UTC midnight and renders as the previous day in any timezone behind UTC. Same off-by-one class as the Sprint 20 appointment-vanishing bug.
+
+**Call sites updated (5 components):** `DentalChart` (`formatDateStamp` now delegates; 2 treatment-row dates), `AuditTrail` (`formatTimestamp`), `Appointments` (today header), `Dashboard` (**5** identical role-dashboard headers).
+
+**Deliberately NOT changed:**
+- Month-only labels — chart axis ticks (`Aug '26`), month navigation (`August 2026`), report periods (`Jan–Jun 2026`). Not dates.
+- `<input type="date">` — native control, must stay ISO.
+- **`PatientList.tsx` CSV/XLSX "Last Visit" column stays ISO `2026-08-27`.** Judgement call, flagged to the user: it's data for Excel, not a display, and ISO is the only format that sorts correctly in a spreadsheet. Say the word if you want it switched to house format.
+
+**⚠ Unrelated pre-existing finding surfaced by the design hook while editing:** `DentalChart.tsx:1280` gray text on a colored background (`gray-on-color`). Not introduced by this sprint and out of its scope — left alone, worth a look in the next beautify pass.
+
 ## Sprint 37 ("Remember me" on login) — DONE 2026-08-27 (tsc client+server clean, build clean)
 **User decision (asked before building):** the box controls **cookie persistence**, not token lifetime, and **unticked is the NEW default**. Two other readings were offered and rejected: extending 7d→30d, and merely prefilling the email.
 
@@ -260,6 +280,7 @@ One file, `DentalChart.tsx`, no data changes. Findings:
 - **Process note (user asked 2026-08-11): spotted issues are NOT reliably written here.** The standing rule is to record them the same turn; in practice some landed only in commit messages and reached HANDOFF only when prompted. Commit messages are not where this gets read — when something is spotted mid-task, it belongs in Open work immediately.
 
 ## Open work (each needs approval; sprint loop applies)
+0. **"Double entry — doctor can choose" (raised by user 2026-08-27, NOT yet scoped — needs clarification before any sprint).** User's exact words: *"for double entry, doctor can choose they said"* — "they said" reads like this came from the client/adviser, not the user's own preference. **Ambiguous: which of these "double entry" means is unconfirmed** — (a) a duplicate STUDENT record (same child encoded twice, e.g. once by OCR and once by hand) where the dentist picks which to keep, (b) double-BOOKING in appointments — two appointments in the same slot, dentist chooses whether to allow it, (c) two conflicting IPTR/chart entries for the same visit, dentist picks the authoritative one, or (d) something else entirely. Each is a materially different build. **Ask the user which before scoping.** Related existing machinery worth reusing depending on the answer: the offline queue's conflict-resolution UI already implements a "your change vs current value" field-by-field diff with Keep/Discard (`OfflineBanner.tsx` + `queueProcessor.ts`) — that pattern is a strong fit for (a) and (c).
 1. **Sprint 23 beautify — remaining** (ranked audit: `docs/beautify-audit.md`; done list: BUILD-LOG):
    - **Screens-onto-tokens COMPLETE 07-11** (23q PatientList+shared table styles, 23r Appointments, 23s RPCTracking, 23t AccountManagement, 23u Reports incl. DOH printable region, 23v DentalChart — 218 swaps). Post-deploy eyeballs still wanted: one DOH PDF download (html2canvas resolves var()/oklch — should be identical) + general skim. Left literal by design (needs its own chip/banner token pass if ever): status/risk chips, info banners (blue-50/200/700), OCR confidence tints, tooth-palette active states + condition colors, neutral gray-50 hovers. (Root + Dashboard done in 23g; PatientList + shared StudentListTableStyles done in 23q 07-11 — the shared table styles also carried DentalChartList/DentalChartNav/TreatmentRecords table shells onto tokens, so those screens only need their non-table chrome migrated). Established swap list: grays/brand-blue/focus-rings → tokens; status chips, info banners (blue-50/200/700), OCR confidence tints, neutral gray-50 hovers stay literal until a chip/banner pass.
    - ~~X3 per-region loading, X4 state motion~~ DONE as 23w; ~~final `polish` pass~~ DONE as 23x (both 07-12). **Sprint 23 series CLOSED** — only the optional items below remain.

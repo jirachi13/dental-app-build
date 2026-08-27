@@ -19,7 +19,7 @@ import { SkeletonBlock } from './Skeleton';
 import { getGradeColor } from '../utils/gradeColors';
 import { CHART, RISK_COLORS, FUNNEL_RAMP } from '../utils/chartColors';
 import { getSchoolShortName } from '../utils/schoolColors';
-import { toLocalDateString } from '../utils/localDate';
+import { toLocalDateString, formatDateWithWeekday } from '../utils/localDate';
 import { 
   BarChart, 
   Bar, 
@@ -472,7 +472,7 @@ export const Dashboard = () => {
           <div className="flex items-baseline justify-between gap-4 px-4 py-2.5 bg-muted border-b border-border">
             <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-foreground">Clinic summary</span>
             <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
-              {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              {formatDateWithWeekday(new Date())}
             </span>
           </div>
 
@@ -754,7 +754,7 @@ export const Dashboard = () => {
           <div className="flex items-baseline justify-between gap-4 px-4 py-2.5 bg-muted border-b border-border">
             <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-foreground">Clinic summary</span>
             <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
-              {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              {formatDateWithWeekday(new Date())}
             </span>
           </div>
 
@@ -913,7 +913,7 @@ export const Dashboard = () => {
           <div className="flex items-baseline justify-between gap-4 px-4 py-2.5 bg-muted border-b border-border">
             <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-foreground">School summary</span>
             <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
-              {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              {formatDateWithWeekday(new Date())}
             </span>
           </div>
 
@@ -1125,7 +1125,7 @@ export const Dashboard = () => {
           <div className="flex items-baseline justify-between gap-4 px-4 py-2.5 bg-muted border-b border-border">
             <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-foreground">Barangay summary</span>
             <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
-              {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              {formatDateWithWeekday(new Date())}
             </span>
           </div>
 
@@ -1354,7 +1354,7 @@ export const Dashboard = () => {
           <div className="flex items-baseline justify-between gap-4 px-4 py-2.5 bg-muted border-b border-border">
             <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-foreground">System summary</span>
             <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
-              {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              {formatDateWithWeekday(new Date())}
             </span>
           </div>
 

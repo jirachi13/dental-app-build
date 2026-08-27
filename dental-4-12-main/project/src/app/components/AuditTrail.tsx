@@ -4,7 +4,7 @@ import { useAuditTrail } from '../hooks/useAuditTrail';
 import { exportToCsv, type ExportColumn } from '../utils/exportCsv';
 import { exportToXlsx } from '../utils/exportXlsx';
 import { ExportMenu, type ExportFormat } from './ExportMenu';
-import { toLocalDateString } from '../utils/localDate';
+import { toLocalDateString, formatDateTime } from '../utils/localDate';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 
 export const AuditTrail = () => {
@@ -40,10 +40,7 @@ export const AuditTrail = () => {
     return 'text-gray-600';
   };
 
-  const formatTimestamp = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
-  };
+  const formatTimestamp = (iso: string) => formatDateTime(iso);
 
   const handleExport = (format: ExportFormat) => {
     const columns: ExportColumn<(typeof filteredLogs)[number]>[] = [

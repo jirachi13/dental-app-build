@@ -9,7 +9,7 @@ import { useStudents } from '../hooks/useStudents';
 import { useAppointments } from '../hooks/useAppointments';
 import { useDentalChartData } from '../hooks/useDentalChartData';
 import { apiClient, ApiError } from '../api/client';
-import { toLocalDateString } from '../utils/localDate';
+import { toLocalDateString, formatDate } from '../utils/localDate';
 import { surnameFirst, surnameFirstWithInitial } from '../utils/studentName';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -78,11 +78,7 @@ const emptyOral = (): OralDraft => ({
   abnormalGrowth: false, cleftLipPalate: false, oralHygiene: '', others: '',
 });
 
-const formatDateStamp = (dateString?: string | null) => {
-  if (!dateString) return 'No date stamp';
-  const date = new Date(dateString.length > 10 ? dateString : `${dateString}T00:00:00`);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-};
+const formatDateStamp = (dateString?: string | null) => formatDate(dateString, 'No date stamp');
 
 // ─── DMFT calculation ─────────────────────────────────────────────────────────
 const computeDMFT = (chart: Record<number, ChartEntry>) => {
@@ -1369,7 +1365,7 @@ export const DentalChart = () => {
                 <tbody className="divide-y divide-gray-100 bg-card">
                   {allTreatments.map((t) => (
                     <tr key={t._id} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 whitespace-nowrap font-medium text-foreground text-xs">{new Date(t.date).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
+                      <td className="px-4 py-2 whitespace-nowrap font-medium text-foreground text-xs">{formatDate(t.date)}</td>
                       <td className="px-4 py-2 text-xs text-foreground">{t.diagnosis}</td>
                       <td className="px-4 py-2 text-xs text-foreground">{t.treatment_done}</td>
                       <td className="px-4 py-2 whitespace-nowrap text-xs text-foreground">{dentistNameById.get(t.dentist_id) ?? 'Unknown'}</td>
@@ -1383,7 +1379,7 @@ export const DentalChart = () => {
               {allTreatments.map((t) => (
                 <div key={t._id} className="rounded-lg border bg-card border-border p-3 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-foreground text-xs">{new Date(t.date).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                    <span className="font-medium text-foreground text-xs">{formatDate(t.date)}</span>
                     <span className="text-xs text-muted-foreground">{dentistNameById.get(t.dentist_id) ?? 'Unknown'}</span>
                   </div>
                   <p className="text-xs text-muted-foreground"><span className="font-medium">Dx:</span> {t.diagnosis}</p>

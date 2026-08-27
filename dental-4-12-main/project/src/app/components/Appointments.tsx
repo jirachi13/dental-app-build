@@ -10,7 +10,7 @@ import { useDentistRotations } from '../hooks/useDentistRotations';
 import { useStudents } from '../hooks/useStudents';
 import { apiClient } from '../api/client';
 import { Notice } from './Notice';
-import { toLocalDateString } from '../utils/localDate';
+import { toLocalDateString, formatDateWithWeekday } from '../utils/localDate';
 import { exportToCsv, type ExportColumn } from '../utils/exportCsv';
 import { exportToXlsx } from '../utils/exportXlsx';
 import { ExportMenu, type ExportFormat } from './ExportMenu';
@@ -446,7 +446,7 @@ export const Appointments = () => {
         <>
           <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-sm font-semibold text-foreground">Today — {new Date(TODAY).toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
+            <span className="text-sm font-semibold text-foreground">Today — {formatDateWithWeekday(TODAY)}</span>
           </div>
           {todayAppts.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground">
