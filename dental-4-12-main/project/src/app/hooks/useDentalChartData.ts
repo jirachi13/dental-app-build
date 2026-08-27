@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useLoadPhase } from './useLoadPhase';
 import { apiClient } from '../api/client';
 import type {
   ApiStudent,
@@ -28,15 +29,15 @@ export function useDentalChartData(studentId: string | undefined) {
   const [schoolName, setSchoolName] = useState('');
   const [years, setYears] = useState<IptrYearData[]>([]);
   const [dentists, setDentists] = useState<ApiDentist[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { loading, beginLoad, endLoad } = useLoadPhase();
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     if (!studentId) {
-      setLoading(false);
+      endLoad();
       return;
     }
-    setLoading(true);
+    beginLoad();
     try {
       const [studentDoc, schools, allIptrs, dentistList] = await Promise.all([
         apiClient.get<ApiStudent>(`/students/${studentId}`),
@@ -86,7 +87,7 @@ export function useDentalChartData(studentId: string | undefined) {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dental chart data');
     } finally {
-      setLoading(false);
+      endLoad();
     }
   }, [studentId]);
 

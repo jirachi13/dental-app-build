@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLoadPhase } from './useLoadPhase';
 import { apiClient } from '../api/client';
 import { usePendingWritesFor } from './useOfflineQueue';
 import { toLocalDateString, toLocalTimeString } from '../utils/localDate';
@@ -93,12 +94,12 @@ export function useAppointments() {
   const [students, setStudents] = useState<ApiStudent[]>([]);
   const [schools, setSchools] = useState<ApiSchool[]>([]);
   const [dentists, setDentists] = useState<ApiDentist[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { loading, beginLoad, endLoad } = useLoadPhase();
   const [error, setError] = useState<string | null>(null);
   const pendingWrites = usePendingWritesFor('/appointments');
 
   const reload = useCallback(async () => {
-    setLoading(true);
+    beginLoad();
     try {
       const [apiAppointments, apiStudents, apiDentists, apiSchools] = await Promise.all([
         apiClient.get<ApiAppointment[]>('/appointments'),
@@ -115,7 +116,7 @@ export function useAppointments() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load appointments');
     } finally {
-      setLoading(false);
+      endLoad();
     }
   }, []);
 

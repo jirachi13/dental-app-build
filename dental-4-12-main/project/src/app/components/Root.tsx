@@ -227,13 +227,16 @@ export const Root = () => {
 
   return (
     // flex-col below md so the mobile top bar stacks ABOVE the content as a
-    // normal flow item. It must not be `fixed`: OfflineBanner renders in flow
-    // at the document top (App.tsx), and a fixed bar would sit on top of it and
-    // hide the offline/sync warning entirely. `sticky` keeps it in flow, lets
-    // the banner show, and still pins the bar once the page scrolls.
+    // normal flow item. The old constraint here — "must not be `fixed`,
+    // OfflineBanner renders in flow beneath it" — no longer applies: the
+    // banner was replaced by SyncStatus, a fixed top-right icon that sits
+    // ABOVE this bar (z-40 vs z-30) rather than in flow behind it. `sticky` is
+    // kept anyway; it pins the bar on scroll and nothing needs it changed.
     <div className="min-h-screen bg-canvas flex flex-col md:flex-row">
       {/* MOBILE TOP BAR -- below md only; the drawer's only entry point */}
-      <header className="md:hidden sticky top-0 h-14 z-30 flex items-center gap-3 px-4 bg-card border-b border-border">
+      {/* pr-14 reserves the top-right corner for the fixed SyncStatus icon,
+          which would otherwise sit on top of the school name. */}
+      <header className="md:hidden sticky top-0 h-14 z-30 flex items-center gap-3 pl-4 pr-14 bg-card border-b border-border">
         <button
           ref={menuButtonRef}
           onClick={() => setDrawerOpen(true)}

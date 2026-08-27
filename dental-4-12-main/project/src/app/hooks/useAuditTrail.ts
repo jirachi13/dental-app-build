@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useLoadPhase } from './useLoadPhase';
 import { apiClient } from '../api/client';
 import type { ApiAuditTrail, ApiUser } from '../api/types';
 
@@ -13,11 +14,11 @@ export interface AuditLogRow {
 
 export function useAuditTrail() {
   const [logs, setLogs] = useState<AuditLogRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { loading, beginLoad, endLoad } = useLoadPhase();
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    setLoading(true);
+    beginLoad();
     try {
       const [entries, users] = await Promise.all([
         apiClient.get<ApiAuditTrail[]>('/audit-trails'),
@@ -41,7 +42,7 @@ export function useAuditTrail() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load audit trail');
     } finally {
-      setLoading(false);
+      endLoad();
     }
   }, []);
 

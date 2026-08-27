@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLoadPhase } from './useLoadPhase';
 import { apiClient } from '../api/client';
 import { usePendingWritesFor } from './useOfflineQueue';
 import type { ApiUser, ApiSchool, ApiRole } from '../api/types';
@@ -26,12 +27,12 @@ export interface UserRow {
 export function useUsers() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [schools, setSchools] = useState<ApiSchool[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { loading, beginLoad, endLoad } = useLoadPhase();
   const [error, setError] = useState<string | null>(null);
   const pendingWrites = usePendingWritesFor('/users');
 
   const reload = useCallback(async () => {
-    setLoading(true);
+    beginLoad();
     try {
       const [apiUsers, apiSchools] = await Promise.all([
         apiClient.get<ApiUser[]>('/users'),
@@ -55,7 +56,7 @@ export function useUsers() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load users');
     } finally {
-      setLoading(false);
+      endLoad();
     }
   }, []);
 

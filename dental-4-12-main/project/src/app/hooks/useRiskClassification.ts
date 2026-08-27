@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useLoadPhase } from './useLoadPhase';
 import { apiClient } from '../api/client';
 import { surnameFirst } from '../utils/studentName';
 import type {
@@ -64,11 +65,11 @@ function calcAge(birthday: string): number {
 
 export function useRiskClassification() {
   const [candidates, setCandidates] = useState<RiskCandidate[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { loading, beginLoad, endLoad } = useLoadPhase();
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    setLoading(true);
+    beginLoad();
     try {
       const [students, schools, iptrs, charts, toothRecords, ohcs, dshs, preventives, riskStrats] =
         await Promise.all([
@@ -190,7 +191,7 @@ export function useRiskClassification() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load student data');
     } finally {
-      setLoading(false);
+      endLoad();
     }
   }, []);
 

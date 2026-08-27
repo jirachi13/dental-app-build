@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useLoadPhase } from './useLoadPhase';
 import { apiClient } from '../api/client';
 import type { ApiDentistRotation, ApiSchool, ApiDentist } from '../api/types';
 
@@ -13,11 +14,11 @@ export interface RotationRow {
 
 export function useDentistRotations() {
   const [rotations, setRotations] = useState<RotationRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { loading, beginLoad, endLoad } = useLoadPhase();
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    setLoading(true);
+    beginLoad();
     try {
       const [apiRotations, schools, dentists] = await Promise.all([
         apiClient.get<ApiDentistRotation[]>('/dentist-rotations'),
@@ -41,7 +42,7 @@ export function useDentistRotations() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load rotations');
     } finally {
-      setLoading(false);
+      endLoad();
     }
   }, []);
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLoadPhase } from './useLoadPhase';
 import { apiClient } from '../api/client';
 import { usePendingWritesFor } from './useOfflineQueue';
 import type {
@@ -41,12 +42,12 @@ function deriveOralStatus(riskLevel: string | null): string {
 export function useStudents() {
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [schools, setSchools] = useState<ApiSchool[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { loading, beginLoad, endLoad } = useLoadPhase();
   const [error, setError] = useState<string | null>(null);
   const pendingWrites = usePendingWritesFor('/students');
 
   const reload = useCallback(async () => {
-    setLoading(true);
+    beginLoad();
     try {
       const [apiStudents, schools, iptrs, charts, preventives, riskStrats] = await Promise.all([
         apiClient.get<ApiStudent[]>('/students'),
@@ -109,7 +110,7 @@ export function useStudents() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load students');
     } finally {
-      setLoading(false);
+      endLoad();
     }
   }, []);
 
