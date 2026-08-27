@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { apiClient, ApiError } from '../api/client';
-import { saveUserCache, loadUserCache, clearUserCache } from '../offline/authCache';
+import { saveUserCache, loadUserCache, clearUserCache, wasRemembered } from '../offline/authCache';
 import type { ApiUser, ApiRole, ApiSchool } from '../api/types';
 
 interface User {
@@ -24,8 +24,8 @@ interface AuthContextType {
   loading: boolean;
   selectedSchool: string | null;
   setSelectedSchool: (school: string | null) => void;
-  login: (email: string, password: string) => Promise<LoginResult>;
-  verifyOtp: (email: string, code: string) => Promise<LoginResult>;
+  login: (email: string, password: string, remember: boolean) => Promise<LoginResult>;
+  verifyOtp: (email: string, code: string, remember: boolean) => Promise<LoginResult>;
   logout: () => Promise<void>;
 }
 
@@ -36,7 +36,39 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const SCHOOL_KEY = 'selected-school';
 // Set after a successful login/restore. When absent we skip the /auth/me
 // probe entirely — an unauthenticated probe just 401s and litters the console.
+// Stored in the same tier as the auth cookie: localStorage for a "Remember me"
+// login, sessionStorage otherwise, so an un-remembered session doesn't leave a
+// hint behind that makes the next browser launch probe a dead session.
 const SESSION_HINT_KEY = 'has-session';
+
+function setSessionHint(remember: boolean) {
+  try {
+    (remember ? window.localStorage : window.sessionStorage).setItem(SESSION_HINT_KEY, '1');
+    (remember ? window.sessionStorage : window.localStorage).removeItem(SESSION_HINT_KEY);
+  } catch {
+    // storage unavailable — worst case we probe /auth/me once and 401
+  }
+}
+
+function hasSessionHint(): boolean {
+  try {
+    return (
+      window.sessionStorage.getItem(SESSION_HINT_KEY) !== null ||
+      window.localStorage.getItem(SESSION_HINT_KEY) !== null
+    );
+  } catch {
+    return false;
+  }
+}
+
+function clearSessionHint() {
+  try {
+    window.localStorage.removeItem(SESSION_HINT_KEY);
+    window.sessionStorage.removeItem(SESSION_HINT_KEY);
+  } catch {
+    // nothing to do
+  }
+}
 
 function loadStoredSchool(userId: string, schools: string[]): string | null {
   try {
@@ -94,7 +126,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     (async () => {
-      if (!window.localStorage.getItem(SESSION_HINT_KEY)) {
+      if (!hasSessionHint()) {
         // Never logged in from this browser (or logged out) — don't probe
         // /auth/me just to receive a 401.
         setLoading(false);
@@ -104,7 +136,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const apiUser = await apiClient.get<ApiUser>('/auth/me');
         const resolved = await resolveUser(apiUser);
         setUser(resolved);
-        saveUserCache(resolved);
+        saveUserCache(resolved, wasRemembered());
         setSelectedSchoolState(initialSchoolFor(resolved));
       } catch (err) {
         // A real 401 means the server checked and said you're logged out —
@@ -114,7 +146,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (err instanceof ApiError) {
           setUser(null);
           clearUserCache();
-          window.localStorage.removeItem(SESSION_HINT_KEY);
+          clearSessionHint();
         } else {
           const cached = loadUserCache();
           setUser(cached);
@@ -134,21 +166,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     [user],
   );
 
-  const completeLogin = useCallback(async (apiUser: ApiUser) => {
+  const completeLogin = useCallback(async (apiUser: ApiUser, remember: boolean) => {
     const resolved = await resolveUser(apiUser);
     setUser(resolved);
-    saveUserCache(resolved);
-    window.localStorage.setItem(SESSION_HINT_KEY, '1');
+    saveUserCache(resolved, remember);
+    setSessionHint(remember);
     setSelectedSchoolState(initialSchoolFor(resolved));
   }, []);
 
-  const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
+  const login = useCallback(async (email: string, password: string, remember: boolean): Promise<LoginResult> => {
     try {
-      const data = await apiClient.post<ApiUser | { twofa_required: true }>('/auth/login', { email, password });
+      const data = await apiClient.post<ApiUser | { twofa_required: true }>('/auth/login', { email, password, remember });
       if ('twofa_required' in data) {
         return { ok: false, twofaRequired: true };
       }
-      await completeLogin(data);
+      await completeLogin(data, remember);
       return { ok: true };
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'No connection — can\'t log in while offline. If you were logged in before, reopen the app without reloading.';
@@ -156,10 +188,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [completeLogin]);
 
-  const verifyOtp = useCallback(async (email: string, code: string): Promise<LoginResult> => {
+  const verifyOtp = useCallback(async (email: string, code: string, remember: boolean): Promise<LoginResult> => {
     try {
-      const apiUser = await apiClient.post<ApiUser>('/auth/verify-otp', { email, code });
-      await completeLogin(apiUser);
+      const apiUser = await apiClient.post<ApiUser>('/auth/verify-otp', { email, code, remember });
+      await completeLogin(apiUser, remember);
       return { ok: true };
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'No connection — try again when back online.';
@@ -171,7 +203,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await apiClient.post('/auth/logout').catch(() => {});
     setUser(null);
     clearUserCache();
-    window.localStorage.removeItem(SESSION_HINT_KEY);
+    clearSessionHint();
     setSelectedSchoolState(null);
     // deliberately keep SCHOOL_KEY: logging back in on the same machine
     // shouldn't re-ask a question the user already answered

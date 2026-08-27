@@ -9,6 +9,15 @@ export interface AuthTokenPayload {
   school_id: string | null;
 }
 
+// The refresh token carries whether this login opted into "Remember me".
+// It has to live in the token itself: /auth/refresh re-issues the access
+// cookie 15 minutes into a session and has no other way to know whether that
+// cookie should be session-scoped or persistent. Without it, every refresh
+// would silently promote a session-only login into a 7-day one.
+export interface RefreshTokenPayload extends AuthTokenPayload {
+  remember?: boolean;
+}
+
 function getAccessSecret() {
   const secret = process.env.JWT_ACCESS_SECRET;
   if (!secret) throw new Error("JWT_ACCESS_SECRET is not set");
@@ -30,7 +39,7 @@ export function signAccessToken(payload: AuthTokenPayload) {
   return jwt.sign(payload, getAccessSecret(), { expiresIn: ACCESS_TOKEN_TTL_SECONDS, algorithm: JWT_ALGORITHM });
 }
 
-export function signRefreshToken(payload: AuthTokenPayload) {
+export function signRefreshToken(payload: RefreshTokenPayload) {
   return jwt.sign(payload, getRefreshSecret(), { expiresIn: REFRESH_TOKEN_TTL_SECONDS, algorithm: JWT_ALGORITHM });
 }
 
@@ -39,7 +48,7 @@ export function verifyAccessToken(token: string) {
 }
 
 export function verifyRefreshToken(token: string) {
-  return jwt.verify(token, getRefreshSecret(), { algorithms: [JWT_ALGORITHM] }) as AuthTokenPayload;
+  return jwt.verify(token, getRefreshSecret(), { algorithms: [JWT_ALGORITHM] }) as RefreshTokenPayload;
 }
 
 export const ACCESS_COOKIE_MAX_AGE_MS = ACCESS_TOKEN_TTL_SECONDS * 1000;

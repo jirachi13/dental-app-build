@@ -13,6 +13,9 @@ export const Login = () => {
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  // Defaults to off: clinic PCs are shared, so a session that ends with the
+  // browser is the safer default. Ticking it restores the 7-day cookie.
+  const [remember, setRemember] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -29,7 +32,7 @@ export const Login = () => {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
-    const result = await login(email, password);
+    const result = await login(email, password, remember);
     setSubmitting(false);
     if (result.ok) {
       navigate('/');
@@ -46,7 +49,7 @@ export const Login = () => {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
-    const result = await verifyOtp(email, code);
+    const result = await verifyOtp(email, code, remember);
     setSubmitting(false);
     if (result.ok) {
       navigate('/');
@@ -59,7 +62,7 @@ export const Login = () => {
   const handleResend = async () => {
     setError(null);
     setResendCooldown(60);
-    const result = await login(email, password);
+    const result = await login(email, password, remember);
     if (!result.twofaRequired && !result.ok) {
       setError(result.error || 'Could not resend the code');
     }
@@ -148,13 +151,30 @@ export const Login = () => {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => { setStep('forgot'); setError(null); }}
-                className="block ml-auto text-xs text-[#1E40AF] hover:underline"
-              >
-                Forgot password?
-              </button>
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                <label htmlFor="login-remember" className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                  <input
+                    id="login-remember"
+                    type="checkbox"
+                    checked={remember}
+                    onChange={(e) => setRemember(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 accent-[#1E40AF]"
+                  />
+                  Keep me signed in on this device
+                </label>
+                <button
+                  type="button"
+                  onClick={() => { setStep('forgot'); setError(null); }}
+                  className="text-xs text-[#1E40AF] hover:underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
+              {remember && (
+                <p className="text-xs text-gray-500 -mt-2">
+                  Only use this on your own device — on a shared clinic PC, leave it unticked so closing the browser signs you out.
+                </p>
+              )}
 
               {error && <Notice variant="error">{error}</Notice>}
 

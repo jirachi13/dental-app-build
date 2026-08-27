@@ -9,6 +9,24 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
+## Sprint 37 ("Remember me" on login) — DONE 2026-08-27 (tsc client+server clean, build clean)
+**User decision (asked before building):** the box controls **cookie persistence**, not token lifetime, and **unticked is the NEW default**. Two other readings were offered and rejected: extending 7d→30d, and merely prefilling the email.
+
+**Why this was more than a checkbox:** auth cookies were ALREADY set with `maxAge` on every login (access 15min, refresh 7d), so every login on every machine was effectively "remember me" — a 7-day session on shared clinic PCs holding patient PII. Unticked now issues **session cookies** (no `maxAge`), so closing the browser ends the session. Ticked reproduces the old 7-day behaviour. Good OWASP/defense answer on session persistence.
+
+**Fix (5 files + this doc):**
+- `server/utils/jwt.ts` — new `RefreshTokenPayload extends AuthTokenPayload { remember?: boolean }`; `signRefreshToken`/`verifyRefreshToken` use it.
+- `server/controllers/authController.ts` — `setAuthCookies(res, access, refresh, remember)` spreads `maxAge` in only when remembered; `login` + `verifyOtp` read `req.body.remember === true`.
+- **The non-obvious bit:** `/auth/refresh` re-issues the access cookie 15 min in and had no idea which kind of login it belonged to — it would have silently promoted a session-only login to persistent. Hence `remember` riding **inside the refresh token payload**; `refresh()` reads `payload.remember`.
+- **2FA path:** `/auth/login` issues no cookies for `twofa_enabled` accounts, so the flag has to be re-sent to `/auth/verify-otp` — that's the request that actually mints the session. Frontend passes it to both, incl. the resend path.
+- `src/app/offline/authCache.ts` — `saveUserCache(user, remember)` writes to localStorage when remembered, **sessionStorage otherwise**, and clears the other tier. New `wasRemembered()` (used by the `/auth/me` restore, where the checkbox value is long gone). `clearUserCache()` clears both. Without this split an un-remembered login left `floral_cached_user` in localStorage and the offline-restore path could resurrect the identity after a browser close — defeating the whole point.
+- `src/app/context/AuthContext.tsx` — `login(email, password, remember)` / `verifyOtp(email, code, remember)`; `has-session` hint moved to the same storage tier via `setSessionHint`/`hasSessionHint`/`clearSessionHint`.
+- `src/app/components/Login.tsx` — "Keep me signed in on this device", **defaults to unticked**, in a `flex-wrap … justify-between` row shared with "Forgot password?" (per CLAUDE.md: never a bare `flex justify-between`). Ticking it reveals a one-line shared-PC warning.
+
+**Not verified live yet** — needs deploy + manual check: (1) untick → sign in → close browser → reopen = signed out; (2) tick → close → reopen = still signed in; (3) both survive a 15-min access-token refresh without changing persistence (the `payload.remember` path); (4) the 2FA account through both. Add to the before-defense checklist.
+
+**⚠ Existing sessions:** refresh tokens minted before this sprint have no `remember` claim, so `payload.remember` is `undefined` → falsy → their next `/auth/refresh` issues a session-scoped access cookie. Harmless (worst case someone is signed out at their next browser close and signs in again), but that's why it happens.
+
 ## Sprint 36 (offline-queue retry that actually retries) — DONE 2026-08-27 (tsc clean, build clean)
 **Reported by the user:** the red banner "1 change failed to sync — check with a system admin. Other pending changes are paused until this is resolved" appeared in the live app and **pressing Retry did nothing**.
 

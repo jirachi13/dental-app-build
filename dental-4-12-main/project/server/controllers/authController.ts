@@ -32,13 +32,24 @@ const baseCookieOptions = {
   sameSite: "lax" as const,
 };
 
-function setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
-  res.cookie("access_token", accessToken, { ...baseCookieOptions, maxAge: ACCESS_COOKIE_MAX_AGE_MS });
-  res.cookie("refresh_token", refreshToken, { ...baseCookieOptions, maxAge: REFRESH_COOKIE_MAX_AGE_MS });
+// "Remember me" decides cookie PERSISTENCE, not token lifetime. Omitting
+// maxAge makes these session cookies, so closing the browser ends the session
+// — the default on shared clinic PCs. When remembered, they persist for the
+// token's full lifetime (15 min access / 7 day refresh) as before.
+function setAuthCookies(res: Response, accessToken: string, refreshToken: string, remember: boolean) {
+  res.cookie("access_token", accessToken, {
+    ...baseCookieOptions,
+    ...(remember ? { maxAge: ACCESS_COOKIE_MAX_AGE_MS } : {}),
+  });
+  res.cookie("refresh_token", refreshToken, {
+    ...baseCookieOptions,
+    ...(remember ? { maxAge: REFRESH_COOKIE_MAX_AGE_MS } : {}),
+  });
 }
 
 export async function login(req: Request, res: Response) {
   const { email, password } = req.body;
+  const remember = req.body.remember === true;
   if (!email || !password) {
     res.status(400).json({ error: "Email and password are required" });
     return;
@@ -85,8 +96,8 @@ export async function login(req: Request, res: Response) {
 
   const payload = { sub: user._id.toString(), role: user.role, school_id: user.school_id?.toString() ?? null };
   const accessToken = signAccessToken(payload);
-  const refreshToken = signRefreshToken(payload);
-  setAuthCookies(res, accessToken, refreshToken);
+  const refreshToken = signRefreshToken({ ...payload, remember });
+  setAuthCookies(res, accessToken, refreshToken, remember);
 
   user.last_login = new Date();
   await user.save();
@@ -118,7 +129,12 @@ export async function refresh(req: Request, res: Response) {
       role: user.role,
       school_id: user.school_id?.toString() ?? null,
     });
-    res.cookie("access_token", accessToken, { ...baseCookieOptions, maxAge: ACCESS_COOKIE_MAX_AGE_MS });
+    // Honor the persistence the original login chose (carried in the refresh
+    // token) — otherwise a session-only login turns persistent on first refresh.
+    res.cookie("access_token", accessToken, {
+      ...baseCookieOptions,
+      ...(payload.remember ? { maxAge: ACCESS_COOKIE_MAX_AGE_MS } : {}),
+    });
     res.json({ ok: true });
   } catch {
     res.status(401).json({ error: "Invalid or expired refresh token" });
@@ -180,6 +196,9 @@ export async function changePassword(req: Request, res: Response) {
 // cookie pair a normal login would.
 export async function verifyOtp(req: Request, res: Response) {
   const { email, code } = req.body;
+  // 2FA logins issue no cookies at /auth/login, so the checkbox has to be
+  // re-sent here — this is the request that actually creates the session.
+  const remember = req.body.remember === true;
   if (!email || !code) {
     res.status(400).json({ error: "Email and code are required" });
     return;
@@ -206,7 +225,7 @@ export async function verifyOtp(req: Request, res: Response) {
   user.last_login = new Date();
 
   const payload = { sub: user._id.toString(), role: user.role, school_id: user.school_id?.toString() ?? null };
-  setAuthCookies(res, signAccessToken(payload), signRefreshToken(payload));
+  setAuthCookies(res, signAccessToken(payload), signRefreshToken({ ...payload, remember }), remember);
   await user.save();
 
   await logAudit(user._id.toString(), "2FA Login", user._id.toString(), "User");
