@@ -27,9 +27,22 @@ const GRADE_BRACKETS: Record<string, {label:string; ages:string[]}> = {
   'Grade 4': { label:'GRADE 4',  ages:['5-9 yrs','10-14 yrs','15-19 yrs','20 yrs & above'] },
   'Grade 5': { label:'GRADE 5',  ages:['5-9 yrs','10-14 yrs','15-19 yrs','20 yrs & above'] },
   'Grade 6': { label:'GRADE 6',  ages:['5-9 yrs','10-14 yrs','15-19 yrs','20 yrs & above'] },
+  // ⚠ ASSUMPTION: the secondary grades use 10-14 / 15-19 / 20+ — a Grade 7
+  // pupil is ~12, so "5-9 yrs" cannot occur. Confirm against the actual DOH
+  // secondary form before defense; if it carries different brackets, only
+  // these four lines need changing.
+  'Grade 7': { label:'GRADE 7',  ages:['10-14 yrs','15-19 yrs','20 yrs & above'] },
+  'Grade 8': { label:'GRADE 8',  ages:['10-14 yrs','15-19 yrs','20 yrs & above'] },
+  'Grade 9': { label:'GRADE 9',  ages:['10-14 yrs','15-19 yrs','20 yrs & above'] },
+  'Grade 10':{ label:'GRADE 10', ages:['10-14 yrs','15-19 yrs','20 yrs & above'] },
 };
 
-const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6'];
+// The SAME DOH form, run over two grade bands. Only Bagong Tanyag Integrated
+// School has a secondary section (K-G10); the other two stop at G6, which is
+// why the band selector hides itself rather than offering an always-empty table.
+const ELEM_GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6'];
+const HS_GRADES = ['Grade 7','Grade 8','Grade 9','Grade 10'];
+type GradeBand = 'elem' | 'hs';
 
 // Summary age brackets (rightmost columns)
 const SUMMARY_BRACKETS = ['4 yrs & below','5-9 yrs','10-14 yrs','15-19 yrs','20 yrs & above'];
@@ -164,8 +177,14 @@ export const Reports = () => {
   // real vs. not yet wireable.
   const V = (grade: string, age: string, sex: 'M'|'F', field: string): number =>
     getRealCount(grade, age, sex, field) ?? 0;
+  const [gradeBand, setGradeBand] = useState<GradeBand>('elem');
+  const dohGrades = gradeBand === 'hs' ? HS_GRADES : ELEM_GRADES;
+  // Printed/exported copies must say which band they cover — two PDFs for the
+  // same school and month are otherwise indistinguishable once submitted.
+  const bandLabel = gradeBand === 'hs' ? 'Grade 7-10' : 'Kinder-Grade 6';
+  const bandSlug = gradeBand === 'hs' ? 'G7-10' : 'K-G6';
   const sumSummaryBracket = (field: string, sex: 'M'|'F', bracket: string) =>
-    GRADES.reduce((s, g) => {
+    dohGrades.reduce((s, g) => {
       const ages = GRADE_BRACKETS[g].ages;
       if (ages.includes(bracket)) return s + V(g, bracket, sex, field);
       return s;
@@ -180,6 +199,19 @@ export const Reports = () => {
   const [downloadingExcel, setDownloadingExcel] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const { students: realStudents } = useStudents();
+
+  // Only offer the 7-10 band where secondary pupils actually exist for the
+  // school in view — two of the three schools stop at G6, and a tab that is
+  // permanently empty reads as a broken report rather than an empty one.
+  const hasSecondary = useMemo(
+    () => realStudents.some((s) => HS_GRADES.includes(s.grade) && (!reportSchool || s.school === reportSchool)),
+    [realStudents, reportSchool],
+  );
+  // Switching to an elementary-only school while viewing 7-10 would otherwise
+  // strand the user on an empty table with no visible way back.
+  useEffect(() => {
+    if (!hasSecondary && gradeBand === 'hs') setGradeBand('elem');
+  }, [hasSecondary, gradeBand]);
 
   // Raw collections for the Treatment Summary's real per-procedure counts:
   // tooth records carry the procedure codes, their chart carries the date,
@@ -214,7 +246,7 @@ export const Reports = () => {
     setDownloadError(null);
     try {
       const schoolPart = reportSchool ? getSchoolShortName(reportSchool).replace(/\s+/g, '_') : 'AllSchools';
-      const filename = `DOH_Report_${schoolPart}_${MONTHS[reportMonth - 1]}${reportYear}.pdf`;
+      const filename = `DOH_Report_${schoolPart}_${bandSlug}_${MONTHS[reportMonth - 1]}${reportYear}.pdf`;
       await exportDohReportToPdf(dohReportRef.current, filename);
     } catch (err) {
       setDownloadError(err instanceof Error ? err.message : 'Failed to generate PDF');
@@ -229,14 +261,14 @@ export const Reports = () => {
     try {
       const schoolPart = reportSchool ? getSchoolShortName(reportSchool).replace(/\s+/g, '_') : 'AllSchools';
       await exportDohReportToXlsx({
-        grades: GRADES,
+        grades: dohGrades,
         gradeBrackets: GRADE_BRACKETS,
         summaryBrackets: SUMMARY_BRACKETS,
         rows: DOH_ROWS,
         getCell: (g, a, s, f) => V(g, a, s, f),
         school: reportSchool ? getSchoolShortName(reportSchool) : 'All Schools',
-        monthYear: `${MONTHS[reportMonth - 1]} ${reportYear}`,
-        filename: `DOH_Consolidated_${schoolPart}_${MONTHS[reportMonth - 1]}${reportYear}.xlsx`,
+        monthYear: `${MONTHS[reportMonth - 1]} ${reportYear} · ${bandLabel}`,
+        filename: `DOH_Consolidated_${schoolPart}_${bandSlug}_${MONTHS[reportMonth - 1]}${reportYear}.xlsx`,
       });
     } catch (err) {
       setDownloadError(err instanceof Error ? err.message : 'Failed to generate Excel');
@@ -335,7 +367,7 @@ export const Reports = () => {
 
 // Build column definitions: for each grade, each age bracket, M and F
   const cols: { grade:string; age:string; sex:'M'|'F' }[] = [];
-  GRADES.forEach(g => {
+  dohGrades.forEach(g => {
     GRADE_BRACKETS[g].ages.forEach(a => {
       cols.push({ grade:g, age:a, sex:'M' });
       cols.push({ grade:g, age:a, sex:'F' });
@@ -416,13 +448,32 @@ export const Reports = () => {
       {activeReportTab === 'doh' && (
         <div className="space-y-3">
           {/* School filter — thin bar, doesn't scroll */}
-          <div className="doh-report-controls flex items-center gap-3">
+          <div className="doh-report-controls flex flex-wrap items-center gap-x-3 gap-y-2">
             <label className="text-sm text-muted-foreground whitespace-nowrap">School:</label>
             <select value={reportSchool ?? ''} onChange={e => setReportSchool(e.target.value || null)}
               className="text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring">
               <option value="">All Schools</option>
               {REPORT_SCHOOLS.map(s => <option key={s} value={s}>{getSchoolShortName(s)}</option>)}
             </select>
+
+            {/* Same DOH form, different grade band. Hidden entirely when the
+                school in view has no secondary pupils. */}
+            {hasSecondary && (
+              <div role="group" aria-label="Grade band" className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                {([['elem','Kinder–Grade 6'],['hs','Grade 7–10']] as const).map(([band, label]) => (
+                  <button
+                    key={band}
+                    onClick={() => setGradeBand(band)}
+                    aria-pressed={gradeBand === band}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                      gradeBand === band ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Table */}
@@ -444,7 +495,8 @@ export const Reports = () => {
                     <th colSpan={1 + cols.length*2 + sumCols.length*2 + 2}
                       className="text-center py-1 px-3 bg-gray-50 border-b border-border text-[10px] text-muted-foreground">
                       SCHOOL: {reportSchool ? getSchoolShortName(reportSchool) : 'All Schools'} &nbsp;·&nbsp;
-                      MONTH: {MONTHS[reportMonth-1]} {reportYear}
+                      MONTH: {MONTHS[reportMonth-1]} {reportYear} &nbsp;·&nbsp;
+                      GRADES: {bandLabel}
                     </th>
                   </tr>
 
@@ -453,7 +505,7 @@ export const Reports = () => {
                     <th data-doh="indicator" rowSpan={3} className="sticky left-0 bg-gray-50 z-20 text-left px-2 py-1 border-r border-border text-[10px] font-semibold text-muted-foreground min-w-[240px]">
                       Indicator
                     </th>
-                    {GRADES.map(g => {
+                    {dohGrades.map(g => {
                       const bracketCount = GRADE_BRACKETS[g].ages.length;
                       // Each bracket has 2 sex cols + 2 total cols
                       const colSpanCount = bracketCount * 2 + 2;
@@ -472,7 +524,7 @@ export const Reports = () => {
 
                   {/* ── ROW 2: AGE BRACKET HEADERS ── */}
                   <tr className="bg-gray-50 border-b border-border">
-                    {GRADES.map(g =>
+                    {dohGrades.map(g =>
                       [...GRADE_BRACKETS[g].ages.map(a => (
                         <th key={g+a} colSpan={2}
                           className={`${thBase} text-muted-foreground text-[8px]`}>
@@ -494,7 +546,7 @@ export const Reports = () => {
 
                   {/* ── ROW 3: M/F HEADERS ── */}
                   <tr className="bg-gray-50 border-b-2 border-border">
-                    {GRADES.map(g =>
+                    {dohGrades.map(g =>
                       [...GRADE_BRACKETS[g].ages.flatMap(a => [
                         <th key={g+a+'M'} className={`${thBase} text-blue-600 w-6`}>M</th>,
                         <th key={g+a+'F'} className={`${thBase} text-pink-600 w-6`}>F</th>,
@@ -513,7 +565,7 @@ export const Reports = () => {
                 <tbody>
                   {DOH_ROWS.map((row, idx) => {
                     if (row.type === 'header') {
-                      const restCols = cols.length*2 + GRADES.length*2 + sumCols.length;
+                      const restCols = cols.length*2 + dohGrades.length*2 + sumCols.length;
                       return (
                         <tr key={idx} className="bg-blue-50 border-t border-b border-blue-200">
                           <td className="sticky left-0 z-10 px-3 py-1 font-bold text-blue-900 text-[10px] uppercase tracking-wide bg-blue-50 min-w-[240px]">
@@ -536,7 +588,7 @@ export const Reports = () => {
                         </td>
 
                         {/* Per grade per age bracket M/F + grade total M/F */}
-                        {GRADES.map(g => {
+                        {dohGrades.map(g => {
                           const ages = GRADE_BRACKETS[g].ages;
                           const ageCells = ages.flatMap(a => {
                             const mv = V(g, a, 'M', field);

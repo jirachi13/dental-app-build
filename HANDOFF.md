@@ -9,6 +9,19 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
+## Sprint 41 (DOH report — Grade 7-10 band) — DONE 2026-08-27 (tsc clean, build clean)
+**User confirmed it is the SAME DOH form, just different grades**, so this is a grade-band selector inside the existing DOH tab — NOT a second top-level tab and not a second report. One aggregation path, one set of columns, one export.
+
+**Changes (1 file, `components/Reports.tsx`):**
+- `GRADE_BRACKETS` extended with Grade 7-10. `GRADES` split into `ELEM_GRADES` (K-G6) + `HS_GRADES` (G7-10); new `gradeBand` state drives `dohGrades`, which replaced every `GRADES` reference in the DOH form (column build, `sumSummaryBracket`, the 4 header/body maps, `restCols`, and the xlsx export's `grades`).
+- Segmented control ("Kinder–Grade 6" / "Grade 7–10") sits in the existing school-filter bar, which is now `flex-wrap` so it doesn't overflow at ~390px.
+- **The control hides itself when the school in view has no G7-10 pupils** — only Bagong Tanyag Integrated School has a secondary section; the other two stop at G6. A permanently-empty band reads as a broken report. An effect also snaps the band back to `elem` if the user switches to an elementary-only school while viewing 7-10, which would otherwise strand them on an empty table with no visible way back.
+- **Band is stamped on every output**: on-screen header gains `GRADES: <band>`, PDF and XLSX filenames gain `K-G6` / `G7-10`, and the xlsx `monthYear` line carries the band. Two PDFs for the same school and month were otherwise indistinguishable once submitted.
+
+**⚠ ASSUMPTION needing confirmation before defense:** G7-10 age brackets are set to `10-14 / 15-19 / 20+` (a Grade 7 pupil is ~12, so "5-9 yrs" can't occur). This was inferred, NOT read off a real DOH secondary form. If the actual form differs, only the four `GRADE_BRACKETS` lines need changing. `SUMMARY_BRACKETS` deliberately keeps all five brackets in both bands — it's the same form.
+
+**Not verified live** — needs a deploy, then: switch bands on Bagong Tanyag Integrated (control should appear), confirm it's hidden on the two elementary schools, and download one PDF + one XLSX per band to check the header/filename stamping.
+
 ## Sprint 40 (sync status icon + background refresh) — DONE 2026-08-27 (tsc clean, build clean)
 **User request:** *"online offline not banner just icon top right corner rotating arrows if syncing, page do not go blank and refresh but background refresh"*. Closes backlog item 0c.
 
