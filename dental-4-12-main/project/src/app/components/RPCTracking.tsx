@@ -7,6 +7,7 @@ import { ChartTooltip } from './ChartTooltip';
 import { getGradeColor } from '../utils/gradeColors';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
 import { useRPCTracking } from '../hooks/useRPCTracking';
+import { treatmentCodes } from './DentalChart';
 import { exportToCsv, type ExportColumn } from '../utils/exportCsv';
 import { exportToXlsx } from '../utils/exportXlsx';
 import { ExportMenu, type ExportFormat } from './ExportMenu';
@@ -47,6 +48,7 @@ export const RPCTracking = () => {
   const [genderFilter, setGenderFilter] = useState('all');
   const [ageGroupFilter, setAgeGroupFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [treatmentFilter, setTreatmentFilter] = useState('all');
 
   const calculateAge = (birthdate: string) => {
     const today = new Date();
@@ -76,12 +78,15 @@ export const RPCTracking = () => {
     if (genderFilter !== 'all' && r.gender !== genderFilter) return false;
     if (ageGroupFilter !== 'all' && getAgeGroup(age) !== ageGroupFilter) return false;
     if (statusFilter !== 'all' && r.status !== statusFilter) return false;
+    if (treatmentFilter !== 'all' && !r.treatmentCodes.includes(treatmentFilter)) return false;
     if (searchTerm && !r.studentName.toLowerCase().includes(searchTerm.toLowerCase())) return false;
     return true;
-  }), [schoolRecords, gradeFilter, sectionFilter, genderFilter, ageGroupFilter, statusFilter, searchTerm]);
+  }), [schoolRecords, gradeFilter, sectionFilter, genderFilter, ageGroupFilter, statusFilter, treatmentFilter, searchTerm]);
 
-  const hasActiveFilters = [gradeFilter, genderFilter, ageGroupFilter, statusFilter].some(f => f !== 'all') || searchTerm !== '';
-  const clearFilters = () => { setGradeFilter('all'); setGenderFilter('all'); setAgeGroupFilter('all'); setStatusFilter('all'); setSearchTerm(''); };
+  // sectionFilter was missing from both of these — an active section filter
+  // neither lit up "Clear All" nor got cleared by it.
+  const hasActiveFilters = [gradeFilter, sectionFilter, genderFilter, ageGroupFilter, statusFilter, treatmentFilter].some(f => f !== 'all') || searchTerm !== '';
+  const clearFilters = () => { setGradeFilter('all'); setSectionFilter('all'); setGenderFilter('all'); setAgeGroupFilter('all'); setStatusFilter('all'); setTreatmentFilter('all'); setSearchTerm(''); };
 
   const handleExport = (format: ExportFormat) => {
     const columns: ExportColumn<(typeof filtered)[number]>[] = [
@@ -233,6 +238,7 @@ export const RPCTracking = () => {
           <FS value={genderFilter} onChange={setGenderFilter} label="All Genders" opts={[{v:'Male',l:'Male'},{v:'Female',l:'Female'}]} />
           <FS value={ageGroupFilter} onChange={setAgeGroupFilter} label="All Age Groups" opts={[{v:'4 & below',l:'4 & below'},{v:'5-9',l:'5-9'},{v:'10-14',l:'10-14'},{v:'15-19',l:'15-19'},{v:'20 & above',l:'20 & above'}]} />
           <FS value={statusFilter} onChange={setStatusFilter} label="All Statuses" opts={[{v:'complete',l:'Both Complete'},{v:'pending',l:'Visit 1 Only'},{v:'overdue',l:'Overdue'},{v:'not-started',l:'Not Started'}]} />
+          <FS value={treatmentFilter} onChange={setTreatmentFilter} label="All Treatments" opts={treatmentCodes.map(t=>({v:t.code,l:t.label}))} />
           {hasActiveFilters && <button onClick={clearFilters} className="flex items-center gap-1 px-3 py-2 text-sm text-destructive border border-red-200 rounded-lg hover:bg-red-50"><X className="w-3 h-3"/>Clear All</button>}
         </div>
       </div>

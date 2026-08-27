@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
-import type { ApiStudent, ApiSchool, ApiStudentIptr, ApiPreventiveCareRecord } from '../api/types';
+import type {
+  ApiStudent,
+  ApiSchool,
+  ApiStudentIptr,
+  ApiPreventiveCareRecord,
+  ApiDentalChart,
+  ApiToothRecord,
+} from '../api/types';
 
 // "4-6 month interval" per the RPC module description — 150 days is the midpoint.
 const RPC_INTERVAL_DAYS = 150;
@@ -43,6 +50,12 @@ export interface RPCRow {
   // counted for DOH/PhilHealth this school year.
   syCutoff: 'tight' | 'impossible' | null;
   syDeadline: string | null; // the April 30 the window is cut by (YYYY-MM-DD)
+  // Distinct TOOTH_RECORD.treatment_code values recorded anywhere on this
+  // student's dental charts (OEX, FV, PFS, …). NOTE: this is "the student has
+  // had this treatment", NOT "this was done at the RPC visit" —
+  // PREVENTIVE_CARE_RECORD stores no services at all (iptr_id, visit_date,
+  // visit_number only), so per-visit treatment data does not exist to filter on.
+  treatmentCodes: string[];
 }
 
 export function useRPCTracking() {
@@ -55,11 +68,13 @@ export function useRPCTracking() {
 
     (async () => {
       try {
-        const [students, schools, iptrs, preventives] = await Promise.all([
+        const [students, schools, iptrs, preventives, charts, toothRecords] = await Promise.all([
           apiClient.get<ApiStudent[]>('/students'),
           apiClient.get<ApiSchool[]>('/schools'),
           apiClient.get<ApiStudentIptr[]>('/student-iptrs'),
           apiClient.get<ApiPreventiveCareRecord[]>('/preventive-care-records'),
+          apiClient.get<ApiDentalChart[]>('/dental-charts'),
+          apiClient.get<ApiToothRecord[]>('/tooth-records'),
         ]);
 
         const schoolNameById = new Map(schools.map((s) => [s._id, s.school_name]));
@@ -74,6 +89,24 @@ export function useRPCTracking() {
           const list = preventivesByIptr.get(p.iptr_id) ?? [];
           list.push(p);
           preventivesByIptr.set(p.iptr_id, list);
+        }
+
+        // student → set of treatment codes, resolved through
+        // TOOTH_RECORD → DENTAL_CHART → STUDENT_IPTR → STUDENT.
+        const codesByChart = new Map<string, Set<string>>();
+        for (const tr of toothRecords) {
+          if (!tr.treatment_code) continue;
+          const set = codesByChart.get(tr.chart_id) ?? new Set<string>();
+          set.add(tr.treatment_code);
+          codesByChart.set(tr.chart_id, set);
+        }
+        const codesByIptr = new Map<string, Set<string>>();
+        for (const chart of charts) {
+          const codes = codesByChart.get(chart._id);
+          if (!codes) continue;
+          const set = codesByIptr.get(chart.iptr_id) ?? new Set<string>();
+          for (const c of codes) set.add(c);
+          codesByIptr.set(chart.iptr_id, set);
         }
 
         const now = Date.now();
@@ -127,6 +160,7 @@ export function useRPCTracking() {
             earlyVisit2,
             syCutoff,
             syDeadline,
+            treatmentCodes: [...new Set(studentIptrs.flatMap((iptr) => [...(codesByIptr.get(iptr._id) ?? [])]))],
           };
         });
 
