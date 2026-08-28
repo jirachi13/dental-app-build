@@ -9,6 +9,14 @@ import { useRegisterSW } from 'virtual:pwa-register/react';
 // the same session, rare enough to be irrelevant against the offline budget.
 const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
+// The interval alone leaves a window up to an hour wide where a tab someone
+// just came back to is still running the old build. Checking when the tab
+// becomes visible (or the window regains focus, or the connection returns)
+// closes that: the common case is a tab left open in the background across a
+// deploy, and returning to it is exactly when the user is about to act on
+// stale code. Throttled so rapid alt-tabbing doesn't hammer the network.
+const MIN_CHECK_GAP_MS = 60 * 1000;
+
 export const UpdateToast = () => {
   const {
     needRefresh: [needRefresh, setNeedRefresh],
@@ -21,7 +29,24 @@ export const UpdateToast = () => {
     // what happened after the Sprint 34/35 deploy.
     onRegisteredSW(_swUrl, registration) {
       if (!registration) return;
-      setInterval(() => { void registration.update(); }, UPDATE_CHECK_INTERVAL_MS);
+
+      let lastCheck = Date.now();
+      const check = () => {
+        if (Date.now() - lastCheck < MIN_CHECK_GAP_MS) return;
+        lastCheck = Date.now();
+        // update() rejects if the browser is offline or sw.js is unreachable;
+        // that is expected here, not an error worth surfacing to the user.
+        registration.update().catch(() => {});
+      };
+
+      setInterval(check, UPDATE_CHECK_INTERVAL_MS);
+      // No teardown: UpdateToast is mounted once at the app root (App.tsx) and
+      // lives for the tab's lifetime, so there is nothing to clean up.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') check();
+      });
+      window.addEventListener('focus', check);
+      window.addEventListener('online', check);
     },
   });
 
