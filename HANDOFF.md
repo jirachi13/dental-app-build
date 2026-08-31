@@ -9,6 +9,18 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
+## Sprint 46 (secondary age brackets match Grades 2-6) — DONE 2026-09-01 (tsc + build clean)
+**User challenged Sprint 41's brackets** — *"i think age bracket are same with others?"* — and was right. `GRADE_BRACKETS` in `Reports.tsx` now gives Grade 7-10 the SAME four brackets as Grades 2-6: `5-9 / 10-14 / 15-19 / 20 yrs & above`, replacing the three-bracket set (`10-14 / 15-19 / 20+`) Sprint 41 inferred.
+
+**Why Sprint 41's reasoning was wrong, kept so it isn't re-derived:** it dropped `5-9 yrs` because a Grade 7 pupil is ~12 and the cell could never be filled. That argument **proves too much** — a Grade 2 pupil is never 20 either, yet the form carries `20 yrs & above` for Grade 2. The DOH form assigns a uniform per-grade bracket set regardless of which cells are plausible, so the shortened secondary set was the one breaking the pattern.
+
+⚠ **Still NOT a reading of the paper form.** This is now an argument from the form's own internal consistency — better evidence than pupil-age inference, same category. Dentist should still confirm; only four `GRADE_BRACKETS` lines change if the real form differs.
+
+**NOT verified live** — needs deploy, then confirm the G7-10 table renders FOUR age columns per grade. The restored `5-9 yrs` column will be empty for secondary (seeded G7-9 are 10-14, G10 is 15-19); that is correct, not a gap.
+
+## Sprint 42 (update checks on refocus) — DONE 2026-08-28 (tsc both + build clean)
+Full detail lives in **Open work #25**, which is the item this closes — kept there to avoid splitting one story across two places. Summary: `UpdateToast.tsx` now calls `registration.update()` on `visibilitychange` → visible, window `focus`, and `online`, throttled 60s, in addition to the hourly interval added in `00b7bd06`. The hourly check alone left an up-to-an-hour window where a backgrounded tab ran stale code. **Not verified end-to-end** — proving it needs a deploy while a tab sits open, then a tab switch.
+
 ## Sprint 45 (Grade 7-10 demo students — unblocks the secondary DOH report) — DONE 2026-09-01, LIVE-VERIFIED
 Closes backlog 0h. User approved touching demo data.
 
