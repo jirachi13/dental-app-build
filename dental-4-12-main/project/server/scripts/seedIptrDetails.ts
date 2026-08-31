@@ -1,4 +1,5 @@
 import "dotenv/config";
+import "../dnsFix.js"; // this machine's Node 24 + Atlas SRV workaround
 import { connectDB } from "../config/db.js";
 import { StudentIptr, MedicalHistory, DietarySocialHabits, OralHealthCondition, RiskStratification, PreventiveCareRecord } from "../models/index.js";
 import mongoose from "mongoose";
