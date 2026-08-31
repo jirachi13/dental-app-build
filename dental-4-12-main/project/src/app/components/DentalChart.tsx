@@ -454,9 +454,17 @@ export const DentalChart = () => {
       await reload();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+      // The "Saved!" button label is an in-place echo for whoever is still
+      // looking at the button — but it sits at the top of a long scrolling
+      // form, so someone who edited teeth further down never sees it. The
+      // toast is what actually confirms the save. One message, not four:
+      // the writes above are a single user action, not four separate ones.
+      toast.success('Chart saved.');
       if (iptrContext === 'dental-queue') setTimeout(() => navigate('/ai-analytics'), 450);
     } catch (err) {
-      setSaveError(err instanceof ApiError ? err.message : 'Failed to save');
+      const message = err instanceof ApiError ? err.message : 'Failed to save';
+      setSaveError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }

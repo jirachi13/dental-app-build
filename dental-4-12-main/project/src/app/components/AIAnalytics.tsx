@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { useRiskClassification, type RiskCandidate } from '../hooks/useRiskClassification';
 import { SkeletonStatGrid, SkeletonTable } from './Skeleton';
 import { Notice } from './Notice';
+import { useToast } from './Toast';
 
 // Sprint 21f — Risk Classification UI. Predictions come from the ML service
 // via POST /api/predictions/assess (Express → FastAPI → predictor.py); a
@@ -58,6 +59,7 @@ const FEATURE_LABELS: Record<string, string> = {
 
 export const AIAnalytics = () => {
   const { user, selectedSchool } = useAuth();
+  const toast = useToast();
   const { candidates: allCandidates, loading, error, reload } = useRiskClassification();
   // scope to the selected school context, same as every other tab
   const candidates = useMemo(
@@ -81,7 +83,6 @@ export const AIAnalytics = () => {
   const [finalRec, setFinalRec] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   // Sprint 21g — priority queue + bulk assessment state
   const [sortMode, setSortMode] = useState<'priority' | 'name'>('priority');
   const [gradeFilter, setGradeFilter] = useState('all');
@@ -192,7 +193,6 @@ export const AIAnalytics = () => {
       setFinalRec(cached.recommendation);
     }
     setPredictError(null);
-    setSaveMessage(null);
     setNotes('');
   };
 
@@ -251,7 +251,6 @@ export const AIAnalytics = () => {
     if (!selected) return;
     setPredicting(true);
     setPredictError(null);
-    setSaveMessage(null);
     try {
       const result = await apiClient.post<PredictionResult>('/predictions/assess', {
         student_id: selected.id,
@@ -296,7 +295,7 @@ export const AIAnalytics = () => {
         model_risk_level: prediction.risk_level,
         recommendation_edited: recEdited,
       });
-      setSaveMessage(`Validated assessment saved: ${finalLevel} risk.`);
+      toast.success(`Validated assessment saved: ${finalLevel} risk.`);
       setPrediction(null);
       setNotes('');
       setBulkResults((prev) => {
@@ -305,7 +304,7 @@ export const AIAnalytics = () => {
       });
       reload();
     } catch {
-      setSaveMessage('Failed to save the validated assessment.');
+      toast.error('Failed to save the validated assessment.');
     } finally {
       setSaving(false);
     }
@@ -556,11 +555,6 @@ export const AIAnalytics = () => {
                     ))}
                   </div>
                   {predictError && <p className="text-sm text-red-600 mt-3">{predictError}</p>}
-                  {saveMessage && (
-                    <p className={`text-sm mt-3 ${saveMessage.startsWith('Failed') ? 'text-red-600' : 'text-green-700'}`}>
-                      {saveMessage}
-                    </p>
-                  )}
                 </div>
 
                 {/* Result card */}
