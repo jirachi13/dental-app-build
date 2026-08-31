@@ -27,14 +27,20 @@ const GRADE_BRACKETS: Record<string, {label:string; ages:string[]}> = {
   'Grade 4': { label:'GRADE 4',  ages:['5-9 yrs','10-14 yrs','15-19 yrs','20 yrs & above'] },
   'Grade 5': { label:'GRADE 5',  ages:['5-9 yrs','10-14 yrs','15-19 yrs','20 yrs & above'] },
   'Grade 6': { label:'GRADE 6',  ages:['5-9 yrs','10-14 yrs','15-19 yrs','20 yrs & above'] },
-  // ⚠ ASSUMPTION: the secondary grades use 10-14 / 15-19 / 20+ — a Grade 7
-  // pupil is ~12, so "5-9 yrs" cannot occur. Confirm against the actual DOH
-  // secondary form before defense; if it carries different brackets, only
-  // these four lines need changing.
-  'Grade 7': { label:'GRADE 7',  ages:['10-14 yrs','15-19 yrs','20 yrs & above'] },
-  'Grade 8': { label:'GRADE 8',  ages:['10-14 yrs','15-19 yrs','20 yrs & above'] },
-  'Grade 9': { label:'GRADE 9',  ages:['10-14 yrs','15-19 yrs','20 yrs & above'] },
-  'Grade 10':{ label:'GRADE 10', ages:['10-14 yrs','15-19 yrs','20 yrs & above'] },
+  // Secondary carries the SAME four brackets as Grades 2-6. Sprint 41 first
+  // dropped "5-9 yrs" here on the reasoning that a Grade 7 pupil is ~12 so
+  // the cell can never be filled — but that argument proves too much: a Grade
+  // 2 pupil is never 20 either, and the form still carries "20 yrs & above"
+  // for Grade 2. The DOH form uses a uniform bracket set per grade regardless
+  // of which cells are plausible, so a shortened secondary set was the odd
+  // one out. Corrected 2026-09-01.
+  // ⚠ Still unconfirmed against the actual paper DOH secondary form — this is
+  // now an argument from the form's own internal consistency, not a reading of
+  // it. If the real form differs, only these four lines change.
+  'Grade 7': { label:'GRADE 7',  ages:['5-9 yrs','10-14 yrs','15-19 yrs','20 yrs & above'] },
+  'Grade 8': { label:'GRADE 8',  ages:['5-9 yrs','10-14 yrs','15-19 yrs','20 yrs & above'] },
+  'Grade 9': { label:'GRADE 9',  ages:['5-9 yrs','10-14 yrs','15-19 yrs','20 yrs & above'] },
+  'Grade 10':{ label:'GRADE 10', ages:['5-9 yrs','10-14 yrs','15-19 yrs','20 yrs & above'] },
 };
 
 // The SAME DOH form, run over two grade bands. Only Bagong Tanyag Integrated
