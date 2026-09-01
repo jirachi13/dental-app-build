@@ -39,10 +39,16 @@ export function useDentalChartData(studentId: string | undefined) {
     }
     beginLoad();
     try {
-      const [studentDoc, schools, allIptrs, dentistList] = await Promise.all([
+      // Every list below is fetched FILTERED to this student (Sprint 48).
+      // It used to pull whole collections and filter them here — every IPTR,
+      // medical history, chart and tooth record in the database, to find the
+      // ~3 rows belonging to one child. Measured at 14-58 MB per open at the
+      // 8,000-student scale. The join keys are unencrypted ObjectIds, so the
+      // server can match them (encrypted fields could not — see CLAUDE.md).
+      const [studentDoc, schools, myIptrsRaw, dentistList] = await Promise.all([
         apiClient.get<ApiStudent>(`/students/${studentId}`),
         apiClient.get<ApiSchool[]>('/schools'),
-        apiClient.get<ApiStudentIptr[]>('/student-iptrs'),
+        apiClient.get<ApiStudentIptr[]>(`/student-iptrs?student_id=${studentId}`),
         apiClient.get<ApiDentist[]>('/dentists'),
       ]);
 
@@ -50,23 +56,26 @@ export function useDentalChartData(studentId: string | undefined) {
       setSchoolName(schools.find((s) => s._id === studentDoc.school_id)?.school_name ?? 'Unknown School');
       setDentists(dentistList);
 
-      const myIptrs = allIptrs
-        .filter((i) => i.student_id === studentId)
-        .sort((a, b) => a.school_year.localeCompare(b.school_year));
+      const myIptrs = [...myIptrsRaw].sort((a, b) => a.school_year.localeCompare(b.school_year));
       const iptrIds = new Set(myIptrs.map((i) => i._id));
 
-      const [allMedical, allDiet, allOral, allCharts, allTreatments] = await Promise.all([
-        apiClient.get<ApiMedicalHistory[]>('/medical-histories'),
-        apiClient.get<ApiDietarySocialHabits[]>('/dietary-social-habits'),
-        apiClient.get<ApiOralHealthCondition[]>('/oral-health-conditions'),
-        apiClient.get<ApiDentalChart[]>('/dental-charts'),
-        apiClient.get<ApiTreatment[]>('/treatments'),
-      ]);
+      // A student with no IPTR years has nothing to join to — skip five
+      // round-trips that could only return empty.
+      const iptrQuery = myIptrs.map((i) => i._id).join(',');
+      const [allMedical, allDiet, allOral, allCharts, allTreatments] = iptrQuery
+        ? await Promise.all([
+            apiClient.get<ApiMedicalHistory[]>(`/medical-histories?iptr_id=${iptrQuery}`),
+            apiClient.get<ApiDietarySocialHabits[]>(`/dietary-social-habits?iptr_id=${iptrQuery}`),
+            apiClient.get<ApiOralHealthCondition[]>(`/oral-health-conditions?iptr_id=${iptrQuery}`),
+            apiClient.get<ApiDentalChart[]>(`/dental-charts?iptr_id=${iptrQuery}`),
+            apiClient.get<ApiTreatment[]>(`/treatments?iptr_id=${iptrQuery}`),
+          ])
+        : [[], [], [], [], []];
 
       const myCharts = allCharts.filter((c) => iptrIds.has(c.iptr_id));
-      const chartIds = new Set(myCharts.map((c) => c._id));
-      const allToothRecords = chartIds.size
-        ? await apiClient.get<ApiToothRecord[]>('/tooth-records')
+      const chartIds = myCharts.map((c) => c._id);
+      const allToothRecords = chartIds.length
+        ? await apiClient.get<ApiToothRecord[]>(`/tooth-records?chart_id=${chartIds.join(',')}`)
         : [];
 
       const yearData: IptrYearData[] = myIptrs.map((iptr) => {

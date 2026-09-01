@@ -60,7 +60,26 @@ interface CrudOptions {
    *  replay. Returning a non-empty array answers 409 with the candidates,
    *  unless the request body carries `confirm_duplicate: true`. */
   duplicateCheck?: (body: Record<string, unknown>) => Promise<unknown[]>;
+  /** Foreign-key fields that GET / may be filtered by, e.g. `?iptr_id=abc` or
+   *  `?iptr_id=abc,def` for several at once (Sprint 48).
+   *
+   *  Why this exists: every list hook used to fetch a WHOLE collection and
+   *  filter it in the browser. Showing one student's chart pulled every IPTR,
+   *  medical history, chart and tooth record in the database to find ~3 rows —
+   *  measured at 14-58 MB per open at the 8,000-student scale.
+   *
+   *  Strictly a WHITELIST, and deliberately ObjectId-only: these are all
+   *  unencrypted foreign keys, so plaintext equality works on them (unlike the
+   *  encrypted fields, which random IVs put out of reach — see CLAUDE.md).
+   *  Anything not listed here, or not a valid ObjectId, is rejected rather
+   *  than passed through to the query. */
+  filterable?: string[];
 }
+
+/** Max ids accepted in one comma-separated filter. A student with more school
+ *  years than this does not exist; the cap is here so a crafted query cannot
+ *  turn into an unbounded `$in`. */
+const MAX_FILTER_IDS = 200;
 
 export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
   const router = Router();
@@ -82,7 +101,21 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
         res.status(403).json({ error: "Only System Admin can view archived records" });
         return;
       }
-      const filter = hasSoftDelete && !wantsArchived ? { isArchived: false } : {};
+      const filter: Record<string, unknown> = hasSoftDelete && !wantsArchived ? { isArchived: false } : {};
+      for (const field of options.filterable ?? []) {
+        const raw = req.query[field];
+        if (raw === undefined) continue;
+        if (typeof raw !== "string") {
+          res.status(400).json({ error: `Invalid ${field} filter` });
+          return;
+        }
+        const ids = raw.split(",").map((s) => s.trim()).filter(Boolean);
+        if (ids.length === 0 || ids.length > MAX_FILTER_IDS || !ids.every((id) => mongoose.isValidObjectId(id))) {
+          res.status(400).json({ error: `Invalid ${field} filter` });
+          return;
+        }
+        filter[field] = ids.length === 1 ? ids[0] : { $in: ids };
+      }
       const docs = await model.find(filter);
       res.json(docs);
     }),
