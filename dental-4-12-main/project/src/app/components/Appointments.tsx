@@ -11,9 +11,6 @@ import { useStudents } from '../hooks/useStudents';
 import { apiClient } from '../api/client';
 import { Notice } from './Notice';
 import { toLocalDateString, formatDateWithWeekday } from '../utils/localDate';
-import { exportToCsv, type ExportColumn } from '../utils/exportCsv';
-import { exportToXlsx } from '../utils/exportXlsx';
-import { ExportMenu, type ExportFormat } from './ExportMenu';
 import type { ApiSchool } from '../api/types';
 import { SkeletonPageHeader, SkeletonStatGrid, SkeletonTable } from './Skeleton';
 import { useToast } from './Toast';
@@ -216,24 +213,6 @@ export const Appointments = () => {
     return true;
   });
 
-  const handleExport = (format: ExportFormat) => {
-    const rows = filteredAppointments.filter((a) => !a.pending);
-    const columns: ExportColumn<(typeof rows)[number]>[] = [
-      { label: 'Date', value: (a) => a.date },
-      { label: 'Time', value: (a) => a.time },
-      { label: 'School', value: (a) => a.school },
-      { label: 'Grade', value: (a) => a.grade },
-      { label: 'Section', value: (a) => a.section },
-      { label: 'Students', value: (a) => a.studentCount },
-      { label: 'Type', value: (a) => a.type },
-      { label: 'Status', value: (a) => getStatus(a) },
-      { label: 'Dentist', value: (a) => a.dentist },
-    ];
-    const base = `appointments_${toLocalDateString(new Date())}`;
-    if (format === 'xlsx') void exportToXlsx(rows, columns, `${base}.xlsx`, 'Appointments');
-    else exportToCsv(rows, columns, `${base}.csv`);
-  };
-
   // Calendar helpers
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -361,7 +340,8 @@ export const Appointments = () => {
           <p className="text-sm text-muted-foreground mt-0.5">{appointments.length} appointment{appointments.length !== 1 ? 's' : ''} total</p>
         </div>
         <div className="flex items-center gap-2">
-          <ExportMenu onExport={handleExport} />
+          {/* No export by design (2026-09-02) — see PatientList for the
+              reasoning. The DOH report on Reports is the official output. */}
           <button onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover text-sm font-medium">
             <Plus className="w-4 h-4" /> New Appointment

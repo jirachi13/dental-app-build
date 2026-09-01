@@ -2,10 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { Plus, Eye, FileText, X, School as SchoolIcon, List, ChevronRight, Users, Upload, CheckCircle, AlertCircle, ScanLine, Download } from 'lucide-react';
-import { exportToCsv, type ExportColumn } from '../utils/exportCsv';
-import { exportToXlsx } from '../utils/exportXlsx';
-import { ExportMenu, type ExportFormat } from './ExportMenu';
-import { toLocalDateString, formatDate } from '../utils/localDate';
+import { formatDate } from '../utils/localDate';
 import { OCR_CONFIDENCE_THRESHOLD, type IptrOcrFieldKey } from '../utils/iptrOcrShared';
 import { getGradeColor } from '../utils/gradeColors';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
@@ -488,24 +485,6 @@ export const PatientList = () => {
 
   // Exports exactly what's currently visible (respects active filters) --
   // excludes not-yet-synced offline rows since they don't have a real ID yet.
-  const handleExport = (format: ExportFormat) => {
-    const rows = filtered.filter((s) => !s.pending);
-    const columns: ExportColumn<(typeof rows)[number]>[] = [
-      { label: 'Name', value: (s) => s.name },
-      { label: 'Birthdate', value: (s) => s.birthdate },
-      { label: 'Gender', value: (s) => s.gender },
-      { label: 'Grade', value: (s) => s.grade },
-      { label: 'Section', value: (s) => s.section },
-      { label: 'School', value: (s) => s.school },
-      { label: 'Risk Level', value: (s) => s.riskLevel ?? 'Not Screened' },
-      { label: 'Oral Status', value: (s) => s.oralStatus },
-      { label: 'Last Visit', value: (s) => s.lastVisit?.slice(0, 10) ?? '' },
-      { label: 'Consent Status', value: (s) => s.consentStatus },
-    ];
-    const base = `students_${toLocalDateString(new Date())}`;
-    if (format === 'xlsx') void exportToXlsx(rows, columns, `${base}.xlsx`, 'Students');
-    else exportToCsv(rows, columns, `${base}.csv`);
-  };
 
   const riskBadge = (level: string) => {
     const c: Record<string,string> = { 'High':'bg-red-100 text-red-800', 'Medium':'bg-yellow-100 text-yellow-800', 'Low':'bg-green-100 text-green-800' };
@@ -577,7 +556,12 @@ export const PatientList = () => {
           <p className="text-sm text-muted-foreground mt-0.5">{schoolStudents.length} students{selectedSchool ? '' : ' across 3 schools'}</p>
         </div>
         <div className="flex items-center gap-3">
-          <ExportMenu onExport={handleExport} />
+          {/* No export here by design (2026-09-02): this list is raw patient
+              PII — names, birthdays, addresses, guardians — and a CSV of it
+              would leave the encrypted database as plaintext on someone's
+              device, defeating the field encryption. Official OUTPUT is the
+              DOH report on Reports, which is aggregate counts and carries no
+              names. */}
 {canAddStudent && (
             <>
               {/* "Upload", not "Scan": this opens a file picker, and a scan icon

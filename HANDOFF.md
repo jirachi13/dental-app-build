@@ -9,6 +9,17 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
+## Sprint 52 (exports restricted to official output) — DONE 2026-09-02 (tsc both + build clean)
+From the classmate notes: *"exports or downloads should only be for official files like the doh report and iptr, but features useful might be implemented"*. User confirmed the scope: **remove from Students, RPC and Appointments; KEEP Audit Trail.**
+
+**The real reason this matters is PII, not tidiness — worth using at defense.** Every removed CSV/XLSX wrote **decrypted** patient data to an unencrypted file on a staff device: `STUDENT` name/birthday/address/guardian fields are AES-256 encrypted at rest (CLAUDE.md DATA ENCRYPTION), and the Students export handed the whole roster out as plaintext. *"You encrypt the database, then export it in the clear?"* is a fair panel question, and it no longer has a target. **The governing rule is now: official AGGREGATE output may leave the system; raw patient lists may not.**
+
+- Removed `handleExport` + `<ExportMenu>` and the orphaned `exportToCsv` / `exportToXlsx` / `ExportMenu` / `ExportFormat` / `ExportColumn` / `toLocalDateString` imports from `PatientList.tsx`, `RPCTracking.tsx`, `Appointments.tsx`. Each site carries a comment saying why, so nobody "restores the missing export" later.
+- **KEPT — `AuditTrail.tsx`** (user's call, and I agree): admin-only, and an exported audit log is plausible Chapter 4 compliance evidence.
+- **KEPT — the DOH report** on `Reports.tsx`. It uses its own `exportDohReportToPdf` / Excel path, not `ExportMenu`, and was verified untouched. It is aggregate counts with **no names**, which is exactly why it passes the rule.
+- **`utils/exportCsv.ts` and `utils/exportXlsx.ts` are still used** (Audit Trail, Reports) — not deleted.
+- **NOT DONE, and it is an ADDITION not a removal:** the notes imply an **IPTR export should exist**, and there is none — `DentalChart.tsx` has no print or download path at all. That is the one export a clinic actually needs (a patient's own record for their file), and it is the "useful features might be implemented" half of the note. **Unscoped; needs approval.**
+
 ## Sprint 51 (RPC becomes a worklist, not a dashboard) — DONE 2026-09-02 (tsc both + build clean)
 From the classmate notes, via the user: *"RPC Visit Filter - Treatment - automatic wala kapag completed na - no dashboards"*. Both halves built. **`RPCTracking.tsx` went 313 → 216 lines.**
 - **Dashboards removed:** the four stat tiles (Total Enrolled / Visit 1 Completed / Both Visits Complete / Overdue) and the "RPC Completion by School" stacked chart. **Nothing was lost from Chapter 4** — Figure 4.4.3's compliance funnel is cropped from `fig-4.4.1-dashboard-dentist.png`, NOT from this page, so the evidence for Module 5 still exists on the dentist dashboard. **`fig-4.2.3-rpc-tracking.png` IS now stale and needs re-capturing** (folds into the figure pass already owed after Sprint 45).

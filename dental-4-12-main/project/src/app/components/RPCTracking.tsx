@@ -5,10 +5,6 @@ import { Search, Plus, X, CheckCircle, AlertCircle, Clock, Shield, School as Sch
 import { getGradeColor } from '../utils/gradeColors';
 import { useRPCTracking } from '../hooks/useRPCTracking';
 import { treatmentCodes } from './DentalChart';
-import { exportToCsv, type ExportColumn } from '../utils/exportCsv';
-import { exportToXlsx } from '../utils/exportXlsx';
-import { ExportMenu, type ExportFormat } from './ExportMenu';
-import { toLocalDateString } from '../utils/localDate';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { activatable } from '../utils/a11y';
 
@@ -87,24 +83,6 @@ export const RPCTracking = () => {
   const hasActiveFilters = [gradeFilter, sectionFilter, genderFilter, ageGroupFilter, treatmentFilter].some(f => f !== 'all') || statusFilter !== 'outstanding' || searchTerm !== '';
   const clearFilters = () => { setGradeFilter('all'); setSectionFilter('all'); setGenderFilter('all'); setAgeGroupFilter('all'); setStatusFilter('outstanding'); setTreatmentFilter('all'); setSearchTerm(''); };
 
-  const handleExport = (format: ExportFormat) => {
-    const columns: ExportColumn<(typeof filtered)[number]>[] = [
-      { label: 'Student Name', value: (r) => r.studentName },
-      { label: 'Gender', value: (r) => r.gender },
-      { label: 'School', value: (r) => r.school },
-      { label: 'Grade', value: (r) => r.grade },
-      { label: 'Section', value: (r) => r.section },
-      { label: 'Visit 1 Date', value: (r) => r.visit1Date ?? '' },
-      { label: 'Visit 1 Status', value: (r) => r.visit1Status },
-      { label: 'Visit 2 Date', value: (r) => r.visit2Date ?? '' },
-      { label: 'Visit 2 Status', value: (r) => r.visit2Status },
-      { label: 'Overall Status', value: (r) => r.status },
-    ];
-    const base = `rpc_records_${toLocalDateString(new Date())}`;
-    if (format === 'xlsx') void exportToXlsx(filtered, columns, `${base}.xlsx`, 'RPC Records');
-    else exportToCsv(filtered, columns, `${base}.csv`);
-  };
-
   const statusConfig: Record<string,{label:string;color:string;bg:string}> = {
     complete:     { label:'Complete',     color:'text-green-700', bg:'bg-green-100' },
     pending:      { label:'Visit 1 Only', color:'text-blue-700',  bg:'bg-blue-100'  },
@@ -138,7 +116,9 @@ export const RPCTracking = () => {
           <h1 className="text-2xl font-bold text-foreground">RPC Records</h1>
           <p className="text-sm text-muted-foreground">Routine Preventive Care — Fluoride application tracking (2nd fluoride dose due 4–6 months after Visit 1; other treatments may be done anytime)</p>
         </div>
-        <ExportMenu onExport={handleExport} />
+        {/* No export by design (2026-09-02) — see PatientList for the reasoning:
+            a CSV of named students leaves the encrypted store as plaintext.
+            The DOH report on Reports is the official, aggregate output. */}
       </div>
 
       <div className="bg-card rounded-xl border border-border p-4 space-y-3">
