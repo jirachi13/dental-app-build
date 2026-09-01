@@ -778,6 +778,98 @@ Based on the findings of the study, the researchers conclude the following:
 
 ---
 
+## **Limitations of the Study**
+
+The conclusions stated above are bounded by the conditions under which the system
+was developed and evaluated. The researchers identify the following limitations,
+which qualify the extent to which the findings may be generalized and which
+should be considered in any subsequent use or extension of the system.
+
+**Size and composition of the training sample.** The dental records maintained at
+the three covered school dental clinics exist only as accomplished paper
+Individual Patient Treatment Record forms. No machine-readable historical dataset
+was available at any point in the study, and the training data therefore had to
+be encoded by hand from those forms. The predictive component was consequently
+developed and evaluated on `[PENDING: state the final number of hand-encoded
+records]` records rather than on the full population of approximately 8,000
+student records. At this magnitude the predictive component constitutes a pilot
+demonstration of the analytics pipeline rather than a definitive comparison of
+classification algorithms. The results reported in Section 4.3 are accordingly
+presented with per-class support counts, and the study does not claim that any
+one of the five algorithms is superior for this problem in general; the selection
+reported in Section 4.3.3 is the selection appropriate to this sample. The number
+of input features was likewise constrained deliberately, since a feature count
+approaching the record count would permit the ensemble methods to report
+optimistic scores that would not hold on unseen data.
+
+**Class distribution.** Because the sample was drawn from records of children
+presenting at school dental clinics, the risk categories are not represented in
+equal numbers. Metrics computed over an imbalanced sample are sensitive to the
+distribution of the underlying classes, which is the reason stratified K-Fold
+cross-validation was adopted as the primary evaluation procedure and F1 as the
+priority metric. The limitation is not removed by that choice, only accounted
+for.
+
+**Single-site scope and single-annotator labels.** The records used were drawn
+from three schools within one barangay of one city, served by a single dentist
+and a single dental aide. The findings describe the performance of the system in
+that setting and are not presented as generalizable to school dental services in
+other localities, whose patient populations, recording practices, and staffing
+ratios may differ. Furthermore, every risk label used in training reflects the
+clinical judgment of one dentist. No second clinician independently labeled the
+same records, so inter-rater reliability was not established, and any systematic
+tendency in that clinician's assessments is reproduced by the trained model.
+
+**Absence of prospective and longitudinal validation.** The predictive component
+was trained and evaluated on records of encounters that had already occurred. Its
+performance on students not represented in the sample was not measured
+prospectively over a subsequent clinic cycle. The study likewise measured the
+system's software product quality and its capacity to produce required outputs;
+it did not measure clinical outcomes. No claim is therefore made that use of the
+system reduces caries incidence, improves preventive care compliance, or alters
+treatment outcomes, as establishing any such effect would require observation
+over a period substantially longer than that available to the study.
+
+**Composition of the evaluation respondents.** The ISO/IEC 25010:2023 evaluation
+reported in Section 4.5 was completed by `[PENDING: confirm the final respondent
+count; 30 was the planned figure]` respondents selected purposively as actual and
+intended users of the system rather than by random sampling from a larger
+population. The results express the assessed quality of the system as perceived
+by the personnel who operate it in the three covered clinics, and are not offered
+as a generalized usability finding. The instrument is self-reported, and
+performance efficiency in particular reflects respondents' experience of the
+system on the devices and connections available to them rather than
+instrumented measurement.
+
+**Deliberate exclusions from scope.** The following were excluded by design and
+are not deficiencies of the implementation: the system is a web application
+installable as a Progressive Web App and is not a native mobile application; it
+operates as a standalone platform and does not integrate with any national
+Department of Health database; it does not perform computer-vision detection of
+caries from images; it does not employ biometric authentication; and it does not
+provide tele-dentistry facilities. Each was outside the scope defined in Chapter
+1 and none was attempted.
+
+**Standing of the predictive output.** The risk classification produced by the
+system is decision support and not a diagnosis. The system requires the
+validation of the dentist before any recommendation informs clinical action, and
+that constraint is enforced in the software rather than left to policy. No
+conclusion of this study should be read as indicating that the predictive
+component is capable of replacing, or of being relied upon in the absence of,
+the clinical judgment of a licensed dentist.
+
+**Operating conditions of the deployment.** The system was deployed on
+no-cost hosting tiers appropriate to a study of this scale. The independently
+hosted predictive service suspends after a period of inactivity, so the first
+prediction requested after an idle interval is subject to a start-up delay not
+present in subsequent requests. The offline facility queues work created while
+connectivity is unavailable and synchronizes it when connectivity is restored;
+it does not make the entire record set available for offline reading. These are
+properties of the deployment used for the study rather than of the system design,
+and both are addressed by the provisioning recommended below.
+
+---
+
 ## **Recommendations**
 
 Based on the conclusions of the study, the researchers offer the following
@@ -916,17 +1008,30 @@ real extraction.
   manuscripts.
 - Decide whether to retain Section 4.6 (Challenges Encountered) — it appears in
   the LinkTech reference but not in all three.
+- **Keep Section 4.6 and Chapter 5's Limitations of the Study distinct if both
+  are retained** (Limitations written 2026-09-01). They overlap in subject
+  matter but answer different questions: 4.6 recounts obstacles met during
+  development and how they were handled, while Limitations states the boundaries
+  on what the findings may claim. The paper-only source records appear in both
+  for that reason — as an obstacle in 4.6, as a constraint on generalizability in
+  Chapter 5. Do not merge them, and do not delete one as redundant.
 
 **Blocked until real data is available:**
 - All of Section 4.3's quantitative content — re-run Sprints 21a–21d against the
   real IPTR records, then regenerate Tables 4.1–4.4 and Figures 4.3.1–4.3.3 from
   `docs/algo-results.md` and `docs/model-selection-rationale.md`.
 - The `[PENDING]` clauses in Chapter 5's Summary item 3 and Conclusion 3.
+- The record count in Chapter 5's Limitations, first paragraph. Everything else
+  in that paragraph is written to hold at any sample size in the pilot range —
+  only the number itself is missing.
 
 **Blocked until the evaluation is conducted:**
 - All of Section 4.5 — administer the ISO/IEC 25010:2023 questionnaire to the 30
   respondents, compute weighted means, and populate Tables 4.6–4.12.
 - The `[PENDING]` clauses in Chapter 5's Summary item 5 and Conclusion 5.
+- The respondent count in Chapter 5's Limitations ("Composition of the evaluation
+  respondents"). It says 30 was the planned figure; replace with the number
+  actually achieved rather than asserting 30.
 - Note that Chapter 3 also commits to a pilot test with a Cronbach's Alpha
   reliability assessment of the instrument prior to the formal evaluation; if
   conducted, its result belongs in Section 4.5 before the characteristic tables.
