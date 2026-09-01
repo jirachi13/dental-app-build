@@ -6,7 +6,16 @@ let processing = false;
 // A raw request, deliberately NOT going through apiClient — apiClient queues
 // failed writes, and reusing it here would risk re-queueing a sync attempt
 // that just failed, defeating "stop queue if sync fails, never skip."
-async function sendDirect(write: QueuedWrite): Promise<{ ok: boolean; status: number }> {
+/** Reads the server's own `error` string off a rejection so the queue can show
+ *  what actually went wrong instead of a bare status code. Returns undefined
+ *  for responses with no JSON body. */
+async function rejectionMessage(res: Response): Promise<string | undefined> {
+  const body = await res.json().catch(() => null);
+  const error = body && typeof body.error === 'string' ? body.error : undefined;
+  return error;
+}
+
+async function sendDirect(write: QueuedWrite): Promise<{ ok: boolean; status: number; message?: string }> {
   const res = await fetch(`/api${write.endpoint}`, {
     method: write.method,
     credentials: 'include',
@@ -23,11 +32,11 @@ async function sendDirect(write: QueuedWrite): Promise<{ ok: boolean; status: nu
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(write.body),
       });
-      return { ok: retry.ok, status: retry.status };
+      return { ok: retry.ok, status: retry.status, message: retry.ok ? undefined : await rejectionMessage(retry) };
     }
   }
 
-  return { ok: res.ok, status: res.status };
+  return { ok: res.ok, status: res.status, message: res.ok ? undefined : await rejectionMessage(res) };
 }
 
 // Detects whether the server's current value for any field this write is
@@ -90,7 +99,13 @@ export async function processQueue(): Promise<void> {
           // Server actively rejected it (e.g. validation error) — not a
           // network problem, so retrying immediately won't help. Mark it
           // failed and stop; later items may depend on this one's data.
-          await markFailed(write.id!, `The server rejected this change (error ${result.status}).`);
+          // Prefer the server's own wording: a 409 here is usually the
+          // duplicate-student guard, and "error 409" gives whoever is clearing
+          // the queue nothing to act on.
+          await markFailed(
+            write.id!,
+            result.message ?? `The server rejected this change (error ${result.status}).`,
+          );
           notifyQueueChange();
           break;
         }

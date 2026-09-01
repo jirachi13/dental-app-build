@@ -5,7 +5,7 @@ import { Plus, Eye, FileText, X, School as SchoolIcon, List, ChevronRight, Users
 import { exportToCsv, type ExportColumn } from '../utils/exportCsv';
 import { exportToXlsx } from '../utils/exportXlsx';
 import { ExportMenu, type ExportFormat } from './ExportMenu';
-import { toLocalDateString } from '../utils/localDate';
+import { toLocalDateString, formatDate } from '../utils/localDate';
 import { OCR_CONFIDENCE_THRESHOLD, type IptrOcrFieldKey } from '../utils/iptrOcrShared';
 import { getGradeColor } from '../utils/gradeColors';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
@@ -28,6 +28,26 @@ const SCHOOLS = [
   'South Daang Hari Elementary School Main',
 ];
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
+
+// Shape of the candidates the server returns with a 409 from POST /students
+// (see server/utils/studentDuplicates.ts) — enough to recognise the child, not
+// the whole record.
+type DuplicateCandidate = {
+  _id: string;
+  full_name: string;
+  grade_level: string;
+  section: string;
+  sex: string;
+  birthday: string;
+};
+
+/** Pulls the candidate list off a 409, or null if this isn't a duplicate
+ *  rejection. Keeps the type assertion in one place. */
+const duplicatesFromError = (err: unknown): DuplicateCandidate[] | null => {
+  if (!(err instanceof ApiError) || err.status !== 409) return null;
+  const list = err.body?.duplicates;
+  return Array.isArray(list) && list.length > 0 ? (list as DuplicateCandidate[]) : null;
+};
 
 // ── Bulk import parsing (Sprint 23m) ─────────────────────────────────────────
 // The prototype's "Parse File" ignored the upload and fabricated 5 students,
@@ -123,6 +143,9 @@ export const PatientList = () => {
   const [newPatient, setNewPatient] = useState({ firstName:'', lastName:'', middleName:'', birthdate:'', gender:'', grade:'', section:'', school:'', guardianName:'', guardianContact:'', address:'', contactNumber:'', philhealthNumber:'', philhealthStatus:'None', is4Ps:false, fourPsId:'', consentStatus:'pending' });
   const [addPatientError, setAddPatientError] = useState<string | null>(null);
   const [addingPatient, setAddingPatient] = useState(false);
+  // Non-null while the server has answered "this child may already be on file"
+  // and the person encoding has to decide (Sprint 47).
+  const [duplicateWarning, setDuplicateWarning] = useState<DuplicateCandidate[] | null>(null);
   const [schools, setSchools] = useState<ApiSchool[]>([]);
   const [showOcrUpload, setShowOcrUpload] = useState(false);
   const [ocrProcessing, setOcrProcessing] = useState(false);
@@ -221,7 +244,18 @@ export const PatientList = () => {
         });
         imported++;
       } catch (err) {
-        failures.push({ name: `${r.lastName}, ${r.firstName}`, error: err instanceof ApiError ? err.message : 'Failed to save' });
+        // Duplicates are reported in the summary, never as a per-row dialog —
+        // a modal every few rows through an 800-row import is unusable. The
+        // row is skipped, not saved: importing in bulk is not the moment to
+        // decide "same child or not", and the encoder can add the genuine ones
+        // individually afterwards, where the decision dialog is shown.
+        const duplicates = duplicatesFromError(err);
+        failures.push({
+          name: `${r.lastName}, ${r.firstName}`,
+          error: duplicates
+            ? `Skipped — already on file as ${duplicates[0].full_name} (${duplicates[0].grade_level} ${duplicates[0].section}). Add individually if this is a different child.`
+            : err instanceof ApiError ? err.message : 'Failed to save',
+        });
       }
       setBulkProgress(imported + failures.length);
     }
@@ -287,7 +321,10 @@ export const PatientList = () => {
     apiClient.get<ApiSchool[]>('/schools').then(setSchools).catch(() => {});
   }, []);
 
-  const handleAddStudent = async () => {
+  // confirmDuplicate is the answer to a previous 409: the encoder has looked at
+  // the matches and says this really is a different child. Re-reads `newPatient`
+  // rather than caching a payload, so "Save anyway" cannot drift from the form.
+  const handleAddStudent = async (confirmDuplicate = false) => {
     setAddPatientError(null);
     // birthdate/gender/address/section are all required on the backend
     // (Student model) and already marked with * in this form's labels, but
@@ -326,14 +363,20 @@ export const PatientList = () => {
         is_4ps: newPatient.is4Ps,
         fourps_id: newPatient.fourPsId,
         consent_status: newPatient.consentStatus,
+        ...(confirmDuplicate ? { confirm_duplicate: true } : {}),
       });
       await reloadStudents();
+      setDuplicateWarning(null);
       toast.success(`Student added: ${newPatient.lastName}, ${newPatient.firstName}`);
       setShowAddForm(false);
       setNewPatient({ firstName:'', lastName:'', middleName:'', birthdate:'', gender:'', grade:'', section:'', school:'', guardianName:'', guardianContact:'', address:'', contactNumber:'', philhealthNumber:'', philhealthStatus:'None', is4Ps:false, fourPsId:'', consentStatus:'pending' });
       setOcrConfidences({});
     } catch (err) {
-      setAddPatientError(err instanceof ApiError ? err.message : 'Failed to add student');
+      const duplicates = duplicatesFromError(err);
+      // A duplicate isn't an error the encoder can fix by editing the form, so
+      // it gets the decision dialog rather than the inline error line.
+      if (duplicates) setDuplicateWarning(duplicates);
+      else setAddPatientError(err instanceof ApiError ? err.message : 'Failed to add student');
     } finally {
       setAddingPatient(false);
     }
@@ -744,7 +787,46 @@ export const PatientList = () => {
             </div>
             <div className="flex gap-3 p-6 border-t">
               <button onClick={() => { setShowAddForm(false); setOcrConfidences({}); }} className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-gray-50 text-sm font-medium">Cancel</button>
-              <button onClick={handleAddStudent} disabled={addingPatient} className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-60 text-sm font-medium">{addingPatient ? 'Adding…' : 'Add Student'}</button>
+              {/* Wrapped, not passed directly: onClick would hand the MouseEvent
+                  in as confirmDuplicate, and a truthy value there silently
+                  skips the duplicate check. */}
+              <button onClick={() => handleAddStudent()} disabled={addingPatient} className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-60 text-sm font-medium">{addingPatient ? 'Adding…' : 'Add Student'}</button>
+            </div>
+        </Modal>
+      )}
+
+      {/* ── POSSIBLE DUPLICATE MODAL (Sprint 47) ──
+          Shown when POST /students answers 409. Deliberately a decision, not a
+          block: two children in one school genuinely sharing a name and a
+          birthday is rare but real, so the encoder can always continue. */}
+      {duplicateWarning && (
+        <Modal onClose={() => setDuplicateWarning(null)} maxWidth="max-w-md" closeDisabled={addingPatient}>
+            <div className="flex items-center justify-between p-6 border-b">
+              <h2 className="text-lg font-bold text-foreground">Already on file?</h2>
+              <button onClick={() => setDuplicateWarning(null)} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {duplicateWarning.length === 1 ? 'A student' : `${duplicateWarning.length} students`} with this name and birthday {duplicateWarning.length === 1 ? 'is' : 'are'} already recorded at this school. Open the existing record instead of adding a second one — unless this really is a different child.
+              </p>
+              <ul className="space-y-2">
+                {duplicateWarning.map((d) => (
+                  <li key={d._id} className="border border-border rounded-lg p-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{d.full_name}</p>
+                      <p className="text-xs text-muted-foreground">{d.grade_level} {d.section} · {d.sex} · {formatDate(d.birthday)}</p>
+                    </div>
+                    <button
+                      onClick={() => { setDuplicateWarning(null); setShowAddForm(false); navigate(`/dental-chart/${d._id}?tab=history`); }}
+                      className="px-3 py-1.5 border border-border rounded-lg hover:bg-gray-50 text-xs font-medium whitespace-nowrap"
+                    >Open</button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 p-6 border-t">
+              <button onClick={() => setDuplicateWarning(null)} className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-gray-50 text-sm font-medium">Back to form</button>
+              <button onClick={() => handleAddStudent(true)} disabled={addingPatient} className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-60 text-sm font-medium">{addingPatient ? 'Adding…' : 'Add anyway'}</button>
             </div>
         </Modal>
       )}

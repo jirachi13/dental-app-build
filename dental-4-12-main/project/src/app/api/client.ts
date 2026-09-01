@@ -3,9 +3,15 @@ import { notifyQueueChange } from '../offline/queueEvents';
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /** The parsed error response, for the handful of errors that carry data the
+   *  UI has to act on rather than just display — currently the duplicate-student
+   *  409, whose `duplicates` array is what the "is this the same child?" dialog
+   *  lists. Undefined when the response had no JSON body. */
+  body?: Record<string, unknown>;
+  constructor(status: number, message: string, body?: Record<string, unknown>) {
     super(message);
     this.status = status;
+    this.body = body;
   }
 }
 
@@ -41,7 +47,7 @@ async function request<T>(path: string, options: RequestInit = {}, isRetry = fal
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }));
-    throw new ApiError(res.status, body.error || res.statusText);
+    throw new ApiError(res.status, body.error || res.statusText, body);
   }
 
   if (res.status === 204) return undefined as T;

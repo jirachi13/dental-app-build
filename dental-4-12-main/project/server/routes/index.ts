@@ -7,6 +7,7 @@ import predictionRoutes from "./predictionRoutes.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { ADMIN_ONLY, CLINICAL_WRITE_ROLES } from "../middleware/roleGroups.js";
+import { findDuplicateStudents } from "../utils/studentDuplicates.js";
 import {
   School,
   User,
@@ -104,7 +105,13 @@ router.get("/stats/high-risk-count", requireAuth, asyncHandler(async (req, res) 
 // clinical staff (+ System Admin as super user) can create/edit. Archive/
 // restore/view-archived stays System Admin only everywhere (crudFactory's
 // default), matching CLAUDE.md's SOFT DELETE RULES exactly.
-router.use("/students", createCrudRouter(Student, { writeRoles: CLINICAL_WRITE_ROLES }));
+// duplicateCheck: the same child gets encoded twice often enough to matter —
+// once by OCR off the paper IPTR and once by hand. It warns rather than
+// blocks (a 409 carrying the matches), so the person encoding decides whether
+// it is really the same child; two children genuinely sharing a name and a
+// birthday in one school is rare but possible. Sitting on the route means the
+// add form, bulk import, OCR and offline replay are all covered by one rule.
+router.use("/students", createCrudRouter(Student, { writeRoles: CLINICAL_WRITE_ROLES, duplicateCheck: findDuplicateStudents }));
 // archiveRoles: the chart's "Edit Years → remove year" button is shown to the
 // dentist, but archive defaulted to System Admin only, so every click 403'd and
 // an accidentally added school year could not be removed. Restore stays admin

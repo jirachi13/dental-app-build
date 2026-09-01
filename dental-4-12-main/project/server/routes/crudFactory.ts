@@ -45,6 +45,21 @@ interface CrudOptions {
    *  repeated year in the DMFT History table and an inflated "Years tracked".
    *  Guards every client, not just the button that caused it. */
   uniqueBy?: string[];
+  /** Soft duplicate guard — the "doctor can choose" case (Sprint 47). Unlike
+   *  `uniqueBy`, which is a hard 409 the client cannot override, this returns
+   *  the likely matches so the user decides: open the existing record, or
+   *  confirm this really is a different person and save anyway.
+   *
+   *  It is a callback rather than a field list because STUDENT names are
+   *  encrypted with random IVs (Sprint 26) — no server-side equality query can
+   *  ever find them. The callback prefilters on plaintext fields and compares
+   *  decrypted values in JS.
+   *
+   *  Living here rather than in one form's submit handler means every entry
+   *  path is covered by one rule: the add form, bulk import, OCR, and offline
+   *  replay. Returning a non-empty array answers 409 with the candidates,
+   *  unless the request body carries `confirm_duplicate: true`. */
+  duplicateCheck?: (body: Record<string, unknown>) => Promise<unknown[]>;
 }
 
 export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
@@ -105,6 +120,10 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
     requireRole(...writeRoles),
     asyncHandler(async (req, res) => {
       const body = sanitizeBody(req.body);
+      // Not a stored field — it is the caller's answer to a previous 409, so
+      // it must never reach model.create().
+      const duplicateConfirmed = body.confirm_duplicate === true;
+      delete body.confirm_duplicate;
       if (options.uniqueBy && options.uniqueBy.every((f) => body[f] !== undefined)) {
         const filter: Record<string, unknown> = {};
         for (const f of options.uniqueBy) filter[f] = body[f];
@@ -113,6 +132,16 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
         const existing = await model.findOne(filter).lean();
         if (existing) {
           res.status(409).json({ error: `A ${modelName} already exists for that ${options.uniqueBy.join(" + ")}` });
+          return;
+        }
+      }
+      if (options.duplicateCheck && !duplicateConfirmed) {
+        const matches = await options.duplicateCheck(body);
+        if (matches.length > 0) {
+          res.status(409).json({
+            error: `This looks like a ${modelName} that is already recorded.`,
+            duplicates: matches,
+          });
           return;
         }
       }
