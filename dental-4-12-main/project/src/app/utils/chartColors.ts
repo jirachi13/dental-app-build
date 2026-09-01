@@ -11,6 +11,18 @@ export const CHART = {
   neutral: '#9CA3AF', // gray-400 — not-yet-screened, unassessed
   teal: '#0D9488', // secondary categorical (Reports demographics)
   orange: '#EA580C', // tertiary categorical (Reports demographics)
+  // Chart gridlines. Not a data color — structure, deliberately below the
+  // series in weight. It was hardcoded as '#f0f0f0' at all 8 CartesianGrid
+  // sites until 2026-09-02; the value is unchanged so nothing renders
+  // differently, it simply stops being invisible to a theme change.
+  //
+  // Why a literal here and not `var(--border)`: recharts passes these straight
+  // through as SVG presentation attributes, where CSS custom properties do not
+  // resolve. Every chart prop in this app is a literal for that reason.
+  // It is also NOT the same value as --border (rgba(0,0,0,.1) ≈ #E6E6E6) —
+  // gridlines sit lighter than UI borders on purpose, so this is its own token
+  // rather than a duplicate of one.
+  grid: '#F0F0F0',
 } as const;
 
 // Ordered risk palette — risk charts always use these three, never a rainbow.

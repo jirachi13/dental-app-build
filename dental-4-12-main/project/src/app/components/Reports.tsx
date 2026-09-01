@@ -733,7 +733,7 @@ export const Reports = () => {
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={TREATMENT_ROWS.map(p => ({ name: p, count: cnt(realTreatmentMatrix, p, intGenderFilter) }))}
                     margin={{top:4,right:8,bottom:40,left:0}}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={CHART.grid} vertical={false} />
                     <XAxis dataKey="name" tick={{fontSize:10}} angle={-25} textAnchor="end" interval={0} />
                     <YAxis tick={{fontSize:11}} />
                     <Tooltip content={<ChartTooltip />} />
@@ -852,7 +852,7 @@ export const Reports = () => {
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={CONDITIONS.map(c => ({ name: c, count: cnt(conditionMatrix, c, intGenderFilter) }))}
                     margin={{top:4,right:8,bottom:36,left:0}}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={CHART.grid} vertical={false} />
                     <XAxis dataKey="name" tick={{fontSize:10}} angle={-20} textAnchor="end" interval={0} />
                     <YAxis tick={{fontSize:11}} />
                     <Tooltip content={<ChartTooltip />} />

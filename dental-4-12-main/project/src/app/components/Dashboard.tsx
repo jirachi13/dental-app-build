@@ -658,7 +658,7 @@ export const Dashboard = () => {
             ) : (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={assessmentsByMonth}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART.grid} />
                   <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 12 }} width={28} />
                   <Tooltip content={<ChartTooltip />} />
@@ -819,7 +819,7 @@ export const Dashboard = () => {
             <ChartBody ready={!appointmentsLoading}>
             <ResponsiveContainer width="100%" height={220} key="appt-status-container">
               <BarChart data={appointmentsByStatusData} id="appointments-status-chart">
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" key="appt-grid" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART.grid} key="appt-grid" />
                 <XAxis dataKey="day" tick={{ fontSize: 12 }} key="appt-xaxis" />
                 <YAxis allowDecimals={false} tick={{ fontSize: 12 }} key="appt-yaxis" />
                 <Tooltip key="appt-tooltip" content={<ChartTooltip />} />
@@ -1190,7 +1190,7 @@ export const Dashboard = () => {
             <ChartBody ready={!studentsLoading}>
             <ResponsiveContainer width="100%" height={220} key="school-comparison-container">
               <BarChart data={schoolComparisonData} id="school-comparison-chart">
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" key="school-grid" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART.grid} key="school-grid" />
                 <XAxis dataKey="school" angle={-15} textAnchor="end" height={80} tick={{ fontSize: 12 }} key="school-xaxis" />
                 <YAxis allowDecimals={false} tick={{ fontSize: 12 }} key="school-yaxis" />
                 <Tooltip key="school-tooltip" content={<ChartTooltip />} />
@@ -1403,7 +1403,7 @@ export const Dashboard = () => {
             <ChartBody ready={!extraLoading}>
             <ResponsiveContainer width="100%" height={220} key="login-activity-container">
               <LineChart data={loginActivityData} id="login-activity-chart">
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" key="login-grid" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART.grid} key="login-grid" />
                 <XAxis dataKey="day" tick={{ fontSize: 12 }} key="login-xaxis" />
                 <YAxis tick={{ fontSize: 12 }} key="login-yaxis" allowDecimals={false} />
                 <Tooltip key="login-tooltip" content={<ChartTooltip />} />
@@ -1423,7 +1423,7 @@ export const Dashboard = () => {
             ) : (
               <ResponsiveContainer width="100%" height={220} key="actions-module-container">
                 <BarChart data={actionsByModuleData} layout="vertical" id="actions-module-chart">
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" key="actions-grid" />
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={CHART.grid} key="actions-grid" />
                   <XAxis type="number" tick={{ fontSize: 12 }} key="actions-xaxis" allowDecimals={false} />
                   <YAxis dataKey="module" type="category" width={100} tick={{ fontSize: 12 }} key="actions-yaxis" />
                   <Tooltip key="actions-tooltip" content={<ChartTooltip />} />

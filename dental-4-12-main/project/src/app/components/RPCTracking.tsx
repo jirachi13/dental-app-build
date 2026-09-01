@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Search, Plus, X, CheckCircle, AlertCircle, Clock, Shield, School as SchoolIcon, List, ChevronRight, Users, Download } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ChartTooltip } from './ChartTooltip';
+import { CHART } from '../utils/chartColors';
 import { getGradeColor } from '../utils/gradeColors';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
 import { useRPCTracking } from '../hooks/useRPCTracking';
@@ -212,7 +213,7 @@ export const RPCTracking = () => {
         <h2 className="text-sm font-semibold text-foreground mb-3">RPC Completion by School</h2>
         <ResponsiveContainer width="100%" height={170}>
           <BarChart data={chartData} margin={{top:0,right:10,left:-20,bottom:0}}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART.grid} />
             <XAxis dataKey="name" tick={{fontSize:11}} />
             <YAxis tick={{fontSize:11}} />
             <Tooltip content={<ChartTooltip />} />
