@@ -218,11 +218,14 @@ export const RPCTracking = () => {
             <YAxis tick={{fontSize:11}} />
             <Tooltip content={<ChartTooltip />} />
             <Legend wrapperStyle={{fontSize:11}} />
-            {/* semantic status set (Sprint 23o): matches dashboard risk/status colors */}
-            <Bar dataKey="complete"   name="Complete"     fill="#15803D" stackId="a" maxBarSize={48} />
-            <Bar dataKey="pending"    name="Visit 1 Only" fill="#1E40AF" stackId="a" maxBarSize={48} />
-            <Bar dataKey="overdue"    name="Overdue"      fill="#DC2626" stackId="a" maxBarSize={48} />
-            <Bar dataKey="notStarted" name="Not Started"  fill="#9CA3AF" stackId="a" maxBarSize={48} />
+            {/* Semantic status set (Sprint 23o). These were literal hexes that
+                happened to equal the tokens; now they ARE the tokens, so
+                "matches the dashboard" is enforced rather than coincidental
+                and the two cannot drift apart. Values unchanged. */}
+            <Bar dataKey="complete"   name="Complete"     fill={CHART.success} stackId="a" maxBarSize={48} />
+            <Bar dataKey="pending"    name="Visit 1 Only" fill={CHART.brand}   stackId="a" maxBarSize={48} />
+            <Bar dataKey="overdue"    name="Overdue"      fill={CHART.danger}  stackId="a" maxBarSize={48} />
+            <Bar dataKey="notStarted" name="Not Started"  fill={CHART.neutral} stackId="a" maxBarSize={48} />
           </BarChart>
         </ResponsiveContainer>
       </div>

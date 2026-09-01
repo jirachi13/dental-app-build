@@ -15,7 +15,7 @@ Closes the last sub-item of Open work #2. Added `CHART.grid = '#F0F0F0'` to `uti
 - **`grid` is deliberately its own token, not an alias of `--border`** (`rgba(0,0,0,.1)` ≈ `#E6E6E6`): gridlines sit lighter than UI borders on purpose, so pointing it at the border token would have darkened every chart.
 
 **Still hardcoded after this pass — found, NOT fixed, needs a decision:**
-- **`RPCTracking.tsx:222-225`** — four `Bar fill` literals that are *exactly* existing token values (`#15803D`=`CHART.success`, `#1E40AF`=`CHART.brand`, `#DC2626`=`CHART.danger`, `#9CA3AF`=`CHART.neutral`). Zero visual risk to swap — the values are identical — and they are precisely what `chartColors.ts`'s own header comment forbids. Left alone only because the ask was scoped to `#f0f0f0`.
+- ~~**`RPCTracking.tsx:222-225`** — four `Bar fill` literals that are *exactly* existing token values~~ **DONE 2026-09-02** (same day). Now `CHART.success` / `.brand` / `.danger` / `.neutral`; all four values verified identical to the literals they replaced, so nothing renders differently. The file's own comment claimed these "match dashboard risk/status colors" — that is now enforced rather than coincidental, and the two cannot drift. **`RPCTracking.tsx` contains zero raw hex.**
 - **`Reports.tsx:860`** — `fill="#0E7490"` (cyan-700) is an **invented hue**: it is NOT `CHART.teal` (`#0D9488`), just near it. Swapping it WOULD change appearance slightly, so it needs a judgment call rather than a mechanical replace.
 - **`Dashboard.tsx:669-671`** — `stroke="#fff"` on the three stacked risk bars. It is a separator against the card background, so under dark mode (#5) it would draw white seams across every bar. Same hazard class as the gridlines were.
 
