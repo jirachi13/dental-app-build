@@ -580,8 +580,13 @@ export const PatientList = () => {
           <ExportMenu onExport={handleExport} />
 {canAddStudent && (
             <>
+              {/* "Upload", not "Scan": this opens a file picker, and a scan icon
+                  + the verb "scan" both promised a camera the app does not have
+                  (backlog 0e). The OCR extraction is still described inside the
+                  modal — only the entry point stops over-promising. Rename this
+                  back if 0e ever ships. */}
               <button onClick={() => { setOcrError(null); setShowOcrUpload(true); }} className="flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary-surface text-sm font-medium">
-                <ScanLine className="w-4 h-4" /> Scan IPTR Form
+                <Upload className="w-4 h-4" /> Upload IPTR Form
               </button>
               <button onClick={() => { setOcrConfidences({}); setShowAddForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover text-sm font-medium">
                 <Plus className="w-4 h-4" /> Add Student
@@ -711,11 +716,11 @@ export const PatientList = () => {
           </div>
         </div>
 
-      {/* Scan IPTR Form Modal */}
+      {/* Upload IPTR Form Modal (upload → OCR; no camera, see backlog 0e) */}
       {showOcrUpload && (
         <Modal onClose={() => setShowOcrUpload(false)} closeDisabled={ocrProcessing}>
             <div className="flex items-center justify-between p-6 border-b">
-              <h2 className="text-lg font-bold text-foreground">Scan IPTR Form</h2>
+              <h2 className="text-lg font-bold text-foreground">Upload IPTR Form</h2>
               <button onClick={() => setShowOcrUpload(false)} className="text-muted-foreground hover:text-muted-foreground"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-6 space-y-4">
@@ -730,7 +735,7 @@ export const PatientList = () => {
                   onDragOver={e => e.preventDefault()}
                   onDrop={e => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) handleOcrFile(file); }}
                 >
-                  <ScanLine className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+                  <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
                   <p className="text-sm text-muted-foreground font-medium">Drop IPTR image here</p>
                   <p className="text-xs text-muted-foreground mt-1">or click to browse</p>
                   <input id="ocr-file-input" type="file" accept="image/png,image/jpeg,image/jpg,application/pdf" className="hidden"
