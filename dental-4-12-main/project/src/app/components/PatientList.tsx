@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Eye, FileText, X, School as SchoolIcon, List, ChevronRight, Users, Upload, CheckCircle, AlertCircle, ScanLine, Download } from 'lucide-react';
+import { Plus, Eye, FileText, X, School as SchoolIcon, List, ChevronLeft, ChevronRight, Users, Upload, CheckCircle, AlertCircle, ScanLine } from 'lucide-react';
 import { formatDate } from '../utils/localDate';
 import { OCR_CONFIDENCE_THRESHOLD, type IptrOcrFieldKey } from '../utils/iptrOcrShared';
 import { getGradeColor } from '../utils/gradeColors';
@@ -476,6 +476,29 @@ export const PatientList = () => {
   // touched, since that was the only thing that could trigger a recompute.
   }), [schoolStudents, gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm]);
 
+  // ── Pagination (client-side, Sprint 53) ──────────────────────────────────
+  // Deliberately paginates the ALREADY-LOADED rows rather than the fetch. The
+  // table rendered every row, which is unusable at the ~8,000-student scale in
+  // Chapter 1. Slicing here fixes what you SEE without touching what gets
+  // DOWNLOADED — so the counts, the filters and the offline queue's assumption
+  // that the full set is present all keep working. Reducing the payload is a
+  // separate, riskier job (backlog #0b Option 2) and is NOT what this is.
+  //
+  // 25, not 10: a clinic worklist reads better in bigger pages, and 10 would
+  // mean five pages just to see one section.
+  const PAGE_SIZE = 25;
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  // Clamped rather than trusted: deleting or filtering can shrink the list
+  // under the current page, which would otherwise render an empty table.
+  const safePage = Math.min(page, pageCount);
+  const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  // Back to page 1 when the filters change — keyed on the filter inputs, NOT
+  // on `filtered`, so a background refresh (Sprint 40) does not yank the user
+  // back to the top of the list while they are reading page 3.
+  useEffect(() => { setPage(1); }, [gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm, selectedSchool]);
+
   const hasActiveFilters = gradeFilter !== 'all' || sectionFilter !== 'all' || genderFilter !== 'all' || ageGroupFilter !== 'all' || searchTerm !== '';
 
   const clearFilters = () => {
@@ -618,12 +641,15 @@ export const PatientList = () => {
                 <thead className={studentListTableStyles.head}>
                   <tr>
                     <th className={studentListTableStyles.headerCell}>
+                      {/* Scoped to the current page, matching its own label: now
+                          that the table paginates, "select all" across the whole
+                          filtered set would tick rows the user cannot see. */}
                       <input
                         type="checkbox"
-                        aria-label="Select all visible students for queueing"
-                        checked={filtered.length > 0 && filtered.every(s => s.pending || tickedIds.has(s.id))}
+                        aria-label="Select all students on this page for queueing"
+                        checked={paged.length > 0 && paged.every(s => s.pending || tickedIds.has(s.id))}
                         onChange={(e) => {
-                          if (e.target.checked) setTickedIds(new Set(filtered.filter(s => !s.pending).map(s => s.id)));
+                          if (e.target.checked) setTickedIds(new Set(paged.filter(s => !s.pending).map(s => s.id)));
                           else setTickedIds(new Set());
                         }}
                         className="w-4 h-4 accent-primary align-middle"
@@ -640,7 +666,7 @@ export const PatientList = () => {
                 <tbody className={studentListTableStyles.body}>
                   {filtered.length === 0 ? (
                     <tr><td colSpan={7} className={studentListTableStyles.emptyCell}>{hasActiveFilters ? <>No students match your filters. <button onClick={clearFilters} className="text-primary hover:underline font-medium">Clear filters</button></> : 'No students at this school yet — use Add Student to register one.'}</td></tr>
-                  ) : filtered.map(student => {
+                  ) : paged.map(student => {
                     const age = calculateAge(student.birthdate);
                     const isQueued = queuedStudentIds.includes(student.id);
                     return (
@@ -693,8 +719,31 @@ export const PatientList = () => {
               </table>
             </div>
             {filtered.length > 0 && (
-              <div className={studentListTableStyles.footer}>
-                Showing {filtered.length} of {schoolStudents.length} students{selectedSchool ? ` at ${getSchoolShortName(selectedSchool)}` : ''}
+              <div className={`${studentListTableStyles.footer} flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between`}>
+                <span>
+                  Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length}
+                  {filtered.length !== schoolStudents.length ? ` (filtered from ${schoolStudents.length})` : ''} students
+                  {selectedSchool ? ` at ${getSchoolShortName(selectedSchool)}` : ''}
+                </span>
+                {/* Pager hidden on a single page — controls that can never do
+                    anything are just noise. */}
+                {pageCount > 1 && (
+                  <span className="flex items-center gap-1">
+                    <button
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={safePage === 1}
+                      className="px-2 py-1 border border-border rounded-lg text-muted-foreground hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent"
+                      aria-label="Previous page"
+                    ><ChevronLeft className="w-4 h-4" /></button>
+                    <span className="px-2 tabular-nums">Page {safePage} of {pageCount}</span>
+                    <button
+                      onClick={() => setPage(p => Math.min(pageCount, p + 1))}
+                      disabled={safePage === pageCount}
+                      className="px-2 py-1 border border-border rounded-lg text-muted-foreground hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent"
+                      aria-label="Next page"
+                    ><ChevronRight className="w-4 h-4" /></button>
+                  </span>
+                )}
               </div>
             )}
           </div>

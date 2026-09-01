@@ -9,6 +9,17 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
+## Sprint 53 (students list pagination) — DONE 2026-09-02 (tsc both + build clean)
+Last item from the classmate notes: *"Students - Pagination"*. The table rendered **every** row — no slicing anywhere — which is unusable at the ~8,000-student scale Chapter 1 claims.
+
+**⚠ Read this before anyone calls #0b done: this paginates what you SEE, not what gets DOWNLOADED.** `/students` still fetches the whole collection (~6.1 MB at 8,000). That was the deliberate choice: slicing already-loaded rows leaves the counts, the filters and the offline queue's assumption that the full set is present all intact. Reducing the payload is #0b **Option 2** — server-side `?page&limit` plus moving filters and aggregates server-side — and is still open and still risky.
+- `PatientList.tsx` — `PAGE_SIZE = 25` (not 10: a clinic worklist reads better in bigger pages, and 10 would be five pages to see one section — matches #0b's own 25–50 note). Renders `paged` instead of `filtered`.
+- **`safePage` clamps the page** rather than trusting it: deleting or filtering can shrink the list under the current page, which would otherwise render an empty table.
+- **Page resets on filter change, keyed on the filter INPUTS not on `filtered`** — keying it on the derived list would let a Sprint 40 background refresh yank the user back to page 1 while they are reading page 3.
+- **Select-all is now page-scoped**, matching its own aria-label ("Select all students on this page"). Across the whole filtered set it would tick rows the user cannot see.
+- Footer shows `Showing 1–25 of N (filtered from M)`; the pager hides itself entirely at one page, since controls that can never do anything are noise.
+- Cleaned up: the `Download` icon import went unused in all three files once Sprint 52 removed the export menus.
+
 ## Sprint 52 (exports restricted to official output) — DONE 2026-09-02 (tsc both + build clean)
 From the classmate notes: *"exports or downloads should only be for official files like the doh report and iptr, but features useful might be implemented"*. User confirmed the scope: **remove from Students, RPC and Appointments; KEEP Audit Trail.**
 
