@@ -321,8 +321,12 @@ export const AccountManagement = () => {
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-foreground mb-2">Temporary Password</label>
+              {/* new-password: this sets ANOTHER user's password. Without the
+                  token the browser would offer the signed-in admin's own saved
+                  credentials here (Login gained autoComplete 2026-09-02). */}
               <input
                 type="password"
+                autoComplete="new-password"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 placeholder="Set an initial password"
@@ -660,6 +664,7 @@ export const AccountManagement = () => {
                 <label className="block text-sm font-medium text-foreground mb-2">New Password</label>
                 <input
                   type="password"
+                  autoComplete="new-password"
                   value={resetPassword}
                   onChange={(e) => setResetPassword(e.target.value)}
                   className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
@@ -669,6 +674,7 @@ export const AccountManagement = () => {
                 <label className="block text-sm font-medium text-foreground mb-2">Confirm New Password</label>
                 <input
                   type="password"
+                  autoComplete="new-password"
                   value={resetConfirm}
                   onChange={(e) => setResetConfirm(e.target.value)}
                   className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"

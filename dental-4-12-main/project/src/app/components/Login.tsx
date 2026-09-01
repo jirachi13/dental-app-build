@@ -113,9 +113,18 @@ export const Login = () => {
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  {/* autoComplete hands sign-in autofill to the BROWSER's own
+                      credential manager (backlog 0d). The app deliberately
+                      stores nothing itself — keeping a password in
+                      localStorage would undo Sprint 37 and is an OWASP finding
+                      waiting to happen. These fields carried no autoComplete
+                      at all until 2026-09-02, so browsers never offered to
+                      save or fill them. */}
                   <input
                     id="login-email"
                     type="email"
+                    name="email"
+                    autoComplete="username"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className={inputClass}
@@ -134,6 +143,8 @@ export const Login = () => {
                   <input
                     id="login-password"
                     type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className={`${inputClass} pr-9`}

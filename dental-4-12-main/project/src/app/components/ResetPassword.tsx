@@ -64,6 +64,11 @@ export const ResetPassword = () => {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Both password fields below use autoComplete="new-password",
+                  never "current-password": Login gained autoComplete on
+                  2026-09-02, so browsers now save credentials — and without
+                  this token they would offer the OLD password into the very
+                  field whose purpose is replacing it. */}
               <p className="text-sm text-gray-700 font-medium">Set a new password</p>
               <div>
                 <label htmlFor="reset-password" className="block text-sm font-medium text-gray-700 mb-1">
@@ -74,6 +79,7 @@ export const ResetPassword = () => {
                   <input
                     id="reset-password"
                     type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className={inputClass}
@@ -101,6 +107,7 @@ export const ResetPassword = () => {
                   <input
                     id="reset-confirm"
                     type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
                     value={confirm}
                     onChange={(e) => setConfirm(e.target.value)}
                     className={inputClass}
