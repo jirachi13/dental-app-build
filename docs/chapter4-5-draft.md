@@ -790,9 +790,9 @@ the three covered school dental clinics exist only as accomplished paper
 Individual Patient Treatment Record forms. No machine-readable historical dataset
 was available at any point in the study, and the training data therefore had to
 be encoded by hand from those forms. The predictive component was consequently
-developed and evaluated on `[PENDING: state the final number of hand-encoded
-records]` records rather than on the full population of approximately 8,000
-student records. At this magnitude the predictive component constitutes a pilot
+developed and evaluated on 50 `[PENDING: confirm the number actually encoded; 50
+was the planned figure]` records rather than on the full population of
+approximately 8,000 student records. At this magnitude the predictive component constitutes a pilot
 demonstration of the analytics pipeline rather than a definitive comparison of
 classification algorithms. The results reported in Section 4.3 are accordingly
 presented with per-class support counts, and the study does not claim that any
@@ -1021,9 +1021,13 @@ real extraction.
   real IPTR records, then regenerate Tables 4.1–4.4 and Figures 4.3.1–4.3.3 from
   `docs/algo-results.md` and `docs/model-selection-rationale.md`.
 - The `[PENDING]` clauses in Chapter 5's Summary item 3 and Conclusion 3.
-- The record count in Chapter 5's Limitations, first paragraph. Everything else
-  in that paragraph is written to hold at any sample size in the pilot range —
-  only the number itself is missing.
+- The record count in Chapter 5's Limitations, first paragraph, now reads 50
+  (decided 2026-09-01). Confirm it against the number actually encoded before
+  submission — do not assert 50 if the dentist reached 47. Everything else in
+  that paragraph holds anywhere in the pilot range and needs no rewriting.
+- Chapter 3 must state the sample selection method: stratified on risk level
+  only, with school and grade recorded as descriptive characteristics rather
+  than strata (a three-way stratification is not achievable at n=50).
 
 **Blocked until the evaluation is conducted:**
 - All of Section 4.5 — administer the ISO/IEC 25010:2023 questionnaire to the 30
