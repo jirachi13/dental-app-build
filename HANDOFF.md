@@ -9,6 +9,15 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
+## Sprint 55 (Oral Health Program Reporting Form — Appendix F) — DONE 2026-09-02 (tsc + build clean)
+Fourth Reports tab, "Program Report". **APPENDIX F**, not E — the user said E, but E is the Target Client List (Sprint 54). Read the same way: extract the embedded base64 PNG (`image18`) and enlarge. This scan is far more legible than E's.
+- `OralHealthProgramReport.tsx` (NEW). Indicators down the left, **age band × sex** across the top, Grand Total column. Three sections: Oral Health Status, Services Rendered, Other Parameters.
+- **Reuses `useDohReportData.getRealCount`** — it is keyed by `grade|age|sex|field`, so each cell sums that field across all 11 grades to collapse grade out and leave the age×sex shape the form wants. No new fetching.
+- **Populated for real:** Dental Caries (`DMF_total`), Oral Debris, Calculus, Gingivitis, anomaly/suspected lesions, Orally Fit upon Exam, and patients examined. These come from the same source the DOH Consolidated tab uses, so the two agree by construction.
+- **The paper form's ADULT / SENIOR CITIZEN / PREGNANT WOMEN sections are omitted, not blanked.** The form covers a whole city population; Floral holds school children only. Thirty permanently empty columns would wreck the table and imply data that cannot exist here. The UI states this.
+- **Services Rendered rows render as `—`:** per-visit services are recorded nowhere (`PREVENTIVE_CARE_RECORD` = `iptr_id`/`visit_date`/`visit_number` only) — the same limitation Sprint 54 hit.
+- **⚠ A reporting-period selector was BUILT then REMOVED before commit.** `getRealCount` takes no date range, so the control would have looked like it filtered and silently would not. The header now reads "All records to date". **To add one properly, `useDohReportData` has to learn about date ranges** — that is the real task, and it would also serve the DOH Consolidated tab.
+
 ## Sprint 54 (Target Client List — Appendix E) — DONE 2026-09-02 (tsc both + build clean)
 User asked for the manuscript's *"Target Client List for Oral Health Care and Services"* as a Reports tab, table only.
 

@@ -15,6 +15,7 @@ import { apiClient } from '../api/client';
 import type { ApiTreatment, ApiToothRecord, ApiDentalChart, ApiStudentIptr } from '../api/types';
 import { useStudents } from '../hooks/useStudents';
 import { TargetClientList } from './TargetClientList';
+import { OralHealthProgramReport } from './OralHealthProgramReport';
 import { treatmentCodes } from './DentalChart';
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -196,7 +197,7 @@ export const Reports = () => {
       if (ages.includes(bracket)) return s + V(g, bracket, sex, field);
       return s;
     }, 0);
-  const [activeReportTab, setActiveReportTab] = useState<'doh'|'internal'|'tcl'>('doh');
+  const [activeReportTab, setActiveReportTab] = useState<'doh'|'internal'|'tcl'|'ohprf'>('doh');
   const [reportMonth, setReportMonth] = useState(new Date().getMonth() + 1);
   const [reportYear,  setReportYear]  = useState(new Date().getFullYear());
   // Local school override — defaults to All Schools regardless of global context
@@ -452,6 +453,10 @@ export const Reports = () => {
         <button onClick={() => setActiveReportTab('tcl')}
           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeReportTab==='tcl' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
           <Users className="w-4 h-4" /> Target Client List
+        </button>
+        <button onClick={() => setActiveReportTab('ohprf')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeReportTab==='ohprf' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+          <FileSpreadsheet className="w-4 h-4" /> Program Report
         </button>
       </div>
 
@@ -1070,6 +1075,9 @@ export const Reports = () => {
 
       {/* ── TARGET CLIENT LIST (Appendix E) ── */}
       {activeReportTab === 'tcl' && <TargetClientList />}
+
+      {/* ── ORAL HEALTH PROGRAM REPORTING FORM (Appendix F) ── */}
+      {activeReportTab === 'ohprf' && <OralHealthProgramReport />}
     </div>
   );
 };
