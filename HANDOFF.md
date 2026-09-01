@@ -9,6 +9,19 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
+## Sprint 49 (clear a tooth code without hunting for it) — DONE 2026-09-02 (tsc both + build clean)
+User report: *"if i edit a dental chart, if i try to toggle a condition or treatment i need to press a button first before i can toggle existing code off"*. Correct — `handleToothClick` only toggled OFF when the selected palette brush **equalled** the tooth's existing code, so removing a code meant first working out what was already there and hunting it down in the palette. A different brush replaced instead of cleared, and with nothing selected the click was **dead** (`if / else if`, no `else`).
+
+- `DentalChart.tsx` — added the missing `else`: in edit mode, with **no code selected**, clicking a tooth clears it. Fills the dead interaction, so no new palette button and no change to any existing behaviour.
+- **Clears BOTH condition and treatment, deliberately.** With neither brush active the intent is "empty this tooth"; precise single-code removal still works the old way (select that exact code, click to toggle it off). The two complement each other — coarse and fine.
+- Added the hint chip **"No code selected · Click teeth to clear"**, mirroring the existing "Applying: … · Click teeth to apply" chips. Without it the mode is folklore: the palette said what you were applying but nothing said what a bare click does.
+- Safe by construction: gated behind `editingChart`, nothing persists until **Save Chart**, and **Cancel Edit** discards. The existing "Clear" link (which deselects both brushes) is the one-click route into erase state.
+- Chip uses `bg-muted text-foreground`, not raw Tailwind grays — consistent with the beautify pass's token migration.
+
+**"maybe allow multiple code" — RAISED then DROPPED by the user the same day ("ignore multiple code"). Not built.** Kept because the analysis is the durable part: `ToothRecord.condition` and `.treatment_code` are single strings. **Multiple TREATMENTS per tooth is the easy half** (a tooth genuinely gets OEX + FV + PFS in one visit; treatments are not part of the DMF index, so nothing statistical breaks). **Multiple CONDITIONS is a clinical decision, not a coding one** — the DMF index counts each tooth ONCE by definition, so a tooth marked both Decayed and Filled needs a precedence rule (normally D > M > F) before `computeDMFT` (`DentalChart.tsx:84`) can be changed, and that number feeds the ML `dmf_score`. **Ask the dentist before any future attempt.**
+
+**impeccable hook:** two `gray-on-color` flags on the DMFT table header (`text-gray-800` on `bg-gray-100`, ~12.6:1, deliberately neutral so the total column reads apart from the red temporary / blue permanent columns). Pre-existing, line numbers only shifted by this edit. **False positive of the class already documented in CLAUDE.md — left unchanged and NOT suppressed.**
+
 ## Sprint 48 (server-side filtering — the IPTR screen stops fetching the database) — DONE 2026-09-02 (tsc both + build clean, measured against the real DB)
 Answers Open work #0b, the reviewer's *"iptr takes too long to load because it retrieves all"*. **Their diagnosis was right and their prescribed fix — "retrieve only 10" — was aimed at the wrong screen:** pagination is for lists, but the worst offender was a DETAIL screen that should not have been fetching collections at all.
 

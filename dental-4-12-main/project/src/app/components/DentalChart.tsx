@@ -297,6 +297,20 @@ export const DentalChart = () => {
         ...prev,
         [toothNumber]: { condition: prev[toothNumber]?.condition || '', treatment: current === selectedTreatment ? '' : selectedTreatment },
       }));
+    } else {
+      // No code selected: clicking a tooth empties it. This used to be a dead
+      // click, which meant the ONLY way to remove a code was to first hunt down
+      // the matching code in the palette and click the tooth again — you had to
+      // know what was already there to get rid of it.
+      //
+      // Clears BOTH condition and treatment on purpose: with neither brush
+      // active the intent is "empty this tooth". Removing just one is still
+      // possible the precise way — select that exact code and click to toggle
+      // it off. Nothing persists until Save Chart, and Cancel Edit discards it.
+      setDraftChart((prev) => ({
+        ...prev,
+        [toothNumber]: { condition: '', treatment: '' },
+      }));
     }
   };
 
@@ -1096,6 +1110,12 @@ export const DentalChart = () => {
                     return <span className="text-xs font-semibold px-3 py-1 rounded-full bg-teal-100 text-teal-800">Applying: {c?.perm}/{c?.temp} — {c?.label} · Click teeth to apply</span>;
                   })()}
                   {selectedTreatment && <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-100 text-blue-800">Applying treatment: {selectedTreatment} · Click teeth to apply</span>}
+                  {/* Without this the erase mode is folklore: the palette shows
+                      what you are applying, but nothing said what a bare click
+                      does when nothing is selected. */}
+                  {!selectedCondition && !selectedTreatment && (
+                    <span className="text-xs font-semibold px-3 py-1 rounded-full bg-muted text-foreground">No code selected · Click teeth to clear</span>
+                  )}
                   <button onClick={() => { setSelectedCondition(null); setSelectedTreatment(null); }} className="text-xs text-muted-foreground hover:text-foreground underline">Clear</button>
                 </div>
               )}
