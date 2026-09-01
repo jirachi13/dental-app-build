@@ -14,6 +14,7 @@ import { activatable } from '../utils/a11y';
 import { apiClient } from '../api/client';
 import type { ApiTreatment, ApiToothRecord, ApiDentalChart, ApiStudentIptr } from '../api/types';
 import { useStudents } from '../hooks/useStudents';
+import { TargetClientList } from './TargetClientList';
 import { treatmentCodes } from './DentalChart';
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -195,7 +196,7 @@ export const Reports = () => {
       if (ages.includes(bracket)) return s + V(g, bracket, sex, field);
       return s;
     }, 0);
-  const [activeReportTab, setActiveReportTab] = useState<'doh'|'internal'>('doh');
+  const [activeReportTab, setActiveReportTab] = useState<'doh'|'internal'|'tcl'>('doh');
   const [reportMonth, setReportMonth] = useState(new Date().getMonth() + 1);
   const [reportYear,  setReportYear]  = useState(new Date().getFullYear());
   // Local school override — defaults to All Schools regardless of global context
@@ -447,6 +448,10 @@ export const Reports = () => {
         <button onClick={() => setActiveReportTab('internal')}
           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeReportTab==='internal' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
           <FileText className="w-4 h-4" /> Internal Reports
+        </button>
+        <button onClick={() => setActiveReportTab('tcl')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeReportTab==='tcl' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+          <Users className="w-4 h-4" /> Target Client List
         </button>
       </div>
 
@@ -1062,6 +1067,9 @@ export const Reports = () => {
           )}
         </div>
       )}
+
+      {/* ── TARGET CLIENT LIST (Appendix E) ── */}
+      {activeReportTab === 'tcl' && <TargetClientList />}
     </div>
   );
 };

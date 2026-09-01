@@ -9,6 +9,18 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
+## Sprint 54 (Target Client List — Appendix E) — DONE 2026-09-02 (tsc both + build clean)
+User asked for the manuscript's *"Target Client List for Oral Health Care and Services"* as a Reports tab, table only.
+
+**⚠ It is APPENDIX E, not D.** The user said Appendix D; Appendix D is the **DMFX Index Score**. Appendix E is the TCL, F is the Oral Health Program Reporting Form, G is the IPTR (`Group404 - Manuscript.md:663-690`). Worth knowing the letters drift in conversation.
+
+**How the columns were obtained — the appendix is an IMAGE, not text.** `![][image16]`/`![][image17]` are base64 PNGs embedded in the manuscript. Extracted them, then cropped/rotated/upscaled the header bands with PIL to read the rotated headers. **The scans are only ~540×375**, so three labels remain illegible and were NOT invented: the `Completed BPOC…` column's exact wording, one curative column between "Gum Treatment" and the SDF pair, and one near "Referred Out". The user said to build with what was readable.
+- `TargetClientList.tsx` (NEW) + a third Reports tab. Table scrolls inside its own container like the DOH table — the form is far wider than any screen and the page must never scroll sideways (CLAUDE.md three-device-classes rule).
+- **Period filter: Daily / Monthly / Quarterly / Annual**, anchored by a native `<input type="date">`, filtering on the form's own first column, *Date of consultation*. Ranges are built from LOCAL date parts, not UTC — same reason `toLocalDateString` exists (Sprint 20's vanishing-appointments bug).
+- **⚠ HONESTY: several columns are rendered but deliberately BLANK, marked `—`.** `PREVENTIVE_CARE_RECORD` stores only `iptr_id`, `visit_date`, `visit_number` — **no per-visit service is recorded anywhere in the data model**, so oral hygiene instruction, counselling, and the second-visit fluoride column have no source. Visit dates and curative treatment codes ARE real. The UI says so in plain words rather than showing empty cells that look like "not done".
+- Data is joined from `useStudents` (names, risk), `useRPCTracking` (visit dates, treatment codes) and a raw `/students` fetch for address / contact / PhilHealth, which the list hooks drop.
+- Clients with no recorded consultation appear in no period; the header states how many, so they are not silently missing.
+
 ## Sprint 53 (students list pagination) — DONE 2026-09-02 (tsc both + build clean)
 Last item from the classmate notes: *"Students - Pagination"*. The table rendered **every** row — no slicing anywhere — which is unusable at the ~8,000-student scale Chapter 1 claims.
 
