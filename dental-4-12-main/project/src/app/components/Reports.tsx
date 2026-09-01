@@ -856,8 +856,8 @@ export const Reports = () => {
                     <XAxis dataKey="name" tick={{fontSize:10}} angle={-20} textAnchor="end" interval={0} />
                     <YAxis tick={{fontSize:11}} />
                     <Tooltip content={<ChartTooltip />} />
-                    {/* cyan family (matches the appointments accent) instead of off-palette teal */}
-                    <Bar dataKey="count" name="Count" fill="#0E7490" radius={[4,4,0,0]} />
+                    {/* cyan, not teal — see the note on CHART.cyan; the choice is deliberate */}
+                    <Bar dataKey="count" name="Count" fill={CHART.cyan} radius={[4,4,0,0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

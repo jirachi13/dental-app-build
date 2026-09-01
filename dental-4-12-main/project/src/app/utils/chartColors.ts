@@ -11,6 +11,13 @@ export const CHART = {
   neutral: '#9CA3AF', // gray-400 — not-yet-screened, unassessed
   teal: '#0D9488', // secondary categorical (Reports demographics)
   orange: '#EA580C', // tertiary categorical (Reports demographics)
+  // Tailwind cyan-700 — the app's cyan accent, used as `text-cyan-600/700`
+  // chips in Reports and RPCTracking. Reports' Condition Distribution bar picks
+  // this DELIBERATELY over `teal`, which read as off-palette beside those chips
+  // (the reasoning was in a comment at the call site until 2026-09-02).
+  // It is NOT a near-duplicate of `teal` to be tidied away — the two mean
+  // different things and both are in use.
+  cyan: '#0E7490',
   // Chart gridlines. Not a data color — structure, deliberately below the
   // series in weight. It was hardcoded as '#f0f0f0' at all 8 CartesianGrid
   // sites until 2026-09-02; the value is unchanged so nothing renders
@@ -23,6 +30,12 @@ export const CHART = {
   // gridlines sit lighter than UI borders on purpose, so this is its own token
   // rather than a duplicate of one.
   grid: '#F0F0F0',
+  // The card surface, used as a stroke to cut a gap between stacked segments —
+  // the effect is the card showing THROUGH the bar, not a white line drawn on
+  // it. Mirrors `--card` (#ffffff) and must follow it if that ever changes:
+  // under a dark theme, leaving this literally white would draw bright seams
+  // across every stacked bar. Hardcoded as '#fff' in Dashboard until 2026-09-02.
+  surface: '#FFFFFF',
 } as const;
 
 // Ordered risk palette — risk charts always use these three, never a rainbow.

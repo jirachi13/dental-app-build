@@ -663,12 +663,13 @@ export const Dashboard = () => {
                   <YAxis allowDecimals={false} tick={{ fontSize: 12 }} width={28} />
                   <Tooltip content={<ChartTooltip />} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
-                  {/* Risk levels use the app's established status colors; white strokes
-                      give the 2px segment gap, legend + tooltip carry identity beyond color */}
+                  {/* Risk levels use the app's established status colors; the surface-colored
+                      stroke gives the 2px segment gap (the card showing through, not a white
+                      line), legend + tooltip carry identity beyond color */}
                   {/* maxBarSize keeps a lone month from stretching into a slab */}
-                  <Bar dataKey="High" stackId="risk" fill={RISK_COLORS.high} stroke="#fff" strokeWidth={2} maxBarSize={48} />
-                  <Bar dataKey="Medium" stackId="risk" fill={RISK_COLORS.medium} stroke="#fff" strokeWidth={2} maxBarSize={48} />
-                  <Bar dataKey="Low" stackId="risk" fill={RISK_COLORS.low} stroke="#fff" strokeWidth={2} maxBarSize={48} />
+                  <Bar dataKey="High" stackId="risk" fill={RISK_COLORS.high} stroke={CHART.surface} strokeWidth={2} maxBarSize={48} />
+                  <Bar dataKey="Medium" stackId="risk" fill={RISK_COLORS.medium} stroke={CHART.surface} strokeWidth={2} maxBarSize={48} />
+                  <Bar dataKey="Low" stackId="risk" fill={RISK_COLORS.low} stroke={CHART.surface} strokeWidth={2} maxBarSize={48} />
                 </BarChart>
               </ResponsiveContainer>
             )}
