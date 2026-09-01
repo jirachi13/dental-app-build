@@ -2,11 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { Search, Plus, X, CheckCircle, AlertCircle, Clock, Shield, School as SchoolIcon, List, ChevronRight, Users, Download } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { ChartTooltip } from './ChartTooltip';
-import { CHART } from '../utils/chartColors';
 import { getGradeColor } from '../utils/gradeColors';
-import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
 import { useRPCTracking } from '../hooks/useRPCTracking';
 import { treatmentCodes } from './DentalChart';
 import { exportToCsv, type ExportColumn } from '../utils/exportCsv';
@@ -16,11 +12,6 @@ import { toLocalDateString } from '../utils/localDate';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { activatable } from '../utils/a11y';
 
-const SCHOOLS = [
-  'Bagong Tanyag Integrated School',
-  'Bagong Tanyag Elementary School Annex A',
-  'South Daang Hari Elementary School Main',
-];
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 
 
@@ -48,7 +39,10 @@ export const RPCTracking = () => {
   const [sectionFilter, setSectionFilter] = useState('all');
   const [genderFilter, setGenderFilter] = useState('all');
   const [ageGroupFilter, setAgeGroupFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  // Defaults to 'outstanding', not 'all': this page is a worklist, so it opens
+  // on the students who still need a visit. Completed records are opt-in via
+  // the Status filter rather than padding the list with finished work.
+  const [statusFilter, setStatusFilter] = useState('outstanding');
   const [treatmentFilter, setTreatmentFilter] = useState('all');
 
   const calculateAge = (birthdate: string) => {
@@ -78,7 +72,8 @@ export const RPCTracking = () => {
     if (sectionFilter !== 'all' && r.section !== sectionFilter) return false;
     if (genderFilter !== 'all' && r.gender !== genderFilter) return false;
     if (ageGroupFilter !== 'all' && getAgeGroup(age) !== ageGroupFilter) return false;
-    if (statusFilter !== 'all' && r.status !== statusFilter) return false;
+    if (statusFilter === 'outstanding') { if (r.status === 'complete') return false; }
+    else if (statusFilter !== 'all' && r.status !== statusFilter) return false;
     if (treatmentFilter !== 'all' && !r.treatmentCodes.includes(treatmentFilter)) return false;
     if (searchTerm && !r.studentName.toLowerCase().includes(searchTerm.toLowerCase())) return false;
     return true;
@@ -86,8 +81,11 @@ export const RPCTracking = () => {
 
   // sectionFilter was missing from both of these — an active section filter
   // neither lit up "Clear All" nor got cleared by it.
-  const hasActiveFilters = [gradeFilter, sectionFilter, genderFilter, ageGroupFilter, statusFilter, treatmentFilter].some(f => f !== 'all') || searchTerm !== '';
-  const clearFilters = () => { setGradeFilter('all'); setSectionFilter('all'); setGenderFilter('all'); setAgeGroupFilter('all'); setStatusFilter('all'); setTreatmentFilter('all'); setSearchTerm(''); };
+  // statusFilter is compared against 'outstanding', not 'all': that is now its
+  // resting value, so treating it like the others would light up "Clear All"
+  // permanently and make Clear All widen the list instead of resetting it.
+  const hasActiveFilters = [gradeFilter, sectionFilter, genderFilter, ageGroupFilter, treatmentFilter].some(f => f !== 'all') || statusFilter !== 'outstanding' || searchTerm !== '';
+  const clearFilters = () => { setGradeFilter('all'); setSectionFilter('all'); setGenderFilter('all'); setAgeGroupFilter('all'); setStatusFilter('outstanding'); setTreatmentFilter('all'); setSearchTerm(''); };
 
   const handleExport = (format: ExportFormat) => {
     const columns: ExportColumn<(typeof filtered)[number]>[] = [
@@ -107,16 +105,6 @@ export const RPCTracking = () => {
     else exportToCsv(filtered, columns, `${base}.csv`);
   };
 
-  const visit1Completed = schoolRecords.filter(r => r.visit1Status === 'Completed').length;
-  const visit2Completed = schoolRecords.filter(r => r.visit2Status === 'Completed').length;
-  const overdue = schoolRecords.filter(r => r.status === 'overdue').length;
-
-  const chartData = SCHOOLS.map(s => {
-    const recs = rpcRecords.filter(r => r.school === s);
-    const name = s.includes('Integrated') ? 'Integrated' : s.includes('Annex') ? 'Annex A' : 'S. Daang Hari';
-    return { name, complete: recs.filter(r=>r.status==='complete').length, pending: recs.filter(r=>r.status==='pending').length, overdue: recs.filter(r=>r.status==='overdue').length, notStarted: recs.filter(r=>r.status==='not-started').length };
-  });
-
   const statusConfig: Record<string,{label:string;color:string;bg:string}> = {
     complete:     { label:'Complete',     color:'text-green-700', bg:'bg-green-100' },
     pending:      { label:'Visit 1 Only', color:'text-blue-700',  bg:'bg-blue-100'  },
@@ -130,14 +118,6 @@ export const RPCTracking = () => {
       {opts.map((o:any) => <option key={o.v} value={o.v}>{o.l}</option>)}
     </select>
   );
-
-  // School view computed data
-  const schoolSummary = (selectedSchool ? [selectedSchool] : SCHOOLS).map(school => {
-    const records = schoolRecords.filter(r => r.school === school);
-    const complete = records.filter(r => r.status === 'complete').length;
-    const overdueCount = records.filter(r => r.status === 'overdue').length;
-    return { name: school, total: records.length, complete, overdue: overdueCount };
-  });
 
   if (loading) {
     return (
@@ -161,75 +141,6 @@ export const RPCTracking = () => {
         <ExportMenu onExport={handleExport} />
       </div>
 
-      {false && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {schoolSummary.map(s => {
-            const sc = getSchoolColor(s.name);
-            return (
-            <div key={s.name} style={{ borderColor: sc.border }} className="bg-card rounded-xl border-2 p-5 hover:shadow-md transition-all cursor-pointer"
-              onClick={() => (() => {})()}>
-              <div className="flex items-center gap-3 mb-3">
-                <div style={{ backgroundColor: sc.light }} className="w-10 h-10 rounded-lg flex items-center justify-center">
-                  <SchoolIcon style={{ color: sc.solid }} className="w-5 h-5" />
-                </div>
-                <div style={{ color: sc.text }} className="font-bold text-sm leading-tight">{getSchoolShortName(s.name)}</div>
-              </div>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="bg-gray-50 rounded-lg p-2">
-                  <div className="text-lg font-bold text-foreground">{s.total}</div>
-                  <div className="text-xs text-muted-foreground">Total</div>
-                </div>
-                <div className="bg-green-50 rounded-lg p-2">
-                  <div className="text-lg font-bold text-green-600">{s.complete}</div>
-                  <div className="text-xs text-muted-foreground">Complete</div>
-                </div>
-                <div className="bg-red-50 rounded-lg p-2">
-                  <div className="text-lg font-bold text-red-600">{s.overdue}</div>
-                  <div className="text-xs text-muted-foreground">Overdue</div>
-                </div>
-              </div>
-            </div>
-          );})}
-        </div>
-      )}
-
-      {true && <div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label:'Total Enrolled',         value: schoolRecords.length,    color:'text-blue-600',  bg:'bg-blue-50',  border:'border-blue-200'  },
-          { label:'Visit 1 Completed',      value: `${visit1Completed} (${schoolRecords.length ? Math.round(visit1Completed/schoolRecords.length*100) : 0}%)`, color:'text-cyan-600', bg:'bg-cyan-50', border:'border-cyan-200' },
-          { label:'Both Visits Complete',   value: `${visit2Completed} (${schoolRecords.length ? Math.round(visit2Completed/schoolRecords.length*100) : 0}%)`, color:'text-green-600', bg:'bg-green-50', border:'border-green-200' },
-          { label:'Overdue',                value: overdue,               color:'text-red-600',   bg:'bg-red-50',   border:'border-red-200'   },
-        ].map((c,i) => (
-          <div key={i} className={`${c.bg} border ${c.border} rounded-xl p-4`}>
-            <p className="text-sm text-muted-foreground">{c.label}</p>
-            <p className={`text-2xl font-bold ${c.color} mt-1`}>{c.value}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="bg-card rounded-xl border border-border p-4">
-        <h2 className="text-sm font-semibold text-foreground mb-3">RPC Completion by School</h2>
-        <ResponsiveContainer width="100%" height={170}>
-          <BarChart data={chartData} margin={{top:0,right:10,left:-20,bottom:0}}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART.grid} />
-            <XAxis dataKey="name" tick={{fontSize:11}} />
-            <YAxis tick={{fontSize:11}} />
-            <Tooltip content={<ChartTooltip />} />
-            <Legend wrapperStyle={{fontSize:11}} />
-            {/* Semantic status set (Sprint 23o). These were literal hexes that
-                happened to equal the tokens; now they ARE the tokens, so
-                "matches the dashboard" is enforced rather than coincidental
-                and the two cannot drift apart. Values unchanged. */}
-            <Bar dataKey="complete"   name="Complete"     fill={CHART.success} stackId="a" maxBarSize={48} />
-            <Bar dataKey="pending"    name="Visit 1 Only" fill={CHART.brand}   stackId="a" maxBarSize={48} />
-            <Bar dataKey="overdue"    name="Overdue"      fill={CHART.danger}  stackId="a" maxBarSize={48} />
-            <Bar dataKey="notStarted" name="Not Started"  fill={CHART.neutral} stackId="a" maxBarSize={48} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
       <div className="bg-card rounded-xl border border-border p-4 space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -241,7 +152,10 @@ export const RPCTracking = () => {
           <FS value={sectionFilter} onChange={setSectionFilter} label="All Sections" opts={[...new Set((gradeFilter !== 'all' ? schoolRecords.filter(r => r.grade === gradeFilter) : schoolRecords).map(r => r.section))].sort().map(s => ({v:s,l:s}))} />
           <FS value={genderFilter} onChange={setGenderFilter} label="All Genders" opts={[{v:'Male',l:'Male'},{v:'Female',l:'Female'}]} />
           <FS value={ageGroupFilter} onChange={setAgeGroupFilter} label="All Age Groups" opts={[{v:'4 & below',l:'4 & below'},{v:'5-9',l:'5-9'},{v:'10-14',l:'10-14'},{v:'15-19',l:'15-19'},{v:'20 & above',l:'20 & above'}]} />
-          <FS value={statusFilter} onChange={setStatusFilter} label="All Statuses" opts={[{v:'complete',l:'Both Complete'},{v:'pending',l:'Visit 1 Only'},{v:'overdue',l:'Overdue'},{v:'not-started',l:'Not Started'}]} />
+          {/* 'outstanding' is listed first and is the default — FS renders its
+              `label` as the value-'all' option, so without an explicit entry
+              here the select would have no option matching its own value. */}
+          <FS value={statusFilter} onChange={setStatusFilter} label="All Statuses (incl. complete)" opts={[{v:'outstanding',l:'Outstanding only'},{v:'complete',l:'Both Complete'},{v:'pending',l:'Visit 1 Only'},{v:'overdue',l:'Overdue'},{v:'not-started',l:'Not Started'}]} />
           <FS value={treatmentFilter} onChange={setTreatmentFilter} label="All Treatments" opts={treatmentCodes.map(t=>({v:t.code,l:t.label}))} />
           {hasActiveFilters && <button onClick={clearFilters} className="flex items-center gap-1 px-3 py-2 text-sm text-destructive border border-red-200 rounded-lg hover:bg-red-50"><X className="w-3 h-3"/>Clear All</button>}
         </div>
@@ -292,7 +206,6 @@ export const RPCTracking = () => {
         <div className="px-4 py-3 border-t border-gray-100 text-sm text-muted-foreground">Showing {filtered.length} of {schoolRecords.length} records</div>
       </div>
 
-    </div>}
     </div>
   );
 };
