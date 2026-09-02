@@ -17,6 +17,7 @@
     "backfill:soft-delete": "tsx server/scripts/backfillSoftDelete.ts",
     "fix:duplicate-iptr": "tsx server/scripts/removeDuplicateIptr.ts",
     "migrate:iptr-grades": "tsx server/scripts/migrateIptrGrades.ts",
+    "apply:seed-passwords": "tsx server/scripts/applySeedPasswords.ts",
     "purge:demo": "tsx server/scripts/purgeDemoData.ts"
   },
   "overrides": {
