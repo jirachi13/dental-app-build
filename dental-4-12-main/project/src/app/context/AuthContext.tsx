@@ -23,6 +23,8 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   selectedSchool: string | null;
+  /** False until the user has chosen a school (or explicitly chosen all). */
+  schoolChoiceMade: boolean;
   setSelectedSchool: (school: string | null) => void;
   login: (email: string, password: string, remember: boolean) => Promise<LoginResult>;
   verifyOtp: (email: string, code: string, remember: boolean) => Promise<LoginResult>;
@@ -70,6 +72,14 @@ function clearSessionHint() {
   }
 }
 
+/** Stored when the user deliberately chooses "All schools".
+ *
+ *  A plain null cannot mean that: RootLayout redirects to the school gate
+ *  whenever `selectedSchool` is null, so "all" and "not chosen yet" have to be
+ *  distinguishable. Every SCREEN still reads `selectedSchool === null` as "all",
+ *  which is what it already meant — only the persisted value is special. */
+export const ALL_SCHOOLS = '__ALL__';
+
 function loadStoredSchool(userId: string, schools: string[]): string | null {
   try {
     const raw = window.localStorage.getItem(SCHOOL_KEY);
@@ -77,7 +87,9 @@ function loadStoredSchool(userId: string, schools: string[]): string | null {
     const parsed = JSON.parse(raw);
     // Only honor a value stored by this same user that still names one of
     // their schools (guards against shared machines and renamed schools).
-    return parsed && parsed.userId === userId && schools.includes(parsed.school) ? parsed.school : null;
+    if (!parsed || parsed.userId !== userId) return null;
+    if (parsed.school === ALL_SCHOOLS) return ALL_SCHOOLS;
+    return schools.includes(parsed.school) ? parsed.school : null;
   } catch {
     return null;
   }
@@ -122,7 +134,12 @@ async function resolveUser(apiUser: ApiUser): Promise<User> {
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedSchool, setSelectedSchoolState] = useState<string | null>(null);
+  // The RAW stored choice: a school name, ALL_SCHOOLS, or null for "not chosen
+  // yet". Consumers get the mapped value below.
+  const [schoolChoice, setSelectedSchoolState] = useState<string | null>(null);
+  const selectedSchool = schoolChoice === ALL_SCHOOLS ? null : schoolChoice;
+  /** False only before the user has made a choice — what the gate keys on. */
+  const schoolChoiceMade = schoolChoice !== null;
 
   useEffect(() => {
     (async () => {
@@ -210,7 +227,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, selectedSchool, setSelectedSchool, login, verifyOtp, logout }}>
+    <AuthContext.Provider value={{ user, loading, selectedSchool, schoolChoiceMade, setSelectedSchool, login, verifyOtp, logout }}>
       {children}
     </AuthContext.Provider>
   );

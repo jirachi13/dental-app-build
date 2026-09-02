@@ -1,5 +1,5 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, ALL_SCHOOLS } from '../context/AuthContext';
 import {
   LayoutDashboard, Users, Calendar, Brain,
   ClipboardList, LogOut, Stethoscope, Shield,
@@ -193,10 +193,6 @@ export const Root = () => {
 
   const visibleTabs = allTabs.filter(tab => tab.roles.includes(user.role));
 
-  const handleSwitchSchool = () => {
-    setSelectedSchool(null);
-    navigate('/select-school');
-  };
 
   const handleLogout = async () => { await logout(); navigate('/login'); };
 
@@ -324,21 +320,31 @@ export const Root = () => {
           </div>
         </div>
 
-        {/* School indicator */}
-        {selectedSchool && (
-          <button
-            onClick={handleSwitchSchool}
-            title={collapsed ? getSchoolShortName(selectedSchool) : undefined}
-            className={`mx-3 my-2 items-start gap-2 px-3 py-2 rounded-lg bg-primary-surface hover:bg-blue-100 transition-colors text-left w-[calc(100%-24px)] ${collapsed ? 'flex md:hidden' : 'flex'}`}
-          >
-            <div className="min-w-0 flex-1">
-              {/* label carries the blue fill's own hue at AA contrast (audit U4:
-                  was 10px tracked-uppercase blue-400 on blue-50, ~2.2:1) */}
-              <div className="text-[11px] font-medium text-blue-700 leading-none mb-0.5">Current school</div>
-              <div className="text-xs font-semibold text-blue-900 leading-snug truncate">{getSchoolShortName(selectedSchool)}</div>
-            </div>
-            <span className="text-[11px] text-blue-700 font-medium mt-0.5 shrink-0">Switch</span>
-          </button>
+        {/* School switcher — a dropdown, not a trip to a separate screen.
+            It used to be a button that cleared the selection and navigated to
+            /select-school, so changing school meant leaving whatever you were
+            looking at. "All schools" is a real option now (Sprint 67); every
+            screen already treats a null selection as "all", so nothing
+            downstream had to change. Hidden for single-school accounts, where
+            a one-option picker is noise. */}
+        {(user.schools.length > 1) && (
+          <div className={`mx-3 my-2 px-3 py-2 rounded-lg bg-primary-surface w-[calc(100%-24px)] ${collapsed ? 'hidden md:hidden' : 'block'}`}>
+            <label htmlFor="school-switcher" className="block text-[11px] font-medium text-blue-700 leading-none mb-1">
+              Viewing
+            </label>
+            <select
+              id="school-switcher"
+              aria-label="School"
+              value={selectedSchool ?? ALL_SCHOOLS}
+              onChange={(e) => setSelectedSchool(e.target.value === ALL_SCHOOLS ? ALL_SCHOOLS : e.target.value)}
+              className="w-full text-xs font-semibold text-blue-900 bg-transparent border-0 p-0 focus:outline-none focus:ring-2 focus:ring-ring rounded cursor-pointer"
+            >
+              <option value={ALL_SCHOOLS}>All schools</option>
+              {user.schools.map((s) => (
+                <option key={s} value={s}>{getSchoolShortName(s)}</option>
+              ))}
+            </select>
+          </div>
         )}
 
         {/* Tabs */}

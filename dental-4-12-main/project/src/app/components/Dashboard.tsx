@@ -40,7 +40,7 @@ import { useAppointments } from '../hooks/useAppointments';
 import { useRPCTracking } from '../hooks/useRPCTracking';
 import { apiClient } from '../api/client';
 import type { ApiUser, ApiTreatment, ApiStudentIptr, ApiAuditTrail, ApiRiskStratification } from '../api/types';
-import { treatmentCodes } from './DentalChart';
+import { treatmentCodes, treatmentLabel } from './DentalChart';
 
 export const Dashboard = () => {
   const { user, selectedSchool } = useAuth();
@@ -168,7 +168,11 @@ export const Dashboard = () => {
       counts.set(t.treatment_code, 1 + (counts.get(t.treatment_code) ?? 0));
     }
     return [...counts.entries()]
-      .map(([code, count]) => ({ code, label: treatmentCodes.find((c) => c.code === code)?.label ?? code, count }))
+      .map(([code, count]) => {
+        const t = treatmentCodes.find((c) => c.code === code);
+        // Local term included — this chart is read by clinic staff, not filed.
+        return { code, label: t ? treatmentLabel(t) : code, count };
+      })
       .sort((a, b) => b.count - a.count);
   }, [toothRecords, chartIptrById, iptrStudentById, studentSchoolById, selectedSchool]);
 

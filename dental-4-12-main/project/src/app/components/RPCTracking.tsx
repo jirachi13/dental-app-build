@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Search, Plus, X, CheckCircle, AlertCircle, Clock, Shield, School as SchoolIcon, List, ChevronRight, Users } from 'lucide-react';
 import { getGradeColor } from '../utils/gradeColors';
 import { useRPCTracking } from '../hooks/useRPCTracking';
-import { treatmentCodes } from './DentalChart';
+import { treatmentCodes, treatmentLabel } from './DentalChart';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { activatable } from '../utils/a11y';
 import { Pagination, usePagination } from './Pagination';
@@ -142,7 +142,7 @@ export const RPCTracking = () => {
               `label` as the value-'all' option, so without an explicit entry
               here the select would have no option matching its own value. */}
           <FS value={statusFilter} onChange={setStatusFilter} label="All Statuses (incl. complete)" opts={[{v:'outstanding',l:'Outstanding only'},{v:'complete',l:'Both Complete'},{v:'pending',l:'Visit 1 Only'},{v:'overdue',l:'Overdue'},{v:'not-started',l:'Not Started'}]} />
-          <FS value={treatmentFilter} onChange={setTreatmentFilter} label="All Treatments" opts={treatmentCodes.map(t=>({v:t.code,l:t.label}))} />
+          <FS value={treatmentFilter} onChange={setTreatmentFilter} label="All Treatments" opts={treatmentCodes.map(t=>({v:t.code,l:treatmentLabel(t)}))} />
           {hasActiveFilters && <button onClick={clearFilters} className="flex items-center gap-1 px-3 py-2 text-sm text-destructive border border-red-200 rounded-lg hover:bg-red-50"><X className="w-3 h-3"/>Clear All</button>}
         </div>
       </div>

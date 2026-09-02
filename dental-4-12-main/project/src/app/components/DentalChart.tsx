@@ -115,17 +115,29 @@ const conditionCodes = [
 ];
 
 // Base44-exact treatment codes
+// `local` is the word the clinic and the families actually use. The clinical
+// term stays primary — DOH forms and the manuscript use it — and the local term
+// is shown beside it so staff reading a screen mid-appointment, and a parent
+// looking over their shoulder, both recognise the service. "Pasta" was already
+// carried on TR before this; the rest were added 2026-09-02.
+//
+// ⚠ Only terms the dentist confirms should live here. A wrong local word on a
+// clinical screen is worse than none — leave `local` off rather than guess.
 export const treatmentCodes = [
-  { code: 'OEX', label: 'Oral Exam / Checkup' },
+  { code: 'OEX', label: 'Oral Exam / Checkup', local: 'Tingin' },
   { code: 'FV', label: 'Fluoride Varnish' },
   { code: 'PFS', label: 'Pit and Fissure Sealant' },
-  { code: 'OP', label: 'Oral Prophylaxis' },
-  { code: 'PF', label: 'Permanent Filling' },
-  { code: 'TF', label: 'Temporary Filling' },
-  { code: 'TR', label: 'Tooth Restoration (Pasta)' },
-  { code: 'X', label: 'Extraction' },
+  { code: 'OP', label: 'Oral Prophylaxis', local: 'Linis' },
+  { code: 'PF', label: 'Permanent Filling', local: 'Pasta' },
+  { code: 'TF', label: 'Temporary Filling', local: 'Pansamantalang pasta' },
+  { code: 'TR', label: 'Tooth Restoration', local: 'Pasta' },
+  { code: 'X', label: 'Extraction', local: 'Bunot' },
   { code: 'SDF', label: 'Silver Diamine Fluoride' },
 ];
+
+/** "Extraction (Bunot)" where a local term exists, otherwise just the label. */
+export const treatmentLabel = (t: { label: string; local?: string }) =>
+  t.local ? `${t.label} (${t.local})` : t.label;
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export const DentalChart = () => {
@@ -1135,6 +1147,10 @@ export const DentalChart = () => {
                         className={`aspect-square w-full max-w-[86px] min-h-[54px] rounded-lg border p-1.5 text-center transition-all flex flex-col items-center justify-center gap-1 ${selectedTreatment === t.code ? 'bg-blue-600 text-white ring-2 ring-blue-300 border-blue-600' : 'bg-card border-border text-foreground hover:border-blue-400'}`}>
                         <span className="text-[13px] sm:text-[15px] font-bold font-mono leading-none">{t.code}</span>
                         <span className="text-[9px] sm:text-[10px] font-medium leading-tight">{t.label}</span>
+                        {/* The word the clinic actually says, under the
+                            clinical term — the buttons are pressed during an
+                            appointment, not read off a form. */}
+                        {t.local && <span className="text-[8px] sm:text-[9px] opacity-70 leading-none">{t.local}</span>}
                       </button>
                     ))}
                   </div>
