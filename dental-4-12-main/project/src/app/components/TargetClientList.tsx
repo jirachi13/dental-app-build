@@ -101,6 +101,24 @@ const NO_SOURCE = '—';
  *  (PREVENTIVE_CARE_RECORD stores only iptr_id, visit_date and visit_number, so
  *  no per-visit service is recorded anywhere) and renders "—".
  *
+ *  ⚠ `unverified` marks a caption that is still a GUESS. Most were resolved on
+ *  2026-09-02 against the machine-readable DOH workbook the user supplied
+ *  (TCLForm2andFHSISReport.xlsx, sheet "6-9 Y.O (M)" row 4) -- the authoritative
+ *  source that replaced the low-resolution Appendix E scan. Corrections made:
+ *  "Completed BPOC" -> "Complete RPC for 1st Visit Routine Preventative Care"
+ *  (the app had invented an acronym), "Referral" -> "Referred Out", and the 2nd
+ *  SDF application is a TOOTH COUNT, not a yes/no.
+ *
+ *  THREE REMAIN FLAGGED, deliberately -- the workbook does not settle them:
+ *   - "Gum Treatment": the real form carries TWO columns, `Gum Treatment -
+ *     Scaling` (BE) and `Gum Treatment - Prescription` (BF). Which one this
+ *     single column means is a guess, so splitting it belongs with the missing-
+ *     columns work, not here.
+ *   - "Removal of Plaque / Calculus": the form's nearest column is `Oral
+ *     Prophylaxis`, which this table already has separately.
+ *   - "Complete Health Record": no such column exists on the real form at all.
+ *
+ *  Original note follows.
  *  ⚠ `unverified` marks a caption read off the low-resolution Appendix E scan
  *  that could not be made out with confidence. Shown with a dotted underline
  *  and counted in the note above the table. CHECK AGAINST THE PAPER FORM. */
@@ -136,7 +154,7 @@ const PREVENTIVE_SET = (visitDone: (r: Row) => boolean, isSecond: boolean): Omit
   { label: 'Counselling' },
   { label: 'Oral Prophylaxis', value: (r) => (!isSecond && r.treatments.includes('OP') ? '✓' : '') },
   { label: 'Fluoride Varnish App', value: (r) => (r.treatments.includes('FV') ? '✓' : '') },
-  { label: isSecond ? 'Completed BPOC (2nd visit)' : 'Completed BPOC (1st visit)', unverified: true },
+  { label: isSecond ? 'Complete RPC for 2nd Visit Routine Preventive Care' : 'Complete RPC for 1st Visit Routine Preventative Care', unverified: isSecond },
 ];
 
 /** The left-hand identity columns. Data-driven so they can be hidden like the
@@ -164,9 +182,9 @@ const SERVICE_COLUMNS: ServiceCol[] = [
   { group: 'OTHER SERVICES', label: 'Gum Treatment', unverified: true },
   { group: 'OTHER SERVICES', label: 'Removal of Plaque / Calculus', unverified: true },
   { group: 'OTHER SERVICES', label: 'Silver Diamine Fluoride App', value: (r) => (r.treatments.includes('SDF') ? '✓' : '') },
-  { group: 'OTHER SERVICES', label: 'Silver Diamine Fluoride (2nd app)', unverified: true },
-  { group: 'OTHER SERVICES', label: 'Consultation', unverified: true },
-  { group: 'OTHER SERVICES', label: 'Referral', unverified: true },
+  { group: 'OTHER SERVICES', label: '2nd Silver Diamine Fluoride App (tooth count)' },
+  { group: 'OTHER SERVICES', label: 'Consultation' },
+  { group: 'OTHER SERVICES', label: 'Referred Out' },
   { group: 'OTHER SERVICES', label: 'Complete Health Record', unverified: true },
 ];
 

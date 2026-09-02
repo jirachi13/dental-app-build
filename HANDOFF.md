@@ -9,6 +9,15 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
+## Sprint 80 (DOH caption reconciliation) — DONE 2026-09-02 (tsc + build clean; 16/16 verified)
+Resolved the unverified captions against the machine-readable workbook. **Program Report: 12 flagged → 0 remaining. TCL: 4 of 7 resolved.**
+
+- **Real errors corrected, not just confirmations:** `Completed BPOC` → **`Complete RPC for 1st Visit Routine Preventative Care`** (the app had invented an acronym on a filed document); pregnant-women band **`20-59 y/o` → `20-49 yrs old`** (simply wrong); `0-6 mos` → `0-8 mos`; `Total (Infants)` → `Total (0-11 mos)`; `5 y/o` → `5 yrs old`; `5-9 y/o` → `Total (5 - 9 yrs old)`; `Total Adult` → `Total Other Adults`; `60 y/o and above` → `60 yrs & Above`; `Referral` → `Referred Out`; 2nd SDF is a **tooth count**, not a yes/no.
+- **THREE TCL captions stay flagged on purpose — the workbook does not settle them:** `Gum Treatment` (the real form has TWO columns, Scaling and Prescription, and which one this means is a guess), `Removal of Plaque / Calculus` (nearest real column is `Oral Prophylaxis`, which the table already has separately), and `Complete Health Record` (**no such column exists on the real form**).
+- ⚠ **The 2nd-visit RPC caption is still flagged because the SOURCE is self-contradictory** — the workbook repeats "Complete RPC for **1st** Visit" under its SECOND block (AW4). Rather than propagate the typo or invent wording, that one caption stays marked. Ask the dentist.
+- ⚠ **Structural differences remain and are NOT caption issues:** the real form groups columns as Infants (0-11 mos) / Under Five Children / School Age Children / Adolescent / Other Adults where this table uses UNDER FIVE CHILDREN / CHILDREN ABOVE 5 / ADULT / SENIOR CITIZEN, and it carries a `6 - 9 yrs old` column the table lacks. Both belong with the missing-columns work (TCL is 66 columns real vs 43 built).
+- `verify_sprint80.mjs` asserts the corrected captions reach the SCREEN and the wrong ones are gone — a rename that only lands in source is worth nothing for a document filed with the City Health Office.
+
 ## ⚠ UNVERIFIED DOH CAPTIONS ARE NOW RESOLVABLE — the user supplied a machine-readable workbook (2026-09-02)
 **This retires a blocker HANDOFF listed as USER-ONLY** ("19 unverified DOH captions — needs a photo of blank forms; no higher-res version exists in the manuscript"). It does: `TCLForm2andFHSISReport.xlsx` and `2026Form2withFHSIS.xlsx` are real DOH files, not scans, so every caption can be read exactly. **No photo is needed any more.**
 

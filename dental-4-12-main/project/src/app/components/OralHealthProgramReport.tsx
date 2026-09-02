@@ -37,6 +37,23 @@ type AgeBand = typeof AGE_BANDS[number];
 // system records a birthdate, not an age in months, and records no pregnancy
 // at all — so it renders "—" rather than a 0 it cannot stand behind.
 //
+// ⚠ ALL captions here were RESOLVED 2026-09-02 against the machine-readable DOH
+// workbook the user supplied (TCLForm2andFHSISReport.xlsx, sheet "2026 Form 2",
+// rows 3-5) -- the authoritative source that replaced the low-resolution
+// Appendix F scan. No `unverified` flags remain in the column list. Corrections:
+// "0-6 mos" -> "0-8 mos"; "Total (Infants)" -> "Total (0-11 mos)"; "5 y/o" ->
+// "5 yrs old"; "5-9 y/o" -> "Total (5 - 9 yrs old)"; "Total Adult" -> "Total
+// Other Adults"; "60 y/o and above" -> "60 yrs & Above"; and the pregnant-women
+// band ends at 49, NOT 59 -- "20-59 y/o" was simply wrong.
+//
+// ⚠ STILL DIFFERENT FROM THE REAL FORM, and NOT a caption issue: the workbook
+// groups columns as Infants (0-11 mos) / Under Five Children / School Age
+// Children / Adolescent / Other Adults, where this table uses UNDER FIVE
+// CHILDREN / CHILDREN ABOVE 5 / ADULT / SENIOR CITIZEN. It also carries a
+// "6 - 9 yrs old" column this table lacks. Group names and missing columns are
+// structural; they belong with the missing-columns work.
+//
+// Original note follows.
 // ⚠ `unverified` marks a caption read off a LOW-RESOLUTION scan of Appendix F
 // that could not be made out with confidence. They are shown with a dotted
 // underline and listed under the table, because an invented caption on a form
@@ -46,32 +63,32 @@ type AgeBand = typeof AGE_BANDS[number];
 type Col = { group: string; label: string; band?: AgeBand; total?: AgeBand[]; unverified?: boolean };
 
 const COLUMNS: Col[] = [
-  { group: 'UNDER FIVE CHILDREN', label: '0-6 mos', unverified: true },
-  { group: 'UNDER FIVE CHILDREN', label: '9-11 mos', unverified: true },
-  { group: 'UNDER FIVE CHILDREN', label: 'Total (Infants)', unverified: true },
+  { group: 'UNDER FIVE CHILDREN', label: '0-8 mos' },
+  { group: 'UNDER FIVE CHILDREN', label: '9-11 mos' },
+  { group: 'UNDER FIVE CHILDREN', label: 'Total (0-11 mos)' },
   { group: 'UNDER FIVE CHILDREN', label: '1' },
   { group: 'UNDER FIVE CHILDREN', label: '2' },
   { group: 'UNDER FIVE CHILDREN', label: '3' },
   { group: 'UNDER FIVE CHILDREN', label: '4' },
   { group: 'UNDER FIVE CHILDREN', label: 'Total (Under 5)', total: ['4 yrs & below'] },
 
-  { group: 'CHILDREN ABOVE 5', label: '5 y/o', unverified: true },
-  { group: 'CHILDREN ABOVE 5', label: '5-9 y/o', band: '5-9 yrs', unverified: true },
+  { group: 'CHILDREN ABOVE 5', label: '5 yrs old' },
+  { group: 'CHILDREN ABOVE 5', label: 'Total (5 - 9 yrs old)', band: '5-9 yrs' },
   { group: 'CHILDREN ABOVE 5', label: 'Total Children', total: ['5-9 yrs'] },
 
   { group: 'ADOLESCENT', label: '10-14 y/o', band: '10-14 yrs' },
   { group: 'ADOLESCENT', label: '15-19 y/o', band: '15-19 yrs' },
   { group: 'ADOLESCENT', label: 'Total Adolescent', total: ['10-14 yrs', '15-19 yrs'] },
 
-  { group: 'ADULT', label: '20-59 y/o', band: '20 yrs & above', unverified: true },
-  { group: 'SENIOR CITIZEN', label: '60 y/o and above', unverified: true },
-  { group: 'ADULT', label: 'Total Adult', total: ['20 yrs & above'], unverified: true },
+  { group: 'ADULT', label: '20-59 yrs old', band: '20 yrs & above' },
+  { group: 'SENIOR CITIZEN', label: '60 yrs & Above' },
+  { group: 'ADULT', label: 'Total Other Adults', total: ['20 yrs & above'] },
 
   // No source at all: the system records no pregnancy status.
-  { group: 'PREGNANT WOMEN', label: '10-14 y/o', unverified: true },
-  { group: 'PREGNANT WOMEN', label: '15-19 y/o', unverified: true },
-  { group: 'PREGNANT WOMEN', label: '20-59 y/o', unverified: true },
-  { group: 'PREGNANT WOMEN', label: 'Total AP', unverified: true },
+  { group: 'PREGNANT WOMEN', label: '10-14 yrs old' },
+  { group: 'PREGNANT WOMEN', label: '15-19 yrs old' },
+  { group: 'PREGNANT WOMEN', label: '20-49 yrs old' },
+  { group: 'PREGNANT WOMEN', label: 'Total AP' },
 
   { group: 'TOTAL ALL AGES', label: 'Total All Ages', total: [...AGE_BANDS] },
 ];
