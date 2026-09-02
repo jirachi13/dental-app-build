@@ -9,10 +9,13 @@ import { SkeletonTable } from './Skeleton';
 //
 // The paper form aggregates by AGE BAND × SEX and covers the whole city
 // population — preschool, school age, adolescent, adult, senior citizen and
-// pregnant women. Floral only holds SCHOOL children (Kinder–Grade 10), so the
-// adult / senior / pregnant sections have no source and are not rendered; the
-// note in the UI says so. Rendering thirty permanently blank columns would
-// make the table unreadable and imply data that cannot exist here.
+// pregnant women. Floral only holds SCHOOL children (Kinder–Grade 10).
+//
+// An earlier version OMITTED the sections with no source, arguing that thirty
+// blank columns would be unreadable. The user overruled that 2026-09-02: the
+// form must carry the same rows and columns as the printed original, empty
+// where there is nothing to report. A blank cell on a DOH form is meaningful,
+// and a form missing columns is not the form.
 //
 // HONESTY: the Services Rendered rows are shown but NOT populated. Per-visit
 // services are recorded nowhere — PREVENTIVE_CARE_RECORD stores only
@@ -21,17 +24,68 @@ import { SkeletonTable } from './Skeleton';
 // source the DOH Consolidated report uses.
 
 const AGE_BANDS = ['4 yrs & below', '5-9 yrs', '10-14 yrs', '15-19 yrs', '20 yrs & above'] as const;
+type AgeBand = typeof AGE_BANDS[number];
 
-/** The population groups the paper form runs above its age columns. Only the
- *  four Floral can populate appear — the form also carries Senior Citizen and
- *  Pregnant Women bands, which a school clinic has no source for. `bands` must
- *  stay a partition of AGE_BANDS, in the same order, or the colSpans drift. */
-const AGE_GROUP_BANDS: { label: string; bands: readonly string[] }[] = [
-  { label: 'UNDER FIVE CHILDREN', bands: ['4 yrs & below'] },
-  { label: 'CHILDREN ABOVE 5', bands: ['5-9 yrs'] },
-  { label: 'ADOLESCENT', bands: ['10-14 yrs', '15-19 yrs'] },
-  { label: 'ADULT', bands: ['20 yrs & above'] },
+// ─── The paper form's full column set ────────────────────────────────────────
+// Every column and row the printed form carries is rendered, even where Floral
+// can never fill it — the form is the form, and a blank cell on it is
+// meaningful (CLAUDE.md, NOTHING COSMETIC). This replaces an earlier version
+// that omitted the adult, senior-citizen and pregnant-women sections.
+//
+// `band` maps a column to one of the five age brackets the system actually
+// computes. A column with NO band has no source at that granularity — the
+// system records a birthdate, not an age in months, and records no pregnancy
+// at all — so it renders "—" rather than a 0 it cannot stand behind.
+//
+// ⚠ `unverified` marks a caption read off a LOW-RESOLUTION scan of Appendix F
+// that could not be made out with confidence. They are shown with a dotted
+// underline and listed under the table, because an invented caption on a form
+// submitted to the City Health Office is a placeholder. CHECK THESE AGAINST THE
+// PAPER FORM and clear the flag — the same standing task as the DOH spelling
+// check (Transfussion/Scalling/Flouride).
+type Col = { group: string; label: string; band?: AgeBand; total?: AgeBand[]; unverified?: boolean };
+
+const COLUMNS: Col[] = [
+  { group: 'UNDER FIVE CHILDREN', label: '0-6 mos', unverified: true },
+  { group: 'UNDER FIVE CHILDREN', label: '9-11 mos', unverified: true },
+  { group: 'UNDER FIVE CHILDREN', label: 'Total (Infants)', unverified: true },
+  { group: 'UNDER FIVE CHILDREN', label: '1' },
+  { group: 'UNDER FIVE CHILDREN', label: '2' },
+  { group: 'UNDER FIVE CHILDREN', label: '3' },
+  { group: 'UNDER FIVE CHILDREN', label: '4' },
+  { group: 'UNDER FIVE CHILDREN', label: 'Total (Under 5)', total: ['4 yrs & below'] },
+
+  { group: 'CHILDREN ABOVE 5', label: '5 y/o', unverified: true },
+  { group: 'CHILDREN ABOVE 5', label: '5-9 y/o', band: '5-9 yrs', unverified: true },
+  { group: 'CHILDREN ABOVE 5', label: 'Total Children', total: ['5-9 yrs'] },
+
+  { group: 'ADOLESCENT', label: '10-14 y/o', band: '10-14 yrs' },
+  { group: 'ADOLESCENT', label: '15-19 y/o', band: '15-19 yrs' },
+  { group: 'ADOLESCENT', label: 'Total Adolescent', total: ['10-14 yrs', '15-19 yrs'] },
+
+  { group: 'ADULT', label: '20-59 y/o', band: '20 yrs & above', unverified: true },
+  { group: 'SENIOR CITIZEN', label: '60 y/o and above', unverified: true },
+  { group: 'ADULT', label: 'Total Adult', total: ['20 yrs & above'], unverified: true },
+
+  // No source at all: the system records no pregnancy status.
+  { group: 'PREGNANT WOMEN', label: '10-14 y/o', unverified: true },
+  { group: 'PREGNANT WOMEN', label: '15-19 y/o', unverified: true },
+  { group: 'PREGNANT WOMEN', label: '20-59 y/o', unverified: true },
+  { group: 'PREGNANT WOMEN', label: 'Total AP', unverified: true },
+
+  { group: 'TOTAL ALL AGES', label: 'Total All Ages', total: [...AGE_BANDS] },
 ];
+
+/** Group bands in column order, with their spans. */
+const GROUPS = COLUMNS.reduce<{ label: string; span: number }[]>((acc, c) => {
+  const last = acc[acc.length - 1];
+  if (last && last.label === c.group) last.span += 1;
+  else acc.push({ label: c.group, span: 1 });
+  return acc;
+}, []);
+
+const UNVERIFIED_COUNT = COLUMNS.filter((c) => c.unverified).length;
+
 const SEXES = ['M', 'F'] as const;
 
 /** Indicator rows. `field` maps to useDohReportData's real fields; a null
@@ -75,15 +129,19 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
   // silently dropped any record whose grade was never stored (school years
   // before Sprint 57a), which on a submitted form is an undercount of real
   // patients.
-  const cell = useMemo(() => (field: string | null, band: string, sex: 'M' | 'F'): number | null => {
+  /** One cell: a mapped band, a computed total, or "—" where the system has
+   *  no source at that granularity. Never 0-as-a-guess. */
+  const cell = useMemo(() => (field: string | null, col: Col, sex: 'M' | 'F'): number | null => {
     if (!field) return null;
-    return getRealTotal(band, sex, field) ?? 0;
+    if (col.total) return col.total.reduce((sum, b) => sum + (getRealTotal(b, sex, field) ?? 0), 0);
+    if (col.band) return getRealTotal(col.band, sex, field) ?? 0;
+    return null;
   }, [getRealTotal]);
 
   const rowTotal = (field: string | null) => {
     if (!field) return null;
     let t = 0;
-    for (const b of AGE_BANDS) for (const s of SEXES) t += cell(field, b, s) ?? 0;
+    for (const b of AGE_BANDS) for (const s of SEXES) t += getRealTotal(b, s, field) ?? 0;
     return t;
   };
 
@@ -95,17 +153,17 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
 
   const section = (title: string) => (
     <tr className="bg-amber-50">
-      <td className={`${labelTd} font-bold`} colSpan={AGE_BANDS.length * 2 + 2}>{title}</td>
+      <td className={`${labelTd} font-bold`} colSpan={COLUMNS.length * 2 + 2}>{title}</td>
     </tr>
   );
 
   const renderRow = (r: Row) => (
     <tr key={r.label} className="hover:bg-gray-50">
       <td className={`${labelTd} ${r.indent ? 'pl-6' : ''}`}>{r.label}</td>
-      {AGE_BANDS.map((b) => SEXES.map((s) => {
-        const v = cell(r.field, b, s);
+      {COLUMNS.map((c) => SEXES.map((s) => {
+        const v = cell(r.field, c, s);
         return (
-          <td key={`${b}-${s}`} className={`${td} ${v === null ? 'text-muted-foreground' : ''}`}>
+          <td key={`${c.group}-${c.label}-${s}`} className={`${td} ${v === null ? 'text-muted-foreground' : ''}`}>
             {v === null ? '—' : v}
           </td>
         );
@@ -136,11 +194,22 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
           </span>
         </div>
         <p className="text-xs text-muted-foreground mt-2">
-          The paper form covers the whole city population. Floral holds school children only, so its
+          The paper form covers the whole city population; Floral holds school children only, so its
           <span className="font-medium text-foreground"> adult, senior citizen and pregnant-women </span>
-          sections are omitted rather than shown permanently empty. Rows marked
+          columns stay empty here. Rows marked
           <span className="font-semibold text-foreground"> — </span>
           exist on the form but have no source in the system yet: per-visit services are not recorded, only visit dates.
+        </p>
+        <p className="text-xs text-muted-foreground mt-2">
+          Every column and row of the paper form is shown, including those a school clinic can never fill —
+          a blank cell on this form is meaningful. Cells read <span className="font-semibold text-foreground">—</span>{' '}
+          where the system has no source at that granularity: it records a birthdate, not an age in months,
+          and records no pregnancy at all.
+          {UNVERIFIED_COUNT > 0 && (
+            <> <span className="border-b border-dotted border-amber-500">Dotted</span> column captions
+            ({UNVERIFIED_COUNT}) were read from a low-resolution scan of Appendix F and still need checking
+            against the paper form — they are marked rather than silently trusted.</>
+          )}
         </p>
       </div>
 
@@ -156,19 +225,28 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
                 pregnant-women sections. */}
             <tr>
               <th className={`${th} text-left align-bottom`} rowSpan={3}>INDICATORS</th>
-              {AGE_GROUP_BANDS.map((g) => (
-                <th key={g.label} className={`${th} bg-gray-100`} colSpan={g.bands.length * SEXES.length}>
+              {GROUPS.map((g, i) => (
+                <th key={`${g.label}-${i}`} className={`${th} bg-gray-100`} colSpan={g.span * SEXES.length}>
                   {g.label}
                 </th>
               ))}
               <th className={`${th} align-bottom`} rowSpan={3}>Grand<br />Total</th>
             </tr>
             <tr>
-              {AGE_BANDS.map((b) => <th key={b} className={th} colSpan={2}>{b}</th>)}
+              {COLUMNS.map((c, i) => (
+                <th key={`${c.label}-${i}`} className={th} colSpan={2}>
+                  {/* Dotted underline marks a caption read off the low-res scan
+                      that still needs checking against the paper form. */}
+                  <span className={c.unverified ? 'border-b border-dotted border-amber-500' : ''}
+                        title={c.unverified ? 'Caption unverified — check against the paper DOH form' : undefined}>
+                    {c.label}
+                  </span>
+                </th>
+              ))}
             </tr>
             <tr>
-              {AGE_BANDS.map((b) => SEXES.map((s) => (
-                <th key={`${b}-${s}`} className={`${th} w-10`}>{s}</th>
+              {COLUMNS.map((c, i) => SEXES.map((s) => (
+                <th key={`${c.label}-${i}-${s}`} className={`${th} w-10`}>{s}</th>
               )))}
             </tr>
           </thead>
