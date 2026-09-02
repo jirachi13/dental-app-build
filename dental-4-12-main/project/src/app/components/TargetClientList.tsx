@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
 import type { ApiStudent } from '../api/types';
@@ -147,7 +147,35 @@ export const TargetClientList = () => {
   const tick = (on: boolean) => (on ? '✓' : '');
   const hasCode = (codes: string[], code: string) => (codes.includes(code) ? '✓' : '');
 
-  const th = 'px-2 py-2 text-[11px] font-semibold text-foreground border border-border whitespace-nowrap align-bottom';
+  // Header geometry copied from the paper form (Appendix E, both sheets).
+  // There, the header is ONE uniform tall band across the whole width: wide
+  // identity columns carry horizontal labels centred in that band, and the
+  // narrow service columns carry labels rotated to read bottom-to-top. That is
+  // what lets ~26 columns fit a printable width without the labels setting the
+  // column widths. Rendering them all horizontally, as this did before, made
+  // the band short and every service column at least as wide as its caption.
+  const HEADER_H = 'h-44';
+  const th = 'px-2 py-2 text-[11px] font-semibold text-foreground border border-border whitespace-nowrap';
+  // Horizontal caption, vertically centred in the tall band.
+  const thFlat = `${th} align-middle text-center`;
+  // Rotated caption. `vertical-rl` + 180° reads bottom-to-top, matching the
+  // form; the fixed width is what actually narrows the column.
+  const thRot = `${th} align-bottom p-1 w-8`;
+  const rotStyle: CSSProperties = {
+    writingMode: 'vertical-rl',
+    transform: 'rotate(180deg)',
+    // Keeps the glyphs upright inside the rotated flow rather than laid on
+    // their side, which is how the printed form reads.
+    textOrientation: 'mixed',
+    whiteSpace: 'nowrap',
+    margin: '0 auto',
+  };
+  /** A rotated column caption, sized to the shared band height. */
+  const RotHead = ({ label, tone = '' }: { label: string; tone?: string }) => (
+    <th className={`${thRot} ${tone}`}>
+      <div style={rotStyle} className="mx-auto leading-tight">{label}</div>
+    </th>
+  );
   const td = 'px-2 py-1.5 text-xs text-foreground border border-border whitespace-nowrap';
 
   return (
@@ -195,43 +223,48 @@ export const TargetClientList = () => {
       <div className="bg-card rounded-xl border border-border overflow-x-auto">
         <table className="border-collapse">
           <thead className="bg-gray-50">
+            {/* Group band — thin, above the tall caption band, exactly as the
+                paper form runs FIRST / SECOND / OTHER SERVICES across the top. */}
             <tr>
               <th className={th} rowSpan={2}>No.</th>
-              <th className={th} rowSpan={2}>Date of<br />consultation</th>
-              <th className={th} rowSpan={2}>PhilHealth No.</th>
-              <th className={th} rowSpan={2}>Name<br /><span className="font-normal">(Last, First, MI)</span></th>
-              <th className={th} rowSpan={2}>Complete Address</th>
-              <th className={th} rowSpan={2}>Contact Number</th>
-              <th className={th} rowSpan={2}>Date of Birth</th>
-              <th className={th} rowSpan={2}>Age</th>
-              <th className={th} rowSpan={2}>Age Group</th>
-              <th className={th} rowSpan={2}>Sex</th>
-              <th className={`${th} bg-blue-50`} colSpan={8}>FIRST visit</th>
-              <th className={`${th} bg-blue-50`} colSpan={2}>SECOND visit</th>
-              <th className={`${th} bg-amber-50`} colSpan={5}>Curative / other services</th>
+              <th className={th} colSpan={9} />
+              <th className={`${th} bg-blue-50`} colSpan={8}>FIRST</th>
+              <th className={`${th} bg-blue-50`} colSpan={2}>SECOND</th>
+              <th className={`${th} bg-amber-50`} colSpan={5}>OTHER SERVICES</th>
               <th className={th} rowSpan={2}>Remarks</th>
             </tr>
-            <tr>
+            <tr className={HEADER_H}>
+              {/* Wide identity columns keep horizontal captions, centred in the
+                  band — the same treatment they get on the printed sheet. */}
+              <th className={thFlat}>Date of<br />consultation</th>
+              <th className={thFlat}>PhilHealth No.</th>
+              <th className={thFlat}>Name<br /><span className="font-normal">(Last, First, MI)</span></th>
+              <th className={thFlat}>Complete Address</th>
+              <th className={thFlat}>Contact Number</th>
+              <th className={thFlat}>Date of Birth</th>
+              <RotHead label="Age" />
+              <RotHead label="Age Group" />
+              <th className={thFlat}>Sex</th>
               {/* FIRST */}
-              <th className={`${th} bg-blue-50`}>Oral<br />screening</th>
-              <th className={`${th} bg-blue-50`}>Risk:<br />Low</th>
-              <th className={`${th} bg-blue-50`}>Risk:<br />Moderate</th>
-              <th className={`${th} bg-blue-50`}>Risk:<br />High</th>
-              <th className={`${th} bg-blue-50`}>Oral hygiene<br />instruction</th>
-              <th className={`${th} bg-blue-50`}>Counselling</th>
-              <th className={`${th} bg-blue-50`}>Oral<br />Prophylaxis</th>
-              <th className={`${th} bg-blue-50`}>Fluoride<br />Varnish</th>
+              <RotHead label="Oral screening" tone="bg-blue-50" />
+              <RotHead label="Risk: Low" tone="bg-blue-50" />
+              <RotHead label="Risk: Moderate" tone="bg-blue-50" />
+              <RotHead label="Risk: High" tone="bg-blue-50" />
+              <RotHead label="Oral hygiene instruction" tone="bg-blue-50" />
+              <RotHead label="Counselling" tone="bg-blue-50" />
+              <RotHead label="Oral Prophylaxis" tone="bg-blue-50" />
+              <RotHead label="Fluoride Varnish" tone="bg-blue-50" />
               {/* SECOND — the paper form repeats all six service columns here;
                   only the two with real data are rendered, for the same reason
                   the FIRST block's service columns are blank. */}
-              <th className={`${th} bg-blue-50`}>Oral<br />screening</th>
-              <th className={`${th} bg-blue-50`}>Fluoride<br />Varnish</th>
+              <RotHead label="Oral screening" tone="bg-blue-50" />
+              <RotHead label="Fluoride Varnish" tone="bg-blue-50" />
               {/* Curative */}
-              <th className={`${th} bg-amber-50`}>Composite<br />Filling</th>
-              <th className={`${th} bg-amber-50`}>ART</th>
-              <th className={`${th} bg-amber-50`}>Temporary<br />Filling</th>
-              <th className={`${th} bg-amber-50`}>Extraction</th>
-              <th className={`${th} bg-amber-50`}>Silver Diamine<br />Fluoride</th>
+              <RotHead label="Composite Filling" tone="bg-amber-50" />
+              <RotHead label="ART" tone="bg-amber-50" />
+              <RotHead label="Temporary Filling" tone="bg-amber-50" />
+              <RotHead label="Extraction" tone="bg-amber-50" />
+              <RotHead label="Silver Diamine Fluoride" tone="bg-amber-50" />
             </tr>
           </thead>
           <tbody>

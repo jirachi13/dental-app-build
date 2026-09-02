@@ -22,6 +22,17 @@ import { SkeletonTable } from './Skeleton';
 // source the DOH Consolidated report uses.
 
 const AGE_BANDS = ['4 yrs & below', '5-9 yrs', '10-14 yrs', '15-19 yrs', '20 yrs & above'] as const;
+
+/** The population groups the paper form runs above its age columns. Only the
+ *  four Floral can populate appear — the form also carries Senior Citizen and
+ *  Pregnant Women bands, which a school clinic has no source for. `bands` must
+ *  stay a partition of AGE_BANDS, in the same order, or the colSpans drift. */
+const AGE_GROUP_BANDS: { label: string; bands: readonly string[] }[] = [
+  { label: 'UNDER FIVE CHILDREN', bands: ['4 yrs & below'] },
+  { label: 'CHILDREN ABOVE 5', bands: ['5-9 yrs'] },
+  { label: 'ADOLESCENT', bands: ['10-14 yrs', '15-19 yrs'] },
+  { label: 'ADULT', bands: ['20 yrs & above'] },
+];
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 const SEXES = ['M', 'F'] as const;
 
@@ -131,14 +142,28 @@ export const OralHealthProgramReport = () => {
       <div className="bg-card rounded-xl border border-border overflow-x-auto">
         <table className="border-collapse w-full">
           <thead className="bg-gray-50">
+            {/* Three header levels, matching the paper form: population group
+                → age column → M/F. This file previously had only the lower two,
+                which made the band a third of its printed height and dropped
+                the grouping that tells a reader why the age columns are cut
+                where they are. Only the groups Floral can actually populate are
+                rendered — see the note above about the adult / senior citizen /
+                pregnant-women sections. */}
             <tr>
-              <th className={`${th} text-left`} rowSpan={2}>INDICATORS</th>
+              <th className={`${th} text-left align-bottom`} rowSpan={3}>INDICATORS</th>
+              {AGE_GROUP_BANDS.map((g) => (
+                <th key={g.label} className={`${th} bg-gray-100`} colSpan={g.bands.length * SEXES.length}>
+                  {g.label}
+                </th>
+              ))}
+              <th className={`${th} align-bottom`} rowSpan={3}>Grand<br />Total</th>
+            </tr>
+            <tr>
               {AGE_BANDS.map((b) => <th key={b} className={th} colSpan={2}>{b}</th>)}
-              <th className={th} rowSpan={2}>Grand<br />Total</th>
             </tr>
             <tr>
               {AGE_BANDS.map((b) => SEXES.map((s) => (
-                <th key={`${b}-${s}`} className={th}>{s}</th>
+                <th key={`${b}-${s}`} className={`${th} w-10`}>{s}</th>
               )))}
             </tr>
           </thead>
