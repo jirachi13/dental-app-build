@@ -191,8 +191,43 @@ export const Reports = () => {
   // real vs. not yet wireable.
   const V = (grade: string, age: string, sex: 'M'|'F', field: string): number =>
     getRealCount(grade, age, sex, field) ?? 0;
+  // Hidden rows and grade columns on the Consolidated report, remembered per
+  // browser (Sprint 73). Same rule as the other two report tabs: hiding
+  // changes the OUTPUT, not just the view.
+  //
+  // ⚠ This tab is the only one with PDF and Excel export, so a hidden column
+  // here leaves in a FILE that can be forwarded without the screen it came
+  // from. The PDF inherits hiding for free (html2canvas captures the DOM), but
+  // the Excel path is fed `rows` and `grades` explicitly and must be handed the
+  // FILTERED lists — otherwise the spreadsheet would silently disagree with
+  // both the screen and the PDF.
+  const [hiddenDohRows, setHiddenDohRows] = useState<Set<string>>(() => {
+    try { const r = window.localStorage.getItem('doh-hidden-rows'); return new Set(r ? JSON.parse(r) as string[] : []); }
+    catch { return new Set(); }
+  });
+  const [hiddenGrades, setHiddenGrades] = useState<Set<string>>(() => {
+    try { const r = window.localStorage.getItem('doh-hidden-grades'); return new Set(r ? JSON.parse(r) as string[] : []); }
+    catch { return new Set(); }
+  });
+  const [showDohPicker, setShowDohPicker] = useState(false);
+  const persistSet = (key: string, next: Set<string>) => {
+    try { window.localStorage.setItem(key, JSON.stringify([...next])); } catch { /* private mode */ }
+  };
+  const toggleIn = (setter: (f: (p: Set<string>) => Set<string>) => void, key: string, storeKey: string) =>
+    setter((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      persistSet(storeKey, next);
+      return next;
+    });
+
   const [gradeBand, setGradeBand] = useState<GradeBand>('elem');
   const dohGrades = gradeBand === 'hs' ? HS_GRADES : ELEM_GRADES;
+  const visibleGrades = dohGrades.filter((g) => !hiddenGrades.has(g));
+  // Section headers follow their content: a header whose data rows are all
+  // hidden would sit over nothing.
+  const visibleDohRows = DOH_ROWS.filter((r) => r.type === 'header' || !hiddenDohRows.has(r.label));
+  const dohHiddenCount = hiddenDohRows.size + hiddenGrades.size;
   // Printed/exported copies must say which band they cover — two PDFs for the
   // same school and month are otherwise indistinguishable once submitted.
   const bandLabel = gradeBand === 'hs' ? 'Grade 7-10' : 'Kinder-Grade 6';
@@ -274,13 +309,15 @@ export const Reports = () => {
     try {
       const schoolPart = reportSchool ? getSchoolShortName(reportSchool).replace(/\s+/g, '_') : 'AllSchools';
       await exportDohReportToXlsx({
-        grades: dohGrades,
+        grades: visibleGrades,
         gradeBrackets: GRADE_BRACKETS,
         summaryBrackets: SUMMARY_BRACKETS,
-        rows: DOH_ROWS,
+        rows: visibleDohRows,
         getCell: (g, a, s, f) => V(g, a, s, f),
         school: reportSchool ? getSchoolShortName(reportSchool) : 'All Schools',
-        monthYear: `${MONTHS[reportMonth - 1]} ${reportYear} · ${bandLabel}`,
+        // The spreadsheet has to say it is shortened: unlike the printout,
+        // a file gets forwarded without the screen it came from.
+        monthYear: `${MONTHS[reportMonth - 1]} ${reportYear} · ${bandLabel}${dohHiddenCount ? ` · SHORTENED — ${hiddenDohRows.size} row(s), ${hiddenGrades.size} grade(s) hidden` : ''}`,
         filename: `DOH_Consolidated_${schoolPart}_${bandSlug}_${MONTHS[reportMonth - 1]}${reportYear}.xlsx`,
       });
     } catch (err) {
@@ -380,7 +417,7 @@ export const Reports = () => {
 
 // Build column definitions: for each grade, each age bracket, M and F
   const cols: { grade:string; age:string; sex:'M'|'F' }[] = [];
-  dohGrades.forEach(g => {
+  visibleGrades.forEach(g => {
     GRADE_BRACKETS[g].ages.forEach(a => {
       cols.push({ grade:g, age:a, sex:'M' });
       cols.push({ grade:g, age:a, sex:'F' });
@@ -489,6 +526,12 @@ export const Reports = () => {
               {dohYears.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
 
+            <button
+              onClick={() => setShowDohPicker((v) => !v)}
+              aria-expanded={showDohPicker}
+              className="text-sm px-3 py-2 border border-border rounded-lg text-foreground hover:bg-gray-50"
+            >{showDohPicker ? 'Done' : `Rows & grades${dohHiddenCount ? ` (${dohHiddenCount} hidden)` : ''}`}</button>
+
             {/* Same DOH form, different grade band. Hidden entirely when the
                 school in view has no secondary pupils. */}
             {hasSecondary && (
@@ -521,12 +564,67 @@ export const Reports = () => {
             )}
           </p>
 
+          {showDohPicker && (
+            <div className="bg-card rounded-xl border border-border p-4 space-y-3 text-xs">
+              <p className="text-muted-foreground">
+                Untick to hide. Hiding changes the <span className="font-medium text-foreground">PDF and Excel</span> too,
+                not just the screen — this is the one report that leaves as a file, so anything hidden is stamped
+                on the sheet itself.
+              </p>
+              <div>
+                <div className="font-semibold text-foreground mb-1.5">Grades</div>
+                <div className="flex flex-wrap gap-3">
+                  {dohGrades.map((g) => (
+                    <label key={g} className="flex items-center gap-1.5 cursor-pointer">
+                      <input type="checkbox" checked={!hiddenGrades.has(g)}
+                        onChange={() => toggleIn(setHiddenGrades, g, 'doh-hidden-grades')}
+                        className="w-3.5 h-3.5 rounded accent-primary" />
+                      <span>{g}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="font-semibold text-foreground mb-1.5">Rows</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                  {DOH_ROWS.filter((r) => r.type !== 'header').map((r) => (
+                    <label key={r.label} className="flex items-center gap-1.5 cursor-pointer">
+                      <input type="checkbox" checked={!hiddenDohRows.has(r.label)}
+                        onChange={() => toggleIn(setHiddenDohRows, r.label, 'doh-hidden-rows')}
+                        className="w-3.5 h-3.5 rounded accent-primary" />
+                      <span className="truncate" title={r.label}>{r.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              {dohHiddenCount > 0 && (
+                <button
+                  onClick={() => {
+                    setHiddenDohRows(new Set()); persistSet('doh-hidden-rows', new Set());
+                    setHiddenGrades(new Set()); persistSet('doh-hidden-grades', new Set());
+                  }}
+                  className="px-2 py-1 border border-border rounded-md text-foreground hover:bg-gray-50"
+                >Show everything</button>
+              )}
+            </div>
+          )}
+
           {/* Table */}
           <div id="doh-report-printable" className="bg-card rounded-xl border border-border overflow-hidden">
             {/* ref goes on the scrollable inner div, not the overflow-hidden outer
                 one — html2canvas clips to the ref'd element's own rendered box,
                 so ref'ing the outer div only captured the already-clipped width. */}
             <div ref={dohReportRef} className="overflow-x-auto">
+              {/* INSIDE the ref'd element deliberately. html2canvas captures
+                  `dohReportRef.current` itself, so a banner placed as a sibling
+                  above it would show on screen and be missing from the PDF —
+                  precisely the case this warning exists to prevent. */}
+              {dohHiddenCount > 0 && (
+                <p className="px-3 py-2 text-[11px] font-semibold text-destructive border-b border-border">
+                  SHORTENED FORM — not the complete DOH report: {hiddenDohRows.size} row(s) and{' '}
+                  {hiddenGrades.size} grade(s) hidden.
+                </p>
+              )}
               <table style={{borderCollapse:'collapse', fontSize:'10px', whiteSpace:'nowrap'}}>
                 {/* ── TITLE ── */}
                 <thead>
@@ -550,7 +648,7 @@ export const Reports = () => {
                     <th data-doh="indicator" rowSpan={3} className="sticky left-0 bg-gray-50 z-20 text-left px-2 py-1 border-r border-border text-[10px] font-semibold text-muted-foreground min-w-[240px]">
                       Indicator
                     </th>
-                    {dohGrades.map(g => {
+                    {visibleGrades.map(g => {
                       const bracketCount = GRADE_BRACKETS[g].ages.length;
                       // Each bracket has 2 sex cols + 2 total cols
                       const colSpanCount = bracketCount * 2 + 2;
@@ -569,7 +667,7 @@ export const Reports = () => {
 
                   {/* ── ROW 2: AGE BRACKET HEADERS ── */}
                   <tr className="bg-gray-50 border-b border-border">
-                    {dohGrades.map(g =>
+                    {visibleGrades.map(g =>
                       [...GRADE_BRACKETS[g].ages.map(a => (
                         <th key={g+a} colSpan={2}
                           className={`${thBase} text-muted-foreground text-[8px]`}>
@@ -591,7 +689,7 @@ export const Reports = () => {
 
                   {/* ── ROW 3: M/F HEADERS ── */}
                   <tr className="bg-gray-50 border-b-2 border-border">
-                    {dohGrades.map(g =>
+                    {visibleGrades.map(g =>
                       [...GRADE_BRACKETS[g].ages.flatMap(a => [
                         <th key={g+a+'M'} className={`${thBase} text-blue-600 w-6`}>M</th>,
                         <th key={g+a+'F'} className={`${thBase} text-pink-600 w-6`}>F</th>,
@@ -608,7 +706,7 @@ export const Reports = () => {
 
                 {/* ── BODY ── */}
                 <tbody>
-                  {DOH_ROWS.map((row, idx) => {
+                  {visibleDohRows.map((row, idx) => {
                     if (row.type === 'header') {
                       const restCols = cols.length*2 + dohGrades.length*2 + sumCols.length;
                       return (
@@ -633,7 +731,7 @@ export const Reports = () => {
                         </td>
 
                         {/* Per grade per age bracket M/F + grade total M/F */}
-                        {dohGrades.map(g => {
+                        {visibleGrades.map(g => {
                           const ages = GRADE_BRACKETS[g].ages;
                           const ageCells = ages.flatMap(a => {
                             const mv = V(g, a, 'M', field);
