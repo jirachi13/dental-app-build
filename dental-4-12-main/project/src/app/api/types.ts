@@ -47,6 +47,14 @@ export interface ApiStudentIptr {
   _id: string;
   student_id: string;
   school_year: string;
+  /** The grade and section the student was in FOR THIS SCHOOL YEAR (Sprint
+   *  57a). Null on records created before the change — there is no truthful
+   *  value to backfill for an old year, so year-scoped views say "not
+   *  recorded" rather than falling back to today's grade, which is the exact
+   *  bug this replaced. STUDENT keeps its own grade_level/section as the
+   *  CURRENT values. */
+  grade_level: string | null;
+  section: string | null;
   isArchived: boolean;
 }
 

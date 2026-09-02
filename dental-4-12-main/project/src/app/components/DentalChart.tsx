@@ -281,7 +281,11 @@ export const DentalChart = () => {
 
   const currentChart = draftChart;
   const dmft = computeDMFT(currentChart);
-  const gc = getGradeColor(student?.grade_level ?? '');
+  // Coloured by the SELECTED YEAR's grade, not the student's current one — a
+  // 2025-2026 record tinted with this year's grade colour is the same quiet
+  // lie the text labels used to tell. An unrecorded year falls through to
+  // getGradeColor's neutral grey default.
+  const gc = getGradeColor(years[selectedYear]?.iptr.grade_level ?? '');
   const computeAge = (birthday: string) => {
     if (!birthday) return 0;
     const today = new Date();
@@ -362,7 +366,16 @@ export const DentalChart = () => {
     if (!nextYear || !id || addingYear) return;
     setAddingYear(true);
     try {
-      await apiClient.post('/student-iptrs', { student_id: id, school_year: nextYear });
+      // Stamp the grade and section the student is in AS OF THIS YEAR'S
+      // record. This is the whole point of Sprint 57a: next year's IPTR gets
+      // next year's grade, and this year's stops being rewritten when the
+      // student is promoted.
+      await apiClient.post('/student-iptrs', {
+        student_id: id,
+        school_year: nextYear,
+        grade_level: student?.grade_level ?? null,
+        section: student?.section ?? null,
+      });
       await reload();
       toast.success(`School year ${nextYear} added.`);
     } catch (err) {
@@ -669,6 +682,21 @@ export const DentalChart = () => {
 
   const patientAge = computeAge(student.birthday);
 
+  // Grade and section AS OF THE SELECTED SCHOOL YEAR (Sprint 57a). These used
+  // to read `student.grade_level`, which is a single current value — so opening
+  // a Grade 5 student's 2025-2026 record showed Grade 5, not the Grade 3 they
+  // actually were, and it silently rewrote itself every time the child was
+  // promoted.
+  //
+  // Records created before this sprint carry null, and there is deliberately NO
+  // fallback to the student's current grade: that fallback IS the bug. They
+  // render as "not recorded", which is honest about what the system knows.
+  const yearIptr = years[selectedYear]?.iptr;
+  const yearGrade = yearIptr?.grade_level ?? null;
+  const yearSection = yearIptr?.section ?? null;
+  const NOT_RECORDED = 'Grade not recorded';
+  const yearGradeLabel = yearGrade ? `${yearGrade}${yearSection ? ` ${yearSection}` : ''}` : NOT_RECORDED;
+
   return (
     <div className="space-y-4 max-w-5xl mx-auto">
       {/* Sticky header row */}
@@ -680,7 +708,7 @@ export const DentalChart = () => {
           </Link>
           <div className="min-w-0">
             <h1 className="text-lg font-bold text-foreground">Individual Patient Treatment Record</h1>
-            <p className="text-xs text-muted-foreground">{surnameFirst(student)} · {student.grade_level} {student.section} · {student.sex} · {patientAge} yrs</p>
+            <p className="text-xs text-muted-foreground">{surnameFirst(student)} · {yearGradeLabel} · {student.sex} · {patientAge} yrs</p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -833,10 +861,13 @@ export const DentalChart = () => {
                 </div>
                 <div>
                   <div className="font-bold text-foreground">{surnameFirstWithInitial(student)}</div>
-                  <div className="text-xs text-muted-foreground">{student.grade_level} • {student.section} • {student.sex} • Age {patientAge}</div>
+                  <div className="text-xs text-muted-foreground">{yearGradeLabel} • {student.sex} • Age {patientAge}</div>
                   <div className="flex items-center gap-2 mt-1">
-                    <GradePill grade={student.grade_level} />
-                    <span style={{ color: gc.solid }} className="text-xs font-medium">{student.section}</span>
+                    {/* Nothing when the year has no recorded grade — the detail
+                        line directly above already says so, and repeating it
+                        here just doubled the same sentence. */}
+                    {yearGrade && <GradePill grade={yearGrade} />}
+                    {yearSection && <span style={{ color: gc.solid }} className="text-xs font-medium">{yearSection}</span>}
                     {student.is_4ps && <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">4Ps</span>}
                   </div>
                 </div>
