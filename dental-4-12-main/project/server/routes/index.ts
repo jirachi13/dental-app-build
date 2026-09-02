@@ -186,6 +186,16 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (_req, res) =>
     };
   });
 
+  // Alphabetical by surname, the order the clinic reads its lists in and the
+  // order the DOH forms are filled. Sorted HERE so every consumer inherits it
+  // rather than each list re-sorting (or forgetting to). Compares the real name
+  // PARTS, not the derived "Last, First" string, so a middle name never affects
+  // where a row lands.
+  rows.sort((a, b) =>
+    a.lastName.localeCompare(b.lastName) ||
+    a.firstName.localeCompare(b.firstName) ||
+    a.middleName.localeCompare(b.middleName));
+
   res.json(rows);
 }));
 

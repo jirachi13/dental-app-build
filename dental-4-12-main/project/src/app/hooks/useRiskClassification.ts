@@ -186,6 +186,9 @@ export function useRiskClassification() {
         };
       });
 
+      // Alphabetical by surname, matching every other list (2026-09-02).
+      // `name` is surnameFirst, so this is surname order.
+      rows.sort((a, b) => a.name.localeCompare(b.name));
       setCandidates(rows);
       setError(null);
     } catch (err) {

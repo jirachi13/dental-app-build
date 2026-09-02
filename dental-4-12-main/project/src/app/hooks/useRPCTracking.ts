@@ -9,6 +9,7 @@ import type {
   ApiToothRecord,
 } from '../api/types';
 import { schoolYearEnd } from '../utils/schoolYear';
+import { surnameFirst } from '../utils/studentName';
 
 // "4-6 month interval" per the RPC module description — 150 days is the midpoint.
 const RPC_INTERVAL_DAYS = 150;
@@ -141,7 +142,11 @@ export function useRPCTracking() {
 
           return {
             id: s._id,
-            studentName: s.full_name,
+            // surnameFirst, not full_name: full_name is "First Middle Last",
+            // so this list displayed given-name-first while every other list
+            // showed surname-first, and sorting it would have ordered by given
+            // name. Sprint 35 made surname-first the house convention.
+            studentName: surnameFirst(s),
             birthdate: s.birthday.slice(0, 10),
             gender: s.sex,
             school: schoolNameById.get(s.school_id) ?? 'Unknown School',
@@ -160,6 +165,8 @@ export function useRPCTracking() {
           };
         });
 
+        // Alphabetical by surname, matching every other list (2026-09-02).
+        rows.sort((a, b) => a.studentName.localeCompare(b.studentName));
         if (!cancelled) setRecords(rows);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load RPC records');
