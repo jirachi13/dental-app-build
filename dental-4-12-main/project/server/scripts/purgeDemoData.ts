@@ -93,6 +93,16 @@ async function main() {
   ];
 
   console.log(`Students: ${demoStudents.length} demo, ${foreign} NOT on the seed list (left alone)\n`);
+
+  // Collect the ids BEFORE anything is deleted, so the audit clear below can be
+  // scoped by foreign key instead of wiping the collection. Must happen here:
+  // once the plan loop runs, these records are gone and cannot be looked up.
+  const auditTargetIds: any[] = [];
+  for (const [, model, filter] of plan) {
+    const docs = await model.find(filter).select("_id").lean();
+    for (const d of docs) auditTargetIds.push(d._id);
+  }
+
   for (const [name, model, filter] of plan) {
     const n = await model.countDocuments(filter);
     console.log(`  ${CONFIRM ? "delete" : "would delete"} ${String(n).padStart(4)}  ${name}`);
@@ -102,11 +112,30 @@ async function main() {
   // --- demo staff accounts (never the admin) ------------------------------
   const demoUsers = await (User as any).find({ email: { $in: DEMO_USER_EMAILS.filter((e) => e !== adminEmail) } });
   const demoUserIds = demoUsers.map((u: any) => u._id);
+  const demoDentistIds = (await (Dentist as any).find({ user_id: { $in: demoUserIds } }).select("_id").lean()).map((d: any) => d._id);
+  const demoSchoolIds = (await (School as any).find({ school_name: { $in: DEMO_SCHOOLS } }).select("_id").lean()).map((s: any) => s._id);
+
+  // AuditTrail and DentistRotation used to be cleared WHOLESALE (`{}`), the one
+  // part of this script not scoped by foreign key. Both are now scoped:
+  //
+  //  - AuditTrail is polymorphic (affected_record_id + affected_model, no ref),
+  //    so "belongs to the demo data" means either the record it describes is
+  //    being deleted, or the staff account that performed it is. Anything else
+  //    -- an action on one of the archived test students, or on a hand-encoded
+  //    record -- is real history and now SURVIVES a purge.
+  //  - DentistRotation is scoped by the demo dentist or the demo schools.
+  //
+  // ⚠ This does NOT preserve the Sprint 31 "dentist validated: accepted AI
+  // suggestion Medium" row that Chapter 4 relies on: it describes a demo
+  // RiskStratification which this script deletes by design, and it was
+  // performed by the demo dentist, so it matches both clauses. Scoping is
+  // about correctness, not preservation -- run `npm run backup:raw` first if
+  // that evidence still matters.
   const staffPlan: [string, any, Record<string, unknown>][] = [
     ["Dentist",          Dentist,          { user_id: { $in: demoUserIds } }],
     ["DentalAide",       DentalAide,       { user_id: { $in: demoUserIds } }],
-    ["DentistRotation",  DentistRotation,  {}],
-    ["AuditTrail",       AuditTrail,       {}],
+    ["DentistRotation",  DentistRotation,  { $or: [{ dentist_id: { $in: demoDentistIds } }, { school_id: { $in: demoSchoolIds } }] }],
+    ["AuditTrail",       AuditTrail,       { $or: [{ affected_record_id: { $in: auditTargetIds } }, { user_id: { $in: demoUserIds } }] }],
     ["User (demo staff)", User,            { _id: { $in: demoUserIds } }],
     ["School",           School,           { school_name: { $in: DEMO_SCHOOLS } }],
   ];
