@@ -183,8 +183,11 @@ export const Reports = () => {
   // The DOH report covers a school year — this year's report is not next
   // year's (Sprint 57b). It used to count every record ever created, so it
   // could not answer "what did we do this year?" at all.
+  // Declared here, above the hook call that consumes it — it used to sit
+  // further down, which is fine until something above needs it.
+  const [reportSchool, setReportSchool] = useState<string|null>(null);
   const [dohSchoolYear, setDohSchoolYear] = useState<string | null>(() => schoolYearLabel());
-  const { getRealCount, years: dohYears, unplacedCount, loading: dohLoading } = useDohReportData(dohSchoolYear);
+  const { getRealCount, years: dohYears, unplacedCount, loading: dohLoading } = useDohReportData(dohSchoolYear, reportSchool);
   // Fields with no real backing data source yet show 0, never a fabricated
   // fallback number -- see useDohReportData.ts for exactly which fields are
   // real vs. not yet wireable.
@@ -206,7 +209,6 @@ export const Reports = () => {
   const [reportMonth, setReportMonth] = useState(new Date().getMonth() + 1);
   const [reportYear,  setReportYear]  = useState(new Date().getFullYear());
   // Local school override — defaults to All Schools regardless of global context
-  const [reportSchool, setReportSchool] = useState<string|null>(null);
   const dohReportRef = useRef<HTMLDivElement>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [downloadingExcel, setDownloadingExcel] = useState(false);
@@ -470,8 +472,8 @@ export const Reports = () => {
         <div className="space-y-3">
           {/* School filter — thin bar, doesn't scroll */}
           <div className="doh-report-controls flex flex-wrap items-center gap-x-3 gap-y-2">
-            <label className="text-sm text-muted-foreground whitespace-nowrap">School:</label>
-            <select value={reportSchool ?? ''} onChange={e => setReportSchool(e.target.value || null)}
+            <label className="text-sm text-muted-foreground whitespace-nowrap" htmlFor="doh-school">School:</label>
+            <select id="doh-school" aria-label="School" value={reportSchool ?? ''} onChange={e => setReportSchool(e.target.value || null)}
               className="text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring">
               <option value="">All Schools</option>
               {REPORT_SCHOOLS.map(s => <option key={s} value={s}>{getSchoolShortName(s)}</option>)}
@@ -1106,7 +1108,7 @@ export const Reports = () => {
       {activeReportTab === 'tcl' && <TargetClientList />}
 
       {/* ── ORAL HEALTH PROGRAM REPORTING FORM (Appendix F) ── */}
-      {activeReportTab === 'ohprf' && <OralHealthProgramReport schoolYear={dohSchoolYear} />}
+      {activeReportTab === 'ohprf' && <OralHealthProgramReport schoolYear={dohSchoolYear} schoolName={reportSchool} />}
     </div>
   );
 };

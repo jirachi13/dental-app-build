@@ -123,6 +123,11 @@ Full field-level specs for all 16 models live in **`/docs/DATA-MODEL.md`** — R
 - `/docs/Group404 - Manuscript.md` — Chapter 1 (~line 95): objectives, scope, framework. Chapter 3 (~line 315): ERD, architecture, DFD, use cases, methodology.
 - ERD = exact MongoDB models; use cases = exact permissions per role. Do NOT deviate from Chapter specs; read the relevant section before each sprint.
 
+## NOTHING COSMETIC (user rule, restated 2026-09-02)
+- **No fabricated or placeholder values anywhere in the UI.** Every figure is computed from the DB. Where there is no data, render EMPTY — never a guess, a sample, or a filler number. The seeded demo records are the only "placeholder", and they are real rows in the database that get purged before deployment.
+- **A control that appears to work must work.** A filter that changes a label but not the data, an asterisk on a field that is not enforced, a period selector that filters nothing — these are placeholders too, and they are worse than a missing feature because the output looks authoritative. If it cannot be made real yet, remove it or say plainly on screen that it is not wired.
+- **Official DOH forms keep ALL their rows and columns even when empty.** The form is the form; a blank cell on it is meaningful. Do not omit sections because the system has no source for them — leave them blank and note why.
+
 ## ABSOLUTE DO NOT
 - Hard delete any record ever
 - Build algo until Phase 3; call algo files directly from Express

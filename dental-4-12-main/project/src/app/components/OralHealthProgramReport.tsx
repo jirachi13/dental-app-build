@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { useDohReportData } from '../hooks/useDohReportData';
 import { SkeletonTable } from './Skeleton';
 
@@ -65,9 +64,11 @@ const OTHER_ROWS: Row[] = [
   { label: 'Total no. of patients referred to a Higher Level of Care', field: null },
 ];
 
-export const OralHealthProgramReport = ({ schoolYear = null }: { schoolYear?: string | null }) => {
-  const { selectedSchool } = useAuth();
-  const { getRealTotal, loading } = useDohReportData(schoolYear);
+export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }: { schoolYear?: string | null; schoolName?: string | null }) => {
+  // Scoped to the SAME school the DOH tab's picker selects, not the sidebar's
+  // current school — the two are different controls and this form is read
+  // beside the consolidated report.
+  const { getRealTotal, loading } = useDohReportData(schoolYear, schoolName);
 
   // The form's columns are age × sex only. This reads the hook's across-all-
   // grades total rather than summing getRealCount over a grade list: that sum
@@ -121,7 +122,10 @@ export const OralHealthProgramReport = ({ schoolYear = null }: { schoolYear?: st
         <h2 className="text-sm font-bold text-foreground">Oral Health Program Reporting Form</h2>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <span className="text-xs text-muted-foreground">
-            {selectedSchool ? selectedSchool : 'All schools'} · Barangay Tanyag, Taguig City
+            {/* Names the scope the FIGURES actually cover. Falling back to the
+                sidebar's current school here would label all-schools data with
+                one school's name — the exact mislabelling this sprint fixes. */}
+            {schoolName ?? 'All schools'} · Barangay Tanyag, Taguig City
           </span>
           {/* The period now comes from the DOH tab's school-year picker, which
               this form shares (Sprint 57b). Before that the hook took no date

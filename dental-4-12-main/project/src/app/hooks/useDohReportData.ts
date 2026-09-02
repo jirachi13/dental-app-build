@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from '../api/client';
 import { useLoadPhase } from './useLoadPhase';
 import type {
+  ApiSchool,
   ApiStudent,
   ApiStudentIptr,
   ApiMedicalHistory,
@@ -96,8 +97,17 @@ const REFRESH_THROTTLE_MS = 30 * 1000;
 /** @param schoolYear "YYYY-YYYY" to scope the report to one school year, or
  *  null for every record ever. A DOH report covers a period — this year's
  *  report is not next year's — so callers should pass a year; null exists for
- *  the "all records to date" view this hook used to be hard-wired to. */
-export function useDohReportData(schoolYear: string | null = null) {
+ *  the "all records to date" view this hook used to be hard-wired to.
+ *  @param schoolName the school to report on, or null for all schools.
+ *
+ *  ⚠ The school parameter was MISSING until 2026-09-02, and the Reports tab
+ *  had a School dropdown the whole time. It changed the printed header, the
+ *  export filename and the export metadata — and nothing else. Selecting one
+ *  school produced a document TITLED that school containing all three schools'
+ *  figures, which over-reports two of them and misattributes the third, on a
+ *  report submitted to the City Health Office. A control that appears to filter
+ *  must filter (see CLAUDE.md "NOTHING COSMETIC"). */
+export function useDohReportData(schoolYear: string | null = null, schoolName: string | null = null) {
   const [counts, setCounts] = useState<Map<string, number>>(new Map());
   const [years, setYears] = useState<string[]>([]);
   const [unplaced, setUnplaced] = useState(0);
@@ -114,7 +124,8 @@ export function useDohReportData(schoolYear: string | null = null) {
     beginLoad();
 
     try {
-      const [students, iptrs, medicals, dietaries, orals, preventives, risks] = await Promise.all([
+      const [schools, students, iptrs, medicals, dietaries, orals, preventives, risks] = await Promise.all([
+        apiClient.get<ApiSchool[]>('/schools'),
         apiClient.get<ApiStudent[]>('/students'),
         apiClient.get<ApiStudentIptr[]>('/student-iptrs'),
         apiClient.get<ApiMedicalHistory[]>('/medical-histories'),
@@ -123,6 +134,11 @@ export function useDohReportData(schoolYear: string | null = null) {
         apiClient.get<ApiPreventiveCareRecord[]>('/preventive-care-records'),
         apiClient.get<ApiRiskStratification[]>('/risk-stratifications'),
       ]);
+
+      // Scope to one school. Matched on school_id rather than the display name:
+      // the name is what the dropdown carries, but students store the id.
+      const schoolId = schoolName ? schools.find((s) => s.school_name === schoolName)?._id ?? null : null;
+      const scopedStudents = schoolId ? students.filter((s) => s.school_id === schoolId) : students;
 
       // Every school year present, newest first — drives the year picker.
       const allYears = [...new Set(iptrs.map((i) => i.school_year))].sort().reverse();
@@ -176,7 +192,7 @@ export function useDohReportData(schoolYear: string | null = null) {
       // school year's record, so a student with two years contributes each year
       // under that year's own grade and that year's own age.
       let unplacedCount = 0;
-      for (const s of students) {
+      for (const s of scopedStudents) {
         const sex: 'M' | 'F' = s.sex.startsWith('M') ? 'M' : 'F';
         for (const iptrId of iptrsByStudent.get(s._id) ?? []) {
           const ctx = ctxByIptr.get(iptrId);
@@ -244,7 +260,7 @@ export function useDohReportData(schoolYear: string | null = null) {
     } finally {
       if (!isStale()) endLoad();
     }
-  }, [beginLoad, endLoad, schoolYear]);
+  }, [beginLoad, endLoad, schoolYear, schoolName]);
 
   useEffect(() => {
     void load();
