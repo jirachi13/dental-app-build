@@ -9,6 +9,17 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
+## Sprint 79 (FHSIS Section D — school-level oral health care services) — DONE 2026-09-02 (tsc both + build clean; 10/10 verified)
+New report tab. Source: the "FHSIS" sheet of the user-supplied `TCLForm2andFHSISReport.xlsx`.
+
+- **The workbooks carry TWO variants of the same forms** — one headed `Health Center:` (barangay/city level, in `2026Form2withFHSIS.xlsx`) and one headed `School:` (in `TCLForm2andFHSISReport.xlsx`). **This sprint built the SCHOOL one**, the level Floral is scoped to. The health-centre variant consolidates sources Floral does not hold and is a separate, still-unbuilt report.
+- **The numbers are REAL, unlike the Program Report's Services Rendered rows.** The form's two halves — *1st visit within a year* and *completed 2 visits within a year* — are exactly the two-visit RPC module, counted from `PREVENTIVE_CARE_RECORD`. Age is computed **at the visit date**, not today (same rule as Sprint 57b).
+- **Deliberately blank, per NOTHING COSMETIC:** (a) every `a`/`b` **facility-based / non-facility-based** sub-row — the paper TCL records this per patient as `Facility Based 0/1` but **Floral has no such field anywhere, verified 2026-09-02**; splitting the total on an assumption would invent a number on a form filed with the City Health Office; (b) the **Pregnant Women** block, no pregnancy field in the schema. Both render `—` with a "not recorded" remark, never 0.
+- **Infants and Seniors ARE computed**, not dashed: a birthday is recorded, so those cells are genuine counts that happen to be 0 at a school. A true 0 and an unfillable cell are different claims and the form shows them differently.
+- ⚠ **The hook reads whole collections and joins client-side** like every other report hook. NOT laziness: "completed 2 visits within a year" needs each pupil's visit-1 date, which may fall outside the report month, so a month-bounded fetch cannot answer it alone. Tracked with backlog 0b/24 — fix them together, server-side.
+- `verify_sprint79.mjs` **recomputes the expected counts independently from the API and compares them to the rendered table** (8 = 8 for the richest month, 2026-05), then sets an empty month and asserts every total drops to 0 while all rows stay. That second check is the Sprint 59 cosmetic-filter failure mode tested directly.
+- **Still open:** no PDF/XLSX export yet (the other reports have one); the health-centre variant; and the four school-age TCL cohort tabs (`6-9`, `10-14`, `15-19` × M/F) which the workbook shows are fillable from the same RPC data.
+
 ## Sprint 76 (archiving no longer blocks re-creation; restore guards instead) — DONE 2026-09-02 (tsc both clean; 8/8 verified, and it unblocked Sprint 74 to 14/14)
 Found by RUNNING verify_sprint74 on dirty state — a clean database hides this bug entirely, because it needs an archived record to exist first.
 

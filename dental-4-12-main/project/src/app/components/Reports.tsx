@@ -16,6 +16,7 @@ import type { ApiTreatment, ApiToothRecord, ApiDentalChart, ApiStudentIptr } fro
 import { useStudents } from '../hooks/useStudents';
 import { TargetClientList } from './TargetClientList';
 import { OralHealthProgramReport } from './OralHealthProgramReport';
+import { FhsisReport } from './FhsisReport';
 import { treatmentCodes } from './DentalChart';
 import { schoolYearLabel } from '../utils/schoolYear';
 import { useSchools } from '../hooks/useSchools';
@@ -238,7 +239,7 @@ export const Reports = () => {
       if (ages.includes(bracket)) return s + V(g, bracket, sex, field);
       return s;
     }, 0);
-  const [activeReportTab, setActiveReportTab] = useState<'doh'|'internal'|'tcl'|'ohprf'>('doh');
+  const [activeReportTab, setActiveReportTab] = useState<'doh'|'internal'|'tcl'|'ohprf'|'fhsis'>('doh');
   const [reportMonth, setReportMonth] = useState(new Date().getMonth() + 1);
   const [reportYear,  setReportYear]  = useState(new Date().getFullYear());
   // Local school override — defaults to All Schools regardless of global context
@@ -499,6 +500,10 @@ export const Reports = () => {
         <button onClick={() => setActiveReportTab('ohprf')}
           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeReportTab==='ohprf' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
           <FileSpreadsheet className="w-4 h-4" /> Program Report
+        </button>
+        <button onClick={() => setActiveReportTab('fhsis')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeReportTab==='fhsis' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+          <FileSpreadsheet className="w-4 h-4" /> FHSIS
         </button>
       </div>
 
@@ -1205,6 +1210,7 @@ export const Reports = () => {
 
       {/* ── ORAL HEALTH PROGRAM REPORTING FORM (Appendix F) ── */}
       {activeReportTab === 'ohprf' && <OralHealthProgramReport schoolYear={dohSchoolYear} schoolName={reportSchool} />}
+      {activeReportTab === 'fhsis' && <FhsisReport schoolName={reportSchool} />}
     </div>
   );
 };
