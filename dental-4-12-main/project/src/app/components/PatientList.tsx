@@ -20,6 +20,7 @@ import { Pagination, usePagination } from './Pagination';
 import { apiClient, ApiError } from '../api/client';
 import type { ApiSchool } from '../api/types';
 import { useSchools } from '../hooks/useSchools';
+import { schoolYearLabel } from '../utils/schoolYear';
 import { Notice } from './Notice';
 
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
@@ -397,7 +398,7 @@ export const PatientList = () => {
     }
     setAddingPatient(true);
     try {
-      await apiClient.post('/students', {
+      const created = await apiClient.post<{ _id: string }>('/students', {
         school_id: school._id,
         last_name: newPatient.lastName,
         first_name: newPatient.firstName,
@@ -417,9 +418,33 @@ export const PatientList = () => {
         consent_status: newPatient.consentStatus,
         ...(confirmDuplicate ? { confirm_duplicate: true } : {}),
       });
+      // Open this school year's record straight away (Sprint 69). Adding a
+      // student used to create NO IPTR at all — the year record only appeared
+      // when someone later opened the chart and clicked "Add Year", so a
+      // freshly encoded student had nowhere to hang a medical history, a
+      // charting or an RPC visit, and did not appear in any year-scoped report.
+      //
+      // Grade and section are stamped from the form, which is what 57a made
+      // the IPTR carry. Best-effort: if this fails the student still exists and
+      // "Add Year" still works, so it warns rather than failing the whole save.
+      let yearOpened = true;
+      try {
+        await apiClient.post('/student-iptrs', {
+          student_id: created._id,
+          school_year: schoolYearLabel(),
+          grade_level: newPatient.grade,
+          section: newPatient.section,
+        });
+      } catch {
+        yearOpened = false;
+      }
       await reloadStudents();
       setDuplicateWarning(null);
-      toast.success(`Student added: ${newPatient.lastName}, ${newPatient.firstName}`);
+      toast.success(
+        yearOpened
+          ? `Student added: ${newPatient.lastName}, ${newPatient.firstName} · ${schoolYearLabel()} record opened`
+          : `Student added: ${newPatient.lastName}, ${newPatient.firstName} — but the ${schoolYearLabel()} record could not be opened. Add it from the chart.`,
+      );
       setShowAddForm(false);
       setNewPatient({ firstName:'', lastName:'', middleName:'', birthdate:'', gender:'', grade:'', section:'', school:'', guardianName:'', guardianContact:'', address:'', contactNumber:'', philhealthNumber:'', philhealthStatus:'None', is4Ps:false, fourPsId:'', consentStatus:'pending' });
       setOcrConfidences({});
