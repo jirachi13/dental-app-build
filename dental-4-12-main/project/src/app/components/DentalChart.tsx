@@ -224,7 +224,7 @@ export const DentalChart = () => {
   // Height and weight live on the SELECTED YEAR's IPTR, not on STUDENT, so they
   // are drafted separately even though they share the one Edit button — the
   // save below writes to both records (Sprint 68).
-  const [draftYear, setDraftYear] = useState<{ height_cm: string; weight_kg: string }>({ height_cm: '', weight_kg: '' });
+  const [draftYear, setDraftYear] = useState<{ height_cm: string; weight_kg: string; grade_level: string; section: string }>({ height_cm: '', weight_kg: '', grade_level: '', section: '' });
   const [infoSaving, setInfoSaving] = useState(false);
   const [infoError, setInfoError] = useState<string | null>(null);
   const [isManagingYears, setIsManagingYears] = useState(false);
@@ -562,6 +562,12 @@ export const DentalChart = () => {
     setDraftYear({
       height_cm: iptr?.height_cm != null ? String(iptr.height_cm) : '',
       weight_kg: iptr?.weight_kg != null ? String(iptr.weight_kg) : '',
+      // Deliberately NOT falling back to the student's current grade. A blank
+      // means "never recorded for this year", and pre-filling today's grade
+      // would let one careless Save stamp it onto an old year — the exact lie
+      // Sprint 57a removed.
+      grade_level: iptr?.grade_level ?? '',
+      section: iptr?.section ?? '',
     });
     setInfoError(null);
     setEditingInfo(true);
@@ -581,6 +587,11 @@ export const DentalChart = () => {
         await apiClient.put(`/student-iptrs/${iptrId}`, {
           height_cm: draftYear.height_cm.trim() === '' ? null : Number(draftYear.height_cm),
           weight_kg: draftYear.weight_kg.trim() === '' ? null : Number(draftYear.weight_kg),
+          // Editable so a RETAINED pupil, or a section moved mid-year, can be
+          // corrected on the year it belongs to — the dentist's own example.
+          // Blank clears back to "not recorded" rather than writing "".
+          grade_level: draftYear.grade_level.trim() === '' ? null : draftYear.grade_level,
+          section: draftYear.section.trim() === '' ? null : draftYear.section,
         });
       }
       await reload();
@@ -847,6 +858,33 @@ export const DentalChart = () => {
                 <input type="text" value={draftInfo.guardian_contact ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, guardian_contact: e.target.value }))}
                   className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs" />
               </div>
+              {/* ── This school year's record ──────────────────────────────
+                  Everything from here down saves to the SELECTED YEAR's IPTR,
+                  not to the student. Two grades exist on purpose: the student
+                  carries their CURRENT enrolment (what rosters and the
+                  appointment picker read), and each year carries the grade the
+                  pupil was actually in then (Sprint 57a). They differ for a
+                  retained pupil, and for every past year once anyone is
+                  promoted — which is the whole reason the year keeps its own. */}
+              <div>
+                <label className="block text-muted-foreground font-medium mb-0.5">
+                  Grade <span className="font-normal">· {years[selectedYear]?.iptr.school_year}</span>
+                </label>
+                <select value={draftYear.grade_level}
+                  onChange={(e) => setDraftYear((p) => ({ ...p, grade_level: e.target.value }))}
+                  className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs bg-card">
+                  <option value="">Not recorded</option>
+                  {GRADES.map((g) => <option key={g}>{g}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-muted-foreground font-medium mb-0.5">
+                  Section <span className="font-normal">· {years[selectedYear]?.iptr.school_year}</span>
+                </label>
+                <input type="text" placeholder="Not recorded" value={draftYear.section}
+                  onChange={(e) => setDraftYear((p) => ({ ...p, section: e.target.value }))}
+                  className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs" />
+              </div>
               {/* Measured per school year, saved to the IPTR — the label says so,
                   because everything else in this panel edits the student. */}
               <div>
@@ -892,14 +930,14 @@ export const DentalChart = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-muted-foreground font-medium mb-0.5">Grade</label>
+                <label className="block text-muted-foreground font-medium mb-0.5">Grade <span className="font-normal">· current</span></label>
                 <select value={draftInfo.grade_level ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, grade_level: e.target.value }))}
                   className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs bg-card">
                   {GRADES.map((g) => <option key={g}>{g}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-muted-foreground font-medium mb-0.5">Section</label>
+                <label className="block text-muted-foreground font-medium mb-0.5">Section <span className="font-normal">· current</span></label>
                 <input type="text" value={draftInfo.section ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, section: e.target.value }))}
                   className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs" />
               </div>
