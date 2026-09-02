@@ -90,6 +90,72 @@ const ageGroupOf = (age: number | null) => {
 /** A column that exists on the paper form but has no data behind it yet. */
 const NO_SOURCE = '—';
 
+/** The paper form's service columns, in printed order.
+ *
+ *  The FIRST and SECOND visit blocks are IDENTICAL on the form — it repeats the
+ *  whole preventive set for the second visit. An earlier version rendered only
+ *  the two SECOND columns that had data, which made the sheet stop matching the
+ *  form. All of them are rendered now, blank where there is no source.
+ *
+ *  `value` reads a row; a column WITHOUT one has no source in the data model
+ *  (PREVENTIVE_CARE_RECORD stores only iptr_id, visit_date and visit_number, so
+ *  no per-visit service is recorded anywhere) and renders "—".
+ *
+ *  ⚠ `unverified` marks a caption read off the low-resolution Appendix E scan
+ *  that could not be made out with confidence. Shown with a dotted underline
+ *  and counted in the note above the table. CHECK AGAINST THE PAPER FORM. */
+type Row = {
+  risk: string | null;
+  visit1Done: boolean;
+  visit2Done: boolean;
+  treatments: string[];
+};
+type ServiceCol = {
+  group: 'FIRST' | 'SECOND' | 'OTHER SERVICES';
+  label: string;
+  value?: (r: Row) => string;
+  unverified?: boolean;
+};
+
+const PREVENTIVE_SET = (visitDone: (r: Row) => boolean, isSecond: boolean): Omit<ServiceCol, 'group'>[] => [
+  { label: 'Oral screening', value: (r) => (visitDone(r) ? '✓' : '') },
+  { label: 'Caries Risk: Low', value: (r) => (!isSecond && r.risk === 'Low' ? '✓' : '') },
+  { label: 'Caries Risk: Moderate', value: (r) => (!isSecond && r.risk === 'Medium' ? '✓' : '') },
+  { label: 'Caries Risk: High', value: (r) => (!isSecond && r.risk === 'High' ? '✓' : '') },
+  { label: 'Oral Hygiene Instruction' },
+  { label: 'Counselling' },
+  { label: 'Oral Prophylaxis', value: (r) => (!isSecond && r.treatments.includes('OP') ? '✓' : '') },
+  { label: 'Fluoride Varnish App', value: (r) => (r.treatments.includes('FV') ? '✓' : '') },
+  { label: isSecond ? 'Completed BPOC (2nd visit)' : 'Completed BPOC (1st visit)', unverified: true },
+];
+
+const SERVICE_COLUMNS: ServiceCol[] = [
+  ...PREVENTIVE_SET((r) => r.visit1Done, false).map((c) => ({ ...c, group: 'FIRST' as const })),
+  ...PREVENTIVE_SET((r) => r.visit2Done, true).map((c) => ({ ...c, group: 'SECOND' as const })),
+  { group: 'OTHER SERVICES', label: 'Composite Filling', value: (r) => (r.treatments.includes('PF') ? '✓' : '') },
+  { group: 'OTHER SERVICES', label: 'ART', value: (r) => (r.treatments.includes('TR') ? '✓' : '') },
+  { group: 'OTHER SERVICES', label: 'Temporary Filling', value: (r) => (r.treatments.includes('TF') ? '✓' : '') },
+  { group: 'OTHER SERVICES', label: 'Extraction', value: (r) => (r.treatments.includes('X') ? '✓' : '') },
+  { group: 'OTHER SERVICES', label: 'Gum Treatment', unverified: true },
+  { group: 'OTHER SERVICES', label: 'Removal of Plaque / Calculus', unverified: true },
+  { group: 'OTHER SERVICES', label: 'Silver Diamine Fluoride App', value: (r) => (r.treatments.includes('SDF') ? '✓' : '') },
+  { group: 'OTHER SERVICES', label: 'Silver Diamine Fluoride (2nd app)', unverified: true },
+  { group: 'OTHER SERVICES', label: 'Consultation', unverified: true },
+  { group: 'OTHER SERVICES', label: 'Referral', unverified: true },
+  { group: 'OTHER SERVICES', label: 'Complete Health Record', unverified: true },
+];
+
+const SERVICE_GROUPS = SERVICE_COLUMNS.reduce<{ label: string; span: number }[]>((acc, c) => {
+  const last = acc[acc.length - 1];
+  if (last && last.label === c.group) last.span += 1;
+  else acc.push({ label: c.group, span: 1 });
+  return acc;
+}, []);
+
+const TCL_UNVERIFIED = SERVICE_COLUMNS.filter((c) => c.unverified).length;
+/** Identity columns + service columns + No. + Remarks. */
+const TCL_COLSPAN = 10 + SERVICE_COLUMNS.length + 1;
+
 export const TargetClientList = () => {
   const { selectedSchool } = useAuth();
   const { students, loading: studentsLoading } = useStudents();
@@ -178,9 +244,15 @@ export const TargetClientList = () => {
     margin: '0 auto',
   };
   /** A rotated column caption, sized to the shared band height. */
-  const RotHead = ({ label, tone = '' }: { label: string; tone?: string }) => (
+  const RotHead = ({ label, tone = '', unverified = false }: { label: string; tone?: string; unverified?: boolean }) => (
     <th className={`${thRot} ${tone}`}>
-      <div style={rotStyle} className="mx-auto leading-tight">{label}</div>
+      {/* Dotted underline marks a caption read off the low-res Appendix E scan
+          that still needs checking against the paper form. */}
+      <div
+        style={rotStyle}
+        className={`mx-auto leading-tight ${unverified ? 'border-b border-dotted border-amber-500' : ''}`}
+        title={unverified ? 'Caption unverified — check against the paper DOH form' : undefined}
+      >{label}</div>
     </th>
   );
   const td = 'px-2 py-1.5 text-xs text-foreground border border-border whitespace-nowrap';
@@ -219,9 +291,13 @@ export const TargetClientList = () => {
         </p>
         {rawError && <p className="text-xs text-destructive mt-1">{rawError}</p>}
         <p className="text-xs text-muted-foreground mt-2">
-          Columns marked <span className="font-semibold">{NO_SOURCE}</span> exist on the paper form but are not
-          recorded by the system yet — preventive care records store the visit date only, not the individual
-          services performed at that visit. They are shown blank rather than filled with assumptions.
+          Every column of the paper form is shown, including those the system cannot fill — a blank cell on a
+          DOH form is meaningful. Columns marked <span className="font-semibold">{NO_SOURCE}</span> have no
+          source: preventive care records store the visit date only, not the individual services performed at
+          it. {TCL_UNVERIFIED > 0 && (
+            <><span className="border-b border-dotted border-amber-500">Dotted</span> captions ({TCL_UNVERIFIED})
+            were read from a low-resolution scan of Appendix E and still need checking against the paper form.</>
+          )}
         </p>
       </div>
 
@@ -235,9 +311,12 @@ export const TargetClientList = () => {
             <tr>
               <th className={th} rowSpan={2}>No.</th>
               <th className={th} colSpan={9} />
-              <th className={`${th} bg-blue-50`} colSpan={8}>FIRST</th>
-              <th className={`${th} bg-blue-50`} colSpan={2}>SECOND</th>
-              <th className={`${th} bg-amber-50`} colSpan={5}>OTHER SERVICES</th>
+              {SERVICE_GROUPS.map((g) => (
+                <th key={g.label} colSpan={g.span}
+                    className={`${th} ${g.label === 'OTHER SERVICES' ? 'bg-amber-50' : 'bg-blue-50'}`}>
+                  {g.label}
+                </th>
+              ))}
               <th className={th} rowSpan={2}>Remarks</th>
             </tr>
             <tr className={HEADER_H}>
@@ -252,31 +331,19 @@ export const TargetClientList = () => {
               <RotHead label="Age" />
               <RotHead label="Age Group" />
               <th className={thFlat}>Sex</th>
-              {/* FIRST */}
-              <RotHead label="Oral screening" tone="bg-blue-50" />
-              <RotHead label="Risk: Low" tone="bg-blue-50" />
-              <RotHead label="Risk: Moderate" tone="bg-blue-50" />
-              <RotHead label="Risk: High" tone="bg-blue-50" />
-              <RotHead label="Oral hygiene instruction" tone="bg-blue-50" />
-              <RotHead label="Counselling" tone="bg-blue-50" />
-              <RotHead label="Oral Prophylaxis" tone="bg-blue-50" />
-              <RotHead label="Fluoride Varnish" tone="bg-blue-50" />
-              {/* SECOND — the paper form repeats all six service columns here;
-                  only the two with real data are rendered, for the same reason
-                  the FIRST block's service columns are blank. */}
-              <RotHead label="Oral screening" tone="bg-blue-50" />
-              <RotHead label="Fluoride Varnish" tone="bg-blue-50" />
-              {/* Curative */}
-              <RotHead label="Composite Filling" tone="bg-amber-50" />
-              <RotHead label="ART" tone="bg-amber-50" />
-              <RotHead label="Temporary Filling" tone="bg-amber-50" />
-              <RotHead label="Extraction" tone="bg-amber-50" />
-              <RotHead label="Silver Diamine Fluoride" tone="bg-amber-50" />
+              {SERVICE_COLUMNS.map((c, i) => (
+                <RotHead
+                  key={`${c.group}-${c.label}-${i}`}
+                  label={c.label}
+                  tone={c.group === 'OTHER SERVICES' ? 'bg-amber-50' : 'bg-blue-50'}
+                  unverified={c.unverified}
+                />
+              ))}
             </tr>
           </thead>
           <tbody>
             {visible.length === 0 ? (
-              <tr><td className={`${td} text-center text-muted-foreground`} colSpan={26}>No clients consulted in this period.</td></tr>
+              <tr><td className={`${td} text-center text-muted-foreground`} colSpan={TCL_COLSPAN}>No clients consulted in this period.</td></tr>
             ) : visible.map((r, i) => (
               <tr key={r.id} className="hover:bg-gray-50">
                 <td className={td}>{i + 1}</td>
@@ -289,24 +356,12 @@ export const TargetClientList = () => {
                 <td className={td}>{r.age ?? ''}</td>
                 <td className={td}>{r.ageGroup}</td>
                 <td className={td}>{r.sex}</td>
-                {/* FIRST */}
-                <td className={`${td} text-center`}>{tick(r.visit1Done)}</td>
-                <td className={`${td} text-center`}>{r.risk === 'Low' ? '✓' : ''}</td>
-                <td className={`${td} text-center`}>{r.risk === 'Medium' ? '✓' : ''}</td>
-                <td className={`${td} text-center`}>{r.risk === 'High' ? '✓' : ''}</td>
-                <td className={`${td} text-center text-muted-foreground`}>{NO_SOURCE}</td>
-                <td className={`${td} text-center text-muted-foreground`}>{NO_SOURCE}</td>
-                <td className={`${td} text-center`}>{hasCode(r.treatments, 'OP')}</td>
-                <td className={`${td} text-center`}>{hasCode(r.treatments, 'FV')}</td>
-                {/* SECOND */}
-                <td className={`${td} text-center`}>{tick(r.visit2Done)}</td>
-                <td className={`${td} text-center text-muted-foreground`}>{NO_SOURCE}</td>
-                {/* Curative */}
-                <td className={`${td} text-center`}>{hasCode(r.treatments, 'PF')}</td>
-                <td className={`${td} text-center`}>{hasCode(r.treatments, 'TR')}</td>
-                <td className={`${td} text-center`}>{hasCode(r.treatments, 'TF')}</td>
-                <td className={`${td} text-center`}>{hasCode(r.treatments, 'X')}</td>
-                <td className={`${td} text-center`}>{hasCode(r.treatments, 'SDF')}</td>
+                {SERVICE_COLUMNS.map((c, i) => (
+                  <td key={`${c.group}-${c.label}-${i}`}
+                      className={`${td} text-center ${c.value ? '' : 'text-muted-foreground'}`}>
+                    {c.value ? c.value(r) : NO_SOURCE}
+                  </td>
+                ))}
                 <td className={td} />
               </tr>
             ))}
