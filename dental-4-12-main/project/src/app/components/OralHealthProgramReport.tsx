@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, Fragment } from 'react';
 import { useDohReportData } from '../hooks/useDohReportData';
 import { SkeletonTable } from './Skeleton';
 
@@ -90,7 +90,16 @@ const SEXES = ['M', 'F'] as const;
 
 /** Indicator rows. `field` maps to useDohReportData's real fields; a null
  *  field means the paper form has the row but the system has no source. */
-type Row = { label: string; field: string | null; indent?: boolean };
+type Row = {
+  label: string;
+  field: string | null;
+  indent?: boolean;
+  /** Rows nested under this one. ART splits by restorative material (per the
+   *  dentist): the parent can be shown alone, or expanded to show each
+   *  material separately. Collapsed by default — the parent is what the form
+   *  asks for; the split is the detail behind it. */
+  children?: Row[];
+};
 
 const STATUS_ROWS: Row[] = [
   { label: 'Number of patients with Dental Caries', field: 'DMF_total' },
@@ -108,7 +117,14 @@ const SERVICE_ROWS: Row[] = [
   { label: 'Number of patients given Fluoride Varnish — 1st application', field: null, indent: true },
   { label: 'Number of patients given Fluoride Varnish — 2nd application', field: null, indent: true },
   { label: 'Number of patients given Silver Diamine Fluoride (SDF)', field: null },
-  { label: 'Number of patients given ART', field: null },
+  {
+    label: 'Number of patients given ART',
+    field: null,
+    children: [
+      { label: 'Glass Ionomer (GI)', field: null, indent: true },
+      { label: 'Composite', field: null, indent: true },
+    ],
+  },
   { label: 'Number of patients given Permanent Filling', field: null },
   { label: 'Number of patients given Tooth Extraction', field: null },
 ];
@@ -118,11 +134,56 @@ const OTHER_ROWS: Row[] = [
   { label: 'Total no. of patients referred to a Higher Level of Care', field: null },
 ];
 
+/** Stable key for a column — group + label, since labels repeat across groups
+ *  (both Adolescent and Pregnant Women carry "10-14 y/o"). */
+const colKey = (c: Col) => `${c.group}|${c.label}`;
+
+function loadSet(key: string): Set<string> {
+  try {
+    const raw = window.localStorage.getItem(key);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
 export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }: { schoolYear?: string | null; schoolName?: string | null }) => {
   // Scoped to the SAME school the DOH tab's picker selects, not the sidebar's
   // current school — the two are different controls and this form is read
   // beside the consolidated report.
   const { getRealTotal, loading } = useDohReportData(schoolYear, schoolName);
+
+  // Hidden rows/columns and expanded parents, remembered per browser.
+  //
+  // ⚠ Hiding CHANGES THE OUTPUT, not just the view — the dentist asked for
+  // that explicitly ("so report can change content ... like excels"). A print
+  // of this form therefore may not be the complete standard form, so the note
+  // under the table NAMES what is hidden. An incomplete form that looks
+  // complete is the failure mode worth preventing.
+  const [hiddenRows, setHiddenRows] = useState<Set<string>>(() => loadSet('ohprf-hidden-rows'));
+  const [hiddenCols, setHiddenCols] = useState<Set<string>>(() => loadSet('ohprf-hidden-cols'));
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [showPicker, setShowPicker] = useState(false);
+
+  const persist = (key: string, next: Set<string>) => {
+    try { window.localStorage.setItem(key, JSON.stringify([...next])); } catch { /* private mode */ }
+  };
+  const toggle = (set: Set<string>, key: string) => {
+    const next = new Set(set);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  };
+  const visibleCols = COLUMNS.filter((c) => !hiddenCols.has(colKey(c)));
+  // Recomputed from what is actually shown — a group band spanning hidden
+  // columns would push the whole header out of alignment with its body.
+  const visibleGroups = visibleCols.reduce<{ label: string; span: number }[]>((acc, c) => {
+    const last = acc[acc.length - 1];
+    if (last && last.label === c.group) last.span += 1;
+    else acc.push({ label: c.group, span: 1 });
+    return acc;
+  }, []);
+  const hiddenCount = hiddenRows.size + hiddenCols.size;
+  const rowVisible = (r: Row) => !hiddenRows.has(r.label);
 
   // The form's columns are age × sex only. This reads the hook's across-all-
   // grades total rather than summing getRealCount over a grade list: that sum
@@ -153,14 +214,38 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
 
   const section = (title: string) => (
     <tr className="bg-amber-50">
-      <td className={`${labelTd} font-bold`} colSpan={COLUMNS.length * 2 + 2}>{title}</td>
+      <td className={`${labelTd} font-bold`} colSpan={visibleCols.length * 2 + 2}>{title}</td>
     </tr>
   );
 
-  const renderRow = (r: Row) => (
+  const renderRow = (r: Row): React.ReactNode => {
+    if (!rowVisible(r)) return null;
+    const isOpen = expanded.has(r.label);
+    return (
+      <Fragment key={r.label}>
+        {renderOneRow(r, isOpen)}
+        {/* Sub-rows only when the parent is expanded — "show ART only, or also
+            show the subrows". */}
+        {r.children && isOpen && r.children.filter(rowVisible).map((c) => renderOneRow(c, false))}
+      </Fragment>
+    );
+  };
+
+  const renderOneRow = (r: Row, isOpen: boolean) => (
     <tr key={r.label} className="hover:bg-gray-50">
-      <td className={`${labelTd} ${r.indent ? 'pl-6' : ''}`}>{r.label}</td>
-      {COLUMNS.map((c) => SEXES.map((s) => {
+      <td className={`${labelTd} ${r.indent ? 'pl-6' : ''}`}>
+        {r.children ? (
+          <button
+            onClick={() => setExpanded((p) => toggle(p, r.label))}
+            aria-expanded={isOpen}
+            className="inline-flex items-center gap-1 text-left hover:text-primary"
+          >
+            <span className="text-[10px] w-3 inline-block">{isOpen ? '▾' : '▸'}</span>
+            {r.label}
+          </button>
+        ) : r.label}
+      </td>
+      {visibleCols.map((c) => SEXES.map((s) => {
         const v = cell(r.field, c, s);
         return (
           <td key={`${c.group}-${c.label}-${s}`} className={`${td} ${v === null ? 'text-muted-foreground' : ''}`}>
@@ -189,9 +274,18 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
               this form shares (Sprint 57b). Before that the hook took no date
               range at all and this said so rather than offering a control that
               silently did nothing. */}
-          <span className="text-xs text-muted-foreground">
-            {schoolYear ? `School year ${schoolYear}` : 'All years to date'}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground">
+              {schoolYear ? `School year ${schoolYear}` : 'All years to date'}
+            </span>
+            <button
+              onClick={() => setShowPicker((v) => !v)}
+              aria-expanded={showPicker}
+              className="text-xs px-2 py-1 border border-border rounded-md text-foreground hover:bg-gray-50"
+            >
+              {showPicker ? 'Done' : `Rows & columns${hiddenCount ? ` (${hiddenCount} hidden)` : ''}`}
+            </button>
+          </div>
         </div>
         <p className="text-xs text-muted-foreground mt-2">
           The paper form covers the whole city population; Floral holds school children only, so its
@@ -205,6 +299,11 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
           a blank cell on this form is meaningful. Cells read <span className="font-semibold text-foreground">—</span>{' '}
           where the system has no source at that granularity: it records a birthdate, not an age in months,
           and records no pregnancy at all.
+          {hiddenCount > 0 && (
+            <> <span className="font-semibold text-foreground">This form is not the complete standard form:</span>{' '}
+            {hiddenRows.size} row{hiddenRows.size === 1 ? '' : 's'} and {hiddenCols.size} column
+            {hiddenCols.size === 1 ? '' : 's'} are hidden, and hidden items do not print.</>
+          )}
           {UNVERIFIED_COUNT > 0 && (
             <> <span className="border-b border-dotted border-amber-500">Dotted</span> column captions
             ({UNVERIFIED_COUNT}) were read from a low-resolution scan of Appendix F and still need checking
@@ -212,6 +311,57 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
           )}
         </p>
       </div>
+
+      {showPicker && (
+        <div className="bg-card rounded-xl border border-border p-4 space-y-3 text-xs">
+          <p className="text-muted-foreground">
+            Untick to hide. Hiding changes what is <span className="font-medium text-foreground">printed</span>,
+            not just what is on screen — the note under the table records anything hidden, so a shortened form
+            is never mistaken for the complete one.
+          </p>
+          <div>
+            <div className="font-semibold text-foreground mb-1.5">Columns</div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5">
+              {COLUMNS.map((c) => (
+                <label key={colKey(c)} className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!hiddenCols.has(colKey(c))}
+                    onChange={() => setHiddenCols((p) => { const n = toggle(p, colKey(c)); persist('ohprf-hidden-cols', n); return n; })}
+                    className="w-3.5 h-3.5 rounded accent-primary"
+                  />
+                  <span className="truncate" title={`${c.group} · ${c.label}`}>{c.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="font-semibold text-foreground mb-1.5">Rows</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+              {[...STATUS_ROWS, ...SERVICE_ROWS, ...OTHER_ROWS].map((r) => (
+                <label key={r.label} className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!hiddenRows.has(r.label)}
+                    onChange={() => setHiddenRows((p) => { const n = toggle(p, r.label); persist('ohprf-hidden-rows', n); return n; })}
+                    className="w-3.5 h-3.5 rounded accent-primary"
+                  />
+                  <span className="truncate" title={r.label}>{r.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          {hiddenCount > 0 && (
+            <button
+              onClick={() => {
+                setHiddenRows(new Set()); persist('ohprf-hidden-rows', new Set());
+                setHiddenCols(new Set()); persist('ohprf-hidden-cols', new Set());
+              }}
+              className="px-2 py-1 border border-border rounded-md text-foreground hover:bg-gray-50"
+            >Show everything</button>
+          )}
+        </div>
+      )}
 
       <div className="bg-card rounded-xl border border-border overflow-x-auto">
         <table className="border-collapse w-full">
@@ -225,7 +375,7 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
                 pregnant-women sections. */}
             <tr>
               <th className={`${th} text-left align-bottom`} rowSpan={3}>INDICATORS</th>
-              {GROUPS.map((g, i) => (
+              {visibleGroups.map((g, i) => (
                 <th key={`${g.label}-${i}`} className={`${th} bg-gray-100`} colSpan={g.span * SEXES.length}>
                   {g.label}
                 </th>
@@ -233,7 +383,7 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
               <th className={`${th} align-bottom`} rowSpan={3}>Grand<br />Total</th>
             </tr>
             <tr>
-              {COLUMNS.map((c, i) => (
+              {visibleCols.map((c, i) => (
                 <th key={`${c.label}-${i}`} className={th} colSpan={2}>
                   {/* Dotted underline marks a caption read off the low-res scan
                       that still needs checking against the paper form. */}
@@ -245,7 +395,7 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
               ))}
             </tr>
             <tr>
-              {COLUMNS.map((c, i) => SEXES.map((s) => (
+              {visibleCols.map((c, i) => SEXES.map((s) => (
                 <th key={`${c.label}-${i}-${s}`} className={`${th} w-10`}>{s}</th>
               )))}
             </tr>
