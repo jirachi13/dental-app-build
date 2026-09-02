@@ -2,14 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLoadPhase } from './useLoadPhase';
 import { apiClient } from '../api/client';
 import { usePendingWritesFor } from './useOfflineQueue';
-import type {
-  ApiStudent,
-  ApiSchool,
-  ApiStudentIptr,
-  ApiDentalChart,
-  ApiPreventiveCareRecord,
-  ApiRiskStratification,
-} from '../api/types';
+import type { ApiSchool } from '../api/types';
 import { surnameFirst } from '../utils/studentName';
 
 export interface StudentRow {
@@ -32,13 +25,6 @@ export interface StudentRow {
   pending?: boolean;
 }
 
-function deriveOralStatus(riskLevel: string | null): string {
-  if (riskLevel === 'High') return 'Needs Treatment';
-  if (riskLevel === 'Medium') return 'Under Treatment';
-  if (riskLevel === 'Low') return 'Orally Fit';
-  return 'Not Yet Screened';
-}
-
 export function useStudents() {
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [schools, setSchools] = useState<ApiSchool[]>([]);
@@ -49,63 +35,19 @@ export function useStudents() {
   const reload = useCallback(async () => {
     beginLoad();
     try {
-      const [apiStudents, schools, iptrs, charts, preventives, riskStrats] = await Promise.all([
-        apiClient.get<ApiStudent[]>('/students'),
+      // The join that built these rows used to happen here, over six whole
+      // collections fetched into the browser (Sprint 56b moved it to
+      // /stats/student-rows). Eight components mount this hook, so at the
+      // Chapter 1 scale of ~8,000 students it was the app's largest read.
+      // `schools` is still fetched because the hook exposes it for the
+      // optimistic pending-write rows below.
+      const [rows, apiSchools] = await Promise.all([
+        apiClient.get<StudentRow[]>('/stats/student-rows'),
         apiClient.get<ApiSchool[]>('/schools'),
-        apiClient.get<ApiStudentIptr[]>('/student-iptrs'),
-        apiClient.get<ApiDentalChart[]>('/dental-charts'),
-        apiClient.get<ApiPreventiveCareRecord[]>('/preventive-care-records'),
-        apiClient.get<ApiRiskStratification[]>('/risk-stratifications'),
       ]);
 
-      const schoolNameById = new Map(schools.map((s) => [s._id, s.school_name]));
-      const iptrsByStudent = new Map<string, ApiStudentIptr[]>();
-      for (const iptr of iptrs) {
-        const list = iptrsByStudent.get(iptr.student_id) ?? [];
-        list.push(iptr);
-        iptrsByStudent.set(iptr.student_id, list);
-      }
-      const chartsByIptr = new Map<string, ApiDentalChart[]>();
-      for (const c of charts) {
-        const list = chartsByIptr.get(c.iptr_id) ?? [];
-        list.push(c);
-        chartsByIptr.set(c.iptr_id, list);
-      }
-      const preventiveById = new Map(preventives.map((p) => [p._id, p]));
-      const riskByIptr = new Map<string, ApiRiskStratification>();
-      for (const r of riskStrats) {
-        const preventive = preventiveById.get(r.preventive_id);
-        if (preventive) riskByIptr.set(preventive.iptr_id, r);
-      }
-
-      const rows: StudentRow[] = apiStudents.map((s) => {
-        const studentIptrs = iptrsByStudent.get(s._id) ?? [];
-        const allCharts = studentIptrs.flatMap((iptr) => chartsByIptr.get(iptr._id) ?? []);
-        const lastVisit = allCharts.length
-          ? allCharts.reduce((latest, c) => (c.date_charted > latest ? c.date_charted : latest), allCharts[0].date_charted)
-          : null;
-        const riskLevel = studentIptrs.map((iptr) => riskByIptr.get(iptr._id)).find(Boolean)?.risk_level ?? null;
-
-        return {
-          id: s._id,
-          name: surnameFirst(s),
-          lastName: s.last_name ?? '',
-          firstName: s.first_name ?? '',
-          middleName: s.middle_name ?? '',
-          birthdate: s.birthday.slice(0, 10),
-          gender: s.sex,
-          grade: s.grade_level,
-          section: s.section,
-          school: schoolNameById.get(s.school_id) ?? 'Unknown School',
-          lastVisit,
-          oralStatus: deriveOralStatus(riskLevel),
-          riskLevel,
-          consentStatus: s.consent_status,
-        };
-      });
-
       setStudents(rows);
-      setSchools(schools);
+      setSchools(apiSchools);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load students');

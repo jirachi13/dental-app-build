@@ -100,6 +100,95 @@ router.get("/stats/high-risk-count", requireAuth, asyncHandler(async (req, res) 
   res.json({ count });
 }));
 
+// The patient-list row, joined server-side (Sprint 56b). Same join as the
+// badge above, one level richer: every screen that shows a student list needs
+// name, grade, school, last visit and risk, and useStudents used to build that
+// in the browser by downloading SIX whole collections — students, schools,
+// IPTRs, dental charts, preventive care records and risk stratifications —
+// on every page that mounts it. Eight components do. At the Chapter 1 scale of
+// ~8,000 students that is the largest read in the app.
+//
+// Deliberately returns every student rather than a page: three of the eight
+// consumers (Reports, TargetClientList, the dashboard stats) aggregate over the
+// whole population, so paging here would break them. The win is payload and
+// browser CPU — one slim array instead of six full collections — not a smaller
+// result set. Paging the list-shaped consumers is separate, still-open work.
+//
+// NOTE: `students` is the one query here that cannot use .lean(). The name
+// fields are encrypted, and mongoose-field-encryption decrypts in post('init'),
+// which only runs for real documents — a lean() or aggregate() read would
+// return ciphertext. Everything else is lean because none of it is encrypted.
+router.get("/stats/student-rows", requireAuth, asyncHandler(async (_req, res) => {
+  const [students, schools, iptrs, charts, preventives, risks] = await Promise.all([
+    Student.find({ isArchived: false }),
+    School.find({ isArchived: false }).select("_id school_name").lean(),
+    StudentIptr.find({ isArchived: false }).select("_id student_id").lean(),
+    DentalChart.find({ isArchived: false }).select("iptr_id date_charted").lean(),
+    PreventiveCareRecord.find({ isArchived: false }).select("_id iptr_id").lean(),
+    RiskStratification.find({ isArchived: false }).select("preventive_id risk_level").lean(),
+  ]);
+
+  const schoolNameById = new Map(schools.map((s: any) => [String(s._id), String(s.school_name)]));
+  const iptrsByStudent = new Map<string, string[]>();
+  for (const i of iptrs as any[]) {
+    const list = iptrsByStudent.get(String(i.student_id)) ?? [];
+    list.push(String(i._id));
+    iptrsByStudent.set(String(i.student_id), list);
+  }
+  const chartDatesByIptr = new Map<string, Date[]>();
+  for (const c of charts as any[]) {
+    if (!c.date_charted) continue;
+    const list = chartDatesByIptr.get(String(c.iptr_id)) ?? [];
+    list.push(new Date(c.date_charted));
+    chartDatesByIptr.set(String(c.iptr_id), list);
+  }
+  const preventiveIptrById = new Map((preventives as any[]).map((p) => [String(p._id), String(p.iptr_id)]));
+  const riskByIptr = new Map<string, string>();
+  for (const r of risks as any[]) {
+    const iptrId = preventiveIptrById.get(String(r.preventive_id));
+    if (iptrId) riskByIptr.set(iptrId, String(r.risk_level));
+  }
+
+  // Mirrors deriveOralStatus in the client hook — kept identical on purpose so
+  // the row means the same thing wherever it is built.
+  const deriveOralStatus = (risk: string | null) =>
+    risk === "High" ? "Needs Treatment"
+      : risk === "Medium" ? "Under Treatment"
+        : risk === "Low" ? "Orally Fit"
+          : "Not Yet Screened";
+
+  const rows = (students as any[]).map((s) => {
+    const studentIptrs = iptrsByStudent.get(String(s._id)) ?? [];
+    const chartDates = studentIptrs.flatMap((id) => chartDatesByIptr.get(id) ?? []);
+    // First iptr carrying a risk wins, matching the badge and the old client
+    // join; `find(Boolean)` over the iptrs in insertion order.
+    const riskLevel = studentIptrs.map((id) => riskByIptr.get(id)).find(Boolean) ?? null;
+    const last = (s.last_name ?? "").trim();
+    const first = (s.first_name ?? "").trim();
+    return {
+      id: String(s._id),
+      // surnameFirst() from the client util, same fallbacks.
+      name: !last && !first ? (s.full_name ?? "").trim() : !last ? first : !first ? last : `${last}, ${first}`,
+      lastName: s.last_name ?? "",
+      firstName: s.first_name ?? "",
+      middleName: s.middle_name ?? "",
+      birthdate: s.birthday ? new Date(s.birthday).toISOString().slice(0, 10) : "",
+      gender: s.sex,
+      grade: s.grade_level,
+      section: s.section,
+      school: schoolNameById.get(String(s.school_id)) ?? "Unknown School",
+      lastVisit: chartDates.length
+        ? new Date(Math.max(...chartDates.map((d) => d.getTime()))).toISOString()
+        : null,
+      oralStatus: deriveOralStatus(riskLevel),
+      riskLevel,
+      consentStatus: s.consent_status,
+    };
+  });
+
+  res.json(rows);
+}));
+
 // Clinical models — all 5 roles can read (school_admin/bho_staff need this
 // for dashboards/reports per CLAUDE.md's own role descriptions), but only
 // clinical staff (+ System Admin as super user) can create/edit. Archive/
