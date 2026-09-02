@@ -9,6 +9,19 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
+## ⚠ UNVERIFIED DOH CAPTIONS ARE NOW RESOLVABLE — the user supplied a machine-readable workbook (2026-09-02)
+**This retires a blocker HANDOFF listed as USER-ONLY** ("19 unverified DOH captions — needs a photo of blank forms; no higher-res version exists in the manuscript"). It does: `TCLForm2andFHSISReport.xlsx` and `2026Form2withFHSIS.xlsx` are real DOH files, not scans, so every caption can be read exactly. **No photo is needed any more.**
+
+- **14 `unverified` captions in `TargetClientList.tsx`, 17 in `OralHealthProgramReport.tsx`** were transcribed from the low-resolution Appendix E/F images. Spot-check against the workbook shows several are WRONG:
+  - `Completed BPOC (1st visit)` → the form says **`Complete RPC for 1st Visit Routine Preventative Care`**. The app invented "BPOC"; "RPC" is this system's own two-visit module. **Worst of the four — a made-up acronym on a form filed with the City Health Office.**
+  - `Gum Treatment` (one column) → the form has **two**: `Gum Treatment - Scaling` and `Gum Treatment - Prescription`.
+  - `Silver Diamine Fluoride (2nd app)` (yes/no) → `2nd Silver Diamine Fluoride App` is a **tooth count**, not a boolean.
+  - `Referral` → `Referred Out`.
+- **The real TCL is 66 columns; ours is 43.** Missing include `Family Serial Number`, `Barangay`, `Age Group`, `Pit and Fissure Sealant (Tooth Count)`, `Temporary Filling (Tooth Count)`, `Complete Mouth Rehab`, `Upon Oral Examination` / `After Complete Mouth Rehabilitation` (the "Orally Fit" pair), `Last Dental Visit`, `Next Dental Visit`, `REMARKS`.
+- **`Facility Based 0 - No 1 - Yes` is column C of the real TCL** — the field Sprint 79 found missing, which is why the FHSIS facility rows render `—`. Adding it to `PREVENTIVE_CARE_RECORD` would light up those rows.
+- **The 27 cohort tabs (age x sex) are a PRESENTATION of the same rows**, not extra data — our single table with an `Age Group` column carries the same information. Splitting into tabs is cosmetic unless DOH filing requires the tab layout; **ask before building it.**
+- **Recommended order:** reconcile captions first (cheap, corrects a filed document), then the missing columns, then `facility_based`, and only then consider cohort tabs.
+
 ## Sprint 79 (FHSIS Section D — school-level oral health care services) — DONE 2026-09-02 (tsc both + build clean; 10/10 verified)
 New report tab. Source: the "FHSIS" sheet of the user-supplied `TCLForm2andFHSISReport.xlsx`.
 
