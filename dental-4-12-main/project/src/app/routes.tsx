@@ -14,6 +14,7 @@ import { AIAnalytics } from "./components/AIAnalytics";
 import { Reports } from "./components/Reports";
 import { AccountManagement } from "./components/AccountManagement";
 import { AuditTrail } from "./components/AuditTrail";
+import { SchoolManagement } from './components/SchoolManagement';
 
 const DentalChartKeyed = () => { const { id } = useParams(); return <DentalChart key={id} />; };
 
@@ -36,6 +37,7 @@ export const router = createBrowserRouter([
       { path: "ai-analytics", Component: AIAnalytics },
       { path: "reports", Component: Reports },
       { path: "accounts", Component: AccountManagement },
+      { path: "schools", Component: SchoolManagement },
       { path: "audit", Component: AuditTrail },
     ],
   },

@@ -16,6 +16,12 @@ export interface ApiSchool {
   _id: string;
   school_name: string;
   school_type: string;
+  /** All required by the School model; the admin registry form writes them.
+   *  Optional here only because older callers select a subset of fields. */
+  principal_name?: string;
+  street_address?: string;
+  barangay?: string;
+  city?: string;
   isArchived: boolean;
 }
 

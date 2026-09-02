@@ -13,6 +13,7 @@ import { toLocalDateString, formatDate } from '../utils/localDate';
 import { surnameFirst, surnameFirstWithInitial } from '../utils/studentName';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
+import { useSchools } from '../hooks/useSchools';
 
 // ─── FDI tooth layout ─────────────────────────────────────────────────────────
 const upperPermanent = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
@@ -46,7 +47,6 @@ const conditionColors: Record<string, string> = {
 };
 
 const ALL_SCHOOL_YEARS = ['2023-2024', '2024-2025', '2025-2026', '2026-2027', '2027-2028', '2028-2029', '2029-2030'];
-const SCHOOLS = ['Bagong Tanyag Integrated School', 'Bagong Tanyag Elementary School Annex A', 'South Daang Hari Elementary School Main'];
 const GRADES = ['Kinder', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10'];
 
 type ChartEntry = { condition: string; treatment: string };
@@ -140,6 +140,8 @@ export const DentalChart = () => {
   const staffNameLabel = user?.role === 'dental_aide' ? 'Dental Aide' : 'Dentist';
 
   const { students: allStudents } = useStudents();
+  // School list comes from the DB now, not a hardcoded array (Sprint 60).
+  const { schoolNames } = useSchools();
   // Only the Consent tab's "upcoming appointments" list reads this, and it
   // filters to `date >= today`, so nothing before today is worth loading
   // (Sprint 56). The forward bound is a year out — generous for any real
@@ -852,7 +854,7 @@ export const DentalChart = () => {
               <div className="md:col-span-2">
                 <label className="block text-muted-foreground font-medium mb-0.5">School</label>
                 <select value={schoolName} disabled className="w-full px-2 py-1.5 border border-border rounded-lg text-xs bg-gray-50 text-muted-foreground">
-                  {SCHOOLS.map((s) => <option key={s}>{s}</option>)}
+                  {schoolNames.map((s) => <option key={s}>{s}</option>)}
                 </select>
               </div>
               <div className="md:col-span-3">

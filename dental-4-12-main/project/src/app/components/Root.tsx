@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, Calendar, Brain,
   ClipboardList, LogOut, Stethoscope, Shield,
   Clipboard, FileBarChart, UserCog, KeyRound,
-  ChevronLeft, ChevronRight, Menu, X
+  ChevronLeft, ChevronRight, Menu, X, School
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
@@ -162,11 +162,15 @@ export const Root = () => {
       roles: ['dentist','dental_aide','school_admin','bho_staff']
     },
     {
-      id: 9, path: '/accounts', label: 'User Management', icon: UserCog,
+      id: 9, path: '/schools', label: 'Schools', icon: School,
       roles: ['system_admin']
     },
     {
-      id: 10, path: '/audit', label: 'Audit Trail', icon: ClipboardList,
+      id: 10, path: '/accounts', label: 'User Management', icon: UserCog,
+      roles: ['system_admin']
+    },
+    {
+      id: 11, path: '/audit', label: 'Audit Trail', icon: ClipboardList,
       roles: ['system_admin']
     },
     // Follow Up Alerts REMOVED

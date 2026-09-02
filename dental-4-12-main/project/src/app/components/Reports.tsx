@@ -18,6 +18,7 @@ import { TargetClientList } from './TargetClientList';
 import { OralHealthProgramReport } from './OralHealthProgramReport';
 import { treatmentCodes } from './DentalChart';
 import { schoolYearLabel } from '../utils/schoolYear';
+import { useSchools } from '../hooks/useSchools';
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -142,11 +143,6 @@ const DOH_ROWS: RowDef[] = [
 const mockReferrals: { student:string; school:string; grade:string; date:string; facility:string; reason:string; followUp:string; status:string }[] = [];
 const mockSessions: { date:string; school:string; grade:string; section:string; students:number; procedures:string[]; treated:number }[] = [];
 
-const REPORT_SCHOOLS = [
-  'Bagong Tanyag Integrated School',
-  'Bagong Tanyag Elementary School Annex A',
-  'South Daang Hari Elementary School Main',
-];
 
 const ALL_GRADES_INT = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 const CONDITIONS  = ['Caries (Primary)','Caries (Permanent)','Gingivitis','Malocclusion','Orally Fit'];
@@ -186,6 +182,8 @@ export const Reports = () => {
   // Declared here, above the hook call that consumes it — it used to sit
   // further down, which is fine until something above needs it.
   const [reportSchool, setReportSchool] = useState<string|null>(null);
+  // School list comes from the DB now, not a hardcoded array (Sprint 60).
+  const { schoolNames } = useSchools();
   const [dohSchoolYear, setDohSchoolYear] = useState<string | null>(() => schoolYearLabel());
   const { getRealCount, years: dohYears, unplacedCount, loading: dohLoading } = useDohReportData(dohSchoolYear, reportSchool);
   // Fields with no real backing data source yet show 0, never a fabricated
@@ -476,7 +474,7 @@ export const Reports = () => {
             <select id="doh-school" aria-label="School" value={reportSchool ?? ''} onChange={e => setReportSchool(e.target.value || null)}
               className="text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring">
               <option value="">All Schools</option>
-              {REPORT_SCHOOLS.map(s => <option key={s} value={s}>{getSchoolShortName(s)}</option>)}
+              {schoolNames.map(s => <option key={s} value={s}>{getSchoolShortName(s)}</option>)}
             </select>
 
             {/* School year, not calendar month: the DOH figures below are
@@ -710,7 +708,7 @@ export const Reports = () => {
                 <select value={intSchoolFilter} onChange={e => setIntSchoolFilter(e.target.value)}
                   className="text-sm border border-border rounded-lg px-3 py-1.5 bg-card focus:outline-none focus:ring-2 focus:ring-ring">
                   <option value="all">All Schools</option>
-                  {REPORT_SCHOOLS.map(s => <option key={s} value={s}>{getSchoolShortName(s)}</option>)}
+                  {schoolNames.map(s => <option key={s} value={s}>{getSchoolShortName(s)}</option>)}
                 </select>
                 <select value={intAgeFilter} onChange={e => { setIntAgeFilter(e.target.value); setIntGradeFilter('all'); }}
                   className="text-sm border border-border rounded-lg px-3 py-1.5 bg-card focus:outline-none focus:ring-2 focus:ring-ring">
@@ -944,7 +942,7 @@ export const Reports = () => {
               {(() => {
                 const highRisk = realStudents.filter((s) => s.riskLevel === 'High').length;
                 const mediumRisk = realStudents.filter((s) => s.riskLevel === 'Medium').length;
-                const consentBySchool = REPORT_SCHOOLS.map((school) => {
+                const consentBySchool = schoolNames.map((school) => {
                   const inSchool = realStudents.filter((s) => s.school === school);
                   const complete = inSchool.filter((s) => s.consentStatus === 'complete').length;
                   return { school, complete, total: inSchool.length };

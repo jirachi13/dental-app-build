@@ -19,12 +19,8 @@ import { useStudents } from '../hooks/useStudents';
 import { Pagination, usePagination } from './Pagination';
 import { apiClient, ApiError } from '../api/client';
 import type { ApiSchool } from '../api/types';
+import { useSchools } from '../hooks/useSchools';
 
-const SCHOOLS = [
-  'Bagong Tanyag Integrated School',
-  'Bagong Tanyag Elementary School Annex A',
-  'South Daang Hari Elementary School Main',
-];
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 
 // Shape of the candidates the server returns with a 409 from POST /students
@@ -314,6 +310,8 @@ export const PatientList = () => {
   };
 
   const { students: allStudents, loading: studentsLoading, reload: reloadStudents } = useStudents();
+  // School list comes from the DB now, not a hardcoded array (Sprint 60).
+  const { schoolNames } = useSchools();
 
   useEffect(() => {
     apiClient.get<ApiSchool[]>('/schools').then(setSchools).catch(() => {});
@@ -783,7 +781,7 @@ export const PatientList = () => {
                 <div><label className="block text-sm font-medium text-foreground mb-1">Birthdate * {ocrHint('birthdate')}</label><input type="date" value={newPatient.birthdate} onChange={e => setNewPatient({...newPatient, birthdate: e.target.value})} className={ocrFieldClass('birthdate')} /></div>
                 <div><label className="block text-sm font-medium text-foreground mb-1">Gender * {ocrHint('gender')}</label><select value={newPatient.gender} onChange={e => setNewPatient({...newPatient, gender: e.target.value})} className={ocrFieldClass('gender')}><option value="">Select</option><option>Male</option><option>Female</option></select></div>
               </div>
-              <div><label className="block text-sm font-medium text-foreground mb-1">School *</label><select value={newPatient.school} onChange={e => setNewPatient({...newPatient, school: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"><option value="">Select School</option>{SCHOOLS.map(s => <option key={s}>{s}</option>)}</select></div>
+              <div><label className="block text-sm font-medium text-foreground mb-1">School *</label><select value={newPatient.school} onChange={e => setNewPatient({...newPatient, school: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"><option value="">Select School</option>{schoolNames.map(s => <option key={s}>{s}</option>)}</select></div>
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-sm font-medium text-foreground mb-1">Grade * {ocrHint('grade')}</label><select value={newPatient.grade} onChange={e => setNewPatient({...newPatient, grade: e.target.value})} className={ocrFieldClass('grade')}><option value="">Select Grade</option>{GRADES.map(g => <option key={g}>{g}</option>)}</select></div>
                 <div><label className="block text-sm font-medium text-foreground mb-1">Section * {ocrHint('section')}</label><input type="text" value={newPatient.section} onChange={e => setNewPatient({...newPatient, section: e.target.value})} placeholder="e.g. Sampaguita" className={ocrFieldClass('section')} /></div>

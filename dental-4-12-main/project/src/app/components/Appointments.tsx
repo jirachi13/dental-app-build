@@ -16,12 +16,8 @@ import type { ApiSchool } from '../api/types';
 import { SkeletonPageHeader, SkeletonStatGrid, SkeletonTable } from './Skeleton';
 import { useToast } from './Toast';
 import { Modal } from './Modal';
+import { useSchools } from '../hooks/useSchools';
 
-const SCHOOLS = [
-  'Bagong Tanyag Integrated School',
-  'Bagong Tanyag Elementary School Annex A',
-  'South Daang Hari Elementary School Main',
-];
 
 const TODAY = toLocalDateString(new Date());
 
@@ -107,6 +103,8 @@ export const Appointments = () => {
 
   const { sessions, dentists, loading: appointmentsLoading, error: appointmentsError, updateSessionStatus, reload: reloadAppointments } = useAppointments(appointmentWindow);
   const { rotations, loading: rotationsLoading, reload: reloadRotations } = useDentistRotations();
+  // School list comes from the DB now, not a hardcoded array (Sprint 60).
+  const { schoolNames } = useSchools();
   const [schools, setSchools] = useState<ApiSchool[]>([]);
   const formSchoolId = schools.find(s => s.school_name === formSchool)?._id;
   const { roster: gradeRoster, sections: sectionsForGrade } = useGradeRoster(formSchoolId, selectedGrade);
@@ -544,7 +542,7 @@ export const Appointments = () => {
             </button>
           </div>
           <div className="divide-y divide-gray-100">
-            {SCHOOLS.filter(s => !selectedSchool || s === selectedSchool).map(school => {
+            {schoolNames.filter(s => !selectedSchool || s === selectedSchool).map(school => {
               const sc = getSchoolColor(school);
               const schoolRots = rotations.filter(r => r.school === school);
               return (
@@ -595,7 +593,7 @@ export const Appointments = () => {
                   <select value={formSchool} onChange={e => { setFormSchool(e.target.value); setSelectedGrade(''); setSelectedSection(''); }}
                     className="w-full text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring">
                     <option value="">Select school</option>
-                    {SCHOOLS.map(s => <option key={s} value={s}>{s}</option>)}
+                    {schoolNames.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div>
@@ -684,7 +682,7 @@ export const Appointments = () => {
                 <select value={rotSchool} onChange={e => setRotSchool(e.target.value)}
                   className="w-full text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring">
                   <option value="">Select school</option>
-                  {SCHOOLS.map(s => <option key={s} value={s}>{s}</option>)}
+                  {schoolNames.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>
