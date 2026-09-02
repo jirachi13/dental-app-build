@@ -9,6 +9,7 @@ import { useStudents } from '../hooks/useStudents';
 import { useAuth } from '../context/AuthContext';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { activatable } from '../utils/a11y';
+import { Pagination, usePagination } from './Pagination';
 
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 
@@ -71,6 +72,11 @@ export const DentalChartNav = () => {
     }
     return true;
   }), [sourcePatients, gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm]);
+
+  // Paged (Sprint 58). This is the real Dental Charts list page — it rendered
+  // every filtered row, which is thousands at ~8,000 students. Reset keys are
+  // the filter inputs, never `filtered` — see Pagination.tsx.
+  const pager = usePagination(filtered, [gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm, viewMode]);
 
   const hasActiveFilters = gradeFilter !== 'all' || sectionFilter !== 'all' || genderFilter !== 'all' || ageGroupFilter !== 'all' || searchTerm !== '';
   const clearFilters = () => { setGradeFilter('all'); setSectionFilter('all'); setGenderFilter('all'); setAgeGroupFilter('all'); setSearchTerm(''); };
@@ -145,7 +151,7 @@ export const DentalChartNav = () => {
             <tbody className={studentListTableStyles.body}>
               {filtered.length === 0 ? (
                 <tr><td colSpan={5} className={studentListTableStyles.emptyCell}>{viewMode === 'queued' && queuedStudentIds.length === 0 ? 'No students queued for charting yet — use "Queue for Charting" on the Students page, or switch to Full List.' : 'No dental charts match the selected filters.'}</td></tr>
-              ) : filtered.map(p => {
+              ) : pager.paged.map(p => {
                 const age = calculateAge(p.birthdate);
                 return (
                   <tr key={p.id} {...activatable(() => navigate(`/dental-chart/${p.id}?tab=history&context=dental-queue`))} className={studentListTableStyles.row}>
@@ -160,7 +166,17 @@ export const DentalChartNav = () => {
             </tbody>
           </table>
         </div>
-        {filtered.length > 0 && <div className={studentListTableStyles.footer}>Showing {filtered.length} of {sourcePatients.length} {viewMode === 'queued' ? 'queued students' : 'charts'}</div>}
+        {filtered.length > 0 && (
+          <div className={studentListTableStyles.footer}>
+            <Pagination
+              {...pager}
+              onPage={pager.setPage}
+              onPageSize={pager.changePageSize}
+              noun={viewMode === 'queued' ? 'queued students' : 'charts'}
+              detail={filtered.length !== sourcePatients.length ? `(filtered from ${sourcePatients.length})` : ''}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

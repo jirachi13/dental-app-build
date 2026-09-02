@@ -30,10 +30,37 @@ export const useToast = (): ToastApi => {
   return ctx;
 };
 
-const STYLES: Record<Variant, { Icon: typeof CheckCircle2; icon: string }> = {
-  success: { Icon: CheckCircle2, icon: 'text-success' },
-  error: { Icon: AlertCircle, icon: 'text-destructive' },
-  info: { Icon: Info, icon: 'text-primary' },
+// Success is a FILLED banner; error and info stay as cards.
+//
+// Asked for after a classmate reported not noticing that a save had happened
+// (2026-09-02). Saves were already announced — backlog 0f audited all 34
+// mutation sites — but a small tinted icon on a white card in the bottom-right
+// corner is easy to miss when you are looking at the form you just submitted.
+//
+// ⚠ The reference screenshot used white text on a LIGHT green (~1.9:1), which
+// fails WCAG AA badly. `--success` is green-700 #15803D and its own token
+// comment says "legible on white"; white text ON it measures ~5.0:1, which
+// passes AA for normal text. Keep the fill on that token — a lighter, friendlier
+// green would quietly break contrast.
+const STYLES: Record<Variant, { Icon: typeof CheckCircle2; icon: string; box: string; close: string }> = {
+  success: {
+    Icon: CheckCircle2,
+    icon: 'text-white',
+    box: 'bg-success text-white border-transparent',
+    close: 'text-white/80 hover:text-white',
+  },
+  error: {
+    Icon: AlertCircle,
+    icon: 'text-destructive',
+    box: 'bg-card text-foreground border-border',
+    close: 'text-muted-foreground hover:text-foreground',
+  },
+  info: {
+    Icon: Info,
+    icon: 'text-primary',
+    box: 'bg-card text-foreground border-border',
+    close: 'text-muted-foreground hover:text-foreground',
+  },
 };
 
 export const ToastProvider = ({ children }: { children: ReactNode }) => {
@@ -56,7 +83,9 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
       // cap at 3 visible so a burst of saves can't wallpaper the screen
       setToasts((prev) => [...prev.slice(-2), { id, variant, message }]);
       // errors linger longer; both well past WCAG minimums for short text
-      window.setTimeout(() => dismiss(id), variant === 'error' ? 6000 : 4000);
+      // Success now dwells longer too: the point of the change is that a save
+      // gets NOTICED, and 4s was short enough to miss while looking elsewhere.
+      window.setTimeout(() => dismiss(id), variant === 'error' ? 6000 : 5500);
     },
     [dismiss],
   );
@@ -74,23 +103,25 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
     <ToastContext.Provider value={api}>
       {children}
       {toasts.length > 0 && (
-        // sits above the page; bottom-right column, newest at the bottom.
-        // Shares the corner with UpdateToast (rare enough that stacking is fine).
-        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 items-end pointer-events-none">
+        // TOP-CENTRE, not the bottom-right corner. Confirmation belongs where
+        // the eye already is after pressing Save, and the old corner position
+        // is the main reason a save could go unnoticed. Leaves the bottom-right
+        // corner to UpdateToast, which no longer has to share.
+        <div className="fixed top-4 inset-x-0 z-50 flex flex-col gap-2 items-center px-4 pointer-events-none">
           {toasts.map((t) => {
-            const { Icon, icon } = STYLES[t.variant];
+            const { Icon, icon, box, close } = STYLES[t.variant];
             return (
               <div
                 key={t.id}
                 role={t.variant === 'error' ? 'alert' : 'status'}
-                className={`${t.leaving ? 'toast-leave' : 'rise'} pointer-events-auto bg-card rounded-xl border border-border shadow-lg px-4 py-3 flex items-center gap-2.5 max-w-sm`}
+                className={`${t.leaving ? 'toast-leave' : 'toast-drop'} pointer-events-auto ${box} rounded-xl border shadow-lg px-5 py-3.5 flex items-center gap-3 max-w-md w-full sm:w-auto`}
               >
-                <Icon className={`w-4 h-4 shrink-0 ${icon}`} />
-                <span className="text-sm text-foreground min-w-0">{t.message}</span>
+                <Icon className={`w-5 h-5 shrink-0 ${icon}`} />
+                <span className="text-sm font-medium min-w-0">{t.message}</span>
                 <button
                   onClick={() => dismiss(t.id)}
                   aria-label="Dismiss notification"
-                  className="text-muted-foreground hover:text-foreground shrink-0 ml-1"
+                  className={`${close} shrink-0 ml-1`}
                 >
                   <X className="w-4 h-4" />
                 </button>

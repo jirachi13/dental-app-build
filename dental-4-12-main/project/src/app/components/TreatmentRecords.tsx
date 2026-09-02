@@ -10,6 +10,7 @@ import { apiClient } from '../api/client';
 import type { ApiStudentIptr, ApiTreatment } from '../api/types';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { activatable } from '../utils/a11y';
+import { Pagination, usePagination } from './Pagination';
 
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 
@@ -85,6 +86,11 @@ export const TreatmentRecords = () => {
     return true;
   }), [sourcePatients, gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm]);
 
+  // Paged (Sprint 58): this list rendered EVERY filtered row, which is fine at
+  // demo scale and thousands of DOM rows at ~8,000 students. Reset keys are the
+  // filter inputs, never `filtered` — see Pagination.tsx.
+  const pager = usePagination(filtered, [gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm]);
+
   const hasActiveFilters = [gradeFilter, sectionFilter, genderFilter, ageGroupFilter].some(f => f !== 'all') || searchTerm !== '';
   const clearFilters = () => { setGradeFilter('all'); setSectionFilter('all'); setGenderFilter('all'); setAgeGroupFilter('all'); setSearchTerm(''); };
 
@@ -146,7 +152,7 @@ export const TreatmentRecords = () => {
             <tbody className={studentListTableStyles.body}>
               {filtered.length === 0 ? (
                 <tr><td colSpan={5} className={studentListTableStyles.emptyCell}>{viewMode === 'treatment' && !hasActiveFilters ? 'No students with treatment records at this school yet — switch to Full List to browse all students.' : 'No treatment records match the selected filters.'}</td></tr>
-              ) : filtered.map(t => {
+              ) : pager.paged.map(t => {
                 const age = calculateAge(t.birthdate);
                 return (
                   <tr key={t.id} {...activatable(() => navigate(`/dental-chart/${t.id}?tab=chart&context=treatment`))} className={studentListTableStyles.row}>
@@ -161,7 +167,17 @@ export const TreatmentRecords = () => {
             </tbody>
           </table>
         </div>
-        {filtered.length > 0 && <div className={studentListTableStyles.footer}>Showing {filtered.length} of {sourcePatients.length} records</div>}
+        {filtered.length > 0 && (
+          <div className={studentListTableStyles.footer}>
+            <Pagination
+              {...pager}
+              onPage={pager.setPage}
+              onPageSize={pager.changePageSize}
+              noun="records"
+              detail={filtered.length !== sourcePatients.length ? `(filtered from ${sourcePatients.length})` : ''}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

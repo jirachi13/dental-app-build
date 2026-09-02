@@ -16,6 +16,7 @@ import { ListSearchInput } from './ListSearchInput';
 import { studentListTableStyles } from './StudentListTableStyles';
 import { addQueuedStudentId, getQueuedStudentIds, removeQueuedStudentId, setQueuedStudentIds as persistQueuedStudentIds } from '../utils/queueStorage';
 import { useStudents } from '../hooks/useStudents';
+import { Pagination, usePagination } from './Pagination';
 import { apiClient, ApiError } from '../api/client';
 import type { ApiSchool } from '../api/types';
 
@@ -484,20 +485,11 @@ export const PatientList = () => {
   // that the full set is present all keep working. Reducing the payload is a
   // separate, riskier job (backlog #0b Option 2) and is NOT what this is.
   //
-  // 25, not 10: a clinic worklist reads better in bigger pages, and 10 would
-  // mean five pages just to see one section.
-  const PAGE_SIZE = 25;
-  const [page, setPage] = useState(1);
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  // Clamped rather than trusted: deleting or filtering can shrink the list
-  // under the current page, which would otherwise render an empty table.
-  const safePage = Math.min(page, pageCount);
-  const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-
-  // Back to page 1 when the filters change — keyed on the filter inputs, NOT
-  // on `filtered`, so a background refresh (Sprint 40) does not yank the user
-  // back to the top of the list while they are reading page 3.
-  useEffect(() => { setPage(1); }, [gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm, selectedSchool]);
+  // Paging now lives in the shared hook (see Pagination.tsx), which also
+  // carries the page-size picker. Reset keys are the FILTER INPUTS, not
+  // `filtered` — see the hook for why that distinction matters.
+  const pager = usePagination(filtered, [gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm, selectedSchool]);
+  const paged = pager.paged;
 
   const hasActiveFilters = gradeFilter !== 'all' || sectionFilter !== 'all' || genderFilter !== 'all' || ageGroupFilter !== 'all' || searchTerm !== '';
 
@@ -719,31 +711,14 @@ export const PatientList = () => {
               </table>
             </div>
             {filtered.length > 0 && (
-              <div className={`${studentListTableStyles.footer} flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between`}>
-                <span>
-                  Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length}
-                  {filtered.length !== schoolStudents.length ? ` (filtered from ${schoolStudents.length})` : ''} students
-                  {selectedSchool ? ` at ${getSchoolShortName(selectedSchool)}` : ''}
-                </span>
-                {/* Pager hidden on a single page — controls that can never do
-                    anything are just noise. */}
-                {pageCount > 1 && (
-                  <span className="flex items-center gap-1">
-                    <button
-                      onClick={() => setPage(p => Math.max(1, p - 1))}
-                      disabled={safePage === 1}
-                      className="px-2 py-1 border border-border rounded-lg text-muted-foreground hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent"
-                      aria-label="Previous page"
-                    ><ChevronLeft className="w-4 h-4" /></button>
-                    <span className="px-2 tabular-nums">Page {safePage} of {pageCount}</span>
-                    <button
-                      onClick={() => setPage(p => Math.min(pageCount, p + 1))}
-                      disabled={safePage === pageCount}
-                      className="px-2 py-1 border border-border rounded-lg text-muted-foreground hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent"
-                      aria-label="Next page"
-                    ><ChevronRight className="w-4 h-4" /></button>
-                  </span>
-                )}
+              <div className={studentListTableStyles.footer}>
+                <Pagination
+                  {...pager}
+                  onPage={pager.setPage}
+                  onPageSize={pager.changePageSize}
+                  noun="students"
+                  detail={`${filtered.length !== schoolStudents.length ? `(filtered from ${schoolStudents.length}) ` : ''}${selectedSchool ? `at ${getSchoolShortName(selectedSchool)}` : ''}`.trim()}
+                />
               </div>
             )}
           </div>

@@ -7,6 +7,7 @@ import { useRPCTracking } from '../hooks/useRPCTracking';
 import { treatmentCodes } from './DentalChart';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { activatable } from '../utils/a11y';
+import { Pagination, usePagination } from './Pagination';
 
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 
@@ -74,6 +75,11 @@ export const RPCTracking = () => {
     if (searchTerm && !r.studentName.toLowerCase().includes(searchTerm.toLowerCase())) return false;
     return true;
   }), [schoolRecords, gradeFilter, sectionFilter, genderFilter, ageGroupFilter, statusFilter, treatmentFilter, searchTerm]);
+
+  // Paged (Sprint 58): this list rendered EVERY filtered row, which is fine at
+  // demo scale and thousands of DOM rows at ~8,000 students. Reset keys are the
+  // filter inputs, never `filtered` — see Pagination.tsx.
+  const pager = usePagination(filtered, [gradeFilter, sectionFilter, genderFilter, ageGroupFilter, statusFilter, treatmentFilter, searchTerm]);
 
   // sectionFilter was missing from both of these — an active section filter
   // neither lit up "Clear All" nor got cleared by it.
@@ -154,7 +160,7 @@ export const RPCTracking = () => {
             <tbody className="divide-y divide-gray-100">
               {filtered.length === 0 ? (
                 <tr><td colSpan={7} className="text-center py-12 text-muted-foreground">{hasActiveFilters ? <>No records match your filters. <button onClick={clearFilters} className="text-primary hover:underline font-medium">Clear filters</button></> : 'No RPC records for this school yet.'}</td></tr>
-              ) : filtered.map(r => {
+              ) : pager.paged.map(r => {
                 const sc = statusConfig[r.status] || statusConfig['not-started'];
                 const gc = getGradeColor(r.grade);
                 return (
@@ -183,7 +189,15 @@ export const RPCTracking = () => {
             </tbody>
           </table>
         </div>
-        <div className="px-4 py-3 border-t border-gray-100 text-sm text-muted-foreground">Showing {filtered.length} of {schoolRecords.length} records</div>
+        <div className="px-4 py-3 border-t border-gray-100 text-sm text-muted-foreground">
+          <Pagination
+            {...pager}
+            onPage={pager.setPage}
+            onPageSize={pager.changePageSize}
+            noun="records"
+            detail={filtered.length !== schoolRecords.length ? `(filtered from ${schoolRecords.length})` : ''}
+          />
+        </div>
       </div>
 
     </div>
