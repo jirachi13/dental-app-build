@@ -33,7 +33,25 @@ export default defineConfig({
         // Dynamic-imported heavy chunks are fetched on demand by the few
         // staff who use those features — precaching them would make every
         // visitor download them on install anyway.
-        globIgnores: ['**/iptrOcr-*.js', '**/exceljs*.js'],
+        //
+        // The PDF-export trio was missed when this list was first written and
+        // sat in the precache for months: jspdf (382 kB), html2canvas-pro
+        // (240 kB) and html2canvas (198 kB), ~820 kB that only ever loads when
+        // someone exports a PDF (`utils/exportPdf.ts` imports all three
+        // dynamically, and nothing imports them statically). Every device paid
+        // that on service-worker install, which matters most on a phone over
+        // mobile data — the case CLAUDE.md's three-device rule cares about.
+        //
+        // ⚠ Only add a pattern here for a chunk reached exclusively through
+        // `import()`. Excluding a statically-imported chunk breaks the app
+        // offline, because the SW will not have it and there is no network to
+        // fall back to.
+        globIgnores: [
+          '**/iptrOcr-*.js',
+          '**/exceljs*.js',
+          '**/jspdf*.js',
+          '**/html2canvas*.js',
+        ],
       },
     }),
   ],
