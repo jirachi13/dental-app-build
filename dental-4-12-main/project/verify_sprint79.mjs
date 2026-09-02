@@ -147,6 +147,27 @@ const run = async () => {
   check('THE MONTH PICKER ACTUALLY FILTERS (empty month totals 0)', emptySum === 0, `got ${emptySum}`);
   check('the form still renders all its rows in an empty month', emptyRows.length === rowsAt.length, `${emptyRows.length} vs ${rowsAt.length}`);
 
+  // ── exports (Sprint 79b) ────────────────────────────────────────────────
+  // A download that throws still "clicks" fine, so assert a real file arrives.
+  await page.fill('#fhsis-month', target);
+  await page.waitForTimeout(1500);
+  const fs = await import('node:fs');
+  for (const [label, ext] of [['PDF', 'pdf'], ['Excel', 'xlsx']]) {
+    try {
+      const [download] = await Promise.all([
+        page.waitForEvent('download', { timeout: 60000 }),
+        page.click(`button:has-text("${label}")`),
+      ]);
+      const name = download.suggestedFilename();
+      const path = await download.path();
+      const size = path ? fs.statSync(path).size : 0;
+      check(`${label} export downloads a non-empty file`, size > 1000, `${name} ${size}B`);
+      check(`${label} filename carries the month`, name.includes(target) && name.endsWith(`.${ext}`), name);
+    } catch (e) {
+      check(`${label} export downloads a non-empty file`, false, String(e).slice(0, 90));
+    }
+  }
+
   await browser.close();
   console.log(`\n${pass} passed, ${fail} failed\n`);
   process.exit(fail === 0 ? 0 : 1);

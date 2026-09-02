@@ -1,5 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { Download, FileSpreadsheet } from 'lucide-react';
 import { useFhsisData, FHSIS_BANDS, type FhsisBandKey, type Measure } from '../hooks/useFhsisData';
+import { exportDohReportToPdf } from '../utils/exportPdf';
+import { exportToXlsx } from '../utils/exportXlsx';
 import { SkeletonTable } from './Skeleton';
 
 // ─── FHSIS · SECTION D. ORAL HEALTH CARE SERVICES ────────────────────────────
@@ -61,6 +64,82 @@ const thisMonth = () => {
 export const FhsisReport = ({ schoolName }: { schoolName: string }) => {
   const [month, setMonth] = useState(thisMonth);
   const { counts, monthsWithData, loading, error } = useFhsisData(month, schoolName);
+  const printableRef = useRef<HTMLDivElement>(null);
+  const [busy, setBusy] = useState<'pdf' | 'xlsx' | null>(null);
+
+  /** Filename stamped with school + month, so downloads are distinguishable
+   *  once several months are filed. */
+  const baseName = `FHSIS-SectionD_${(schoolName || 'All-Schools').replace(/[^\w]+/g, '-')}_${month}`;
+
+  const onPdf = async () => {
+    if (!printableRef.current) return;
+    setBusy('pdf');
+    try {
+      await exportDohReportToPdf(printableRef.current, `${baseName}.pdf`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // The Excel export writes the SAME cells the screen shows, "—" included, so
+  // the downloaded workbook makes the identical claims as the report. Writing
+  // 0 where the screen says "—" would quietly turn "not recorded" into
+  // "examined none" the moment it left the app.
+  const onXlsx = async () => {
+    setBusy('xlsx');
+    try {
+      type Row = { indicator: string; male: string; female: string; total: string; remarks: string };
+      const rows: Row[] = [];
+      const dash = { male: '—', female: '—', total: '—', remarks: 'not recorded' };
+      for (const measure of MEASURES) {
+        rows.push({ indicator: measure.heading, male: '', female: '', total: '', remarks: '' });
+        FHSIS_BANDS.forEach((band, idx) => {
+          const c = counts[band.key as FhsisBandKey][measure.key];
+          const n = idx + 1;
+          rows.push({
+            indicator:
+              band.key === 'infants'
+                ? `${n}. Infants 0-11 months old who had their first dental visit`
+                : `${n}. ${measure.caption(band.label)}`,
+            male: String(c.male),
+            female: String(c.female),
+            total: String(c.male + c.female),
+            remarks: '',
+          });
+          if (band.key === 'infants') return;
+          for (const suffix of ['a', 'b'] as const) {
+            rows.push({
+              indicator: `${n}${suffix}. ${band.label} who ${measure.key === 'first' ? 'had their 1st visit' : 'completed 2 visits'} to a ${suffix === 'a' ? 'facility-based' : 'non-facility-based'} oral health care professional within a year`,
+              ...dash,
+            });
+          }
+        });
+      }
+      rows.push({ indicator: 'PREGNANT WOMEN (by age group)', male: '', female: '', total: '', remarks: '' });
+      for (const measure of MEASURES) {
+        for (const group of PREGNANT_AGE_GROUPS) {
+          rows.push({
+            indicator: `6. Pregnant Women ${group} who ${measure.key === 'first' ? 'had their 1st visit' : 'completed 2 visits'} to an oral health care professional within a year`,
+            ...dash,
+          });
+        }
+      }
+      await exportToXlsx(
+        rows,
+        [
+          { label: `Indicators — School: ${schoolName || 'All schools'} — Month: ${monthLabel(month)}`, value: (r) => r.indicator },
+          { label: 'Male', value: (r) => r.male },
+          { label: 'Female', value: (r) => r.female },
+          { label: 'Total', value: (r) => r.total },
+          { label: 'Remarks', value: (r) => r.remarks },
+        ],
+        `${baseName}.xlsx`,
+        'FHSIS Section D',
+      );
+    } finally {
+      setBusy(null);
+    }
+  };
 
   if (error) {
     return <div className="rounded-lg border border-danger/30 bg-danger/5 p-4 text-sm text-danger">{error}</div>;
@@ -92,15 +171,36 @@ export const FhsisReport = ({ schoolName }: { schoolName: string }) => {
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
           />
         </div>
-        {monthsWithData.length > 0 && (
-          <p className="text-xs text-muted-foreground">
-            Visits recorded in: {monthsWithData.slice(0, 6).map(monthLabel).join(', ')}
-            {monthsWithData.length > 6 ? '…' : ''}
-          </p>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {monthsWithData.length > 0 && (
+            <p className="mr-2 text-xs text-muted-foreground">
+              Visits recorded in: {monthsWithData.slice(0, 6).map(monthLabel).join(', ')}
+              {monthsWithData.length > 6 ? '…' : ''}
+            </p>
+          )}
+          <button
+            onClick={onPdf}
+            disabled={busy !== null}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+          >
+            <Download className="h-4 w-4" /> {busy === 'pdf' ? 'Preparing…' : 'PDF'}
+          </button>
+          <button
+            onClick={onXlsx}
+            disabled={busy !== null}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+          >
+            <FileSpreadsheet className="h-4 w-4" /> {busy === 'xlsx' ? 'Preparing…' : 'Excel'}
+          </button>
+        </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-card p-4">
+      {/* ref is on the OUTER box so the School/Month header band and the section
+          title are captured WITH the table. html2canvas clips to the ref'd
+          element's own rendered box, so a banner placed outside it shows on
+          screen and is silently missing from the PDF — the exact trap noted on
+          the DOH Consolidated report. */}
+      <div ref={printableRef} className="overflow-x-auto rounded-lg border border-gray-200 bg-card p-4">
         {/* Header band, as printed. */}
         <div className="mb-3 text-sm">
           <div className="flex flex-wrap gap-x-8 gap-y-1">
