@@ -128,6 +128,17 @@ export const Root = () => {
 
   if (!user) return null;
 
+  // System Admin is the super user and reaches every OPERATIONAL screen, not
+  // just the three admin ones — the server already agreed (CLINICAL_WRITE_ROLES
+  // includes system_admin, and reads default to all roles), so only this nav
+  // was hiding them.
+  //
+  // ⚠ Risk Classification is the ONE deliberate exception. Validating an AI
+  // recommendation there is recorded as clinical sign-off in the audit trail,
+  // and CLAUDE.md's premise is that the DENTIST validates every recommendation
+  // before clinical action. Adding 'system_admin' to id 5 would let a
+  // non-clinician sign off, which weakens the guarantee Chapter 3 rests on.
+  // It is a one-word change if that is wanted — make it deliberately.
   const allTabs = [
     {
       id: 1, path: '/', label: 'Dashboard', icon: LayoutDashboard,
@@ -135,15 +146,15 @@ export const Root = () => {
     },
     {
       id: 2, path: '/appointments', label: 'Appointments', icon: Calendar,
-      roles: ['dentist','dental_aide']
+      roles: ['dentist','dental_aide','system_admin']
     },
     {
       id: 3, path: '/patients', label: 'Students', icon: Users,
-      roles: ['dentist','dental_aide']
+      roles: ['dentist','dental_aide','system_admin']
     },
     {
       id: 4, path: '/dental-charts', label: 'Dental Charts', icon: Stethoscope,
-      roles: ['dentist','dental_aide']
+      roles: ['dentist','dental_aide','system_admin']
     },
     {
       id: 5, path: '/ai-analytics', label: 'Risk Classification', icon: Brain,
@@ -151,15 +162,15 @@ export const Root = () => {
     },
     {
       id: 6, path: '/treatment-records', label: 'Treatment', icon: Clipboard,
-      roles: ['dentist','dental_aide']
+      roles: ['dentist','dental_aide','system_admin']
     },
     {
       id: 7, path: '/rpc', label: 'RPC Tracking', icon: Shield,
-      roles: ['dentist','dental_aide']
+      roles: ['dentist','dental_aide','system_admin']
     },
     {
       id: 8, path: '/reports', label: 'Reports', icon: FileBarChart,
-      roles: ['dentist','dental_aide','school_admin','bho_staff']
+      roles: ['dentist','dental_aide','school_admin','bho_staff','system_admin']
     },
     {
       id: 9, path: '/schools', label: 'Schools', icon: School,
