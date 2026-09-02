@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
 import type { ApiStudent } from '../api/types';
@@ -105,6 +105,16 @@ const NO_SOURCE = '—';
  *  that could not be made out with confidence. Shown with a dotted underline
  *  and counted in the note above the table. CHECK AGAINST THE PAPER FORM. */
 type Row = {
+  id: string;
+  name: string;
+  philhealth: string;
+  address: string;
+  contact: string;
+  birthdate: string;
+  age: number | null;
+  ageGroup: string;
+  sex: string;
+  consultDate: string | null;
   risk: string | null;
   visit1Done: boolean;
   visit2Done: boolean;
@@ -128,6 +138,21 @@ const PREVENTIVE_SET = (visitDone: (r: Row) => boolean, isSecond: boolean): Omit
   { label: 'Fluoride Varnish App', value: (r) => (r.treatments.includes('FV') ? '✓' : '') },
   { label: isSecond ? 'Completed BPOC (2nd visit)' : 'Completed BPOC (1st visit)', unverified: true },
 ];
+
+/** The left-hand identity columns. Data-driven so they can be hidden like the
+ *  service ones — the dentist's note was "Column - puede mahide", and half a
+ *  hideable table would be worse than none.
+ *
+ *  `rotate` marks the narrow columns whose captions run bottom-to-top on the
+ *  printed form; the wide ones keep horizontal captions. */
+type IdentityCol = {
+  key: string;
+  label: string;
+  rotate?: boolean;
+  head?: ReactNode;
+  value: (r: Row, i: number) => ReactNode;
+  cls?: string;
+};
 
 const SERVICE_COLUMNS: ServiceCol[] = [
   ...PREVENTIVE_SET((r) => r.visit1Done, false).map((c) => ({ ...c, group: 'FIRST' as const })),
@@ -215,7 +240,53 @@ export const TargetClientList = () => {
 
   const withoutConsult = rows.length - rows.filter((r) => r.consultDate).length;
 
+  // Hidden columns, remembered per browser. Hiding CHANGES WHAT PRINTS, which
+  // is what the dentist asked for; the note above the table declares it so a
+  // shortened sheet is never mistaken for the complete DOH form (Sprint 71).
+  const [hiddenCols, setHiddenCols] = useState<Set<string>>(() => {
+    try {
+      const raw = window.localStorage.getItem('tcl-hidden-cols');
+      return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+    } catch { return new Set(); }
+  });
+  const [showPicker, setShowPicker] = useState(false);
+  const hideToggle = (key: string) => setHiddenCols((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    try { window.localStorage.setItem('tcl-hidden-cols', JSON.stringify([...next])); } catch { /* private mode */ }
+    return next;
+  });
+  const showAllCols = () => {
+    setHiddenCols(new Set());
+    try { window.localStorage.setItem('tcl-hidden-cols', '[]'); } catch { /* private mode */ }
+  };
+
   if (studentsLoading || rpcLoading) return <SkeletonTable rows={8} />;
+
+  const IDENTITY_COLUMNS: IdentityCol[] = [
+    { key: 'no', label: 'No.', value: (_r, i) => i + 1 },
+    { key: 'consult', label: 'Date of consultation', head: <>Date of<br />consultation</>, value: (r) => (r.consultDate ? formatDate(r.consultDate) : '') },
+    { key: 'philhealth', label: 'PhilHealth No.', value: (r) => r.philhealth },
+    { key: 'name', label: 'Name', head: <>Name<br /><span className="font-normal">(Last, First, MI)</span></>, value: (r) => r.name, cls: 'font-medium' },
+    { key: 'address', label: 'Complete Address', value: (r) => r.address, cls: 'max-w-[220px] truncate' },
+    { key: 'contact', label: 'Contact Number', value: (r) => r.contact },
+    { key: 'dob', label: 'Date of Birth', value: (r) => (r.birthdate ? formatDate(r.birthdate) : '') },
+    { key: 'age', label: 'Age', rotate: true, value: (r) => r.age ?? '' },
+    { key: 'agegroup', label: 'Age Group', rotate: true, value: (r) => r.ageGroup },
+    { key: 'sex', label: 'Sex', value: (r) => r.sex },
+  ];
+  const visibleIdentity = IDENTITY_COLUMNS.filter((c) => !hiddenCols.has(`id|${c.key}`));
+  const visibleServices = SERVICE_COLUMNS.filter((c) => !hiddenCols.has(`sv|${c.group}|${c.label}`));
+  const remarksVisible = !hiddenCols.has('id|remarks');
+  // Group bands must span only what is shown, or the header drifts out of
+  // alignment with its body.
+  const visibleServiceGroups = visibleServices.reduce<{ label: string; span: number }[]>((acc, c) => {
+    const last = acc[acc.length - 1];
+    if (last && last.label === c.group) last.span += 1;
+    else acc.push({ label: c.group, span: 1 });
+    return acc;
+  }, []);
+  const hiddenCount = hiddenCols.size;
 
   const tick = (on: boolean) => (on ? '✓' : '');
   const hasCode = (codes: string[], code: string) => (codes.includes(code) ? '✓' : '');
@@ -285,6 +356,11 @@ export const TargetClientList = () => {
           </label>
         </div>
         <p className="text-xs text-muted-foreground mt-2">
+          <button
+            onClick={() => setShowPicker((v) => !v)}
+            aria-expanded={showPicker}
+            className="float-right ml-3 text-xs px-2 py-1 border border-border rounded-md text-foreground hover:bg-gray-50"
+          >{showPicker ? 'Done' : `Columns${hiddenCount ? ` (${hiddenCount} hidden)` : ''}`}</button>
           <span className="font-semibold text-foreground">{periodLabel}</span> — showing {visible.length} client
           {visible.length !== 1 ? 's' : ''} consulted{selectedSchool ? ' at the selected school' : ' across all schools'}.
           {withoutConsult > 0 && ` ${withoutConsult} enrolled client${withoutConsult !== 1 ? 's have' : ' has'} no recorded consultation and appear${withoutConsult !== 1 ? '' : 's'} in no period.`}
@@ -294,12 +370,53 @@ export const TargetClientList = () => {
           Every column of the paper form is shown, including those the system cannot fill — a blank cell on a
           DOH form is meaningful. Columns marked <span className="font-semibold">{NO_SOURCE}</span> have no
           source: preventive care records store the visit date only, not the individual services performed at
-          it. {TCL_UNVERIFIED > 0 && (
+          it.
+          {hiddenCount > 0 && (
+            <> <span className="font-semibold text-foreground">This sheet is not the complete standard form:</span>{' '}
+            {hiddenCount} column{hiddenCount === 1 ? '' : 's'} hidden, and hidden columns do not print.</>
+          )}
+          {TCL_UNVERIFIED > 0 && (
             <><span className="border-b border-dotted border-amber-500">Dotted</span> captions ({TCL_UNVERIFIED})
             were read from a low-resolution scan of Appendix E and still need checking against the paper form.</>
           )}
         </p>
       </div>
+
+      {showPicker && (
+        <div className="bg-card rounded-xl border border-border p-4 space-y-3 text-xs">
+          <p className="text-muted-foreground">
+            Untick to hide. Hiding changes what is <span className="font-medium text-foreground">printed</span>,
+            not just what is on screen — anything hidden is declared above the table.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5">
+            {IDENTITY_COLUMNS.map((c) => (
+              <label key={c.key} className="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" checked={!hiddenCols.has(`id|${c.key}`)}
+                  onChange={() => hideToggle(`id|${c.key}`)} className="w-3.5 h-3.5 rounded accent-primary" />
+                <span className="truncate" title={c.label}>{c.label}</span>
+              </label>
+            ))}
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" checked={remarksVisible}
+                onChange={() => hideToggle('id|remarks')} className="w-3.5 h-3.5 rounded accent-primary" />
+              <span>Remarks</span>
+            </label>
+            {SERVICE_COLUMNS.map((c, i) => (
+              <label key={`${c.group}-${c.label}-${i}`} className="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" checked={!hiddenCols.has(`sv|${c.group}|${c.label}`)}
+                  onChange={() => hideToggle(`sv|${c.group}|${c.label}`)} className="w-3.5 h-3.5 rounded accent-primary" />
+                <span className="truncate" title={`${c.group} · ${c.label}`}>{c.label}</span>
+              </label>
+            ))}
+          </div>
+          {hiddenCount > 0 && (
+            <button onClick={showAllCols}
+              className="px-2 py-1 border border-border rounded-md text-foreground hover:bg-gray-50">
+              Show everything
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Scrolls inside its own container, like the DOH table — the form is far
           wider than any screen and the page itself must never scroll sideways. */}
@@ -307,31 +424,25 @@ export const TargetClientList = () => {
         <table className="border-collapse">
           <thead className="bg-gray-50">
             {/* Group band — thin, above the tall caption band, exactly as the
-                paper form runs FIRST / SECOND / OTHER SERVICES across the top. */}
+                paper form runs FIRST / SECOND / OTHER SERVICES across the top.
+                Spans are computed from the VISIBLE columns (Sprint 72). */}
             <tr>
-              <th className={th} rowSpan={2}>No.</th>
-              <th className={th} colSpan={9} />
-              {SERVICE_GROUPS.map((g) => (
+              {visibleIdentity.length > 0 && <th className={th} colSpan={visibleIdentity.length} />}
+              {visibleServiceGroups.map((g) => (
                 <th key={g.label} colSpan={g.span}
                     className={`${th} ${g.label === 'OTHER SERVICES' ? 'bg-amber-50' : 'bg-blue-50'}`}>
                   {g.label}
                 </th>
               ))}
-              <th className={th} rowSpan={2}>Remarks</th>
+              {remarksVisible && <th className={th} />}
             </tr>
             <tr className={HEADER_H}>
-              {/* Wide identity columns keep horizontal captions, centred in the
-                  band — the same treatment they get on the printed sheet. */}
-              <th className={thFlat}>Date of<br />consultation</th>
-              <th className={thFlat}>PhilHealth No.</th>
-              <th className={thFlat}>Name<br /><span className="font-normal">(Last, First, MI)</span></th>
-              <th className={thFlat}>Complete Address</th>
-              <th className={thFlat}>Contact Number</th>
-              <th className={thFlat}>Date of Birth</th>
-              <RotHead label="Age" />
-              <RotHead label="Age Group" />
-              <th className={thFlat}>Sex</th>
-              {SERVICE_COLUMNS.map((c, i) => (
+              {visibleIdentity.map((c) => (
+                c.rotate
+                  ? <RotHead key={c.key} label={c.label} />
+                  : <th key={c.key} className={thFlat}>{c.head ?? c.label}</th>
+              ))}
+              {visibleServices.map((c, i) => (
                 <RotHead
                   key={`${c.group}-${c.label}-${i}`}
                   label={c.label}
@@ -339,30 +450,27 @@ export const TargetClientList = () => {
                   unverified={c.unverified}
                 />
               ))}
+              {remarksVisible && <th className={thFlat}>Remarks</th>}
             </tr>
           </thead>
           <tbody>
             {visible.length === 0 ? (
-              <tr><td className={`${td} text-center text-muted-foreground`} colSpan={TCL_COLSPAN}>No clients consulted in this period.</td></tr>
+              <tr><td className={`${td} text-center text-muted-foreground`} colSpan={visibleIdentity.length + visibleServices.length + (remarksVisible ? 1 : 0)}>No clients consulted in this period.</td></tr>
             ) : visible.map((r, i) => (
               <tr key={r.id} className="hover:bg-gray-50">
-                <td className={td}>{i + 1}</td>
-                <td className={td}>{r.consultDate ? formatDate(r.consultDate) : ''}</td>
-                <td className={td}>{r.philhealth}</td>
-                <td className={`${td} font-medium`}>{r.name}</td>
-                <td className={`${td} max-w-[220px] truncate`} title={r.address}>{r.address}</td>
-                <td className={td}>{r.contact}</td>
-                <td className={td}>{r.birthdate ? formatDate(r.birthdate) : ''}</td>
-                <td className={td}>{r.age ?? ''}</td>
-                <td className={td}>{r.ageGroup}</td>
-                <td className={td}>{r.sex}</td>
-                {SERVICE_COLUMNS.map((c, i) => (
-                  <td key={`${c.group}-${c.label}-${i}`}
+                {visibleIdentity.map((c) => (
+                  <td key={c.key} className={`${td} ${c.cls ?? ''}`}
+                      title={c.key === 'address' ? r.address : undefined}>
+                    {c.value(r, i)}
+                  </td>
+                ))}
+                {visibleServices.map((c, n) => (
+                  <td key={`${c.group}-${c.label}-${n}`}
                       className={`${td} text-center ${c.value ? '' : 'text-muted-foreground'}`}>
                     {c.value ? c.value(r) : NO_SOURCE}
                   </td>
                 ))}
-                <td className={td} />
+                {remarksVisible && <td className={td} />}
               </tr>
             ))}
           </tbody>
