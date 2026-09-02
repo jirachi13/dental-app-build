@@ -216,9 +216,14 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
       if (options.uniqueBy && options.uniqueBy.every((f) => body[f] !== undefined)) {
         const filter: Record<string, unknown> = {};
         for (const f of options.uniqueBy) filter[f] = body[f];
-        // Archived records still count: restoring one would otherwise
-        // resurrect a duplicate that passed this check while hidden.
-        const existing = await model.findOne(filter).lean();
+        // Only LIVE records block a create. This used to count archived ones
+        // too, to stop a later restore resurrecting a duplicate — but that
+        // made archiving worse than deleting: an IPTR recorded against the
+        // wrong pupil and archived left that pupil+year permanently
+        // uncreatable, 409-ing against a record the UI cannot even show.
+        // The restore route below now carries that check instead, which is
+        // where the conflict is visible and an admin can actually resolve it.
+        const existing = await model.findOne({ ...filter, isArchived: false }).lean();
         if (existing) {
           res.status(409).json({ error: `A ${modelName} already exists for that ${options.uniqueBy.join(" + ")}` });
           return;
@@ -298,6 +303,30 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
         if (!mongoose.isValidObjectId(req.params.id)) {
           res.status(400).json({ error: "Invalid id" });
           return;
+        }
+        // The create guard deliberately ignores archived records, so the
+        // uniqueness conflict can only surface here: while this one sat
+        // archived, a live record may have taken its student_id + school_year.
+        // Restoring anyway would leave two live records sharing a key that is
+        // supposed to be unique, and every read that assumes one would pick
+        // arbitrarily between them.
+        if (options.uniqueBy) {
+          const archived: any = await model.findById(req.params.id).lean();
+          if (!archived) {
+            res.status(404).json({ error: "Not found" });
+            return;
+          }
+          if (options.uniqueBy.every((f) => archived[f] !== undefined && archived[f] !== null)) {
+            const filter: Record<string, unknown> = { isArchived: false };
+            for (const f of options.uniqueBy) filter[f] = archived[f];
+            const clash = await model.findOne(filter).lean();
+            if (clash) {
+              res.status(409).json({
+                error: `Cannot restore: another ${modelName} is already active for that ${options.uniqueBy.join(" + ")}. Archive that one first.`,
+              });
+              return;
+            }
+          }
         }
         const doc = await model.findByIdAndUpdate(
           req.params.id,
