@@ -21,6 +21,18 @@ const studentIptrSchema = new mongoose.Schema(
     // which is what enrolment lists and the appointment roster want.
     grade_level: { type: String, default: null },
     section: { type: String, default: null },
+    // Height and weight are year-varying in exactly the way grade is — a pupil
+    // measured at 120 cm in Grade 3 is not 120 cm in Grade 6 — so they belong
+    // on the per-year record, not on STUDENT (Sprint 68).
+    //
+    // BMI is deliberately NOT stored. It is a pure function of these two, and a
+    // stored copy would drift the moment either is corrected — the same reason
+    // age is derived rather than kept (Sprint 57b).
+    //
+    // Null when not measured. Nothing to backfill: the system has never
+    // recorded either, so no migration accompanies this.
+    height_cm: { type: Number, default: null, min: 0, max: 300 },
+    weight_kg: { type: Number, default: null, min: 0, max: 500 },
     ...softDeleteFields,
   },
   { timestamps: { createdAt: "created_at", updatedAt: false } },

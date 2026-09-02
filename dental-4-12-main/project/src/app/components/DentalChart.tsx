@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router';
 import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, TrendingUp, FileText, Plus, Pencil, Trash2, Brain } from 'lucide-react';
 import { getGradeColor } from '../utils/gradeColors';
+import { computeBmi, BMI_NOTE } from '../utils/bmi';
 import { useAuth } from '../context/AuthContext';
 import { GradePill } from './GradePill';
 import { useToast } from './Toast';
@@ -220,6 +221,10 @@ export const DentalChart = () => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [editingInfo, setEditingInfo] = useState(false);
   const [draftInfo, setDraftInfo] = useState<Partial<typeof student>>({});
+  // Height and weight live on the SELECTED YEAR's IPTR, not on STUDENT, so they
+  // are drafted separately even though they share the one Edit button — the
+  // save below writes to both records (Sprint 68).
+  const [draftYear, setDraftYear] = useState<{ height_cm: string; weight_kg: string }>({ height_cm: '', weight_kg: '' });
   const [infoSaving, setInfoSaving] = useState(false);
   const [infoError, setInfoError] = useState<string | null>(null);
   const [isManagingYears, setIsManagingYears] = useState(false);
@@ -553,6 +558,11 @@ export const DentalChart = () => {
   const openEditInfo = () => {
     if (!student) return;
     setDraftInfo({ ...student });
+    const iptr = years[selectedYear]?.iptr;
+    setDraftYear({
+      height_cm: iptr?.height_cm != null ? String(iptr.height_cm) : '',
+      weight_kg: iptr?.weight_kg != null ? String(iptr.weight_kg) : '',
+    });
     setInfoError(null);
     setEditingInfo(true);
   };
@@ -563,6 +573,16 @@ export const DentalChart = () => {
     setInfoError(null);
     try {
       await apiClient.put(`/students/${id}`, draftInfo);
+      // Two writes because the panel edits two records. Blank clears the
+      // measurement rather than storing 0, which would read as "measured at
+      // zero" and feed a nonsense BMI.
+      const iptrId = years[selectedYear]?.iptr._id;
+      if (iptrId) {
+        await apiClient.put(`/student-iptrs/${iptrId}`, {
+          height_cm: draftYear.height_cm.trim() === '' ? null : Number(draftYear.height_cm),
+          weight_kg: draftYear.weight_kg.trim() === '' ? null : Number(draftYear.weight_kg),
+        });
+      }
       await reload();
       toast.success('Student info updated.');
       setEditingInfo(false);
@@ -827,6 +847,33 @@ export const DentalChart = () => {
                 <input type="text" value={draftInfo.guardian_contact ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, guardian_contact: e.target.value }))}
                   className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs" />
               </div>
+              {/* Measured per school year, saved to the IPTR — the label says so,
+                  because everything else in this panel edits the student. */}
+              <div>
+                <label className="block text-muted-foreground font-medium mb-0.5">
+                  Height (cm) <span className="font-normal">· {years[selectedYear]?.iptr.school_year}</span>
+                </label>
+                <input type="number" min="0" max="300" step="0.1" inputMode="decimal"
+                  value={draftYear.height_cm}
+                  onChange={(e) => setDraftYear((p) => ({ ...p, height_cm: e.target.value }))}
+                  className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs" />
+              </div>
+              <div>
+                <label className="block text-muted-foreground font-medium mb-0.5">
+                  Weight (kg) <span className="font-normal">· {years[selectedYear]?.iptr.school_year}</span>
+                </label>
+                <input type="number" min="0" max="500" step="0.1" inputMode="decimal"
+                  value={draftYear.weight_kg}
+                  onChange={(e) => setDraftYear((p) => ({ ...p, weight_kg: e.target.value }))}
+                  className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs" />
+              </div>
+              <div>
+                <label className="block text-muted-foreground font-medium mb-0.5">BMI</label>
+                <div className="px-2 py-1.5 text-xs tabular-nums text-foreground" title={BMI_NOTE}>
+                  {computeBmi(Number(draftYear.height_cm) || null, Number(draftYear.weight_kg) || null)
+                    ?? <span className="text-muted-foreground">enter both</span>}
+                </div>
+              </div>
               <div>
                 <label className="block text-muted-foreground font-medium mb-0.5">PhilHealth No.</label>
                 <input type="text" value={draftInfo.philhealth_number ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, philhealth_number: e.target.value }))}
@@ -917,10 +964,15 @@ export const DentalChart = () => {
                 ['PhilHealth', `${student.philhealth_number || '—'} (${student.philhealth_status || 'None'})`],
                 ['Guardian', student.guardian_name || '—'],
                 ['Guardian Contact', student.guardian_contact || '—'],
+                // Year-scoped, like grade and age above — these belong to the
+                // selected school year's record, not to the student.
+                ['Height', yearIptr?.height_cm != null ? `${yearIptr.height_cm} cm` : 'not measured'],
+                ['Weight', yearIptr?.weight_kg != null ? `${yearIptr.weight_kg} kg` : 'not measured'],
+                ['BMI', computeBmi(yearIptr?.height_cm, yearIptr?.weight_kg) ?? 'not measured'],
               ].map(([label, val]) => (
                 <div key={label}>
                   <div className="text-muted-foreground font-medium">{label}</div>
-                  <div className="text-foreground">{val}</div>
+                  <div className="text-foreground" title={label === 'BMI' ? BMI_NOTE : undefined}>{val}</div>
                 </div>
               ))}
             </div>

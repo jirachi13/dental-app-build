@@ -61,6 +61,9 @@ export interface ApiStudentIptr {
    *  CURRENT values. */
   grade_level: string | null;
   section: string | null;
+  /** Measured for THIS school year. BMI is derived from them, never stored. */
+  height_cm: number | null;
+  weight_kg: number | null;
   isArchived: boolean;
 }
 
