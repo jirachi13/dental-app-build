@@ -20,6 +20,7 @@ import { Pagination, usePagination } from './Pagination';
 import { apiClient, ApiError } from '../api/client';
 import type { ApiSchool } from '../api/types';
 import { useSchools } from '../hooks/useSchools';
+import { Notice } from './Notice';
 
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 
@@ -115,6 +116,52 @@ const buildBulkRow = (rec: Record<string, string>): BulkRow => {
   return { lastName, firstName, middleName, sex: sex ?? sexRaw, grade: grade ?? gradeRaw, section, birthday, address, contactNumber, error };
 };
 
+
+type NewPatientForm = {
+  firstName: string; lastName: string; middleName: string; birthdate: string; gender: string;
+  grade: string; section: string; school: string; guardianName: string; guardianContact: string;
+  address: string; contactNumber: string; philhealthNumber: string; philhealthStatus: string;
+  is4Ps: boolean; fourPsId: string; consentStatus: string;
+};
+
+/** Fields the Add Student form requires, and the label each one shows.
+ *
+ *  Enforced HERE, at entry — deliberately NOT with `required: true` on the
+ *  Student model. All 26 existing students predate these fields, and CRUD
+ *  updates go through findById + save(), which runs mongoose validation: a
+ *  schema-level requirement would make every existing record unsaveable on the
+ *  next edit, and there is nothing truthful to backfill a guardian's name with.
+ *
+ *  NOT required, on purpose:
+ *  · middleName — some children genuinely have none, and full_name is DERIVED
+ *    from the name parts, so forcing "N/A" would propagate that placeholder
+ *    into every list, heading, report and DOH form.
+ *  · philhealthNumber — the user's explicit exception.
+ *  · philhealthStatus — always has a value ("None"). */
+const REQUIRED_STUDENT_FIELDS: {
+  key: keyof NewPatientForm;
+  label: string;
+  onlyIf?: (f: NewPatientForm) => boolean;
+}[] = [
+  { key: 'lastName', label: 'Last Name' },
+  { key: 'firstName', label: 'First Name' },
+  { key: 'birthdate', label: 'Birthdate' },
+  { key: 'gender', label: 'Gender' },
+  { key: 'school', label: 'School' },
+  { key: 'grade', label: 'Grade' },
+  { key: 'section', label: 'Section' },
+  { key: 'address', label: 'Address' },
+  { key: 'contactNumber', label: 'Contact Number' },
+  { key: 'guardianName', label: 'Guardian Name' },
+  { key: 'guardianContact', label: 'Guardian Contact' },
+  // Only meaningful for a 4Ps household — required unconditionally it would
+  // block every non-4Ps student, and 0 of the 26 on file are 4Ps.
+  { key: 'fourPsId', label: '4Ps ID', onlyIf: (f) => f.is4Ps },
+];
+
+const REQUIRED_KEYS = new Set(REQUIRED_STUDENT_FIELDS.map((f) => f.key));
+/** " *" when the field is required, so labels read from the same list. */
+const req = (key: keyof NewPatientForm) => (REQUIRED_KEYS.has(key) ? ' *' : '');
 
 export const PatientList = () => {
   const navigate = useNavigate();
@@ -329,9 +376,18 @@ export const PatientList = () => {
     // message online, or (worse) queuing successfully offline and only
     // failing to sync later with a confusing 400 -- instead of being
     // caught at entry time like the other required fields already were.
-    if (!newPatient.firstName || !newPatient.lastName || !newPatient.school || !newPatient.grade
-      || !newPatient.birthdate || !newPatient.gender || !newPatient.address || !newPatient.section) {
-      setAddPatientError('Please fill in all required fields.');
+    // ONE source for what is required, shared with the labels below so the
+    // asterisks and the check cannot drift apart. They had: Address was
+    // enforced but carried no asterisk, and Guardian Name carried an asterisk
+    // but was never enforced — exactly inverted.
+    const missing = REQUIRED_STUDENT_FIELDS
+      .filter(({ key, onlyIf }) => (onlyIf ? onlyIf(newPatient) : true))
+      .filter(({ key }) => !String(newPatient[key] ?? '').trim())
+      .map(({ label }) => label);
+    if (missing.length) {
+      // Names them. "Please fill in all required fields" leaves the user
+      // hunting, which is what made the missing Address asterisk costly.
+      setAddPatientError(`Please fill in: ${missing.join(', ')}.`);
       return;
     }
     const school = schools.find((s) => s.school_name === newPatient.school);
@@ -773,28 +829,31 @@ export const PatientList = () => {
                 </div>
               )}
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-sm font-medium text-foreground mb-1">Last Name * {ocrHint('lastName')}</label><input type="text" value={newPatient.lastName} onChange={e => setNewPatient({...newPatient, lastName: e.target.value})} className={ocrFieldClass('lastName')} /></div>
-                <div><label className="block text-sm font-medium text-foreground mb-1">First Name * {ocrHint('firstName')}</label><input type="text" value={newPatient.firstName} onChange={e => setNewPatient({...newPatient, firstName: e.target.value})} className={ocrFieldClass('firstName')} /></div>
+                <div><label className="block text-sm font-medium text-foreground mb-1">Last Name{req('lastName')} {ocrHint('lastName')}</label><input type="text" value={newPatient.lastName} onChange={e => setNewPatient({...newPatient, lastName: e.target.value})} className={ocrFieldClass('lastName')} /></div>
+                <div><label className="block text-sm font-medium text-foreground mb-1">First Name{req('firstName')} {ocrHint('firstName')}</label><input type="text" value={newPatient.firstName} onChange={e => setNewPatient({...newPatient, firstName: e.target.value})} className={ocrFieldClass('firstName')} /></div>
               </div>
               <div><label className="block text-sm font-medium text-foreground mb-1">Middle Name {ocrHint('middleName')}</label><input type="text" value={newPatient.middleName} onChange={e => setNewPatient({...newPatient, middleName: e.target.value})} className={ocrFieldClass('middleName')} /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-sm font-medium text-foreground mb-1">Birthdate * {ocrHint('birthdate')}</label><input type="date" value={newPatient.birthdate} onChange={e => setNewPatient({...newPatient, birthdate: e.target.value})} className={ocrFieldClass('birthdate')} /></div>
-                <div><label className="block text-sm font-medium text-foreground mb-1">Gender * {ocrHint('gender')}</label><select value={newPatient.gender} onChange={e => setNewPatient({...newPatient, gender: e.target.value})} className={ocrFieldClass('gender')}><option value="">Select</option><option>Male</option><option>Female</option></select></div>
+                <div><label className="block text-sm font-medium text-foreground mb-1">Birthdate{req('birthdate')} {ocrHint('birthdate')}</label><input type="date" value={newPatient.birthdate} onChange={e => setNewPatient({...newPatient, birthdate: e.target.value})} className={ocrFieldClass('birthdate')} /></div>
+                <div><label className="block text-sm font-medium text-foreground mb-1">Gender{req('gender')} {ocrHint('gender')}</label><select value={newPatient.gender} onChange={e => setNewPatient({...newPatient, gender: e.target.value})} className={ocrFieldClass('gender')}><option value="">Select</option><option>Male</option><option>Female</option></select></div>
               </div>
-              <div><label className="block text-sm font-medium text-foreground mb-1">School *</label><select value={newPatient.school} onChange={e => setNewPatient({...newPatient, school: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"><option value="">Select School</option>{schoolNames.map(s => <option key={s}>{s}</option>)}</select></div>
+              <div><label className="block text-sm font-medium text-foreground mb-1">School{req('school')}</label><select value={newPatient.school} onChange={e => setNewPatient({...newPatient, school: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"><option value="">Select School</option>{schoolNames.map(s => <option key={s}>{s}</option>)}</select></div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-sm font-medium text-foreground mb-1">Grade * {ocrHint('grade')}</label><select value={newPatient.grade} onChange={e => setNewPatient({...newPatient, grade: e.target.value})} className={ocrFieldClass('grade')}><option value="">Select Grade</option>{GRADES.map(g => <option key={g}>{g}</option>)}</select></div>
-                <div><label className="block text-sm font-medium text-foreground mb-1">Section * {ocrHint('section')}</label><input type="text" value={newPatient.section} onChange={e => setNewPatient({...newPatient, section: e.target.value})} placeholder="e.g. Sampaguita" className={ocrFieldClass('section')} /></div>
+                <div><label className="block text-sm font-medium text-foreground mb-1">Grade{req('grade')} {ocrHint('grade')}</label><select value={newPatient.grade} onChange={e => setNewPatient({...newPatient, grade: e.target.value})} className={ocrFieldClass('grade')}><option value="">Select Grade</option>{GRADES.map(g => <option key={g}>{g}</option>)}</select></div>
+                <div><label className="block text-sm font-medium text-foreground mb-1">Section{req('section')} {ocrHint('section')}</label><input type="text" value={newPatient.section} onChange={e => setNewPatient({...newPatient, section: e.target.value})} placeholder="e.g. Sampaguita" className={ocrFieldClass('section')} /></div>
               </div>
-              <div><label className="block text-sm font-medium text-foreground mb-1">Contact Number {ocrHint('contactNumber')}</label><input type="text" value={newPatient.contactNumber} onChange={e => setNewPatient({...newPatient, contactNumber: e.target.value})} placeholder="09XX-XXX-XXXX" className={ocrFieldClass('contactNumber')} /></div>
-              <div><label className="block text-sm font-medium text-foreground mb-1">Guardian Name *</label><input type="text" value={newPatient.guardianName} onChange={e => setNewPatient({...newPatient, guardianName: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
-              <div><label className="block text-sm font-medium text-foreground mb-1">Guardian Contact</label><input type="text" value={newPatient.guardianContact} onChange={e => setNewPatient({...newPatient, guardianContact: e.target.value})} placeholder="09XX-XXX-XXXX" className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+              <div><label className="block text-sm font-medium text-foreground mb-1">Contact Number{req('contactNumber')} {ocrHint('contactNumber')}</label><input type="text" value={newPatient.contactNumber} onChange={e => setNewPatient({...newPatient, contactNumber: e.target.value})} placeholder="09XX-XXX-XXXX" className={ocrFieldClass('contactNumber')} /></div>
+              <div><label className="block text-sm font-medium text-foreground mb-1">Guardian Name{req('guardianName')}</label><input type="text" value={newPatient.guardianName} onChange={e => setNewPatient({...newPatient, guardianName: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+              <div><label className="block text-sm font-medium text-foreground mb-1">Guardian Contact{req('guardianContact')}</label><input type="text" value={newPatient.guardianContact} onChange={e => setNewPatient({...newPatient, guardianContact: e.target.value})} placeholder="09XX-XXX-XXXX" className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
               <div><label className="block text-sm font-medium text-foreground mb-1">PhilHealth Number</label><input type="text" value={newPatient.philhealthNumber} onChange={e => setNewPatient({...newPatient, philhealthNumber: e.target.value})} placeholder="XX-XXXXXXXXX-X" className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
               <div><label className="block text-sm font-medium text-foreground mb-1">PhilHealth Status</label><select value={newPatient.philhealthStatus} onChange={e => setNewPatient({...newPatient, philhealthStatus: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"><option value="None">None</option><option value="Principal">Principal</option><option value="Dependent">Dependent</option></select></div>
               <div className="flex items-center gap-3 pt-2"><input type="checkbox" id="is4ps" checked={newPatient.is4Ps} onChange={e => setNewPatient({...newPatient, is4Ps: e.target.checked})} className="w-4 h-4 rounded accent-primary" /><label htmlFor="is4ps" className="text-sm font-medium text-foreground">4Ps / NHTS Member</label></div>
-              {newPatient.is4Ps && <div><label className="block text-sm font-medium text-foreground mb-1">4Ps ID</label><input type="text" value={newPatient.fourPsId} onChange={e => setNewPatient({...newPatient, fourPsId: e.target.value})} placeholder="4PS-XXXXXXXX" className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>}
-              <div><label className="block text-sm font-medium text-foreground mb-1">Address {ocrHint('address')}</label><input type="text" value={newPatient.address} onChange={e => setNewPatient({...newPatient, address: e.target.value})} className={ocrFieldClass('address')} /></div>
-              {addPatientError && <p className="text-sm text-destructive">{addPatientError}</p>}
+              {newPatient.is4Ps && <div><label className="block text-sm font-medium text-foreground mb-1">4Ps ID{req('fourPsId')}</label><input type="text" value={newPatient.fourPsId} onChange={e => setNewPatient({...newPatient, fourPsId: e.target.value})} placeholder="4PS-XXXXXXXX" className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>}
+              <div><label className="block text-sm font-medium text-foreground mb-1">Address{req('address')} {ocrHint('address')}</label><input type="text" value={newPatient.address} onChange={e => setNewPatient({...newPatient, address: e.target.value})} className={ocrFieldClass('address')} /></div>
+              {/* Notice, not a bare <p>: it carries role="alert", so a screen
+                  reader announces the validation failure instead of leaving the
+                  user staring at an unchanged form. */}
+              {addPatientError && <Notice variant="error">{addPatientError}</Notice>}
             </div>
             <div className="flex gap-3 p-6 border-t">
               <button onClick={() => { setShowAddForm(false); setOcrConfidences({}); }} className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-gray-50 text-sm font-medium">Cancel</button>

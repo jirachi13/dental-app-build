@@ -41,7 +41,11 @@ const run = async () => {
   await page.fill('input[type="email"]', process.env.SEED_DENTIST_EMAIL || 'dentist@floral.com');
   await page.fill('input[type="password"]', process.env.SEED_DENTIST_PASSWORD);
   await page.click('button[type="submit"]');
-  await page.waitForSelector('nav, aside', { timeout: 30000 });
+  // Wait for something that only exists AFTER sign-in. 'nav, aside' used to
+  // work, but the split login (Sprint 61) put an <aside> on the login page
+  // itself, so that selector matched instantly and the script carried on
+  // unauthenticated.
+  await page.waitForSelector('a[href="/patients"]', { timeout: 30000 });
 
   // Only the Appointments screen is under test. The dashboard we just landed on
   // still calls useStudents() for the patient-list stats — a real unbounded read,
