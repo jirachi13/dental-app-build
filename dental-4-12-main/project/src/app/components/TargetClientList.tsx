@@ -60,11 +60,18 @@ function periodRange(anchor: string, period: Period): { start: Date; end: Date; 
   return { start, end, label: String(y) };
 }
 
-const ageFrom = (birthdate: string) => {
+/** Age AT THE DATE OF CONSULTATION, which is what the form's Age column means
+ *  and what its Age Group column is banded on (Sprint 57b). Computed to "today"
+ *  before, so re-opening a filed period silently aged every client and could
+ *  move them into a different age group than was reported. Falls back to today
+ *  only for a client with no recorded consultation — who is filtered out of
+ *  every period anyway. */
+const ageFrom = (birthdate: string, on: string | null = null) => {
   if (!birthdate) return null;
   const b = new Date(birthdate);
   if (Number.isNaN(b.getTime())) return null;
-  const t = new Date();
+  const t = on ? new Date(on) : new Date();
+  if (Number.isNaN(t.getTime())) return null;
   let a = t.getFullYear() - b.getFullYear();
   const m = t.getMonth() - b.getMonth();
   if (m < 0 || (m === 0 && t.getDate() < b.getDate())) a--;
@@ -108,7 +115,7 @@ export const TargetClientList = () => {
       .map((s) => {
         const r = rpcById.get(s.id);
         const detail = rawById.get(s.id);
-        const age = ageFrom(s.birthdate);
+        const age = ageFrom(s.birthdate, r?.visit1Date ?? null);
         return {
           id: s.id,
           name: s.name,

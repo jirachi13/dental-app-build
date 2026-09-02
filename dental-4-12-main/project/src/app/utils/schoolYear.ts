@@ -19,3 +19,12 @@ export function schoolYearEnd(d: Date): Date {
   const m = d.getMonth(); // 0-indexed
   return m <= 3 ? new Date(d.getFullYear(), 3, 30) : new Date(d.getFullYear() + 1, 3, 30);
 }
+
+/** The school year containing `d` as STUDENT_IPTR stores it, "YYYY-YYYY".
+ *  Same bucketing as the two above, so a date cannot land in one school year by
+ *  one function and a different one by another. `migrateIptrGrades.ts` keeps
+ *  its own copy — server scripts do not import from `src/`. */
+export function schoolYearLabel(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  return d.getMonth() <= 3 ? `${y - 1}-${y}` : `${y}-${y + 1}`;
+}

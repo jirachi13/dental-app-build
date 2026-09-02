@@ -17,6 +17,7 @@ import { useStudents } from '../hooks/useStudents';
 import { TargetClientList } from './TargetClientList';
 import { OralHealthProgramReport } from './OralHealthProgramReport';
 import { treatmentCodes } from './DentalChart';
+import { schoolYearLabel } from '../utils/schoolYear';
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -179,7 +180,11 @@ const getCount = (matrix: Record<string,GX>, key: string, grade: string, gender:
 
 export const Reports = () => {
   const { selectedSchool } = useAuth();
-  const { getRealCount, loading: dohLoading } = useDohReportData();
+  // The DOH report covers a school year — this year's report is not next
+  // year's (Sprint 57b). It used to count every record ever created, so it
+  // could not answer "what did we do this year?" at all.
+  const [dohSchoolYear, setDohSchoolYear] = useState<string | null>(() => schoolYearLabel());
+  const { getRealCount, years: dohYears, unplacedCount, loading: dohLoading } = useDohReportData(dohSchoolYear);
   // Fields with no real backing data source yet show 0, never a fabricated
   // fallback number -- see useDohReportData.ts for exactly which fields are
   // real vs. not yet wireable.
@@ -472,6 +477,18 @@ export const Reports = () => {
               {REPORT_SCHOOLS.map(s => <option key={s} value={s}>{getSchoolShortName(s)}</option>)}
             </select>
 
+            {/* School year, not calendar month: the DOH figures below are
+                per-IPTR, and an IPTR belongs to a school year. */}
+            <label className="text-sm text-muted-foreground whitespace-nowrap" htmlFor="doh-school-year">School year:</label>
+            <select id="doh-school-year" aria-label="School year" value={dohSchoolYear ?? ''} onChange={e => setDohSchoolYear(e.target.value || null)}
+              className="text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring">
+              {/* Kept available deliberately — it is what this report did before
+                  it could be scoped, and it is still the right answer for a
+                  cumulative count. */}
+              <option value="">All years to date</option>
+              {dohYears.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+
             {/* Same DOH form, different grade band. Hidden entirely when the
                 school in view has no secondary pupils. */}
             {hasSecondary && (
@@ -491,6 +508,18 @@ export const Reports = () => {
               </div>
             )}
           </div>
+
+          {/* How the two year-varying figures in this table are derived. Both
+              used to be computed against TODAY, which silently rewrote past
+              reports every time a pupil was promoted or had a birthday. */}
+          <p className="text-xs text-muted-foreground">
+            {dohSchoolYear
+              ? <>Covering school year <span className="font-medium text-foreground">{dohSchoolYear}</span>. Grade is the grade recorded for that year, and age is the pupil&apos;s age at that year&apos;s first recorded visit (or the start of the school year where no visit is recorded) — not their grade or age today.</>
+              : <>Covering <span className="font-medium text-foreground">all years to date</span>, so a pupil with several school years is counted once per year. Pick a school year above to report on one.</>}
+            {unplacedCount > 0 && (
+              <> <span className="font-medium text-foreground">{unplacedCount} record{unplacedCount === 1 ? '' : 's'}</span> in this range predate grade being stored per school year, so {unplacedCount === 1 ? 'it appears' : 'they appear'} in the totals but in no grade column.</>
+            )}
+          </p>
 
           {/* Table */}
           <div id="doh-report-printable" className="bg-card rounded-xl border border-border overflow-hidden">
@@ -1077,7 +1106,7 @@ export const Reports = () => {
       {activeReportTab === 'tcl' && <TargetClientList />}
 
       {/* ── ORAL HEALTH PROGRAM REPORTING FORM (Appendix F) ── */}
-      {activeReportTab === 'ohprf' && <OralHealthProgramReport />}
+      {activeReportTab === 'ohprf' && <OralHealthProgramReport schoolYear={dohSchoolYear} />}
     </div>
   );
 };

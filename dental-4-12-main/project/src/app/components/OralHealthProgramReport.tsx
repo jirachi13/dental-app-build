@@ -33,7 +33,6 @@ const AGE_GROUP_BANDS: { label: string; bands: readonly string[] }[] = [
   { label: 'ADOLESCENT', bands: ['10-14 yrs', '15-19 yrs'] },
   { label: 'ADULT', bands: ['20 yrs & above'] },
 ];
-const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 const SEXES = ['M', 'F'] as const;
 
 /** Indicator rows. `field` maps to useDohReportData's real fields; a null
@@ -66,18 +65,19 @@ const OTHER_ROWS: Row[] = [
   { label: 'Total no. of patients referred to a Higher Level of Care', field: null },
 ];
 
-export const OralHealthProgramReport = () => {
+export const OralHealthProgramReport = ({ schoolYear = null }: { schoolYear?: string | null }) => {
   const { selectedSchool } = useAuth();
-  const { getRealCount, loading } = useDohReportData();
+  const { getRealTotal, loading } = useDohReportData(schoolYear);
 
-  // The form's columns are age × sex; getRealCount is keyed by grade as well,
-  // so each cell sums that field across every grade.
+  // The form's columns are age × sex only. This reads the hook's across-all-
+  // grades total rather than summing getRealCount over a grade list: that sum
+  // silently dropped any record whose grade was never stored (school years
+  // before Sprint 57a), which on a submitted form is an undercount of real
+  // patients.
   const cell = useMemo(() => (field: string | null, band: string, sex: 'M' | 'F'): number | null => {
     if (!field) return null;
-    let total = 0;
-    for (const g of GRADES) total += getRealCount(g, band, sex, field) ?? 0;
-    return total;
-  }, [getRealCount]);
+    return getRealTotal(band, sex, field) ?? 0;
+  }, [getRealTotal]);
 
   const rowTotal = (field: string | null) => {
     if (!field) return null;
@@ -123,12 +123,13 @@ export const OralHealthProgramReport = () => {
           <span className="text-xs text-muted-foreground">
             {selectedSchool ? selectedSchool : 'All schools'} · Barangay Tanyag, Taguig City
           </span>
-          {/* No reporting-period selector yet, deliberately. The paper form has
-              one, but `useDohReportData.getRealCount` takes no date range — it
-              counts every record. A period control here would look like it
-              filtered and silently would not, which is worse than not offering
-              it. Adding one means teaching that hook about date ranges. */}
-          <span className="text-xs text-muted-foreground">All records to date</span>
+          {/* The period now comes from the DOH tab's school-year picker, which
+              this form shares (Sprint 57b). Before that the hook took no date
+              range at all and this said so rather than offering a control that
+              silently did nothing. */}
+          <span className="text-xs text-muted-foreground">
+            {schoolYear ? `School year ${schoolYear}` : 'All years to date'}
+          </span>
         </div>
         <p className="text-xs text-muted-foreground mt-2">
           The paper form covers the whole city population. Floral holds school children only, so its

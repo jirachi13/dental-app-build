@@ -286,14 +286,25 @@ export const DentalChart = () => {
   // lie the text labels used to tell. An unrecorded year falls through to
   // getGradeColor's neutral grey default.
   const gc = getGradeColor(years[selectedYear]?.iptr.grade_level ?? '');
-  const computeAge = (birthday: string) => {
+  // Age AS OF THE SELECTED SCHOOL YEAR, not today (Sprint 57b). Deriving age
+  // from `birthday` does not make it safe — deriving it TO TODAY is the
+  // staleness: viewing a 2025-2026 record showed the age the pupil is now, and
+  // on a DOH form age at examination is clinical data. Anchored to that year's
+  // charting date when one exists, otherwise to the start of that school year.
+  const computeAge = (birthday: string, on: Date) => {
     if (!birthday) return 0;
-    const today = new Date();
     const birth = new Date(birthday);
-    let age = today.getFullYear() - birth.getFullYear();
-    const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    if (Number.isNaN(birth.getTime())) return 0;
+    let age = on.getFullYear() - birth.getFullYear();
+    const m = on.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && on.getDate() < birth.getDate())) age--;
     return age;
+  };
+
+  /** June 1 of a "YYYY-YYYY" school year. */
+  const schoolYearAnchor = (sy: string | undefined): Date | null => {
+    const first = Number(String(sy ?? '').split('-')[0]);
+    return Number.isFinite(first) && first > 0 ? new Date(first, 5, 1) : null;
   };
 
   const handleToothClick = (toothNumber: number) => {
@@ -680,7 +691,11 @@ export const DentalChart = () => {
     );
   }
 
-  const patientAge = computeAge(student.birthday);
+  const ageAnchor =
+    (years[selectedYear]?.dentalChart?.date_charted ? new Date(years[selectedYear].dentalChart.date_charted) : null)
+    ?? schoolYearAnchor(years[selectedYear]?.iptr.school_year)
+    ?? new Date();
+  const patientAge = computeAge(student.birthday, ageAnchor);
 
   // Grade and section AS OF THE SELECTED SCHOOL YEAR (Sprint 57a). These used
   // to read `student.grade_level`, which is a single current value — so opening
