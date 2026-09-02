@@ -92,10 +92,41 @@ export const Login = () => {
     'w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent text-sm';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex items-center justify-center p-4">
+    // Two panes on a laptop, one column on phone and tablet. The brand pane is
+    // `hidden lg:flex` rather than reflowed: on a 390px screen a full-height
+    // brand block would push the password field below the fold, so small
+    // screens keep the compact header they already had.
+    <div className="min-h-screen lg:grid lg:grid-cols-2">
+      {/* ── Identity ─────────────────────────────────────────────────────── */}
+      {/* The divider is a gradient hairline that fades out at both ends rather
+          than a flat border — it separates the two panes without drawing a hard
+          box around them. Only rendered at lg+, where the panes sit side by
+          side; stacked, a vertical rule would mean nothing. */}
+      <aside
+        className="relative hidden lg:flex flex-col justify-center gap-6 px-14 xl:px-20
+                   bg-gradient-to-br from-blue-50 via-white to-cyan-50
+                   after:absolute after:right-0 after:top-[10%] after:h-[80%] after:w-px
+                   after:bg-gradient-to-b after:from-transparent after:via-[#1E40AF]/60 after:to-transparent"
+      >
+        <img src="/logo.svg" alt="" aria-hidden="true" className="w-16 h-16 object-contain" />
+        <div>
+          <h1 className="text-4xl font-bold text-[#1E40AF] tracking-tight">FLORAL</h1>
+          <p className="text-base text-gray-700 mt-2">Dental Health Record Management System</p>
+        </div>
+        <p className="text-sm text-gray-600 max-w-sm leading-relaxed">
+          Dental records, two-visit preventive-care monitoring and caries-risk analytics
+          for the three public schools of Barangay Tanyag, Taguig City.
+        </p>
+        <p className="text-xs text-gray-500 mt-2">
+          For clinic staff. Every record access is logged.
+        </p>
+      </aside>
+
+      {/* ── Sign in ──────────────────────────────────────────────────────── */}
+      <main className="flex items-center justify-center p-4 lg:p-8">
       <div className="w-full max-w-md">
-        {/* Logo and Title */}
-        <div className="text-center mb-4">
+        {/* Compact identity for screens without the brand pane. */}
+        <div className="text-center mb-4 lg:hidden">
           <div className="flex justify-center mb-2">
             <img src="/logo.svg" alt="FLORAL" className="w-14 h-14 object-contain" />
           </div>
@@ -103,6 +134,8 @@ export const Login = () => {
           <p className="text-sm text-gray-600">Dental Health Record Management System</p>
           <p className="text-xs text-gray-500 mt-0.5">Barangay Tanyag, Taguig City</p>
         </div>
+
+        <h2 className="hidden lg:block text-lg font-bold text-gray-900 mb-3">Sign in</h2>
 
         <div className="bg-white rounded-2xl shadow-xl p-5 border border-gray-100">
           {step === 'credentials' && (
@@ -301,6 +334,7 @@ export const Login = () => {
           © 2026 Barangay Tanyag Health Office. All rights reserved.
         </p>
       </div>
+      </main>
     </div>
   );
 };
