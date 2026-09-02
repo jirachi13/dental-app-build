@@ -1,0 +1,37 @@
+# Code owners for dental-app-build (FLORAL)
+#
+# The `protect-main` ruleset has "Require review from Code Owners" enabled.
+# Without this file that rule is inert — it looks active and enforces nothing,
+# which is the kind of control CLAUDE.md's NOTHING COSMETIC rule exists to
+# prevent. This file makes it real.
+#
+# Syntax: <path pattern>  <owner>. The LAST matching pattern wins, so the
+# catch-all comes first and the specific paths below it override.
+
+# Everything, by default.
+*                       @jirachi13
+
+# ── Paths worth calling out explicitly ───────────────────────────────────────
+# Not because ownership differs today (it is the same person), but because a
+# change here has consequences a reviewer should stop and think about. When a
+# second maintainer is added, these are the lines to give a different owner.
+
+# The manuscript. Contains real patient data in the appendices (Appendix E is a
+# filled Target Client List with ~20 students' names, addresses and birthdates)
+# and is the user's own academic writing — not collaborative code.
+/docs/Group404*.md      @jirachi13
+
+# Project rules and state. CLAUDE.md constrains every session; HANDOFF.md is the
+# state journal both devices rely on. Silent edits here desynchronise the work.
+/CLAUDE.md              @jirachi13
+/HANDOFF.md             @jirachi13
+
+# Data model, encryption and auth. A careless change here can make existing
+# records permanently undecryptable (FIELD_ENCRYPTION_SECRET), break the
+# soft-delete guarantee, or widen access. See CLAUDE.md.
+/dental-4-12-main/project/server/models/          @jirachi13
+/dental-4-12-main/project/server/middleware/      @jirachi13
+/dental-4-12-main/project/server/scripts/         @jirachi13
+
+# CI and repo automation — the checks that gate merges.
+/.github/               @jirachi13
