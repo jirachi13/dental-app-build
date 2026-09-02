@@ -8,6 +8,7 @@ import type {
   ApiDentalChart,
   ApiToothRecord,
 } from '../api/types';
+import { schoolYearEnd } from '../utils/schoolYear';
 
 // "4-6 month interval" per the RPC module description — 150 days is the midpoint.
 const RPC_INTERVAL_DAYS = 150;
@@ -20,13 +21,8 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 // Visit 2 only counts for DOH/PhilHealth if it lands within the same school
 // year as Visit 1 (June–April, per the dentist: "kailangan pumasok siya sa
-// school calendar"). End of the school year containing a given date:
-// June–Dec → April 30 next year; Jan–Apr → April 30 same year; May (outside
-// the calendar) → bucketed to the next school year.
-function schoolYearEnd(d: Date): Date {
-  const m = d.getMonth(); // 0-indexed
-  return m <= 3 ? new Date(d.getFullYear(), 3, 30) : new Date(d.getFullYear() + 1, 3, 30);
-}
+// school calendar"). The rule itself now lives in utils/schoolYear.ts, shared
+// with the appointments window so the two cannot drift.
 
 export interface RPCRow {
   id: string;

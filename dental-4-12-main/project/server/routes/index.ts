@@ -111,7 +111,16 @@ router.get("/stats/high-risk-count", requireAuth, asyncHandler(async (req, res) 
 // it is really the same child; two children genuinely sharing a name and a
 // birthday in one school is rare but possible. Sitting on the route means the
 // add form, bulk import, OCR and offline replay are all covered by one rule.
-router.use("/students", createCrudRouter(Student, { writeRoles: CLINICAL_WRITE_ROLES, duplicateCheck: findDuplicateStudents }));
+// filterable/filterableText (Sprint 56): the appointments screen needs two
+// narrow slices of this collection — the students an appointment set actually
+// references (by _id), and the roster of one section for the create form — and
+// used to get both by pulling all ~8,000 students into the browser.
+router.use("/students", createCrudRouter(Student, {
+  writeRoles: CLINICAL_WRITE_ROLES,
+  duplicateCheck: findDuplicateStudents,
+  filterable: ["_id", "school_id"],
+  filterableText: ["grade_level", "section"],
+}));
 // archiveRoles: the chart's "Edit Years → remove year" button is shown to the
 // dentist, but archive defaulted to System Admin only, so every click 403'd and
 // an accidentally added school year could not be removed. Restore stays admin
@@ -139,7 +148,9 @@ router.use("/risk-stratifications", createCrudRouter(RiskStratification, {
       : `Created RiskStratification (dentist validated: changed AI suggestion ${body.model_risk_level} → ${body.risk_level}${recEdited})`;
   },
 }));
-router.use("/appointments", createCrudRouter(Appointment, { writeRoles: CLINICAL_WRITE_ROLES }));
+// dateField (Sprint 56): the Completed and Missed tabs have no self-limiting
+// date the way Today and Upcoming do, so without a bound they grow forever.
+router.use("/appointments", createCrudRouter(Appointment, { writeRoles: CLINICAL_WRITE_ROLES, dateField: "appointment_datetime" }));
 router.use("/dentist-rotations", createCrudRouter(DentistRotation, { writeRoles: CLINICAL_WRITE_ROLES }));
 
 // Audit trail — System Admin only, both to read and (already, since Sprint 6)

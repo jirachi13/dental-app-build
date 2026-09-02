@@ -57,4 +57,12 @@ studentSchema.plugin(
   fieldEncryptionOptions(["full_name", "last_name", "first_name", "middle_name", "address", "contact_number", "guardian_name", "guardian_contact", "philhealth_number", "fourps_id"]),
 );
 
+// Sprint 56. Both indexes lead with isArchived because every GET filters on it.
+// Section roster — the appointment create form's grade/section picker.
+studentSchema.index({ isArchived: 1, school_id: 1, grade_level: 1, section: 1 });
+// Duplicate-at-entry prefilter (Sprint 47): school_id + birthday are the only
+// plaintext parts of that check — the names it compares are encrypted, so they
+// can only be matched in JS after this narrows the candidates.
+studentSchema.index({ isArchived: 1, school_id: 1, birthday: 1 });
+
 export default getModel("Student", studentSchema);

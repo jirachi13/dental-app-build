@@ -14,4 +14,12 @@ const appointmentSchema = new mongoose.Schema({
   ...softDeleteFields,
 });
 
+// Sprint 56 — the first index in this codebase. Every GET filters
+// `isArchived: false` first and the appointments list now bounds by date, so
+// this is the exact shape of the query. Without it the date bound only moves
+// the full-collection scan from the browser to the server; with it, neither
+// happens. Leading field is isArchived because it is on every query, including
+// the ones that carry no date range.
+appointmentSchema.index({ isArchived: 1, appointment_datetime: 1 });
+
 export default getModel("Appointment", appointmentSchema);

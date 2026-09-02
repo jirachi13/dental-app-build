@@ -74,7 +74,36 @@ interface CrudOptions {
    *  Anything not listed here, or not a valid ObjectId, is rejected rather
    *  than passed through to the query. */
   filterable?: string[];
+  /** Unencrypted STRING fields GET / may be filtered by, e.g.
+   *  `?grade_level=Grade 5&section=Sampaguita` (Sprint 56).
+   *
+   *  Split from `filterable` rather than folded into it because that one is
+   *  deliberately ObjectId-only — its validation IS `isValidObjectId`, which is
+   *  the whole reason a crafted value cannot reach the query. These are plain
+   *  equality matches on plaintext columns, so they get their own whitelist and
+   *  their own length cap.
+   *
+   *  NEVER list an encrypted field here: random IVs (Sprint 26) mean a
+   *  server-side equality match can never succeed, so it would silently return
+   *  nothing rather than fail loudly. */
+  filterableText?: string[];
+  /** Date field GET / may be bounded on, via `?from=` / `?to=` (ISO instants).
+   *
+   *  Exists because APPOINTMENT has no `school_year` and no per-year parent the
+   *  way STUDENT_IPTR does, so a date range is its only natural boundary. Left
+   *  unbounded, the Completed and Missed tabs accumulate every appointment ever
+   *  created, forever — nothing is hard deleted, so nothing ever leaves them.
+   *
+   *  Both bounds are inclusive and compared as instants, so the caller decides
+   *  what "end of day" means rather than this layer guessing at a timezone.
+   *  Opt-in per model: no existing list route changes shape without being
+   *  given this option. */
+  dateField?: string;
 }
+
+/** Cap on a text filter value. Long enough for any real grade or section name,
+ *  short enough that a filter value cannot become a payload. */
+const MAX_TEXT_FILTER_LEN = 100;
 
 /** Max ids accepted in one comma-separated filter. A student with more school
  *  years than this does not exist; the cap is here so a crafted query cannot
@@ -115,6 +144,33 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
           return;
         }
         filter[field] = ids.length === 1 ? ids[0] : { $in: ids };
+      }
+      for (const field of options.filterableText ?? []) {
+        const raw = req.query[field];
+        if (raw === undefined) continue;
+        if (typeof raw !== "string" || raw.length === 0 || raw.length > MAX_TEXT_FILTER_LEN) {
+          res.status(400).json({ error: `Invalid ${field} filter` });
+          return;
+        }
+        filter[field] = raw;
+      }
+      if (options.dateField) {
+        const range: Record<string, Date> = {};
+        for (const [param, op] of [["from", "$gte"], ["to", "$lte"]] as const) {
+          const raw = req.query[param];
+          if (raw === undefined) continue;
+          if (typeof raw !== "string") {
+            res.status(400).json({ error: `Invalid ${param} filter` });
+            return;
+          }
+          const parsed = new Date(raw);
+          if (Number.isNaN(parsed.getTime())) {
+            res.status(400).json({ error: `Invalid ${param} filter` });
+            return;
+          }
+          range[op] = parsed;
+        }
+        if (Object.keys(range).length > 0) filter[options.dateField] = range;
       }
       const docs = await model.find(filter);
       res.json(docs);

@@ -140,7 +140,18 @@ export const DentalChart = () => {
   const staffNameLabel = user?.role === 'dental_aide' ? 'Dental Aide' : 'Dentist';
 
   const { students: allStudents } = useStudents();
-  const { sessions: appointmentSessions } = useAppointments();
+  // Only the Consent tab's "upcoming appointments" list reads this, and it
+  // filters to `date >= today`, so nothing before today is worth loading
+  // (Sprint 56). The forward bound is a year out — generous for any real
+  // scheduling horizon, and a bound rather than none.
+  const upcomingWindow = useMemo(() => {
+    const now = new Date();
+    return {
+      from: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
+      to: new Date(now.getFullYear() + 1, now.getMonth(), now.getDate(), 23, 59, 59, 999),
+    };
+  }, []);
+  const { sessions: appointmentSessions } = useAppointments(upcomingWindow);
   const { student, schoolName, years, dentists, loading, error, reload } = useDentalChartData(id);
   const currentDentist = dentists.find((d) => d.user_id === user?.id);
 

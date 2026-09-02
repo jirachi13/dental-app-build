@@ -89,7 +89,34 @@ function buildSessions(
   return Array.from(groups.values());
 }
 
-export function useAppointments() {
+/** Ids per `/students?_id=` request. Mirrors MAX_FILTER_IDS in
+ *  server/routes/crudFactory.ts — the server rejects anything above it, and the
+ *  cap is there so a crafted query cannot become an unbounded `$in`. Raising it
+ *  would reopen exactly that, so a wide date range chunks instead. */
+const STUDENT_ID_CHUNK = 200;
+
+/** Fetch only the students an appointment set actually references, in capped
+ *  batches. This used to be a bare `/students` — the whole collection, ~8,000
+ *  records at the Chapter 1 scale, pulled to resolve a few dozen names. */
+async function fetchStudentsByIds(ids: string[]): Promise<ApiStudent[]> {
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += STUDENT_ID_CHUNK) {
+    chunks.push(ids.slice(i, i + STUDENT_ID_CHUNK));
+  }
+  const results = await Promise.all(
+    chunks.map((chunk) => apiClient.get<ApiStudent[]>(`/students?_id=${chunk.join(',')}`)),
+  );
+  return results.flat();
+}
+
+/** Inclusive instants bounding which appointments are loaded. `from` omitted
+ *  means "everything before `to`" — the explicit "show earlier" case. */
+export interface AppointmentWindow {
+  from?: Date;
+  to: Date;
+}
+
+export function useAppointments(window: AppointmentWindow) {
   const [appointments, setAppointments] = useState<ApiAppointment[]>([]);
   const [students, setStudents] = useState<ApiStudent[]>([]);
   const [schools, setSchools] = useState<ApiSchool[]>([]);
@@ -98,12 +125,26 @@ export function useAppointments() {
   const [error, setError] = useState<string | null>(null);
   const pendingWrites = usePendingWritesFor('/appointments');
 
+  // Depend on the instants, not the object: callers build the window inline on
+  // every render, so an object identity dependency would refetch in a loop.
+  const fromMs = window.from?.getTime();
+  const toMs = window.to.getTime();
+
   const reload = useCallback(async () => {
     beginLoad();
     try {
-      const [apiAppointments, apiStudents, apiDentists, apiSchools] = await Promise.all([
-        apiClient.get<ApiAppointment[]>('/appointments'),
-        apiClient.get<ApiStudent[]>('/students'),
+      const params = new URLSearchParams({ to: new Date(toMs).toISOString() });
+      if (fromMs !== undefined) params.set('from', new Date(fromMs).toISOString());
+
+      // Appointments first: the students to fetch are whichever ones this
+      // bounded set references, so the two cannot go in parallel.
+      const apiAppointments = await apiClient.get<ApiAppointment[]>(`/appointments?${params}`);
+      const studentIds = [...new Set(apiAppointments.map((a) => a.student_id))];
+
+      // Dentists and schools stay whole: 1 dentist and 3 schools, and they are
+      // reference data that does not grow with student count.
+      const [apiStudents, apiDentists, apiSchools] = await Promise.all([
+        studentIds.length ? fetchStudentsByIds(studentIds) : Promise.resolve([]),
         apiClient.get<ApiDentist[]>('/dentists'),
         apiClient.get<ApiSchool[]>('/schools'),
       ]);
@@ -118,7 +159,7 @@ export function useAppointments() {
     } finally {
       endLoad();
     }
-  }, []);
+  }, [fromMs, toMs]);
 
   useEffect(() => {
     reload();

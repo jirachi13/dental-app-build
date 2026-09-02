@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link, useSearchParams } from 'react-router';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, X, Check, Clock, Users, Stethoscope, AlertCircle, RotateCcw, FileText } from 'lucide-react';
@@ -6,11 +6,12 @@ import { getGradeColor } from '../utils/gradeColors';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
 import { GradePill } from './GradePill';
 import { useAppointments, type AppointmentSession } from '../hooks/useAppointments';
+import { useGradeRoster } from '../hooks/useGradeRoster';
 import { useDentistRotations } from '../hooks/useDentistRotations';
-import { useStudents } from '../hooks/useStudents';
 import { apiClient } from '../api/client';
 import { Notice } from './Notice';
 import { toLocalDateString, formatDateWithWeekday } from '../utils/localDate';
+import { schoolYearStart, schoolYearEnd } from '../utils/schoolYear';
 import type { ApiSchool } from '../api/types';
 import { SkeletonPageHeader, SkeletonStatGrid, SkeletonTable } from './Skeleton';
 import { useToast } from './Toast';
@@ -32,6 +33,9 @@ export const Appointments = () => {
 
   // Tabs
   const [activeTab, setActiveTab] = useState<'today' | 'upcoming' | 'completed' | 'missed' | 'rotation'>('today');
+  // Opt-in to loading appointments from before this school year — see
+  // appointmentWindow below. Off by default so the history tabs stay bounded.
+  const [showEarlier, setShowEarlier] = useState(false);
 
   // Filters
   const [gradeFilter, setGradeFilter] = useState('all');
@@ -84,10 +88,28 @@ export const Appointments = () => {
   const [rotError, setRotError] = useState<string | null>(null);
   const [rotSaving, setRotSaving] = useState(false);
 
-  const { sessions, dentists, loading: appointmentsLoading, error: appointmentsError, updateSessionStatus, reload: reloadAppointments } = useAppointments();
+  // Which appointments are loaded at all (Sprint 56). Today and Upcoming
+  // self-limit by date, but Completed and Missed have no such bound and nothing
+  // is ever hard deleted, so they used to accumulate every appointment ever
+  // created. The window is the current school year, widened to whatever month
+  // the calendar is showing so navigating to an older month still finds its
+  // appointments, and dropped entirely when the user asks to see earlier.
+  const appointmentWindow = useMemo(() => {
+    const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59, 999);
+    const syStart = schoolYearStart(new Date());
+    const syEnd = schoolYearEnd(new Date());
+    return {
+      from: showEarlier ? undefined : new Date(Math.min(syStart.getTime(), monthStart.getTime())),
+      to: new Date(Math.max(syEnd.getTime(), monthEnd.getTime())),
+    };
+  }, [currentDate, showEarlier]);
+
+  const { sessions, dentists, loading: appointmentsLoading, error: appointmentsError, updateSessionStatus, reload: reloadAppointments } = useAppointments(appointmentWindow);
   const { rotations, loading: rotationsLoading, reload: reloadRotations } = useDentistRotations();
-  const { students: allRealStudents } = useStudents();
   const [schools, setSchools] = useState<ApiSchool[]>([]);
+  const formSchoolId = schools.find(s => s.school_name === formSchool)?._id;
+  const { roster: gradeRoster, sections: sectionsForGrade } = useGradeRoster(formSchoolId, selectedGrade);
 
   useEffect(() => {
     apiClient.get<ApiSchool[]>('/schools').then(setSchools).catch(() => {});
@@ -182,11 +204,10 @@ export const Appointments = () => {
   };
 
   const grades = ['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6'];
-  const studentsInSection = (formSchool && selectedGrade && selectedSection)
-    ? allRealStudents.filter(s => s.school === formSchool && s.grade === selectedGrade && s.section === selectedSection)
-    : [];
-  const sectionsForGrade = (formSchool && selectedGrade)
-    ? [...new Set(allRealStudents.filter(s => s.school === formSchool && s.grade === selectedGrade).map(s => s.section))].sort()
+  // gradeRoster is already scoped to the chosen school and grade by the server,
+  // so only the section still has to be narrowed here.
+  const studentsInSection = selectedSection
+    ? gradeRoster.filter(s => s.section === selectedSection)
     : [];
 
   const appointments: AppointmentSession[] = selectedSchool
@@ -203,6 +224,22 @@ export const Appointments = () => {
   const completedAppts = appointments.filter(a => getStatus(a) === 'Completed');
   // Past-dated sessions never marked Completed/Missed would otherwise appear in no tab at all
   const missedAppts = appointments.filter(a => getStatus(a) === 'Missed' || (a.date < TODAY && getStatus(a) === 'Scheduled'));
+
+  // Completed and Missed are the two tabs with no self-limiting date, so they
+  // say which span they are showing rather than implying it is everything.
+  const historyScopeBar = (label: string) => (
+    <div className="px-4 py-3 border-b border-gray-100 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <span className="text-sm font-semibold text-foreground">{label}</span>
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span>{showEarlier ? 'Showing all years' : 'Showing this school year'}</span>
+        <button
+          onClick={() => setShowEarlier(v => !v)}
+          className="px-2 py-1 rounded-md border border-border text-foreground hover:bg-gray-50 font-medium">
+          {showEarlier ? 'This school year only' : 'Show earlier'}
+        </button>
+      </div>
+    </div>
+  );
 
   const filteredAppointments = appointments.filter(a => {
     if (gradeFilter !== 'all' && a.grade !== gradeFilter) return false;
@@ -469,9 +506,7 @@ export const Appointments = () => {
       {/* COMPLETED */}
       {activeTab === 'completed' && (
         <>
-          <div className="px-4 py-3 border-b border-gray-100">
-            <span className="text-sm font-semibold text-foreground">Completed Appointments</span>
-          </div>
+          {historyScopeBar('Completed Appointments')}
           {completedAppts.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground">
               <CalendarIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
@@ -486,9 +521,7 @@ export const Appointments = () => {
       {/* MISSED */}
       {activeTab === 'missed' && (
         <>
-          <div className="px-4 py-3 border-b border-gray-100">
-            <span className="text-sm font-semibold text-foreground">Missed Appointments</span>
-          </div>
+          {historyScopeBar('Missed Appointments')}
           {missedAppts.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground">
               <CalendarIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />

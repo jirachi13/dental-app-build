@@ -49,7 +49,17 @@ export const Dashboard = () => {
   // screen's charts speak the same semantic color language.
 
   const { students: allStudentsRaw, loading: studentsLoading } = useStudents();
-  const { sessions: allSessions, loading: appointmentsLoading } = useAppointments();
+  // The dashboard reads exactly two things from appointments — today's list and
+  // the current calendar week's bar chart — so it loads that week and nothing
+  // else (Sprint 56). Computed once per mount: rebuilding the instants on every
+  // render would change the hook's dependencies and refetch in a loop.
+  const weekWindow = useMemo(() => {
+    const now = new Date();
+    const from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+    const to = new Date(from.getFullYear(), from.getMonth(), from.getDate() + 6, 23, 59, 59, 999);
+    return { from, to };
+  }, []);
+  const { sessions: allSessions, loading: appointmentsLoading } = useAppointments(weekWindow);
   const { records: rpcRecords, loading: rpcLoading } = useRPCTracking();
   const [users, setUsers] = useState<ApiUser[]>([]);
   const [treatmentCount, setTreatmentCount] = useState(0);
