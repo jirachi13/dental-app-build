@@ -35,13 +35,12 @@ import mongoose from "mongoose";
  */
 const CONFIRM = process.argv.includes("--confirm");
 
-const DEMO_STUDENT_NAMES = new Set([
-  "Juan Morales", "Isabella Villanueva", "Aldrin Villanueva", "Elena Morales",
-  "Trisha Santos", "Katrina Lopez", "Ana Reyes Jr.", "Patricia Garcia",
-  "Nico Castillo", "Marco Navarro", "Ivan Villanueva", "Jomar Diaz",
-  "Patricia Castillo", "Patricia Magno", "Bea Castillo", "Alyssa Martinez",
-  "Angel Bautista", "Celine Morales",
-]);
+// Derived from the seeder's own roster -- NEVER hand-maintain this list. A
+// hand-copied version drifted once already: it missed the eight Grade 7-10
+// pupils Sprint 45 added, so this script would have deleted all three schools
+// and the demo staff while leaving those eight behind, pointing at schools
+// that no longer existed. See demoStudents.ts.
+import { DEMO_STUDENT_NAMES } from "./demoStudents.js";
 
 const DEMO_USER_EMAILS = [
   "dentist@floral.com", "aide@floral.com", "schooladmin@floral.com", "bho@floral.com",
