@@ -9,21 +9,43 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ▶ RESUME HERE — parked 2026-09-03 (3rd session), everything pushed at `1cb81c1c`
-Session ran **Sprints 87 and 88**. Tree clean, nothing uncommitted, no half-finished work. Dev servers stopped.
+## ▶ RESUME HERE — parked 2026-09-03 (4th session), everything pushed at `a614e1d6`
+Ran **Sprints 89–98** plus four maintenance jobs. Tree clean, nothing uncommitted, dev servers stopped (verify with the port check in Durable gotchas — `pkill` lies here).
 
-**What this session settled, so it is not re-derived:**
-- **Sprint 87** — OCR corrections. Not small: the real form exposed three more bugs, one severe (an upside-down BLANK form reported **31 phantom findings**; row identity is positional). Fixed in two independent places + a latent `match[1]` regex bug that made "Contact #" extract the literal `"#"`.
-- **Sprint 88** — the per-school summary sheet, the last supplied form the app produced nothing for. Columns are **head count / tooth count**, the user's reading of an ambiguous form, confirmed twice.
-- **Open work 33 (the P2 ToDo docx) was re-read and reconciled** — the file is byte-identical to the 2026-09-02 copy, so nothing new was asked; four stale lines corrected against Sprints 66/68/70.
-- **"Tanggalin yung 2026-2027" is DEFERRED by the user** — noted in item 33, do not pick it up unprompted.
-- **⚠ BOTH IPTR FORMS CIRCULATE** (user, 2026-09-03) — Form 3 does not replace the Taguig IPTR. See Open work **#37**: the app now has two forms to be right about, and it reaches past OCR into the IPTR screen and the Sprint 85 PDF.
+**The through-line, so it is not re-derived:** the DOH forms were made accurate (89), then real (90), then populated (98), then photographed (figures). Alongside that, the app's read paths were bounded (91, 92) and its colour system made accessible (93, 94, 96).
 
-**Next sprint — recommended, and unblocked: the Program Report's section C sub-rows** (OP Scaling 1st/2nd, SDF 1st/2nd, Head Count / Tooth Count pairs, plus the missing `Sealant` and `Root Surface Protection` rows). The Appendix F workbook it needs is already on this machine. Alternatives: Open work item 33's "NOT started, small" list.
+| # | Sprint | The bit worth remembering |
+|---|---|---|
+| 89 | Program Report section C | **There are TWO different "Program Report" forms.** The DOH workbook's `2026 Form 2` is NOT the one the clinic files — the signed January 2026 return is. |
+| 90 | Services Rendered wired | The source (`treatment_code`) existed all along; 1st/2nd application is derived from **chart dates**, and five teeth in one sitting is ONE application. |
+| 91 | The missing indexes | Evidence-driven, and six models are asserted to stay UNindexed. A declared index proves nothing — builds are async. |
+| 92 | Audit trail bounded | The bound was easy; making the screen's **date filter widen the fetch** was the part that mattered. |
+| 93 | Date prefill + contrast | Most of the date work already existed. Contrast was measured, not eyeballed. |
+| 94 | 150 greys → tokens | `muted-foreground` fails AA on the **canvas** background, not on white — darkened to `#67687A`. |
+| 95 | School switcher | User-reported. A collapsed sidebar dropped it entirely, and `sidebarCollapsed` PERSISTS, so it read as removed. |
+| 96 | Accent contrast | Every visible text node on 8 screens now passes AA. Colours computed with headroom, never to 4.5 exactly. |
+| 97 | Notification bell | Counts only, three real sources, server-side aggregate. No NOTIFICATION model. |
+| 98 | Demo treatments seeded | Only ~a third return for visit 2 — which is the only reason the form's 1st/2nd rows differ. |
 
-**⚠ DO NOT start Form 3 (#37) yet — it is blocked on a flat scan of a BLANK Form 3, front and back** (User-only items). Angled phone photos are not usable input.
+**Maintenance:** `verify_sprint33.mjs` repaired (25/25) · Chapter 4 figures recaptured and completed (**21/21, all reproducible in one command**) · figures verified against the chapter draft · two factual corrections made to `docs/chapter4-5-draft.md`.
 
-**Source files the user supplied 2026-09-03 — they are in `~/.claude/uploads/`, NOT in the repo, and `data/` is per-device.** If the next session is on the other laptop or after a cleanup, these must be re-supplied before any DOH-form work: `TCLForm2andFHSISReport.xlsx` (authoritative TCL columns, sheet "6-9 Y.O (M)" cols B–BN), `2026Form2withFHSIS.xlsx`, and the blank `Individual_Patient_Treatment_Record.pdf` (needed to re-run `verify_sprint86.mjs`). Re-supplied 2026-09-03 (2nd session) into `~/.claude/uploads/384b7f4c-.../`, joined by three more scans: the filled `Target_Client_List_...pdf`, `Jan_2026_ORAL_HEALTH_PROGRAM_REPORTING_FORM.pdf`, `South_Daang_Hari.pdf` and `Parents_and_Guardian_Consent_Form.pdf`. **3rd session adds two ANGLED PHONE PHOTOS of a filled "Form 3 — Individual Treatment Record"** (front + back) in `~/.claude/uploads/7b5cd791-.../` — transcribed into Open work #37, and **not usable as OCR input**; a flat blank scan is what is needed.
+**⚠ THE RECURRING LESSON OF THIS SESSION — read this before writing another verifier.** Repeatedly, the TEST was wrong and the code was right, and each time it looked like a real bug:
+- an `oklch()` colour scraped as `rgb(1,0,0)` reported **white-on-blue as 2.4:1**;
+- a page function built as a template literal had its regex backslashes eaten;
+- StrictMode made "exactly one fetch" wrong in dev, and `page.goto` refetches legitimately;
+- an independent API probe reconstructed the school scope wrongly and called a correct **12** a failure against an unscoped **22**;
+- a figure cross-check truncated keys and reported all-clear on an orphan;
+- and `verify_sprint33` had been failing for a year-old reason: it asserted a control **Sprint 67 deliberately removed**.
+**When a verifier fails, suspect the verifier first — then prove which one is wrong.**
+
+**Next sprint — nothing is scoped and ready.** Reasonable candidates, in order:
+1. **Program Report section C sources** — Counselling and Root Surface Protection still print `—` because no treatment code exists for them. Adding codes is a data-model question for the dentist, not a coding one.
+2. **Open work 33's remainder** — pregnancy on MEDICAL_HISTORY, medical-history chips, treatment totals below DMFT (all need schema + migration).
+3. **Open work 34** — Risk Classification's missing gender/age filters. Small.
+
+**⚠ DO NOT start Form 3 (Open work #37) — still blocked on a flat scan of a BLANK Form 3, front and back** (User-only items). Both IPTR forms circulate, so this reaches past OCR into the IPTR screen and the Sprint 85 PDF.
+
+**User-gated and unchanged:** the roster is on SY 2025-2026 while today is 2026-2027; the dentist's DOH risk-classification source still blocks the whole Phase 3 critical path.
 
 ### PDF rendering — poppler INSTALLED 2026-09-03 (this machine only; `data/`-class per-device state)
 The Read tool renders PDFs by shelling out to **`pdftoppm` (poppler-utils)**, which was missing here — that is why "Read a supplied PDF" failed, not anything about the files. Installed via `winget install --id oschwartz10612.Poppler --scope user`; binaries live under `%LOCALAPPDATA%\Microsoft\WinGet\Packages\oschwartz10612.Poppler_*\poppler-25.07.0\Library\bin`. ⚠ **winget's PATH edit needs a Claude Code restart** before the Read tool sees it. **The OTHER laptop still needs this install.**
