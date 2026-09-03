@@ -738,7 +738,7 @@ export const Reports = () => {
 
                     const isSub   = row.type === 'sub';
                     const field   = row.field;
-                    const labelPadding = isSub ? 'pl-8 italic text-muted-foreground' : (row as any).indent ? 'pl-5 text-foreground' : 'font-medium text-gray-800';
+                    const labelPadding = isSub ? 'pl-8 italic text-muted-foreground' : (row as any).indent ? 'pl-5 text-foreground' : 'font-medium text-foreground';
 
                     return (
                       <tr key={idx} className="group border-b border-gray-100 hover:bg-yellow-50 transition-colors">
@@ -921,7 +921,7 @@ export const Reports = () => {
                       const t = m + f;
                       return (
                         <tr key={p} className="hover:bg-gray-50">
-                          <td className="px-4 py-2.5 font-medium text-gray-800">{p}</td>
+                          <td className="px-4 py-2.5 font-medium text-foreground">{p}</td>
                           <td className="px-4 py-2.5 text-center text-blue-700">{m}</td>
                           <td className="px-4 py-2.5 text-center text-pink-700">{f}</td>
                           <td className="px-4 py-2.5 text-center font-bold text-foreground">{t}</td>
@@ -1036,7 +1036,7 @@ export const Reports = () => {
                     <tbody className="divide-y divide-gray-100">
                       {CONDITIONS.map(cond => (
                         <tr key={cond} className="hover:bg-gray-50">
-                          <td className="px-4 py-2.5 font-medium text-gray-800 sticky left-0 bg-card">{cond}</td>
+                          <td className="px-4 py-2.5 font-medium text-foreground sticky left-0 bg-card">{cond}</td>
                           {displayGrades.map(g => (
                             <td key={g} className="px-3 py-2.5 text-center text-foreground">{getCount(conditionMatrix, cond, g, intGenderFilter)}</td>
                           ))}
@@ -1194,11 +1194,11 @@ export const Reports = () => {
                           <tr key={`${i}-detail`} className="bg-orange-50/60">
                             <td colSpan={8} className="px-6 py-3">
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                                <div><span className="font-semibold text-muted-foreground block mb-0.5">Full Reason</span><span className="text-gray-800">{r.reason}</span></div>
-                                <div><span className="font-semibold text-muted-foreground block mb-0.5">Referred To</span><span className="text-gray-800">{r.facility}</span></div>
-                                <div><span className="font-semibold text-muted-foreground block mb-0.5">School</span><span className="text-gray-800">{r.school}</span></div>
-                                <div><span className="font-semibold text-muted-foreground block mb-0.5">Date Issued</span><span className="text-gray-800">{r.date}</span></div>
-                                <div><span className="font-semibold text-muted-foreground block mb-0.5">Expected Follow-up</span><span className="text-gray-800">{r.followUp || '—'}</span></div>
+                                <div><span className="font-semibold text-muted-foreground block mb-0.5">Full Reason</span><span className="text-foreground">{r.reason}</span></div>
+                                <div><span className="font-semibold text-muted-foreground block mb-0.5">Referred To</span><span className="text-foreground">{r.facility}</span></div>
+                                <div><span className="font-semibold text-muted-foreground block mb-0.5">School</span><span className="text-foreground">{r.school}</span></div>
+                                <div><span className="font-semibold text-muted-foreground block mb-0.5">Date Issued</span><span className="text-foreground">{r.date}</span></div>
+                                <div><span className="font-semibold text-muted-foreground block mb-0.5">Expected Follow-up</span><span className="text-foreground">{r.followUp || '—'}</span></div>
                                 <div><span className="font-semibold text-muted-foreground block mb-0.5">Status</span>
                                   <span className={`px-2 py-0.5 rounded-full font-semibold capitalize ${r.status==='completed'?'bg-green-100 text-green-700':r.status==='no-show'?'bg-red-100 text-red-700':'bg-yellow-100 text-yellow-700'}`}>{r.status}</span>
                                 </div>

@@ -8,7 +8,7 @@ colors:
   ledger-paper: "#F4F6FA"
   form-white: "#FFFFFF"
   ink: "oklch(0.145 0 0)"
-  annotation-gray: "#717182"
+  annotation-gray: "#67687A"
   rule-line: "rgba(0, 0, 0, 0.1)"
   muted-fill: "#ECECF0"
   fit-green: "#15803D"
@@ -212,7 +212,7 @@ against the label sitting on each bar, not sampled from the ramp. They live in
   is the primary depth mechanism in the entire system.
 - **Ink** (`oklch(0.145 0 0)`): Near-black body and heading text. The canonical
   value is OKLCH here because that is how the codebase declares it.
-- **Annotation Gray** (`#717182`): Secondary text — captions, subtitles, column
+- **Annotation Gray** (`#67687A`): Secondary text — captions, subtitles, column
   labels, timestamps. Meets 4.5:1 on white. It is the marginal note, never the
   entry itself.
 - **Rule Line** (`rgba(0, 0, 0, 0.1)`): Every border, divider, and table rule.

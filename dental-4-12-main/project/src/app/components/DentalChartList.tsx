@@ -79,8 +79,8 @@ export const DentalChartList = () => {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dental Charts</h1>
-        <p className="text-sm text-gray-500 mt-0.5">{filtered.length} record{filtered.length !== 1 ? 's' : ''} found</p>
+        <h1 className="text-2xl font-bold text-foreground">Dental Charts</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">{filtered.length} record{filtered.length !== 1 ? 's' : ''} found</p>
       </div>
 
       {/* Filters */}

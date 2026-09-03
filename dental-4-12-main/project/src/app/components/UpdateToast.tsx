@@ -67,7 +67,7 @@ export const UpdateToast = () => {
 
   return (
     <div className="fixed bottom-4 right-4 z-50 bg-white rounded-xl border border-gray-200 shadow-lg p-4 flex items-center gap-3 max-w-sm">
-      <div className="text-sm text-gray-700">A new version of FLORAL is available.</div>
+      <div className="text-sm text-foreground">A new version of FLORAL is available.</div>
       <button
         onClick={refresh}
         className="flex items-center gap-1.5 bg-[#1E40AF] hover:bg-blue-700 text-white rounded-lg px-3 py-1.5 text-sm font-medium shrink-0"
@@ -77,7 +77,7 @@ export const UpdateToast = () => {
       <button
         onClick={() => setNeedRefresh(false)}
         aria-label="Dismiss update notification"
-        className="text-gray-500 hover:text-gray-600 shrink-0"
+        className="text-muted-foreground hover:text-muted-foreground shrink-0"
       >
         <X className="w-4 h-4" />
       </button>

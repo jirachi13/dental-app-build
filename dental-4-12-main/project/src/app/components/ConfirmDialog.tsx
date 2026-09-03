@@ -48,8 +48,8 @@ export function ConfirmDialog({
             </div>
           )}
           <div className="min-w-0">
-            <h3 className="text-base font-semibold text-gray-900">{title}</h3>
-            <div className="mt-1 text-sm text-gray-600">{message}</div>
+            <h3 className="text-base font-semibold text-foreground">{title}</h3>
+            <div className="mt-1 text-sm text-muted-foreground">{message}</div>
           </div>
         </div>
         <div className="mt-5 flex justify-end gap-2">
@@ -57,7 +57,7 @@ export function ConfirmDialog({
             ref={cancelRef}
             onClick={onCancel}
             disabled={busy}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-50 disabled:opacity-60"
           >
             {cancelLabel}
           </button>

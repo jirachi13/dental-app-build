@@ -111,13 +111,13 @@ export const Login = () => {
         <img src="/logo.svg" alt="" aria-hidden="true" className="w-16 h-16 object-contain" />
         <div>
           <h1 className="text-4xl font-bold text-[#1E40AF] tracking-tight">FLORAL</h1>
-          <p className="text-base text-gray-700 mt-2">Dental Health Record Management System</p>
+          <p className="text-base text-foreground mt-2">Dental Health Record Management System</p>
         </div>
-        <p className="text-sm text-gray-600 max-w-sm leading-relaxed">
+        <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
           Dental records, two-visit preventive-care monitoring and caries-risk analytics
           for the three public schools of Barangay Tanyag, Taguig City.
         </p>
-        <p className="text-xs text-gray-500 mt-2">
+        <p className="text-xs text-muted-foreground mt-2">
           For clinic staff. Every record access is logged.
         </p>
       </aside>
@@ -131,21 +131,21 @@ export const Login = () => {
             <img src="/logo.svg" alt="FLORAL" className="w-14 h-14 object-contain" />
           </div>
           <h1 className="text-2xl font-bold text-[#1E40AF] mb-1">FLORAL</h1>
-          <p className="text-sm text-gray-600">Dental Health Record Management System</p>
-          <p className="text-xs text-gray-500 mt-0.5">Barangay Tanyag, Taguig City</p>
+          <p className="text-sm text-muted-foreground">Dental Health Record Management System</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Barangay Tanyag, Taguig City</p>
         </div>
 
-        <h2 className="hidden lg:block text-lg font-bold text-gray-900 mb-3">Sign in</h2>
+        <h2 className="hidden lg:block text-lg font-bold text-foreground mb-3">Sign in</h2>
 
         <div className="bg-white rounded-2xl shadow-xl p-5 border border-gray-100">
           {step === 'credentials' && (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label htmlFor="login-email" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="login-email" className="block text-sm font-medium text-foreground mb-1">
                   Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   {/* autoComplete hands sign-in autofill to the BROWSER's own
                       credential manager (backlog 0d). The app deliberately
                       stores nothing itself — keeping a password in
@@ -168,11 +168,11 @@ export const Login = () => {
               </div>
 
               <div>
-                <label htmlFor="login-password" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="login-password" className="block text-sm font-medium text-foreground mb-1">
                   Password
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input
                     id="login-password"
                     type={showPassword ? 'text' : 'password'}
@@ -187,7 +187,7 @@ export const Login = () => {
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -196,7 +196,7 @@ export const Login = () => {
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-                <label htmlFor="login-remember" className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                <label htmlFor="login-remember" className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
                   <input
                     id="login-remember"
                     type="checkbox"
@@ -215,7 +215,7 @@ export const Login = () => {
                 </button>
               </div>
               {remember && (
-                <p className="text-xs text-gray-500 -mt-2">
+                <p className="text-xs text-muted-foreground -mt-2">
                   Only use this on your own device — on a shared clinic PC, leave it unticked so closing the browser signs you out.
                 </p>
               )}
@@ -239,7 +239,7 @@ export const Login = () => {
                 <span>A 6-digit verification code was emailed to <strong>{email}</strong>. It expires in 10 minutes.</span>
               </div>
               <div>
-                <label htmlFor="login-otp" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="login-otp" className="block text-sm font-medium text-foreground mb-1">
                   Verification Code
                 </label>
                 <input
@@ -268,14 +268,14 @@ export const Login = () => {
               </button>
 
               <div className="flex items-center justify-between text-xs">
-                <button type="button" onClick={backToSignIn} className="flex items-center gap-1 text-gray-500 hover:text-gray-700">
+                <button type="button" onClick={backToSignIn} className="flex items-center gap-1 text-muted-foreground hover:text-foreground">
                   <ArrowLeft className="w-3 h-3" /> Back to sign in
                 </button>
                 <button
                   type="button"
                   onClick={handleResend}
                   disabled={resendCooldown > 0}
-                  className="text-[#1E40AF] hover:underline disabled:text-gray-500 disabled:no-underline"
+                  className="text-[#1E40AF] hover:underline disabled:text-muted-foreground disabled:no-underline"
                 >
                   {resendCooldown > 0 ? `Resend code (${resendCooldown}s)` : 'Resend code'}
                 </button>
@@ -285,13 +285,13 @@ export const Login = () => {
 
           {step === 'forgot' && (
             <form onSubmit={handleForgot} className="space-y-4">
-              <p className="text-sm text-gray-700 font-medium">Reset your password</p>
-              <p className="text-xs text-gray-500">
+              <p className="text-sm text-foreground font-medium">Reset your password</p>
+              <p className="text-xs text-muted-foreground">
                 Enter your account email — if it has a real mailbox on file, you'll receive a reset link.
                 No email set up? Contact your System Admin instead.
               </p>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
                   type="email"
                   value={email}
@@ -312,7 +312,7 @@ export const Login = () => {
               >
                 {submitting ? 'Sending…' : 'Send Reset Link'}
               </button>
-              <button type="button" onClick={backToSignIn} className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700">
+              <button type="button" onClick={backToSignIn} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
                 <ArrowLeft className="w-3 h-3" /> Back to sign in
               </button>
             </form>
@@ -323,14 +323,14 @@ export const Login = () => {
               <Notice variant="success">
                 If that email has an account, a reset link is on its way. The link expires in 30 minutes — check spam if it doesn't arrive.
               </Notice>
-              <button type="button" onClick={backToSignIn} className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700">
+              <button type="button" onClick={backToSignIn} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
                 <ArrowLeft className="w-3 h-3" /> Back to sign in
               </button>
             </div>
           )}
         </div>
 
-        <p className="text-center text-xs text-gray-500 mt-3">
+        <p className="text-center text-xs text-muted-foreground mt-3">
           © 2026 Barangay Tanyag Health Office. All rights reserved.
         </p>
       </div>

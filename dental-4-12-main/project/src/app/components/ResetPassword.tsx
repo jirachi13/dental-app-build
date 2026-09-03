@@ -42,14 +42,14 @@ export const ResetPassword = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-4">
           <h1 className="text-2xl font-bold text-[#1E40AF] mb-1">FLORAL</h1>
-          <p className="text-sm text-gray-600">Dental Health Record Management System</p>
+          <p className="text-sm text-muted-foreground">Dental Health Record Management System</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl p-5 border border-gray-100">
           {!token ? (
             <div className="space-y-4">
               <Notice variant="error">This reset link is malformed or incomplete. Request a new one from the login page.</Notice>
-              <Link to="/login" className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700">
+              <Link to="/login" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
                 <ArrowLeft className="w-3 h-3" /> Back to sign in
               </Link>
             </div>
@@ -69,13 +69,13 @@ export const ResetPassword = () => {
                   2026-09-02, so browsers now save credentials — and without
                   this token they would offer the OLD password into the very
                   field whose purpose is replacing it. */}
-              <p className="text-sm text-gray-700 font-medium">Set a new password</p>
+              <p className="text-sm text-foreground font-medium">Set a new password</p>
               <div>
-                <label htmlFor="reset-password" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="reset-password" className="block text-sm font-medium text-foreground mb-1">
                   New Password
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input
                     id="reset-password"
                     type={showPassword ? 'text' : 'password'}
@@ -91,7 +91,7 @@ export const ResetPassword = () => {
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -99,11 +99,11 @@ export const ResetPassword = () => {
                 </div>
               </div>
               <div>
-                <label htmlFor="reset-confirm" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="reset-confirm" className="block text-sm font-medium text-foreground mb-1">
                   Confirm New Password
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input
                     id="reset-confirm"
                     type={showPassword ? 'text' : 'password'}

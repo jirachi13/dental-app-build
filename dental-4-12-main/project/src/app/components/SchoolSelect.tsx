@@ -64,7 +64,7 @@ export const SchoolSelect = () => {
             </div>
             <div>
               <div className="text-lg font-bold text-[#1E40AF]">FLORAL</div>
-              <div className="text-xs text-gray-500 -mt-0.5">Dental Health Record Management System</div>
+              <div className="text-xs text-muted-foreground -mt-0.5">Dental Health Record Management System</div>
             </div>
           </div>
           <button onClick={handleLogout} className="flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 rounded-lg transition-colors">
@@ -79,12 +79,12 @@ export const SchoolSelect = () => {
         <div className="w-full max-w-4xl">
           {/* Welcome */}
           <div className="text-center mb-10">
-            <p className="text-gray-500 text-sm mb-1">Welcome back,</p>
-            <h1 className="text-2xl font-bold text-gray-900">{user.name}</h1>
-            <span className={`inline-block mt-2 px-3 py-1 text-xs rounded-full font-medium ${roleBadgeColors[user.role] || 'bg-gray-100 text-gray-700'}`}>
+            <p className="text-muted-foreground text-sm mb-1">Welcome back,</p>
+            <h1 className="text-2xl font-bold text-foreground">{user.name}</h1>
+            <span className={`inline-block mt-2 px-3 py-1 text-xs rounded-full font-medium ${roleBadgeColors[user.role] || 'bg-gray-100 text-foreground'}`}>
               {roleLabels[user.role] || user.role}
             </span>
-            <p className="text-gray-500 text-sm mt-4">
+            <p className="text-muted-foreground text-sm mt-4">
               Select a school to continue
             </p>
           </div>
@@ -123,7 +123,7 @@ export const SchoolSelect = () => {
                       {meta?.shortName || school}
                     </div>
 
-                    <div className="flex items-center gap-1 text-gray-500 text-xs mt-2">
+                    <div className="flex items-center gap-1 text-muted-foreground text-xs mt-2">
                       <MapPin className="w-3 h-3 flex-shrink-0" />
                       <span>{meta?.address}</span>
                     </div>
@@ -139,7 +139,7 @@ export const SchoolSelect = () => {
             </div>
           )}
 
-          <p className="text-center text-xs text-gray-500 mt-8">
+          <p className="text-center text-xs text-muted-foreground mt-8">
             {user.schools.length} school{user.schools.length !== 1 ? 's' : ''} assigned to your account
           </p>
         </div>

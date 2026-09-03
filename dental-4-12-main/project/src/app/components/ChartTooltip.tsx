@@ -24,7 +24,7 @@ export function ChartTooltip({
   return (
     <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-md">
       {label !== undefined && label !== '' && (
-        <div className="mb-1 font-medium text-gray-900">{label}</div>
+        <div className="mb-1 font-medium text-foreground">{label}</div>
       )}
       <div className="space-y-0.5">
         {payload.map((entry, i) => {
@@ -37,8 +37,8 @@ export function ChartTooltip({
                   style={{ backgroundColor: swatch }}
                 />
               )}
-              {entry.name !== undefined && <span className="text-gray-500">{entry.name}</span>}
-              <span className="ml-auto pl-3 font-semibold tabular-nums text-gray-900">
+              {entry.name !== undefined && <span className="text-muted-foreground">{entry.name}</span>}
+              <span className="ml-auto pl-3 font-semibold tabular-nums text-foreground">
                 {entry.value}
               </span>
             </div>

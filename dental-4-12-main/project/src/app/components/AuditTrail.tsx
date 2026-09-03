@@ -54,7 +54,7 @@ export const AuditTrail = () => {
     if (action.startsWith('Updated')) return 'text-blue-600';
     if (action.startsWith('Archived')) return 'text-red-600';
     if (action.startsWith('Restored')) return 'text-purple-600';
-    return 'text-gray-600';
+    return 'text-muted-foreground';
   };
 
   const formatTimestamp = (iso: string) => formatDateTime(iso);
@@ -85,7 +85,7 @@ export const AuditTrail = () => {
     return (
       <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
         <p className="text-red-600">{error}</p>
-        <p className="text-sm text-gray-500 mt-1">Audit trail is restricted to System Admin — make sure you're logged in with that role.</p>
+        <p className="text-sm text-muted-foreground mt-1">Audit trail is restricted to System Admin — make sure you're logged in with that role.</p>
       </div>
     );
   }
@@ -95,10 +95,10 @@ export const AuditTrail = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Audit Trail</h1>
+          <h1 className="text-2xl font-bold text-foreground">Audit Trail</h1>
           {/* Says WHICH logs are counted. A bare count over a bounded window
               reads as the whole history and would understate it silently. */}
-          <p className="text-gray-600 mt-1">
+          <p className="text-muted-foreground mt-1">
             {filteredLogs.length} activity {filteredLogs.length === 1 ? 'log' : 'logs'}
             {' · '}
             {fetchFrom === null
@@ -110,7 +110,7 @@ export const AuditTrail = () => {
           {fetchFrom !== null && (
             <button
               onClick={() => setShowAll(true)}
-              className="px-3 py-2 text-sm font-medium border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              className="px-3 py-2 text-sm font-medium border border-gray-300 rounded-lg text-foreground hover:bg-gray-50"
             >
               Show earlier
             </button>
@@ -122,15 +122,15 @@ export const AuditTrail = () => {
       {/* Filters */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <div className="flex items-center gap-2 mb-4">
-          <Filter className="w-5 h-5 text-gray-500" />
-          <h3 className="font-semibold text-gray-900">Filters</h3>
+          <Filter className="w-5 h-5 text-muted-foreground" />
+          <h3 className="font-semibold text-foreground">Filters</h3>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Search */}
           <div className="lg:col-span-2">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Search logs..."
@@ -174,7 +174,7 @@ export const AuditTrail = () => {
           {/* Date Range */}
           <div className="lg:col-span-2 grid grid-cols-2 gap-2">
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="date"
                 value={startDate}
@@ -183,7 +183,7 @@ export const AuditTrail = () => {
               />
             </div>
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="date"
                 value={endDate}
@@ -201,19 +201,19 @@ export const AuditTrail = () => {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Module</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Record ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Timestamp</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">User</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Action</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Module</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Record ID</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredLogs.map((log) => (
                 <tr key={log.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{formatTimestamp(log.timestamp)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{formatTimestamp(log.timestamp)}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-gray-900">{log.user}</div>
+                    <div className="font-medium text-foreground">{log.user}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`text-sm font-medium ${getActionColor(log.action)}`}>{log.action}</span>
@@ -221,7 +221,7 @@ export const AuditTrail = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">{log.module}</span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500 font-mono">{log.affectedRecordId}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-xs text-muted-foreground font-mono">{log.affectedRecordId}</td>
                 </tr>
               ))}
             </tbody>
@@ -235,8 +235,8 @@ export const AuditTrail = () => {
           <div key={log.id} className="bg-white rounded-xl border border-gray-200 p-4">
             <div className="flex items-start justify-between mb-3">
               <div>
-                <div className="font-medium text-gray-900">{log.user}</div>
-                <div className="text-xs text-gray-500 mt-1">{formatTimestamp(log.timestamp)}</div>
+                <div className="font-medium text-foreground">{log.user}</div>
+                <div className="text-xs text-muted-foreground mt-1">{formatTimestamp(log.timestamp)}</div>
               </div>
               <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">{log.module}</span>
             </div>
@@ -244,20 +244,20 @@ export const AuditTrail = () => {
               <div>
                 <span className={`text-sm font-medium ${getActionColor(log.action)}`}>{log.action}</span>
               </div>
-              <div className="text-xs text-gray-500 font-mono">{log.affectedRecordId}</div>
+              <div className="text-xs text-muted-foreground font-mono">{log.affectedRecordId}</div>
             </div>
           </div>
         ))}
       </div>
 
       {filteredLogs.length === 0 && (
-        <div className="py-12 text-center text-gray-500">
+        <div className="py-12 text-center text-muted-foreground">
           <Filter className="w-8 h-8 mx-auto mb-2 opacity-30" />
           <p className="text-sm">No audit logs found matching your filters.</p>
           {fetchFrom !== null && (
             <p className="text-sm mt-1">
               Only the last {AUDIT_WINDOW_DAYS} days are loaded —{' '}
-              <button onClick={() => setShowAll(true)} className="underline hover:text-gray-700">
+              <button onClick={() => setShowAll(true)} className="underline hover:text-foreground">
                 show earlier
               </button>.
             </p>

@@ -114,12 +114,12 @@ export const TreatmentRecords = () => {
     <div className="space-y-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Treatment</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{filtered.length} record{filtered.length !== 1 ? 's' : ''} found</p>
+          <h1 className="text-2xl font-bold text-foreground">Treatment</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{filtered.length} record{filtered.length !== 1 ? 's' : ''} found</p>
         </div>
         <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-          <button onClick={() => setViewMode('treatment')} className={`px-3 py-1.5 rounded-md text-sm font-medium ${viewMode === 'treatment' ? 'bg-white text-[#1E40AF] shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>Treatment List</button>
-          <button onClick={() => setViewMode('full')} className={`px-3 py-1.5 rounded-md text-sm font-medium ${viewMode === 'full' ? 'bg-white text-[#1E40AF] shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>Full List</button>
+          <button onClick={() => setViewMode('treatment')} className={`px-3 py-1.5 rounded-md text-sm font-medium ${viewMode === 'treatment' ? 'bg-white text-[#1E40AF] shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Treatment List</button>
+          <button onClick={() => setViewMode('full')} className={`px-3 py-1.5 rounded-md text-sm font-medium ${viewMode === 'full' ? 'bg-white text-[#1E40AF] shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Full List</button>
         </div>
       </div>
       <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">

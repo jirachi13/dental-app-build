@@ -1155,7 +1155,7 @@ export const DentalChart = () => {
           <div className="p-4 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <div className="text-xs font-bold text-gray-800 uppercase tracking-wide mb-2">Medical History</div>
+                <div className="text-xs font-bold text-foreground uppercase tracking-wide mb-2">Medical History</div>
                 <div className="space-y-1.5">
                   {([
                     ['Hypertension / CVA', 'hypertension'], ['Diabetes Mellitus', 'diabetes'],
@@ -1178,7 +1178,7 @@ export const DentalChart = () => {
                 </div>
               </div>
               <div>
-                <div className="text-xs font-bold text-gray-800 uppercase tracking-wide mb-2">Dietary Habits and Social History</div>
+                <div className="text-xs font-bold text-foreground uppercase tracking-wide mb-2">Dietary Habits and Social History</div>
                 <div className="space-y-1.5">
                   {([
                     ['Sugar Sweetened Beverages/Food', 'sugarSweetened'], ['Alcohol Drinker', 'alcoholDrinker'],
@@ -1197,7 +1197,7 @@ export const DentalChart = () => {
             </div>
 
             <div>
-              <div className="text-xs font-bold text-gray-800 uppercase tracking-wide mb-2">
+              <div className="text-xs font-bold text-foreground uppercase tracking-wide mb-2">
                 Oral Health Condition
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1.5">
@@ -1506,7 +1506,7 @@ export const DentalChart = () => {
                   <tr>
                     <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">School Year</th>
                     {['d', 'm', 'f', 'x', 'dmft', 'D', 'M', 'F', 'X', 'DMFT'].map((h) => (
-                      <th key={h} className={`px-2 py-2 text-center text-xs font-medium ${h === 'dmft' || h === 'DMFT' ? 'bg-gray-100 font-bold text-gray-800' : h === h.toLowerCase() ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'}`}>{h}</th>
+                      <th key={h} className={`px-2 py-2 text-center text-xs font-medium ${h === 'dmft' || h === 'DMFT' ? 'bg-gray-100 font-bold text-foreground' : h === h.toLowerCase() ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'}`}>{h}</th>
                     ))}
                   </tr>
                 </thead>

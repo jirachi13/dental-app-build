@@ -317,14 +317,14 @@ export const AIAnalytics = () => {
       order[history[history.length - 1].riskLevel] - order[history[history.length - 2].riskLevel];
     if (delta < 0) return { icon: TrendingDown, label: 'Improving', cls: 'text-green-600' };
     if (delta > 0) return { icon: TrendingUp, label: 'Worsening', cls: 'text-red-600' };
-    return { icon: Minus, label: 'Stable', cls: 'text-gray-500' };
+    return { icon: Minus, label: 'Stable', cls: 'text-muted-foreground' };
   };
 
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Risk Classification</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Predictive dental health risk classification</p>
+        <h1 className="text-2xl font-bold text-foreground">Risk Classification</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Predictive dental health risk classification</p>
       </div>
 
       {/* Always-on safety disclaimer (sprint rule: show on all AI outputs) */}
@@ -369,12 +369,12 @@ export const AIAnalytics = () => {
               { label: 'High Risk', value: overview.High, cls: 'text-red-600' },
               { label: 'Medium Risk', value: overview.Medium, cls: 'text-yellow-600' },
               { label: 'Low Risk', value: overview.Low, cls: 'text-green-600' },
-              { label: 'Unassessed', value: overview.unassessed, cls: 'text-gray-500' },
+              { label: 'Unassessed', value: overview.unassessed, cls: 'text-muted-foreground' },
               { label: 'Worsening', value: overview.worsening, cls: 'text-red-600' },
               { label: 'Improving', value: overview.improving, cls: 'text-green-600' },
             ] as const).map((t) => (
               <div key={t.label} className="bg-white rounded-xl border border-gray-200 p-4">
-                <span className="text-sm text-gray-600">{t.label}</span>
+                <span className="text-sm text-muted-foreground">{t.label}</span>
                 <p className={`text-xl font-bold mt-1 ${t.cls}`}>{t.value}</p>
               </div>
             ))}
@@ -385,7 +385,7 @@ export const AIAnalytics = () => {
           <div className="bg-white rounded-xl border border-gray-200 flex flex-col max-h-[70vh]">
             <div className="p-3 border-b border-gray-200 space-y-2">
               <div className="relative">
-                <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -397,7 +397,7 @@ export const AIAnalytics = () => {
                 <select
                   value={gradeFilter}
                   onChange={(e) => { setGradeFilter(e.target.value); setSectionFilter('all'); }}
-                  className="text-xs border border-gray-300 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="text-xs border border-gray-300 rounded-lg px-2 py-1.5 text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
                   aria-label="Filter by grade"
                 >
                   <option value="all">All Grades</option>
@@ -406,7 +406,7 @@ export const AIAnalytics = () => {
                 <select
                   value={sectionFilter}
                   onChange={(e) => setSectionFilter(e.target.value)}
-                  className="text-xs border border-gray-300 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="text-xs border border-gray-300 rounded-lg px-2 py-1.5 text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
                   aria-label="Filter by section"
                 >
                   <option value="all">All Sections</option>
@@ -415,7 +415,7 @@ export const AIAnalytics = () => {
                 <select
                   value={riskFilter}
                   onChange={(e) => setRiskFilter(e.target.value)}
-                  className="text-xs border border-gray-300 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="text-xs border border-gray-300 rounded-lg px-2 py-1.5 text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
                   aria-label="Filter by risk level"
                 >
                   <option value="all">All Risk Levels</option>
@@ -428,7 +428,7 @@ export const AIAnalytics = () => {
               <div className="flex items-center justify-between gap-2">
                 <button
                   onClick={() => setSortMode(sortMode === 'priority' ? 'name' : 'priority')}
-                  className="flex items-center gap-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-lg px-2.5 py-1.5 hover:bg-gray-50"
+                  className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground border border-gray-300 rounded-lg px-2.5 py-1.5 hover:bg-gray-50"
                 >
                   <ListOrdered className="w-3.5 h-3.5" />
                   {sortMode === 'priority' ? 'Priority order' : 'Name order'}
@@ -461,7 +461,7 @@ export const AIAnalytics = () => {
             </div>
             <div className="overflow-y-auto divide-y divide-gray-100">
               {filtered.length === 0 && (
-                <div className="text-gray-500 text-sm py-12 text-center">No students found</div>
+                <div className="text-muted-foreground text-sm py-12 text-center">No students found</div>
               )}
               {filtered.map((c) => {
                 const latest = c.history[c.history.length - 1];
@@ -485,8 +485,8 @@ export const AIAnalytics = () => {
                       className="flex-1 min-w-0 text-left flex items-center justify-between"
                     >
                       <div className="min-w-0">
-                        <div className="text-sm font-medium text-gray-900 truncate">{c.name}</div>
-                        <div className="text-xs text-gray-500 truncate">
+                        <div className="text-sm font-medium text-foreground truncate">{c.name}</div>
+                        <div className="text-xs text-muted-foreground truncate">
                           {c.school} · Grade {c.grade}-{c.section}
                         </div>
                       </div>
@@ -504,7 +504,7 @@ export const AIAnalytics = () => {
                             {latest.riskLevel}
                           </span>
                         ) : (
-                          <span className="text-xs px-2 py-0.5 rounded-full border bg-gray-100 text-gray-500 border-gray-200">
+                          <span className="text-xs px-2 py-0.5 rounded-full border bg-gray-100 text-muted-foreground border-gray-200">
                             Unassessed
                           </span>
                         )}
@@ -522,7 +522,7 @@ export const AIAnalytics = () => {
             {!selected ? (
               <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
                 <Brain className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-sm text-gray-500">Select a student to generate a risk assessment.</p>
+                <p className="text-sm text-muted-foreground">Select a student to generate a risk assessment.</p>
               </div>
             ) : (
               <>
@@ -530,8 +530,8 @@ export const AIAnalytics = () => {
                 <div className="bg-white rounded-xl border border-gray-200 p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div>
-                      <h2 className="font-semibold text-gray-900">{selected.name}</h2>
-                      <p className="text-xs text-gray-500">
+                      <h2 className="font-semibold text-foreground">{selected.name}</h2>
+                      <p className="text-xs text-muted-foreground">
                         Input data auto-populated from this student's dental records
                       </p>
                     </div>
@@ -547,8 +547,8 @@ export const AIAnalytics = () => {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
                     {(Object.entries(selected.features) as [string, number][]).map(([k, v]) => (
                       <div key={k} className="bg-gray-50 rounded-lg px-3 py-2">
-                        <div className="text-xs text-gray-500">{FEATURE_LABELS[k] ?? k}</div>
-                        <div className="font-medium text-gray-900">
+                        <div className="text-xs text-muted-foreground">{FEATURE_LABELS[k] ?? k}</div>
+                        <div className="font-medium text-foreground">
                           {k === 'sex' ? (v === 1 ? 'M' : 'F') : v}
                         </div>
                       </div>
@@ -561,8 +561,8 @@ export const AIAnalytics = () => {
                 {prediction && (
                   <div className="bg-white rounded-xl border border-gray-200 p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-semibold text-gray-900">Model Assessment</h3>
-                      <span className="text-xs text-gray-500">
+                      <h3 className="font-semibold text-foreground">Model Assessment</h3>
+                      <span className="text-xs text-muted-foreground">
                         {prediction.algorithm}
                         {generatedAt && ` · generated ${generatedAt.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`}
                       </span>
@@ -571,14 +571,14 @@ export const AIAnalytics = () => {
                       <span className={`text-sm font-semibold px-3 py-1 rounded-full border ${RISK_BADGE[prediction.risk_level]}`}>
                         {prediction.risk_level.toUpperCase()} RISK
                       </span>
-                      <span className="text-sm text-gray-600">
+                      <span className="text-sm text-muted-foreground">
                         Confidence: {(prediction.confidence * 100).toFixed(1)}%
                       </span>
                     </div>
                     <div className="space-y-1.5 mb-4">
                       {(['High', 'Medium', 'Low'] as const).map((lvl) => (
                         <div key={lvl} className="flex items-center gap-2 text-xs">
-                          <span className="w-14 text-gray-500">{lvl}</span>
+                          <span className="w-14 text-muted-foreground">{lvl}</span>
                           <div className="flex-1 bg-gray-100 rounded-full h-2">
                             <div
                               className={`h-2 rounded-full ${
@@ -587,7 +587,7 @@ export const AIAnalytics = () => {
                               style={{ width: `${(prediction.probabilities[lvl] ?? 0) * 100}%` }}
                             />
                           </div>
-                          <span className="w-12 text-right text-gray-500">
+                          <span className="w-12 text-right text-muted-foreground">
                             {((prediction.probabilities[lvl] ?? 0) * 100).toFixed(1)}%
                           </span>
                         </div>
@@ -595,10 +595,10 @@ export const AIAnalytics = () => {
                     </div>
                     {prediction.top_features.length > 0 && (
                       <div className="mb-4">
-                        <div className="text-xs text-gray-500 mb-1.5">Top contributing factors</div>
+                        <div className="text-xs text-muted-foreground mb-1.5">Top contributing factors</div>
                         <div className="flex flex-wrap gap-1.5">
                           {prediction.top_features.map((f) => (
-                            <span key={f} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full">
+                            <span key={f} className="text-xs bg-gray-100 text-foreground px-2 py-1 rounded-full">
                               {FEATURE_LABELS[f] ?? f}
                             </span>
                           ))}
@@ -610,9 +610,9 @@ export const AIAnalytics = () => {
                         marked "AI-suggested"; one deliberate Validate & Save.
                         The audit trail records accepted-as-is vs changed. */}
                     <div className="mt-4 border-t border-gray-200 pt-4">
-                      <h4 className="font-semibold text-gray-900 text-sm mb-2">Dentist Validation</h4>
+                      <h4 className="font-semibold text-foreground text-sm mb-2">Dentist Validation</h4>
                       {!isDentist ? (
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-muted-foreground">
                           Only a dentist can validate and save this assessment.
                         </p>
                       ) : !selected.latestPreventiveId ? (
@@ -623,14 +623,14 @@ export const AIAnalytics = () => {
                         </Notice>
                       ) : (
                         <div className="space-y-3">
-                          <p className="flex items-center gap-1.5 text-xs text-gray-500">
+                          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                             <Brain className="w-3.5 h-3.5 text-[#1E40AF] shrink-0" />
                             Pre-filled from the model — review, edit where your clinical judgment
                             differs, then validate.
                           </p>
                           <div>
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-medium text-gray-700">Risk level</span>
+                              <span className="text-xs font-medium text-foreground">Risk level</span>
                               {finalLevel === prediction.risk_level ? (
                                 <span className="text-[11px] px-2 py-0.5 rounded-full border bg-blue-100 text-blue-700 border-blue-200">
                                   AI-suggested
@@ -654,7 +654,7 @@ export const AIAnalytics = () => {
                           </div>
                           <div>
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-medium text-gray-700">Recommendation</span>
+                              <span className="text-xs font-medium text-foreground">Recommendation</span>
                               {finalRec.trim() === prediction.recommendation.trim() ? (
                                 <span className="text-[11px] px-2 py-0.5 rounded-full border bg-blue-100 text-blue-700 border-blue-200">
                                   AI-suggested
@@ -698,7 +698,7 @@ export const AIAnalytics = () => {
                 {/* Risk history timeline */}
                 <div className="bg-white rounded-xl border border-gray-200 p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-gray-900">Risk History</h3>
+                    <h3 className="font-semibold text-foreground">Risk History</h3>
                     {(() => {
                       const t = trend(selected.history);
                       if (!t) return null;
@@ -711,7 +711,7 @@ export const AIAnalytics = () => {
                     })()}
                   </div>
                   {selected.history.length === 0 ? (
-                    <p className="text-gray-500 text-sm py-6 text-center">
+                    <p className="text-muted-foreground text-sm py-6 text-center">
                       No previous risk assessments for this student.
                     </p>
                   ) : (
@@ -725,10 +725,10 @@ export const AIAnalytics = () => {
                               <span className={`text-xs px-2 py-0.5 rounded-full border ${RISK_BADGE[h.riskLevel]}`}>
                                 {h.riskLevel}
                               </span>
-                              <span className="text-gray-600">Visit: {h.visitDate}</span>
-                              <span className="text-gray-500">DMF {h.dmfScore}</span>
+                              <span className="text-muted-foreground">Visit: {h.visitDate}</span>
+                              <span className="text-muted-foreground">DMF {h.dmfScore}</span>
                             </div>
-                            <span className={`text-xs ${h.validated ? 'text-green-700' : 'text-gray-500'}`}>
+                            <span className={`text-xs ${h.validated ? 'text-green-700' : 'text-muted-foreground'}`}>
                               {h.validated ? 'Dentist-validated' : 'Not validated'}
                             </span>
                           </li>
