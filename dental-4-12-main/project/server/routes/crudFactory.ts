@@ -4,6 +4,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { logAudit } from "../utils/auditLog.js";
 import { ALL_ROLES, ADMIN_ONLY } from "../middleware/roleGroups.js";
+import { scopeFilter, isInScope } from "../utils/schoolScope.js";
 
 const PROTECTED_FIELDS = [
   "_id", "isArchived", "archivedAt", "archivedBy", "created_at", "updated_at",
@@ -172,7 +173,10 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
         }
         if (Object.keys(range).length > 0) filter[options.dateField] = range;
       }
-      const docs = await model.find(filter);
+      // School scoping (Sprint 101). Merged LAST so a client-supplied filter
+      // can only ever narrow the result, never widen it past the user's schools.
+      const scope = await scopeFilter(modelName, req);
+      const docs = await model.find(scope ? { ...filter, ...scope } : filter);
       res.json(docs);
     }),
   );
@@ -197,6 +201,12 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
         res.status(404).json({ error: "Not found" });
         return;
       }
+      // Out of the caller's schools: 404, not 403, for the same reason as
+      // archived records — 403 would confirm the record exists.
+      if (!(await isInScope(modelName, req, doc))) {
+        res.status(404).json({ error: "Not found" });
+        return;
+      }
       res.json(doc);
     }),
   );
@@ -213,6 +223,13 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
       // it must never reach model.create().
       const duplicateConfirmed = body.confirm_duplicate === true;
       delete body.confirm_duplicate;
+      // Creating INTO another school is the write-side of the same hole
+      // (Sprint 101). 403 here rather than 404: the caller is not being told
+      // whether anything exists, only that this school is not theirs.
+      if (!(await isInScope(modelName, req, body))) {
+        res.status(403).json({ error: "That school is not assigned to your account" });
+        return;
+      }
       if (options.uniqueBy && options.uniqueBy.every((f) => body[f] !== undefined)) {
         const filter: Record<string, unknown> = {};
         for (const f of options.uniqueBy) filter[f] = body[f];
@@ -264,6 +281,10 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
         res.status(404).json({ error: "Not found" });
         return;
       }
+      if (!(await isInScope(modelName, req, doc))) {
+        res.status(404).json({ error: "Not found" });
+        return;
+      }
       Object.assign(doc, sanitizeBody(req.body));
       await doc.save();
       await logAudit(req.user!.id, `Updated ${modelName}`, (doc._id as any).toString(), modelName);
@@ -279,6 +300,11 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
       asyncHandler(async (req, res) => {
         if (!mongoose.isValidObjectId(req.params.id)) {
           res.status(400).json({ error: "Invalid id" });
+          return;
+        }
+        const target = await model.findById(req.params.id).lean();
+        if (!target || !(await isInScope(modelName, req, target))) {
+          res.status(404).json({ error: "Not found" });
           return;
         }
         const doc = await model.findByIdAndUpdate(
@@ -327,6 +353,14 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
               return;
             }
           }
+        }
+        // Restore is admin-only by default and a system_admin is unscoped, so
+        // this rarely fires — included so the archive/restore pair is not
+        // asymmetric, which a later reader would take for an oversight.
+        const restoring = await model.findById(req.params.id).lean();
+        if (!restoring || !(await isInScope(modelName, req, restoring))) {
+          res.status(404).json({ error: "Not found" });
+          return;
         }
         const doc = await model.findByIdAndUpdate(
           req.params.id,

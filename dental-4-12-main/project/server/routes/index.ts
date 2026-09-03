@@ -5,6 +5,7 @@ import { createCrudRouter } from "./crudFactory.js";
 import authRoutes from "./authRoutes.js";
 import predictionRoutes from "./predictionRoutes.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { scopeFilter } from "../utils/schoolScope.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { ADMIN_ONLY, CLINICAL_WRITE_ROLES } from "../middleware/roleGroups.js";
 import { findDuplicateStudents } from "../utils/studentDuplicates.js";
@@ -72,6 +73,10 @@ router.get("/stats/high-risk-count", requireAuth, asyncHandler(async (req, res) 
     if (!school) { res.json({ count: 0 }); return; }
     studentFilter = { ...studentFilter, school_id: school._id };
   }
+  // The ?school param is the CLIENT's choice; this is the user's permission
+  // (Sprint 101). Merged after, so the query can narrow but never widen.
+  const scope = await scopeFilter("Student", req);
+  if (scope) studentFilter = { ...studentFilter, ...scope };
   const [students, iptrs, preventives, risks] = await Promise.all([
     Student.find(studentFilter).select("_id").lean(),
     StudentIptr.find({ isArchived: false }).select("_id student_id").lean(),
@@ -120,6 +125,10 @@ router.get("/stats/notifications", requireAuth, asyncHandler(async (req, res) =>
     if (!school) { res.json({ overdueRpc: 0, appointmentsToday: 0, awaitingValidation: 0 }); return; }
     studentFilter = { ...studentFilter, school_id: school._id };
   }
+  // The ?school param is the CLIENT's choice; this is the user's permission
+  // (Sprint 101). Merged after, so the query can narrow but never widen.
+  const scope = await scopeFilter("Student", req);
+  if (scope) studentFilter = { ...studentFilter, ...scope };
 
   // Today in the SERVER's local day. The clinic and the server share a
   // timezone; if that ever stops being true this needs the client's offset,
@@ -200,9 +209,13 @@ router.get("/stats/notifications", requireAuth, asyncHandler(async (req, res) =>
 // fields are encrypted, and mongoose-field-encryption decrypts in post('init'),
 // which only runs for real documents — a lean() or aggregate() read would
 // return ciphertext. Everything else is lean because none of it is encrypted.
-router.get("/stats/student-rows", requireAuth, asyncHandler(async (_req, res) => {
+router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => {
+  // This is the endpoint the Sprint 101 probe caught handing all three
+  // schools' students to a school_admin pinned to one.
+  const scope = await scopeFilter("Student", req);
+  const studentFilter = scope ? { isArchived: false, ...scope } : { isArchived: false };
   const [students, schools, iptrs, charts, preventives, risks] = await Promise.all([
-    Student.find({ isArchived: false }),
+    Student.find(studentFilter),
     School.find({ isArchived: false }).select("_id school_name").lean(),
     StudentIptr.find({ isArchived: false }).select("_id student_id").lean(),
     DentalChart.find({ isArchived: false }).select("iptr_id date_charted").lean(),
