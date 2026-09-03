@@ -44,6 +44,10 @@ const REAL_ORAL_FIELDS: Record<string, keyof ApiOralHealthCondition> = {
   debris: 'debris',
   calculus: 'calculus',
   anomaly: 'abnormal_growth',
+  // Sprint 83: the paper form has a Periodontitis row and ORAL_HEALTH_CONDITION
+  // has carried `periodontal_disease` all along — it was simply never mapped,
+  // so the row could not be built and the figure was unavailable.
+  periodontitis: 'periodontal_disease',
 };
 
 /** Whole years completed between two dates. The month/day comparison is not a
@@ -160,6 +164,22 @@ export function useDohReportData(schoolYear: string | null = null, schoolName: s
         if (!seen || d < seen) firstVisitByIptr.set(p.iptr_id, d);
       }
 
+      // Per-IPTR visit facts for the form's Patient Seeking Utilization rows.
+      // `firstFacility` is the flag on the EARLIEST visit, which is the one
+      // "visited for the 1st time" asks about.
+      const visitsByIptr = new Map<string, { hasVisit1: boolean; hasVisit2: boolean; firstFacility: boolean | null }>();
+      for (const p of preventives) {
+        const v = visitsByIptr.get(p.iptr_id) ?? { hasVisit1: false, hasVisit2: false, firstFacility: null };
+        if (p.visit_number === 1) v.hasVisit1 = true;
+        if (p.visit_number === 2) v.hasVisit2 = true;
+        const first = firstVisitByIptr.get(p.iptr_id);
+        const d = p.visit_date ? new Date(p.visit_date) : null;
+        if (first && d && !Number.isNaN(d.getTime()) && d.getTime() === first.getTime()) {
+          v.firstFacility = p.facility_based ?? null;
+        }
+        visitsByIptr.set(p.iptr_id, v);
+      }
+
       const iptrsByStudent = new Map<string, string[]>();
       // Grade and age basis are per-IPTR now, not per-student: the grade is the
       // one recorded FOR THAT YEAR (Sprint 57a) and the age is measured at that
@@ -238,6 +258,24 @@ export function useDohReportData(schoolYear: string | null = null, schoolName: s
             for (const [dohField, apiField] of Object.entries(REAL_ORAL_FIELDS)) {
               if (oral[apiField] === true) bump(dohField);
             }
+            // The paper form has ONE row, "Oral Debris / Calculus Deposits",
+            // where this system stores two booleans. It must be counted as
+            // EITHER, computed here — adding the two separate counts would
+            // double-count every patient who has both.
+            if (oral.debris === true || oral.calculus === true) bump('debris_or_calculus');
+          }
+
+          // ── Section A, Patient Seeking Utilization (Sprint 83) ───────────
+          // Counted per IPTR from PREVENTIVE_CARE_RECORD. The facility split
+          // reads Sprint 81's flag on the FIRST visit; a null flag counts
+          // toward neither row, exactly as on FHSIS — the form's two rows are
+          // "facility" and "non-facility", and "not recorded" is neither.
+          const visits = visitsByIptr.get(iptrId);
+          if (visits) {
+            if (visits.hasVisit1) bump('rpoc_visit1');
+            if (visits.hasVisit2) bump('rpoc_visit2');
+            if (visits.firstFacility === true) bump('visit_facility_1st');
+            if (visits.firstFacility === false) bump('visit_nonfacility_1st');
           }
 
           // DMF/dmf and OFC come from RiskStratification rather than a per-field
@@ -298,6 +336,13 @@ export function useDohReportData(schoolYear: string | null = null, schoolName: s
     'DMF_total',
     'dmf_df',
     'ofc_exam',
+    // Sprint 83 — the form's Patient Seeking Utilization section, plus the
+    // combined debris/calculus row the paper form actually prints.
+    'debris_or_calculus',
+    'rpoc_visit1',
+    'rpoc_visit2',
+    'visit_facility_1st',
+    'visit_nonfacility_1st',
   ]);
 
   function getRealCount(grade: string, age: string, sex: 'M' | 'F', field: string): number | null {

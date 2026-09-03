@@ -1,6 +1,7 @@
 import { useMemo, useState, Fragment } from 'react';
 import { useDohReportData } from '../hooks/useDohReportData';
 import { SkeletonTable } from './Skeleton';
+import { FORM_SECTION_BAND, BLOCKED_CELL, BLOCKED_TITLE } from '../utils/dohFormStyle';
 
 // ─── Oral Health Program Reporting Form ──────────────────────────────────────
 // Transcribed from the manuscript's APPENDIX F (the user said E; E is the
@@ -111,6 +112,11 @@ type Row = {
   label: string;
   field: string | null;
   indent?: boolean;
+  /** The paper form BLOCKS these cells out in solid dark grey — they must not
+   *  be filled at all. Distinct from `field: null`, which means the form wants
+   *  a number and this system has no source for it. Conflating the two would
+   *  claim the form forbids a cell it merely leaves empty. */
+  blocked?: boolean;
   /** Rows nested under this one. ART splits by restorative material (per the
    *  dentist): the parent can be shown alone, or expanded to show each
    *  material separately. Collapsed by default — the parent is what the form
@@ -118,13 +124,40 @@ type Row = {
   children?: Row[];
 };
 
+/** Section A of the paper form. Read off Appendix F (`image18`) on 2026-09-03
+ *  — the app carried NONE of these four rows, so a whole printed section was
+ *  missing from a form filed with the City Health Office.
+ *
+ *  All four have real sources: the facility split is Sprint 81's
+ *  `facility_based` on the first visit, and the two RPOC rows are the visit
+ *  numbers the RPC module has always recorded. */
+const UTILIZATION_ROWS: Row[] = [
+  { label: 'No. of patients who visited the DENTAL FACILITY for the 1st time', field: 'visit_facility_1st' },
+  { label: 'No. of patients who visited NON-FACILITY for the 1st time', field: 'visit_nonfacility_1st' },
+  { label: 'No. of patients who availed the Routine Preventive Oral Care (RPOC) — 1ST VISIT', field: 'rpoc_visit1' },
+  { label: 'No. of patients who availed the Routine Preventive Oral Care (RPOC) — 2ND VISIT', field: 'rpoc_visit2' },
+];
+
 const STATUS_ROWS: Row[] = [
   { label: 'Number of patients with Dental Caries', field: 'DMF_total' },
-  { label: 'Number of patients with Oral Debris', field: 'debris' },
-  { label: 'Number of patients with Calculus Deposits', field: 'calculus' },
+  // ONE row on the paper form, not two. Counted as "debris OR calculus" in
+  // useDohReportData rather than by adding the two separate tallies, which
+  // would double-count every patient who has both.
+  { label: 'Number of patients with Oral Debris / Calculus Deposits', field: 'debris_or_calculus' },
   { label: 'Number of patients with Gingivitis', field: 'gingivitis' },
-  { label: 'Number of patients with suspected oral lesions / anomaly', field: 'anomaly' },
-  { label: 'Orally Fit Children upon Oral Examination', field: 'ofc_exam' },
+  // Was absent although ORAL_HEALTH_CONDITION has carried the boolean all
+  // along — it was simply never mapped in useDohReportData.
+  { label: 'Number of patients with Periodontitis', field: 'periodontitis' },
+  { label: 'Number of patients with suspected oral lesions', field: 'anomaly' },
+  // On the form, and structurally impossible here: this table covers school
+  // children and carries no adult or elderly column at all. Blocked (dark
+  // grey) rather than "—" — the form itself blocks these cells, which is a
+  // different statement from "we have no data".
+  { label: 'Number of Completely Edentulous Adults / Elderly', field: null, blocked: true },
+  { label: 'OFC Upon Oral Examination', field: 'ofc_exam' },
+  // No completed mouth rehabilitation is recorded anywhere, so this is a
+  // genuine no-source row, not a blocked one.
+  { label: 'OFC Upon Complete Oral Rehabilitation', field: null },
 ];
 
 const SERVICE_ROWS: Row[] = [
@@ -230,8 +263,13 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
   const labelTd = 'px-2 py-1.5 text-xs text-foreground border border-border whitespace-nowrap text-left';
 
   const section = (title: string) => (
-    <tr className="bg-amber-50">
-      <td className={`${labelTd} font-bold`} colSpan={visibleCols.length * 2 + 2}>{title}</td>
+    // Amber band across the full width, as printed — was bg-amber-50, a tint
+    // so light the sections read as ordinary rows.
+    // Band painted on the TD, not only the TR: html2canvas (the PDF export
+    // path) resolves cell backgrounds reliably and row backgrounds not always,
+    // so a tr-only fill can vanish from the exported form.
+    <tr className={FORM_SECTION_BAND}>
+      <td className={`${labelTd} font-bold ${FORM_SECTION_BAND}`} colSpan={visibleCols.length * 2 + 2}>{title}</td>
     </tr>
   );
 
@@ -265,14 +303,24 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
       {visibleCols.map((c) => SEXES.map((s) => {
         const v = cell(r.field, c, s);
         return (
+          // A blocked cell carries no value and no dash — the paper form fills
+          // it solid, meaning "do not write here". `—` would invite a number.
+          r.blocked ? (
+            <td key={`${c.group}-${c.label}-${s}`} className={`${td} ${BLOCKED_CELL}`} title={BLOCKED_TITLE} />
+          ) : (
           <td key={`${c.group}-${c.label}-${s}`} className={`${td} ${v === null ? 'text-muted-foreground' : ''}`}>
             {v === null ? '—' : v}
           </td>
+          )
         );
       }))}
+      {r.blocked ? (
+        <td className={`${td} ${BLOCKED_CELL}`} title={BLOCKED_TITLE} />
+      ) : (
       <td className={`${td} font-semibold bg-gray-50`}>
         {rowTotal(r.field) === null ? <span className="text-muted-foreground">—</span> : rowTotal(r.field)}
       </td>
+      )}
     </tr>
   );
 
@@ -355,7 +403,7 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
           <div>
             <div className="font-semibold text-foreground mb-1.5">Rows</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
-              {[...STATUS_ROWS, ...SERVICE_ROWS, ...OTHER_ROWS].map((r) => (
+              {[...UTILIZATION_ROWS, ...STATUS_ROWS, ...SERVICE_ROWS, ...OTHER_ROWS].map((r) => (
                 <label key={r.label} className="flex items-center gap-1.5 cursor-pointer">
                   <input
                     type="checkbox"
@@ -418,11 +466,15 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
             </tr>
           </thead>
           <tbody>
-            {section('I. Oral Health Status')}
+            {/* Lettered A–D, as the paper form numbers them. The app used
+                I/II/III and was missing section A entirely. */}
+            {section('A. Patient Seeking Utilization')}
+            {UTILIZATION_ROWS.map(renderRow)}
+            {section('B. Oral Health Status')}
             {STATUS_ROWS.map(renderRow)}
-            {section('II. Services Rendered')}
+            {section('C. Services Rendered')}
             {SERVICE_ROWS.map(renderRow)}
-            {section('III. Other Parameters')}
+            {section('D. Other Parameters')}
             {OTHER_ROWS.map(renderRow)}
           </tbody>
         </table>

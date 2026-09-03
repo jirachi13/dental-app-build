@@ -4,6 +4,7 @@ import { useFhsisData, FHSIS_BANDS, type FhsisBandKey, type Measure } from '../h
 import { exportDohReportToPdf } from '../utils/exportPdf';
 import { exportToXlsx } from '../utils/exportXlsx';
 import { SkeletonTable } from './Skeleton';
+import { FORM_SECTION_BAND } from '../utils/dohFormStyle';
 
 // ─── FHSIS · SECTION D. ORAL HEALTH CARE SERVICES ────────────────────────────
 // Transcribed from the "FHSIS" sheet of the workbook the user supplied
@@ -236,8 +237,8 @@ export const FhsisReport = ({ schoolName }: { schoolName: string }) => {
           <tbody>
             {MEASURES.map((measure) => (
               <>
-                <tr key={measure.key} className="bg-gray-100">
-                  <td colSpan={5} className="border border-gray-300 px-2 py-1.5 font-semibold">
+                <tr key={measure.key} className={FORM_SECTION_BAND}>
+                  <td colSpan={5} className={`border border-gray-300 px-2 py-1.5 font-semibold ${FORM_SECTION_BAND}`}>
                     {measure.heading}
                   </td>
                 </tr>
@@ -303,8 +304,8 @@ export const FhsisReport = ({ schoolName }: { schoolName: string }) => {
             ))}
 
             {/* Pregnant women — on the form, no source in the system. */}
-            <tr className="bg-gray-100">
-              <td colSpan={5} className="border border-gray-300 px-2 py-1.5 font-semibold">
+            <tr className={FORM_SECTION_BAND}>
+              <td colSpan={5} className={`border border-gray-300 px-2 py-1.5 font-semibold ${FORM_SECTION_BAND}`}>
                 PREGNANT WOMEN (by age group)
               </td>
             </tr>

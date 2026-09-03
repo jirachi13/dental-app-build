@@ -6,6 +6,7 @@ import { useStudents } from '../hooks/useStudents';
 import { useRPCTracking } from '../hooks/useRPCTracking';
 import { SkeletonTable } from './Skeleton';
 import { formatDate, toLocalDateString } from '../utils/localDate';
+import { FORM_SECTION_BAND } from '../utils/dohFormStyle';
 
 // ─── Target Client List for Oral Health Care and Services ────────────────────
 // Transcribed from the manuscript's APPENDIX E (not D — Appendix D is the DMFX
@@ -542,7 +543,10 @@ export const TargetClientList = () => {
               {visibleIdentity.length > 0 && <th className={th} colSpan={visibleIdentity.length} />}
               {visibleServiceGroups.map((g) => (
                 <th key={g.label} colSpan={g.span}
-                    className={`${th} ${g.label === 'OTHER SERVICES' ? 'bg-amber-50' : 'bg-blue-50'}`}>
+                    // Group bands carry the printed form's amber (Sprint 83);
+                    // the identity block keeps its cooler tone so the two
+                    // halves of the sheet stay distinguishable.
+                    className={`${th} ${g.label === 'OTHER SERVICES' ? FORM_SECTION_BAND : 'bg-blue-50'}`}>
                   {g.label}
                 </th>
               ))}
@@ -558,7 +562,7 @@ export const TargetClientList = () => {
                 <RotHead
                   key={`${c.group}-${c.label}-${i}`}
                   label={c.label}
-                  tone={c.group === 'OTHER SERVICES' ? 'bg-amber-50' : 'bg-blue-50'}
+                  tone={c.group === 'OTHER SERVICES' ? FORM_SECTION_BAND : 'bg-blue-50'}
                   unverified={c.unverified}
                 />
               ))}
