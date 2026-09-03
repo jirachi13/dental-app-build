@@ -31,17 +31,20 @@ async function rasterizePdfPages(file: File): Promise<HTMLCanvasElement[]> {
   return canvases;
 }
 
-const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
-
 // Every label that can appear on the form, used as a stop-boundary so one
 // field's capture doesn't swallow the next field's label — paper forms
 // commonly print several fields on one line, e.g. "Name: ____ Sex: ____".
+// This list is transcribed from the blank DOH IPTR, which prints Address,
+// Occupation and Contact # on ONE line and Philhealth # and 4Ps/NHTS on the
+// next — so `occupation` and `4ps/nhts` earn their place here as boundaries
+// even though neither is extracted as a field of its own.
 const ALL_FIELD_LABELS = [
-  "student'?s name", 'pangalan', 'name',
+  "student'?s name", "patient'?s name", 'pangalan', 'name',
   'birth\\s*date', 'birthday', 'date of birth',
   'age', 'sex', 'gender', 'address', 'occupation',
-  'contact\\s*(no\\.?|number|#)', 'mobile\\s*(no\\.?|number|#)',
-  'grade\\s*(level)?', 'section',
+  'contact\\s*(?:no\\.?|number|#)', 'mobile\\s*(?:no\\.?|number|#)',
+  'phil\\s*health', 'principal', 'dependent',
+  '4\\s*ps\\s*[\\/|]?\\s*nhts', 'nhts',
 ];
 
 // A value that's just an unfilled placeholder (underscores, slashes, "mm/dd/yyyy") — treat as blank.
@@ -54,10 +57,14 @@ function isPlaceholder(value: string): boolean {
 function findLabelValue(text: string, labels: string[]): string | null {
   const boundary = ALL_FIELD_LABELS.join('|');
   for (const label of labels) {
-    const re = new RegExp(`(?:${label})\\s*[:\\-]?\\s*([\\s\\S]*?)(?=(?:${boundary})\\s*[:\\-]|[\\r\\n]|$)`, 'i');
+    // ⚠ The value is a NAMED group, not `[1]`. A label pattern containing its
+    // own capturing group — `contact\s*(no|number|#)` did — takes group 1 for
+    // itself, so `match[1]` returned the matched LABEL fragment as the value.
+    // That is how Contact # extracted the literal string "#" onto the form.
+    const re = new RegExp(`(?:${label})\\s*[:\\-]?\\s*(?<value>[\\s\\S]*?)(?=(?:${boundary})\\s*[:\\-]|[\\r\\n]|$)`, 'i');
     const match = text.match(re);
-    if (match?.[1]) {
-      const value = match[1].trim().replace(/\s{2,}/g, ' ');
+    if (match?.groups?.value) {
+      const value = match.groups.value.trim().replace(/\s{2,}/g, ' ');
       if (value && !isPlaceholder(value)) return value;
     }
   }
@@ -72,15 +79,33 @@ function confidenceForValue(value: string, words: Tesseract.Word[]): number | un
   return matches.reduce((sum, w) => sum + w.confidence, 0) / matches.length;
 }
 
-function normalizeGrade(raw: string): string {
-  const digitMatch = raw.match(/\d+/);
-  if (digitMatch) {
-    const n = Number(digitMatch[0]);
-    if (n >= 1 && n <= 10) return `Grade ${n}`;
-  }
-  if (/kinder/i.test(raw)) return 'Kinder';
-  const found = GRADES.find((g) => raw.toLowerCase().includes(g.toLowerCase()));
-  return found ?? raw.trim();
+// A PhilHealth PIN is 12 digits, normally printed XX-XXXXXXXXX-X. Anything
+// much shorter came from a stray mark or from the "Principal / Dependent"
+// caption leaking past the label, not from a real number — return blank and
+// let the encoder type it, rather than prefilling a wrong identifier onto a
+// child's record. Which of Principal/Dependent applies is CIRCLED on paper,
+// not written, so it is not inferred here; the encoder picks it.
+function normalizePhilhealth(raw: string): string {
+  const cleaned = raw.replace(/[^0-9-]/g, '').replace(/-{2,}/g, '-').replace(/^-|-$/g, '');
+  return cleaned.replace(/\D/g, '').length >= 10 ? cleaned : '';
+}
+
+// 4Ps/NHTS household IDs are not one fixed format, so this cannot validate a
+// shape — but it CAN insist on one: an ID contains digits. ⚠ Without that, the
+// blank form's next printed line ("Lagyan ng ✓ kung ikaw ay NAKARANAS…") was
+// captured, stripped of spaces, and prefilled as a 4Ps ID. A prose sentence is
+// never an identifier.
+function normalizeFourPs(raw: string): string {
+  const cleaned = raw.replace(/[^0-9A-Za-z-]/g, '').replace(/^-|-$/g, '');
+  if (cleaned.replace(/\D/g, '').length < 4) return '';
+  return cleaned.length <= 24 ? cleaned : '';
+}
+
+// A one- or two-character "address" is a speck on a blank line, not a place.
+// Blank fields on a scanned form routinely OCR as a stray 0 or l.
+function normalizeAddress(raw: string): string {
+  const value = raw.trim();
+  return value.replace(/[^0-9A-Za-z]/g, '').length >= 4 ? value : '';
 }
 
 function normalizeSex(raw: string): string {
@@ -145,10 +170,104 @@ function extractFieldsFromPage(
   setField('birthdate', findLabelValue(text, ['birth\\s*date', 'birthday', 'date of birth']), normalizeBirthdate);
   setField('age', findLabelValue(text, ['age']));
   setField('gender', findLabelValue(text, ['sex', 'gender']), normalizeSex);
-  setField('address', findLabelValue(text, ['address']));
+  setField('address', findLabelValue(text, ['address']), normalizeAddress);
   setField('contactNumber', findLabelValue(text, ['contact\\s*(no\\.?|number|#)', 'mobile\\s*(no\\.?|number|#)']));
-  setField('grade', findLabelValue(text, ['grade\\s*(level)?']), normalizeGrade);
-  setField('section', findLabelValue(text, ['section']));
+  // The form prints the whole caption "Philhealth #: Principal / Dependent:"
+  // before the blank, so Principal/Dependent is consumed as PART OF THE LABEL.
+  // Without that the capture starts at "Principal" and the number is lost.
+  setField(
+    'philhealthNumber',
+    findLabelValue(text, ['phil\\s*health\\s*(?:#|no\\.?|number)?\\s*:?\\s*(?:principal\\s*[\\/|]?\\s*dependent)?']),
+    normalizePhilhealth,
+  );
+  setField('fourPsId', findLabelValue(text, ['4\\s*ps\\s*[\\/|]?\\s*nhts', '4\\s*ps']), normalizeFourPs);
+}
+
+function wordsOf(data: Tesseract.Page): Tesseract.Word[] {
+  return (data.blocks ?? []).flatMap((b) => b.paragraphs.flatMap((p) => p.lines.flatMap((l) => l.words)));
+}
+
+// ── Orientation ────────────────────────────────────────────────────────────
+// The supplied IPTR scan stores page 2 UPSIDE DOWN, and `pdfinfo` reports
+// `Page rot: 0` for both pages — the rotation is baked into the scanned image,
+// so no metadata will ever reveal it. OCR on an inverted page does not error;
+// it returns almost nothing, which used to look exactly like "this page had no
+// fields on it". A phone photo of a form held the wrong way round does the
+// same thing.
+//
+// ⚠ THIS IS A SAFETY FIX, NOT A CONVENIENCE. The checkbox grid reader
+// (iptrCheckboxes.ts) identifies a row BY POSITION — the nth band is the nth
+// form row. On a 180°-rotated page the bands come back in reverse order, so
+// the grid could be read "successfully" and attribute every tick to the wrong
+// condition. Feeding it the orientation-corrected canvas is what prevents
+// that; declining, which is its only other defence, would not have caught it.
+// ⚠ WORD COUNT IS THE WRONG SIGNAL, and measuring said so. On the real IPTR
+// page 1 flipped 180°, Tesseract returned MORE words than upright (423 vs
+// 401) — it happily reads inverted glyphs as other letters. What collapses is
+// their QUALITY: mean confidence 36 vs 69, and strong words (≥75% confident,
+// ≥3 characters) 22 vs 180. So the trigger is quality, and the decision
+// between the two orientations is the strong-word count.
+const STRONG_CONFIDENCE = 75;
+
+function alnumWords(words: Tesseract.Word[]): Tesseract.Word[] {
+  return words.filter((w) => /[a-z0-9]/i.test(w.text));
+}
+
+/** Strong words — the score the two orientations are compared on. */
+function pageScore(words: Tesseract.Word[]): number {
+  return alnumWords(words).filter(
+    (w) => w.confidence >= STRONG_CONFIDENCE && w.text.replace(/[^a-z0-9]/gi, '').length >= 3,
+  ).length;
+}
+
+function meanConfidence(words: Tesseract.Word[]): number {
+  const ws = alnumWords(words);
+  return ws.length ? ws.reduce((sum, w) => sum + w.confidence, 0) / ws.length : 0;
+}
+
+/** Retry thresholds. Deliberately generous: a needless retry costs a few
+ *  seconds and NEVER costs accuracy, because the better-scoring orientation is
+ *  the one kept. Page 2 is mostly an odontogram and legitimately sparse, which
+ *  is why a low score alone triggers a retry rather than a verdict. */
+const RETRY_BELOW_MEAN = 55;
+const RETRY_BELOW_SCORE = 8;
+
+async function rotate180(image: Tesseract.ImageLike): Promise<HTMLCanvasElement | null> {
+  const source = await toCanvas(image);
+  if (!source) return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = source.width;
+  canvas.height = source.height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.translate(source.width, source.height);
+  ctx.rotate(Math.PI);
+  ctx.drawImage(source, 0, 0);
+  return canvas;
+}
+
+interface RecognizedPage {
+  text: string;
+  words: Tesseract.Word[];
+  /** The image in the orientation that actually read — hand THIS to the grid
+   *  reader, not the original. */
+  image: Tesseract.ImageLike;
+  rotated: boolean;
+}
+
+async function recognizePage(worker: Tesseract.Worker, image: Tesseract.ImageLike): Promise<RecognizedPage> {
+  const first = await worker.recognize(image, {}, { blocks: true });
+  const firstWords = wordsOf(first.data);
+  const upright: RecognizedPage = { text: first.data.text, words: firstWords, image, rotated: false };
+  if (meanConfidence(firstWords) >= RETRY_BELOW_MEAN && pageScore(firstWords) >= RETRY_BELOW_SCORE) return upright;
+
+  const flipped = await rotate180(image);
+  if (!flipped) return upright; // e.g. a PDF page we could not re-canvas — keep what we have.
+  const second = await worker.recognize(flipped, {}, { blocks: true });
+  const secondWords = wordsOf(second.data);
+  return pageScore(secondWords) > pageScore(firstWords)
+    ? { text: second.data.text, words: secondWords, image: flipped, rotated: true }
+    : upright;
 }
 
 export async function extractIptrFields(
@@ -175,15 +294,16 @@ export async function extractIptrFields(
   const rawTextParts: string[] = [];
   const allWords: Tesseract.Word[] = [];
 
+  // Page 1 in whatever orientation actually read — see recognizePage.
+  let firstPageImage: Tesseract.ImageLike | null = null;
+
   try {
     for (; pageIndex < images.length; pageIndex++) {
-      const { data } = await worker.recognize(images[pageIndex], {}, { blocks: true });
-      const words: Tesseract.Word[] = (data.blocks ?? []).flatMap((b) =>
-        b.paragraphs.flatMap((p) => p.lines.flatMap((l) => l.words)),
-      );
-      allWords.push(...words);
-      rawTextParts.push(data.text);
-      extractFieldsFromPage(data.text, words, fields, confidences);
+      const page = await recognizePage(worker, images[pageIndex]);
+      if (pageIndex === 0) firstPageImage = page.image;
+      allWords.push(...page.words);
+      rawTextParts.push(page.text);
+      extractFieldsFromPage(page.text, page.words, fields, confidences);
     }
   } finally {
     await worker.terminate();
@@ -201,7 +321,10 @@ export async function extractIptrFields(
   let checkboxReason: string | undefined;
   const unstorable = new Set<string>();
   try {
-    const page1 = await toCanvas(images[0]);
+    // ⚠ The ORIENTATION-CORRECTED page 1, never the raw upload. Row identity
+    // in the grid reader is positional, so an upside-down page would map ticks
+    // onto the wrong conditions instead of failing.
+    const page1 = await toCanvas(firstPageImage ?? images[0]);
     const scan = page1
       ? readIptrCheckboxes(page1)
       : { ticks: {}, confidence: 0, reason: 'Could not rasterise the first page.' };

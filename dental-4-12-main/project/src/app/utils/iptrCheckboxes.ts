@@ -206,6 +206,34 @@ export function readIptrCheckboxes(canvas: HTMLCanvasElement): CheckboxScan {
     return { ...EMPTY, reason: `Found ${vLines.length} column lines inside the table, expected at least 7.` };
   }
 
+  // ── ⚠ ORIENTATION — an independent guard, and it is not redundant ────────
+  // A 180°-rotated page defeats every check above: the rules are all still
+  // there, the row bands still count correctly, and the ticks come back in
+  // REVERSE ROW ORDER. Measured on the genuine BLANK form flipped upside down,
+  // this returned confidence 70 and **31 findings** — the invented-medical-
+  // history failure Sprint 86 exists to prevent, arriving by another route.
+  // iptrOcr.ts now corrects orientation before calling this, but row identity
+  // here is positional, so orientation is proven rather than assumed.
+  //
+  // The proof is structural: the label column holds text like "Sugar Sweetened
+  // Beverages/Food Drinker/Eater" and is more than twice the width of any Year
+  // column, and it is printed on the LEFT. So the widest band must sit in the
+  // left half of the table.
+  //
+  // ⚠ Test the widest band's POSITION, not its index. The table is drawn with
+  // a DOUBLE left border, which yields a 9px sliver band before the label
+  // column — measured on the real form, the bands are [9, 654, 277, 277, 277,
+  // 277, 276], so the label column is band 1. An "index must be 0" test
+  // rejects the genuine upright form.
+  const bandWidths = vLines.slice(1).map((x, i) => x - vLines[i]);
+  let widest = 0;
+  for (let i = 1; i < bandWidths.length; i++) if (bandWidths[i] > bandWidths[widest]) widest = i;
+  const widestCentre = (vLines[widest] + vLines[widest + 1]) / 2;
+  const tableCentre = (vLines[0] + vLines[vLines.length - 1]) / 2;
+  if (widestCentre > tableCentre) {
+    return { ...EMPTY, reason: 'The form looks upside down — the label column is on the right. Rotate the image and scan it again.' };
+  }
+
   // The five YEAR columns are the last five bands on the right; the wide
   // left-hand band is the label column and is never read for ticks.
   const yearEdges = vLines.slice(-6);

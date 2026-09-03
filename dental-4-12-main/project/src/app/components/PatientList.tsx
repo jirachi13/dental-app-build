@@ -26,6 +26,10 @@ import { PromoteAssign } from './PromoteAssign';
 
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 
+/** The add-form's default input styling — the baseline `ocrFieldClass` falls
+ *  back to, and what fields that can never be scanned use outright. */
+const plainFieldClass = 'w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring';
+
 // Shape of the candidates the server returns with a 409 from POST /students
 // (see server/utils/studentDuplicates.ts) — enough to recognise the child, not
 // the whole record.
@@ -481,8 +485,15 @@ export const PatientList = () => {
         gender: result.fields.gender ?? prev.gender,
         address: result.fields.address ?? prev.address,
         contactNumber: result.fields.contactNumber ?? prev.contactNumber,
-        grade: result.fields.grade ?? prev.grade,
-        section: result.fields.section ?? prev.section,
+        // Grade and section are NOT scanned — the DOH IPTR prints neither
+        // field, so there is nothing on the page to read. They stay typed.
+        philhealthNumber: result.fields.philhealthNumber ?? prev.philhealthNumber,
+        fourPsId: result.fields.fourPsId ?? prev.fourPsId,
+        // Reading a 4Ps ID off the form is what membership MEANS on this form,
+        // so the box follows the ID. Ticking it never hides anything: the ID
+        // field it reveals is the one that was just filled, and both are
+        // editable before save.
+        is4Ps: result.fields.fourPsId ? true : prev.is4Ps,
       }));
       setOcrConfidences(result.confidences);
       // Findings from the Year 1-5 tick grid are SHOWN, never applied. They are
@@ -508,7 +519,7 @@ export const PatientList = () => {
 
   const ocrFieldClass = (key: IptrOcrFieldKey) => {
     const conf = ocrConfidences[key];
-    if (conf === undefined) return 'w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring';
+    if (conf === undefined) return plainFieldClass;
     return conf < OCR_CONFIDENCE_THRESHOLD
       ? 'w-full border-2 border-yellow-400 bg-yellow-50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500'
       : 'w-full border border-green-300 bg-green-50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring';
@@ -923,16 +934,20 @@ export const PatientList = () => {
               </div>
               <div><label className="block text-sm font-medium text-foreground mb-1">School{req('school')}</label><select value={newPatient.school} onChange={e => setNewPatient({...newPatient, school: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"><option value="">Select School</option>{schoolNames.map(s => <option key={s}>{s}</option>)}</select></div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-sm font-medium text-foreground mb-1">Grade{req('grade')} {ocrHint('grade')}</label><select value={newPatient.grade} onChange={e => setNewPatient({...newPatient, grade: e.target.value})} className={ocrFieldClass('grade')}><option value="">Select Grade</option>{GRADES.map(g => <option key={g}>{g}</option>)}</select></div>
-                <div><label className="block text-sm font-medium text-foreground mb-1">Section{req('section')} {ocrHint('section')}</label><input type="text" value={newPatient.section} onChange={e => setNewPatient({...newPatient, section: e.target.value})} placeholder="e.g. Sampaguita" className={ocrFieldClass('section')} /></div>
+                {/* No scan hint on Grade/Section: the DOH IPTR does not print
+                    either field, so a scan can never fill them. A green "✓
+                    scanned" chip here would have been a claim about a field
+                    that isn't on the paper. */}
+                <div><label className="block text-sm font-medium text-foreground mb-1">Grade{req('grade')}</label><select value={newPatient.grade} onChange={e => setNewPatient({...newPatient, grade: e.target.value})} className={plainFieldClass}><option value="">Select Grade</option>{GRADES.map(g => <option key={g}>{g}</option>)}</select></div>
+                <div><label className="block text-sm font-medium text-foreground mb-1">Section{req('section')}</label><input type="text" value={newPatient.section} onChange={e => setNewPatient({...newPatient, section: e.target.value})} placeholder="e.g. Sampaguita" className={plainFieldClass} /></div>
               </div>
               <div><label className="block text-sm font-medium text-foreground mb-1">Contact Number{req('contactNumber')} {ocrHint('contactNumber')}</label><input type="text" value={newPatient.contactNumber} onChange={e => setNewPatient({...newPatient, contactNumber: e.target.value})} placeholder="09XX-XXX-XXXX" className={ocrFieldClass('contactNumber')} /></div>
               <div><label className="block text-sm font-medium text-foreground mb-1">Guardian Name{req('guardianName')}</label><input type="text" value={newPatient.guardianName} onChange={e => setNewPatient({...newPatient, guardianName: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
               <div><label className="block text-sm font-medium text-foreground mb-1">Guardian Contact{req('guardianContact')}</label><input type="text" value={newPatient.guardianContact} onChange={e => setNewPatient({...newPatient, guardianContact: e.target.value})} placeholder="09XX-XXX-XXXX" className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
-              <div><label className="block text-sm font-medium text-foreground mb-1">PhilHealth Number</label><input type="text" value={newPatient.philhealthNumber} onChange={e => setNewPatient({...newPatient, philhealthNumber: e.target.value})} placeholder="XX-XXXXXXXXX-X" className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+              <div><label className="block text-sm font-medium text-foreground mb-1">PhilHealth Number {ocrHint('philhealthNumber')}</label><input type="text" value={newPatient.philhealthNumber} onChange={e => setNewPatient({...newPatient, philhealthNumber: e.target.value})} placeholder="XX-XXXXXXXXX-X" className={ocrFieldClass('philhealthNumber')} /></div>
               <div><label className="block text-sm font-medium text-foreground mb-1">PhilHealth Status</label><select value={newPatient.philhealthStatus} onChange={e => setNewPatient({...newPatient, philhealthStatus: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"><option value="None">None</option><option value="Principal">Principal</option><option value="Dependent">Dependent</option></select></div>
               <div className="flex items-center gap-3 pt-2"><input type="checkbox" id="is4ps" checked={newPatient.is4Ps} onChange={e => setNewPatient({...newPatient, is4Ps: e.target.checked})} className="w-4 h-4 rounded accent-primary" /><label htmlFor="is4ps" className="text-sm font-medium text-foreground">4Ps / NHTS Member</label></div>
-              {newPatient.is4Ps && <div><label className="block text-sm font-medium text-foreground mb-1">4Ps ID{req('fourPsId')}</label><input type="text" value={newPatient.fourPsId} onChange={e => setNewPatient({...newPatient, fourPsId: e.target.value})} placeholder="4PS-XXXXXXXX" className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>}
+              {newPatient.is4Ps && <div><label className="block text-sm font-medium text-foreground mb-1">4Ps ID{req('fourPsId')} {ocrHint('fourPsId')}</label><input type="text" value={newPatient.fourPsId} onChange={e => setNewPatient({...newPatient, fourPsId: e.target.value})} placeholder="4PS-XXXXXXXX" className={ocrFieldClass('fourPsId')} /></div>}
               <div><label className="block text-sm font-medium text-foreground mb-1">Address{req('address')} {ocrHint('address')}</label><input type="text" value={newPatient.address} onChange={e => setNewPatient({...newPatient, address: e.target.value})} className={ocrFieldClass('address')} /></div>
               {/* Notice, not a bare <p>: it carries role="alert", so a screen
                   reader announces the validation failure instead of leaving the

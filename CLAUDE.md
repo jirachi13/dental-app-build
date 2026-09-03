@@ -87,7 +87,8 @@ Full field-level specs for all 16 models live in **`/docs/DATA-MODEL.md`** — R
 7. Dashboard + automated DOH report generation — age-bracket + gender counts, monthly standardized reports, interactive dashboard
 
 ## OCR MODULE
-- Tesseract.js scans DOH IPTR paper forms; extracts only: name, birthday, age, sex, address, contact number, grade level, section → structured JSON mapped to STUDENT fields
+- Tesseract.js scans DOH IPTR paper forms; extracts only what the form actually prints: name, birthday, age, sex, address, contact number, PhilHealth #, 4Ps/NHTS ID → structured JSON mapped to STUDENT fields. **Grade and section are NOT extracted — the official IPTR has no such field** (verified against the blank form, Sprint 87); they are typed. Occupation is printed but no model stores it, so it is not extracted either.
+- Ticked checkboxes are read by INK DENSITY per cell, not character recognition (Sprint 86), and findings are shown for review, never auto-applied. Both the grid reader and the field reader decline rather than guess — including on an upside-down page, where row identity would otherwise silently shift.
 
 ## PREDICTIVE ANALYTICS (Phase 3)
 - Python (scikit-learn, pandas, numpy) via FastAPI. Key inputs: DMF/dmf index (PRIMARY), oral health conditions, dietary habits, medical history, treatment history. Risk output: High/Medium/Low.
