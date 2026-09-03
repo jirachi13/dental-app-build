@@ -4,7 +4,7 @@ Exact from ERD Chapter 3. **Read this before touching any schema, model, or migr
 
 **SCHOOL** — school_id, school_name, school_type, principal_name, street_address, barangay, city, created_at, updated_at, isArchived, archivedAt, archivedBy
 
-**USER** — user_id, school_id (FK, optional — system_admin and bho_staff are not tied to one school), role (system_admin/dentist/dental_aide/school_admin/bho_staff), full_name, email (added Sprint 7 — login identifier, unique, not in original ERD), password_hash (added ahead of Sprint 7, not in original ERD, `select: false` so it never returns in queries by default), is_enrolled (BOOLEAN), last_login, created_at, updated_at, isArchived, archivedAt, archivedBy
+**USER** — user_id, **school_ids (ARRAY of School FKs — ERD DEVIATION, Sprint 100; replaced the ERD's single `school_id`. EMPTY MEANS ALL SCHOOLS, which is how system_admin and bho_staff have always behaved. One dentist and one aide rotate across all three schools and other roles may cover several, none of which a single FK could express. `DENTIST_ROTATION` does not cover this — it is a weekly schedule, not an access grant. ⚠ Chapter 3's ERD figure still shows `school_id` and must be updated.)**, role (system_admin/dentist/dental_aide/school_admin/bho_staff), full_name, email (added Sprint 7 — login identifier, unique, not in original ERD), password_hash (added ahead of Sprint 7, not in original ERD, `select: false` so it never returns in queries by default), is_enrolled (BOOLEAN), last_login, created_at, updated_at, isArchived, archivedAt, archivedBy
 
 **DENTIST** — dentist_id, school_id (FK), user_id (FK), last_name, first_name, license_number (VARCHAR 50), created_at, updated_at, isArchived, archivedAt, archivedBy
 

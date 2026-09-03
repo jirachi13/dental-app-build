@@ -94,7 +94,7 @@ export async function login(req: Request, res: Response) {
     return;
   }
 
-  const payload = { sub: user._id.toString(), role: user.role, school_id: user.school_id?.toString() ?? null };
+  const payload = { sub: user._id.toString(), role: user.role, school_ids: (user.school_ids ?? []).map((s: unknown) => String(s)) };
   const accessToken = signAccessToken(payload);
   const refreshToken = signRefreshToken({ ...payload, remember });
   setAuthCookies(res, accessToken, refreshToken, remember);
@@ -115,7 +115,7 @@ export async function refresh(req: Request, res: Response) {
 
   try {
     const payload = verifyRefreshToken(token);
-    // Re-check the DB rather than trusting the token's embedded role/school_id
+    // Re-check the DB rather than trusting the token's embedded role/school_ids
     // — otherwise a deactivated user or one whose role changed keeps their
     // stale permissions for up to 7 days (the refresh token's lifetime),
     // since minting a new access token from the old payload never noticed.
@@ -127,7 +127,7 @@ export async function refresh(req: Request, res: Response) {
     const accessToken = signAccessToken({
       sub: user._id.toString(),
       role: user.role,
-      school_id: user.school_id?.toString() ?? null,
+      school_ids: (user.school_ids ?? []).map((s: unknown) => String(s)),
     });
     // Honor the persistence the original login chose (carried in the refresh
     // token) — otherwise a session-only login turns persistent on first refresh.
@@ -224,7 +224,7 @@ export async function verifyOtp(req: Request, res: Response) {
   user.otp_expires = null;
   user.last_login = new Date();
 
-  const payload = { sub: user._id.toString(), role: user.role, school_id: user.school_id?.toString() ?? null };
+  const payload = { sub: user._id.toString(), role: user.role, school_ids: (user.school_ids ?? []).map((s: unknown) => String(s)) };
   setAuthCookies(res, signAccessToken(payload), signRefreshToken({ ...payload, remember }), remember);
   await user.save();
 

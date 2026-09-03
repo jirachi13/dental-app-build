@@ -118,8 +118,13 @@ function initialSchoolFor(user: User): string | null {
 
 async function resolveUser(apiUser: ApiUser): Promise<User> {
   const allSchools = await apiClient.get<ApiSchool[]>('/schools');
-  const schools = apiUser.school_id
-    ? allSchools.filter((s) => s._id === apiUser.school_id).map((s) => s.school_name)
+  // Empty assignment means ALL schools (Sprint 100) — the same meaning the old
+  // single `school_id: null` carried. A user with two of three schools now
+  // gets a switcher listing exactly those two, which the single FK could not
+  // express at all.
+  const assigned = apiUser.school_ids ?? [];
+  const schools = assigned.length
+    ? allSchools.filter((s) => assigned.includes(s._id)).map((s) => s.school_name)
     : allSchools.map((s) => s.school_name);
 
   return {

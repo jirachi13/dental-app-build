@@ -5,7 +5,7 @@ declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
-      user?: { id: string; role: string; school_id: string | null };
+      user?: { id: string; role: string; school_ids: string[] };
     }
   }
 }
@@ -18,7 +18,8 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   }
   try {
     const payload = verifyAccessToken(token);
-    req.user = { id: payload.sub, role: payload.role, school_id: payload.school_id };
+    // school_ids is carried but NOT yet enforced on any query — Sprint 101.
+    req.user = { id: payload.sub, role: payload.role, school_ids: payload.school_ids ?? [] };
     next();
   } catch {
     res.status(401).json({ error: "Invalid or expired token" });

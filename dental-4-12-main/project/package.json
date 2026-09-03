@@ -17,6 +17,8 @@
     "backfill:soft-delete": "tsx server/scripts/backfillSoftDelete.ts",
     "fix:duplicate-iptr": "tsx server/scripts/removeDuplicateIptr.ts",
     "migrate:iptr-grades": "tsx server/scripts/migrateIptrGrades.ts",
+    "migrate:user-schools": "tsx server/scripts/migrateUserSchools.ts",
+    "assign:demo-schools": "tsx server/scripts/assignDemoSchools.ts",
     "apply:seed-passwords": "tsx server/scripts/applySeedPasswords.ts",
     "purge:demo": "tsx server/scripts/purgeDemoData.ts",
     "backup:raw": "tsx server/scripts/backupRaw.ts",

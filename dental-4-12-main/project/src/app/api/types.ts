@@ -2,7 +2,8 @@ export type ApiRole = "system_admin" | "dentist" | "dental_aide" | "school_admin
 
 export interface ApiUser {
   _id: string;
-  school_id: string | null;
+  /** Empty means ALL schools (Sprint 100). */
+  school_ids: string[];
   role: ApiRole;
   full_name: string;
   email: string;

@@ -45,13 +45,14 @@ async function ensureSchools() {
   return byName;
 }
 
-async function ensureUser(email: string, role: string, full_name: string, password_hash: string, school_id: any) {
+/** `school_ids: []` means ALL schools (Sprint 100). */
+async function ensureUser(email: string, role: string, full_name: string, password_hash: string, school_ids: any[]) {
   let user = await User.findOne({ email });
   if (user) {
     console.log(`User ${email} already exists, skipping.`);
     return user;
   }
-  user = await User.create({ email, role, full_name, password_hash, school_id });
+  user = await User.create({ email, role, full_name, password_hash, school_ids });
   console.log(`Created ${role} user: ${email}`);
   return user;
 }
@@ -74,7 +75,10 @@ async function main() {
     "dentist",
     "Dr. Maria Santos",
     await hashPassword(requireEnv("SEED_DENTIST_PASSWORD")),
-    integrated._id,
+    // One dentist serves all three schools and rotates between them
+    // (DENTIST_ROTATION), so she is assigned to every school — NOT pinned to
+    // Integrated as this seeder did before Sprint 100.
+    [],
   );
   let dentist = await Dentist.findOne({ user_id: dentistUser._id });
   if (!dentist) {
@@ -93,7 +97,7 @@ async function main() {
     "dental_aide",
     "Ana Reyes",
     await hashPassword(requireEnv("SEED_AIDE_PASSWORD")),
-    integrated._id,
+    [], // one aide, same three schools as the dentist
   );
   const existingAide = await DentalAide.findOne({ user_id: aideUser._id });
   if (!existingAide) {
@@ -108,8 +112,8 @@ async function main() {
     console.log("Created DentalAide record for aide@floral.com");
   }
 
-  await ensureUser("schooladmin@floral.com", "school_admin", "Nurse Rosa Cruz", await hashPassword(requireEnv("SEED_SCHOOLADMIN_PASSWORD")), annexA._id);
-  await ensureUser("bho@floral.com", "bho_staff", "Jose Santos", await hashPassword(requireEnv("SEED_BHO_PASSWORD")), null);
+  await ensureUser("schooladmin@floral.com", "school_admin", "Nurse Rosa Cruz", await hashPassword(requireEnv("SEED_SCHOOLADMIN_PASSWORD")), [annexA._id]);
+  await ensureUser("bho@floral.com", "bho_staff", "Jose Santos", await hashPassword(requireEnv("SEED_BHO_PASSWORD")), []);
 
   await mongoose.disconnect();
 }

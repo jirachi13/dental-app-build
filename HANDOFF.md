@@ -44,6 +44,17 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 
 **Knock-on:** backlog #39's request-consolidation fix drops in priority — collapsing the 3 waves now saves ~200 ms, not ~1000 ms. Still correct, no longer urgent.
 
+## Sprint 100 (users hold MULTIPLE schools) — DONE 2026-09-04, tsc both clean + build clean, migration run
+`USER.school_id` (single FK) became **`school_ids` (array), where EMPTY MEANS ALL SCHOOLS** — one rule, and it preserves exactly what `school_id: null` meant for system_admin and bho_staff instead of special-casing roles.
+
+- **Files:** `models/User.ts` · `utils/jwt.ts` + `middleware/auth.ts` (payload type) · `controllers/authController.ts` (3 payload sites + `/auth/me`) · `api/types.ts` · `hooks/useUsers.ts` · `context/AuthContext.tsx` · `components/AccountManagement.tsx` · `scripts/seedDemo.ts` · two new scripts.
+- **`npm run migrate:user-schools`** — literal copy (`school_id` → `[id]`, null → `[]`) then `$unset` of the old field. **RUN 2026-09-04, 11/11 users**, after `backup:raw` (746 docs). ⚠ It reads the RAW collection, not the model: the model no longer declares `school_id`, so a model-based read would return undefined for everyone and migrate nothing silently.
+- **`npm run assign:demo-schools`** — separate on purpose. **A migration must not invent policy**, so the literal copy left the dentist still pinned; this script is where the decision lives. Run 2026-09-04: dentist 1 school → ALL. ⚠ `seed:demo` could not do it — it skips accounts that already exist, so corrected seed values never reach an already-seeded database (the same trap Sprint 75 hit with passwords).
+- **`AccountManagement` got a real picker, not a multi-select.** Two radios (All schools / Specific schools) then checkboxes, because "leave it empty to mean everything" is an implicit rule an admin would have to be told. `<select multiple>` was rejected as close to unusable at the ~390px width this app is checked at.
+- ⚠ **`openEdit` had a latent bug this surfaced:** it recovered the school by matching `user.school` BY NAME against the school list. That label now reads "2 schools" for a multi-school user, so the lookup would have silently returned nothing. It reads `user.schoolIds` directly now.
+- `DENTIST` and `DENTAL_AIDE` keep their own single `school_id` — those are ERD fields on different models and were deliberately left alone.
+- ⚠ **Deploy window, accepted knowingly:** between the migration and the deploy, the live build read `school_id` (now unset) and showed everyone "All Schools". Harmless here because the gate is display-only anyway (see Finding 2 below) and there are 5 demo users, but on a real roster migrate and deploy would need to land together.
+
 ## ⚠ SCHOOL SWITCHER — user-reported 2026-09-04, INVESTIGATED, NOT FIXED (needs a sprint)
 Report was terse: *"the school switcher in dentist and aide and maybe other users"*. Two separate problems, and the second is much worse than the first.
 
