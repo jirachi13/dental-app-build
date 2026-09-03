@@ -23,7 +23,19 @@ Acting on backlog #39's measured finding (the Vercel function runs in `iad1`/Was
 - ⚠ **THE TRADE-OFF THIS EXPOSES, and it must be decided before cutover.** Moving the DB to Virginia helps PRODUCTION (function in `iad1` reaches it in ~2 ms instead of crossing the Pacific: ~500 ms/request → ~280 ms) but makes LOCAL DEV SLOWER — this laptop goes from 37 ms to ~231 ms per query. Both cannot be optimised at once while the function is pinned to `iad1`, and after cutover local and prod must share one database or the data diverges.
 - **⚠⚠ THE WHOLE MIGRATION IS PROBABLY UNNECESSARY — MOVING THE FUNCTION IS FREE.** This session first asserted that function region selection needs Vercel Pro. **That is WRONG.** The `vercel.json` reference says verbatim: *"Users on Pro and Enterprise can deploy to multiple regions. **Hobby plans can select any single region.**"* The plan gates the NUMBER of regions, not WHICH one. So `"regions": ["sin1"]` is available on the free plan today, keeps the Singapore cluster where it already is, and needs no data migration at all.
   - **`"regions": ["sin1"]` ADDED to `dental-4-12-main/project/vercel.json` 2026-09-04** (JSON re-validated). NOT yet pushed — pushing to `main` auto-deploys, so this is a production change awaiting approval.
-  - **Expected: ~500 ms → ~50-60 ms per request** (user → sin1 edge/function ~40 ms, function → Atlas Singapore ~5 ms), against ~280 ms for the us-east-1 database move. Roughly 8-10x rather than 2x. **Prove it with `probe_iptr_timing.mjs` after the deploy — do not take the projection on faith.**
+  - **✅ SHIPPED AND MEASURED 2026-09-04 as Sprint 99 (`5a3840e5`). It worked.** `x-vercel-id` now reads **`sin1::sin1`** (edge AND function in Singapore); the deploy landed ~45 s after the push. Three probe runs against production:
+
+    | | before (`iad1`) | after (`sin1`) |
+    |---|---|---|
+    | IPTR waves total | 1535 / 1572 ms | **422 / 396 / 365 ms** |
+    | per request (the flat floor) | ~500 ms | **~70-150 ms** |
+    | `login` | 7089 ms cold, ~1200 ms warm | **451 / 362 / 380 ms** |
+    | `stats/student-rows` | 788 ms | **182-225 ms** |
+
+    **~4.2x on the screen open, ~7x on the individual request.** One line of config, no code, no migration, no money.
+  - ⚠ **DO NOT claim the 7.3 s cold start is fixed — it was not measured.** Probe run 1 is labelled "cold" but followed 45 s of polling `/api/health`, so the function was already warm. Cold start is untested under `sin1`; measure it after a genuine idle period before putting any claim in Chapter 4.
+  - **The per-request floor is now ~70 ms, so backlog #39's request-consolidation fix is much less urgent** — collapsing 3 waves saves ~200 ms now rather than ~1000 ms. Still correct, no longer the priority.
+  - Superseded projection, kept only to show the estimate was in the right range: **~500 ms → ~50-60 ms per request** (user → sin1 edge/function ~40 ms, function → Atlas Singapore ~5 ms), against ~280 ms for the us-east-1 database move. Roughly 8-10x rather than 2x. **Prove it with `probe_iptr_timing.mjs` after the deploy — do not take the projection on faith.**
   - **If it works, the `floral-us-east` project and its cluster should be DELETED** and `MONGODB_URI_USE1` removed from `.env`. Keep the Singapore cluster as the single database. Local dev also stays fast (37 ms), which the DB move would have cost.
   - Render's free Singapore region was considered and rejected regardless: it sleeps after 15 min idle (30-60 s cold start), already documented for the ML service, which is unacceptable for the main API.
 
