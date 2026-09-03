@@ -9,14 +9,21 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ▶ RESUME HERE — parked 2026-09-03 (usage), everything pushed at `f3aa1ae4`
-Session ran Sprints 81–86 plus the SessionStart hook. Tree clean, nothing uncommitted, no half-finished work.
+## ▶ RESUME HERE — parked 2026-09-03 (3rd session), everything pushed at `1cb81c1c`
+Session ran **Sprints 87 and 88**. Tree clean, nothing uncommitted, no half-finished work. Dev servers stopped.
 
-~~**Next sprint, already scoped — the small OCR corrections.**~~ **DONE 2026-09-03 as Sprint 87 — see that section below.** It was not small: the real form exposed three further bugs, one of them severe (an upside-down BLANK form reported 31 phantom findings).
+**What this session settled, so it is not re-derived:**
+- **Sprint 87** — OCR corrections. Not small: the real form exposed three more bugs, one severe (an upside-down BLANK form reported **31 phantom findings**; row identity is positional). Fixed in two independent places + a latent `match[1]` regex bug that made "Contact #" extract the literal `"#"`.
+- **Sprint 88** — the per-school summary sheet, the last supplied form the app produced nothing for. Columns are **head count / tooth count**, the user's reading of an ambiguous form, confirmed twice.
+- **Open work 33 (the P2 ToDo docx) was re-read and reconciled** — the file is byte-identical to the 2026-09-02 copy, so nothing new was asked; four stale lines corrected against Sprints 66/68/70.
+- **"Tanggalin yung 2026-2027" is DEFERRED by the user** — noted in item 33, do not pick it up unprompted.
+- **⚠ BOTH IPTR FORMS CIRCULATE** (user, 2026-09-03) — Form 3 does not replace the Taguig IPTR. See Open work **#37**: the app now has two forms to be right about, and it reaches past OCR into the IPTR screen and the Sprint 85 PDF.
 
-**Next up, still unscoped — pick one:** the per-school summary sheet, the Program Report's section C sub-rows (both described further down), or Open work item 33's "NOT started, small" list.
+**Next sprint — recommended, and unblocked: the Program Report's section C sub-rows** (OP Scaling 1st/2nd, SDF 1st/2nd, Head Count / Tooth Count pairs, plus the missing `Sealant` and `Root Surface Protection` rows). The Appendix F workbook it needs is already on this machine. Alternatives: Open work item 33's "NOT started, small" list.
 
-**Source files the user supplied 2026-09-03 — they are in `~/.claude/uploads/`, NOT in the repo, and `data/` is per-device.** If the next session is on the other laptop or after a cleanup, these must be re-supplied before any DOH-form work: `TCLForm2andFHSISReport.xlsx` (authoritative TCL columns, sheet "6-9 Y.O (M)" cols B–BN), `2026Form2withFHSIS.xlsx`, and the blank `Individual_Patient_Treatment_Record.pdf` (needed to re-run `verify_sprint86.mjs`). Re-supplied 2026-09-03 (2nd session) into `~/.claude/uploads/384b7f4c-.../`, joined by three more scans: the filled `Target_Client_List_...pdf`, `Jan_2026_ORAL_HEALTH_PROGRAM_REPORTING_FORM.pdf`, `South_Daang_Hari.pdf` and `Parents_and_Guardian_Consent_Form.pdf`.
+**⚠ DO NOT start Form 3 (#37) yet — it is blocked on a flat scan of a BLANK Form 3, front and back** (User-only items). Angled phone photos are not usable input.
+
+**Source files the user supplied 2026-09-03 — they are in `~/.claude/uploads/`, NOT in the repo, and `data/` is per-device.** If the next session is on the other laptop or after a cleanup, these must be re-supplied before any DOH-form work: `TCLForm2andFHSISReport.xlsx` (authoritative TCL columns, sheet "6-9 Y.O (M)" cols B–BN), `2026Form2withFHSIS.xlsx`, and the blank `Individual_Patient_Treatment_Record.pdf` (needed to re-run `verify_sprint86.mjs`). Re-supplied 2026-09-03 (2nd session) into `~/.claude/uploads/384b7f4c-.../`, joined by three more scans: the filled `Target_Client_List_...pdf`, `Jan_2026_ORAL_HEALTH_PROGRAM_REPORTING_FORM.pdf`, `South_Daang_Hari.pdf` and `Parents_and_Guardian_Consent_Form.pdf`. **3rd session adds two ANGLED PHONE PHOTOS of a filled "Form 3 — Individual Treatment Record"** (front + back) in `~/.claude/uploads/7b5cd791-.../` — transcribed into Open work #37, and **not usable as OCR input**; a flat blank scan is what is needed.
 
 ### PDF rendering — poppler INSTALLED 2026-09-03 (this machine only; `data/`-class per-device state)
 The Read tool renders PDFs by shelling out to **`pdftoppm` (poppler-utils)**, which was missing here — that is why "Read a supplied PDF" failed, not anything about the files. Installed via `winget install --id oschwartz10612.Poppler --scope user`; binaries live under `%LOCALAPPDATA%\Microsoft\WinGet\Packages\oschwartz10612.Poppler_*\poppler-25.07.0\Library\bin`. ⚠ **winget's PATH edit needs a Claude Code restart** before the Read tool sees it. **The OTHER laptop still needs this install.**
