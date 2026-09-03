@@ -17,11 +17,18 @@ import { surnameFirst } from '../utils/studentName';
 // roughly thirty actions and eight thousand.
 //
 // Two records change per pupil, deliberately:
-//   • a NEW StudentIptr for the target year, carrying the new grade/section —
-//     so next year's record is truthful from the moment it exists, and last
-//     year's is left exactly as it was;
+//   • the StudentIptr for the target year, carrying the new grade/section —
+//     CREATED when there is none, or CORRECTED in place when there already is
+//     one (Sprint 102). Other years are never touched.
 //   • the STUDENT's own grade/section, which is CURRENT enrolment and is what
 //     rosters and the appointment picker read.
+//
+// Sprint 102 made it RE-RUNNABLE. Before it, a pupil who already held the
+// target year was forced to skip, so a section applied wrongly could not be
+// fixed from the screen that applied it — the only way back was editing each
+// pupil by hand, which is the work this screen exists to remove. Correcting is
+// opt-in per pupil and never the default: a blind second pass would overwrite
+// a deliberate manual fix, which is a worse failure than a visible refusal.
 //
 // The user's standing constraint applies: no per-record prompts or badges
 // across thousands of students. One preview, one confirm, one summary.
@@ -40,15 +47,19 @@ const nextSchoolYear = (sy: string): string => {
   return Number.isFinite(a) && Number.isFinite(b) ? `${a + 1}-${b + 1}` : sy;
 };
 
-type Action = 'promote' | 'retain' | 'skip';
+type Action = 'promote' | 'retain' | 'skip' | 'update';
 
 interface RowState {
   student: ApiStudent;
   action: Action;
   /** Section for the new year — defaults to the one they are in now. */
   section: string;
-  /** Already has a record for the target year; nothing to create. */
+  /** Already has a record for the target year. Before Sprint 102 this forced
+   *  `skip` and the row was uneditable, so a section applied wrongly could
+   *  NOT be fixed from the screen that applied it. */
   alreadyHasYear: boolean;
+  /** The target-year IPTR when one exists — what `update` writes to. */
+  existingIptr?: ApiStudentIptr;
 }
 
 export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
@@ -68,7 +79,7 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
   const [rows, setRows] = useState<RowState[]>([]);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ created: number; skipped: number; failed: string[] } | null>(null);
+  const [result, setResult] = useState<{ created: number; corrected: number; skipped: number; failed: string[] } | null>(null);
 
   // The roster for one school + grade, server-filtered (Sprint 56's
   // filterable/filterableText) rather than pulling every student.
@@ -84,9 +95,9 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
     return () => { cancelled = true; };
   }, [schoolId, grade]);
 
-  // Which of them already have the TARGET year — so a second run cannot
-  // double-create. The server would 409 anyway (uniqueBy student_id +
-  // school_year), but showing it up front beats reporting failures after.
+  // Which of them already have the TARGET year. Those rows become correctable
+  // rather than blocked (Sprint 102) — a POST would still 409 on uniqueBy
+  // (student_id + school_year), so they are PUT to their existing record.
   useEffect(() => {
     if (students.length === 0) { setIptrs([]); return; }
     let cancelled = false;
@@ -111,20 +122,34 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
   // this screen exists to capture, silently discarded a second after it was
   // set. Caught by the verification, not by reading the code.
   useEffect(() => {
-    const hasTarget = new Set(iptrs.filter((i) => i.school_year === toYear).map((i) => i.student_id));
+    const targetByStudent = new Map(
+      iptrs.filter((i) => i.school_year === toYear).map((i) => [i.student_id, i]),
+    );
     setRows((prev) => {
       const chosen = new Map(prev.map((r) => [r.student._id, r]));
       return students
         .filter((s) => !section || s.section === section)
         .sort((a, b) => (a.last_name ?? '').localeCompare(b.last_name ?? ''))
         .map((s) => {
-          const already = hasTarget.has(s._id);
+          const existingIptr = targetByStudent.get(s._id);
           const existing = chosen.get(s._id);
-          // A pupil who turns out to already have the year is forced to skip
-          // even if a choice was made — the server would refuse it anyway.
-          if (already) return { student: s, action: 'skip' as Action, section: existing?.section ?? s.section ?? '', alreadyHasYear: true };
+          if (existingIptr) {
+            // ⚠ DEFAULTS TO SKIP, NOT UPDATE, AND THAT IS THE POINT (Sprint 102).
+            // Someone may have hand-corrected this pupil's year record (Sprint
+            // 70). Defaulting to update would silently stamp over that on the
+            // next run — trading a visible failure for an invisible one. The
+            // operator opts in per pupil, having seen what it would change.
+            return {
+              student: s,
+              // Keep a choice already made this session; otherwise skip.
+              action: existing?.alreadyHasYear ? existing.action : ('skip' as Action),
+              section: existing?.alreadyHasYear ? existing.section : (existingIptr.section ?? s.section ?? ''),
+              alreadyHasYear: true,
+              existingIptr,
+            };
+          }
           return existing
-            ? { ...existing, student: s, alreadyHasYear: false }
+            ? { ...existing, student: s, alreadyHasYear: false, existingIptr: undefined }
             : { student: s, action: 'promote' as Action, section: s.section ?? '', alreadyHasYear: false };
         });
     });
@@ -137,34 +162,56 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
   const graduating = grade === GRADES[GRADES.length - 1];
   const target = nextGrade(grade);
   const toApply = rows.filter((r) => r.action !== 'skip');
+  const toCreate = toApply.filter((r) => r.action !== 'update');
+  const toCorrect = toApply.filter((r) => r.action === 'update');
 
   const run = async () => {
     setRunning(true);
     setError(null);
     let created = 0;
+    let corrected = 0;
     const failed: string[] = [];
     for (const r of toApply) {
       // Retained pupils repeat the grade; promoted ones move up. Graduating
       // pupils have no next grade, so only "retain" is meaningful there.
-      const newGrade = r.action === 'retain' ? (r.student.grade_level ?? '') : (target ?? r.student.grade_level ?? '');
+      // `update` keeps the pupil in whatever grade the existing record says —
+      // it is a correction of THIS year's placement, not a second promotion.
+      // Re-deriving it from `target` would quietly bump anyone corrected twice.
+      const newGrade = r.action === 'update'
+        ? (r.existingIptr?.grade_level ?? r.student.grade_level ?? '')
+        : r.action === 'retain'
+          ? (r.student.grade_level ?? '')
+          : (target ?? r.student.grade_level ?? '');
       try {
-        await apiClient.post('/student-iptrs', {
-          student_id: r.student._id,
-          school_year: toYear,
-          grade_level: newGrade,
-          section: r.section || null,
-        });
+        if (r.action === 'update' && r.existingIptr) {
+          // Sprint 102: correct the year record in place. POSTing again would
+          // 409 on uniqueBy (student_id + school_year) — which is exactly why
+          // this screen used to be unable to fix its own mistakes.
+          await apiClient.put(`/student-iptrs/${r.existingIptr._id}`, {
+            grade_level: newGrade,
+            section: r.section || null,
+          });
+          corrected += 1;
+        } else {
+          await apiClient.post('/student-iptrs', {
+            student_id: r.student._id,
+            school_year: toYear,
+            grade_level: newGrade,
+            section: r.section || null,
+          });
+          created += 1;
+        }
         // Current enrolment follows — that is what promotion MEANS, and it is
         // what the rosters and the appointment picker read.
         await apiClient.put(`/students/${r.student._id}`, { grade_level: newGrade, section: r.section });
-        created += 1;
       } catch (err) {
         failed.push(`${surnameFirst(r.student)} — ${err instanceof ApiError ? err.message : 'failed'}`);
       }
     }
-    setResult({ created, skipped: rows.length - toApply.length, failed });
+    setResult({ created, corrected, skipped: rows.length - toApply.length, failed });
     setRunning(false);
     if (created > 0) toast.success(`${created} pupil${created === 1 ? '' : 's'} moved into ${toYear}.`);
+    if (corrected > 0) toast.success(`${corrected} ${toYear} record${corrected === 1 ? '' : 's'} corrected.`);
     if (failed.length > 0) toast.error(`${failed.length} could not be moved — see the summary.`);
   };
 
@@ -233,7 +280,16 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
                     <td className="px-3 py-2">
                       {surnameFirst(r.student)}
                       {r.alreadyHasYear && (
-                        <span className="block text-[11px] text-muted-foreground">already has a {toYear} record</span>
+                        // The operator cannot opt into a correction blind — the
+                        // row states what the {toYear} record says NOW, so an
+                        // overwrite is a seen decision (Sprint 102).
+                        <span className="block text-[11px] text-muted-foreground">
+                          {toYear} already: {r.existingIptr?.grade_level || 'grade not recorded'}
+                          {r.existingIptr?.section ? ` · ${r.existingIptr.section}` : ''}
+                          {r.action === 'update' && (
+                            <span className="text-amber-700"> → {r.section || 'no section'}</span>
+                          )}
+                        </span>
                       )}
                     </td>
                     <td className="px-3 py-2">
@@ -243,8 +299,14 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
                         className="text-xs border border-border rounded-md px-2 py-1 bg-card"
                         aria-label={`Action for ${surnameFirst(r.student)}`}
                       >
-                        {!graduating && <option value="promote">Promote to {target}</option>}
-                        <option value="retain">Retain in {r.student.grade_level}</option>
+                        {r.alreadyHasYear ? (
+                          <option value="update">Correct {toYear} record</option>
+                        ) : (
+                          <>
+                            {!graduating && <option value="promote">Promote to {target}</option>}
+                            <option value="retain">Retain in {r.student.grade_level}</option>
+                          </>
+                        )}
                         <option value="skip">Skip</option>
                       </select>
                     </td>
@@ -264,15 +326,20 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
           </div>
 
           <p className="text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">{toApply.length}</span> of {rows.length} will get a {toYear} record.
-            Each also has their current grade and section updated — that is what promotion means. Existing years are left untouched.
+            <span className="font-medium text-foreground">{toCreate.length}</span> of {rows.length} will get a new {toYear} record
+            {toCorrect.length > 0 && (
+              <>, and <span className="font-medium text-amber-700">{toCorrect.length}</span> existing {toYear} record{toCorrect.length === 1 ? '' : 's'} will be OVERWRITTEN</>
+            )}.
+            Each also has their current grade and section updated — that is what promotion means.
+            {toCorrect.length === 0 && ' Existing years are left untouched.'}
           </p>
         </>
       )}
 
       {result && (
         <Notice variant={result.failed.length ? 'error' : 'success'}>
-          {result.created} moved into {toYear}, {result.skipped} skipped.
+          {result.created} moved into {toYear}
+          {result.corrected > 0 && `, ${result.corrected} corrected`}, {result.skipped} skipped.
           {result.failed.length > 0 && (
             <ul className="mt-1 list-disc list-inside">{result.failed.map((f) => <li key={f}>{f}</li>)}</ul>
           )}
@@ -286,7 +353,9 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
         </button>
         <button onClick={run} disabled={running || toApply.length === 0}
           className="flex-1 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50">
-          {running ? 'Working…' : `Open ${toYear} for ${toApply.length}`}
+          {running ? 'Working…' : toCorrect.length && !toCreate.length
+            ? `Correct ${toCorrect.length} ${toYear} record${toCorrect.length === 1 ? '' : 's'}`
+            : `Open ${toYear} for ${toApply.length}`}
         </button>
       </div>
     </div>
