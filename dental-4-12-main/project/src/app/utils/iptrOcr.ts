@@ -6,7 +6,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 
 // Threshold + types live in iptrOcrShared.ts so the UI can import them
 // without dragging tesseract/pdfjs into the main bundle.
-import type { IptrOcrFieldKey, IptrOcrResult } from './iptrOcrShared';
+import type { IptrOcrFieldKey, IptrOcrResult, IptrCheckboxFinding } from './iptrOcrShared';
+import { readIptrCheckboxes, IPTR_FORM_ROWS, IPTR_YEARS } from './iptrCheckboxes';
 export { OCR_CONFIDENCE_THRESHOLD } from './iptrOcrShared';
 export type { IptrOcrFieldKey, IptrOcrResult } from './iptrOcrShared';
 
@@ -192,5 +193,58 @@ export async function extractIptrFields(
     ? Math.round(allWords.reduce((sum, w) => sum + w.confidence, 0) / allWords.length)
     : 0;
 
-  return { fields, confidences, rawText: rawTextParts.join('\n\n--- page break ---\n\n'), overallConfidence };
+  // ── The Year 1-5 tick grid (page 1 only) ─────────────────────────────────
+  // Read WITHOUT OCR — see iptrCheckboxes.ts. Runs on the first page because
+  // that is where the table is printed; page 2 is the odontogram.
+  let checkboxes: IptrCheckboxFinding[] = [];
+  let checkboxConfidence = 0;
+  let checkboxReason: string | undefined;
+  const unstorable = new Set<string>();
+  try {
+    const page1 = await toCanvas(images[0]);
+    const scan = page1
+      ? readIptrCheckboxes(page1)
+      : { ticks: {}, confidence: 0, reason: 'Could not rasterise the first page.' };
+    checkboxConfidence = scan.confidence;
+    checkboxReason = scan.reason;
+    if (scan.confidence > 0) {
+      checkboxes = IPTR_FORM_ROWS.map((row, i) => {
+        const years = IPTR_YEARS.filter((y) => scan.ticks[y]?.[i]);
+        return { label: row.label, section: row.section, field: row.field, years: [...years] };
+      }).filter((f) => f.years.length > 0);
+      for (const f of checkboxes) if (f.field === null) unstorable.add(f.label);
+    }
+  } catch (err) {
+    // A failure here must never lose the identity fields the text pass already
+    // read — the grid is an addition, not a precondition.
+    checkboxReason = err instanceof Error ? err.message : 'Checkbox grid could not be read.';
+  }
+
+  return {
+    fields,
+    confidences,
+    rawText: rawTextParts.join('\n\n--- page break ---\n\n'),
+    overallConfidence,
+    checkboxes,
+    checkboxConfidence,
+    checkboxReason,
+    unstorableFindings: [...unstorable],
+  };
+}
+
+/** Tesseract accepts several image types; the grid reader needs real pixels.
+ *  A canvas comes through untouched, anything else is drawn into one. */
+async function toCanvas(image: Tesseract.ImageLike): Promise<HTMLCanvasElement | null> {
+  if (typeof HTMLCanvasElement !== 'undefined' && image instanceof HTMLCanvasElement) return image;
+  if (typeof File !== 'undefined' && image instanceof File) {
+    if (!image.type.startsWith('image/')) return null;
+    const bitmap = await createImageBitmap(image);
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    canvas.getContext('2d')?.drawImage(bitmap, 0, 0);
+    bitmap.close();
+    return canvas;
+  }
+  return null;
 }

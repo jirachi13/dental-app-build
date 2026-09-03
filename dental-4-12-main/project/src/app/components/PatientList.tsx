@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { Plus, Eye, FileText, X, School as SchoolIcon, List, ChevronLeft, ChevronRight, Users, Upload, CheckCircle, AlertCircle, ScanLine, GraduationCap } from 'lucide-react';
 import { formatDate } from '../utils/localDate';
-import { OCR_CONFIDENCE_THRESHOLD, type IptrOcrFieldKey } from '../utils/iptrOcrShared';
+import { OCR_CONFIDENCE_THRESHOLD, type IptrOcrFieldKey, type IptrCheckboxFinding } from '../utils/iptrOcrShared';
 import { getGradeColor } from '../utils/gradeColors';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
 import { GradePill } from './GradePill';
@@ -196,6 +196,8 @@ export const PatientList = () => {
   const [ocrProgress, setOcrProgress] = useState(0);
   const [ocrError, setOcrError] = useState<string | null>(null);
   const [ocrConfidences, setOcrConfidences] = useState<Partial<Record<IptrOcrFieldKey, number>>>({});
+  const [ocrFindings, setOcrFindings] = useState<IptrCheckboxFinding[]>([]);
+  const [ocrFindingsNote, setOcrFindingsNote] = useState<string | null>(null);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [bulkFile, setBulkFile] = useState<File | null>(null);
   const [bulkPreview, setBulkPreview] = useState<BulkRow[]>([]);
@@ -449,7 +451,7 @@ export const PatientList = () => {
       );
       setShowAddForm(false);
       setNewPatient({ firstName:'', lastName:'', middleName:'', birthdate:'', gender:'', grade:'', section:'', school:'', guardianName:'', guardianContact:'', address:'', contactNumber:'', philhealthNumber:'', philhealthStatus:'None', is4Ps:false, fourPsId:'', consentStatus:'pending' });
-      setOcrConfidences({});
+      setOcrConfidences({}); setOcrFindings([]); setOcrFindingsNote(null);
     } catch (err) {
       const duplicates = duplicatesFromError(err);
       // A duplicate isn't an error the encoder can fix by editing the form, so
@@ -483,6 +485,18 @@ export const PatientList = () => {
         section: result.fields.section ?? prev.section,
       }));
       setOcrConfidences(result.confidences);
+      // Findings from the Year 1-5 tick grid are SHOWN, never applied. They are
+      // clinical history, the scan is a tick detector, and CLAUDE.md is explicit
+      // that OCR assists rather than decides — so they are surfaced for the
+      // encoder to carry into the dental chart deliberately.
+      setOcrFindings(result.checkboxes);
+      setOcrFindingsNote(
+        result.checkboxConfidence === 0
+          ? result.checkboxReason ?? null
+          : result.unstorableFindings.length
+            ? `${result.unstorableFindings.length} ticked row${result.unstorableFindings.length === 1 ? '' : 's'} cannot be stored by this system: ${result.unstorableFindings.join(', ')}.`
+            : null,
+      );
       setShowOcrUpload(false);
       setShowAddForm(true);
     } catch {
@@ -674,7 +688,7 @@ export const PatientList = () => {
               <button onClick={() => { setOcrError(null); setShowOcrUpload(true); }} className="flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary-surface text-sm font-medium">
                 <Upload className="w-4 h-4" /> Upload IPTR Form
               </button>
-              <button onClick={() => { setOcrConfidences({}); setShowAddForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover text-sm font-medium">
+              <button onClick={() => { setOcrConfidences({}); setOcrFindings([]); setOcrFindingsNote(null); setShowAddForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover text-sm font-medium">
                 <Plus className="w-4 h-4" /> Add Student
               </button>
             </>
@@ -859,10 +873,10 @@ export const PatientList = () => {
 
       {/* Add Student Modal */}
       {showAddForm && (
-        <Modal onClose={() => { setShowAddForm(false); setOcrConfidences({}); }} maxWidth="max-w-lg" closeDisabled={addingPatient}>
+        <Modal onClose={() => { setShowAddForm(false); setOcrConfidences({}); setOcrFindings([]); setOcrFindingsNote(null); }} maxWidth="max-w-lg" closeDisabled={addingPatient}>
             <div className="flex items-center justify-between p-6 border-b">
               <h2 className="text-lg font-bold text-foreground">Add New Student</h2>
-              <button onClick={() => { setShowAddForm(false); setOcrConfidences({}); }} className="text-muted-foreground hover:text-muted-foreground"><X className="w-5 h-5" /></button>
+              <button onClick={() => { setShowAddForm(false); setOcrConfidences({}); setOcrFindings([]); setOcrFindingsNote(null); }} className="text-muted-foreground hover:text-muted-foreground"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-6 space-y-4">
               {Object.keys(ocrConfidences).length > 0 && (
@@ -870,6 +884,33 @@ export const PatientList = () => {
                   <ScanLine className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                   <span>Pre-filled from scanned IPTR form. Fields outlined in yellow had low scan confidence — double-check them before saving.</span>
                 </div>
+              )}
+              {/* Medical / dietary / oral findings read off the form's Year 1-5
+                  tick grid. Deliberately READ-ONLY: this is clinical history
+                  detected by a tick reader, and nothing here is written to the
+                  record. The encoder carries it into the dental chart, where a
+                  clinician confirms it. */}
+              {ocrFindings.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-900 space-y-1.5">
+                  <p className="font-semibold flex items-center gap-1.5">
+                    <ScanLine className="w-3.5 h-3.5" />
+                    {ocrFindings.length} finding{ocrFindings.length === 1 ? '' : 's'} read from the form&rsquo;s checkboxes — not saved
+                  </p>
+                  <ul className="space-y-0.5">
+                    {ocrFindings.map((f) => (
+                      <li key={f.label} className="flex items-baseline justify-between gap-3">
+                        <span className={f.field === null ? 'line-through opacity-70' : ''}>{f.label}</span>
+                        <span className="shrink-0 opacity-80">Year {f.years.join(', ')}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="opacity-80">
+                    Record these in the student&rsquo;s dental chart after saving — they are shown here for checking, not applied.
+                  </p>
+                </div>
+              )}
+              {ocrFindingsNote && (
+                <p className="text-xs text-muted-foreground">{ocrFindingsNote}</p>
               )}
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-sm font-medium text-foreground mb-1">Last Name{req('lastName')} {ocrHint('lastName')}</label><input type="text" value={newPatient.lastName} onChange={e => setNewPatient({...newPatient, lastName: e.target.value})} className={ocrFieldClass('lastName')} /></div>
@@ -899,7 +940,7 @@ export const PatientList = () => {
               {addPatientError && <Notice variant="error">{addPatientError}</Notice>}
             </div>
             <div className="flex gap-3 p-6 border-t">
-              <button onClick={() => { setShowAddForm(false); setOcrConfidences({}); }} className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-gray-50 text-sm font-medium">Cancel</button>
+              <button onClick={() => { setShowAddForm(false); setOcrConfidences({}); setOcrFindings([]); setOcrFindingsNote(null); }} className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-gray-50 text-sm font-medium">Cancel</button>
               {/* Wrapped, not passed directly: onClick would hand the MouseEvent
                   in as confirmDuplicate, and a truthy value there silently
                   skips the duplicate check. */}
@@ -1088,3 +1129,4 @@ export const PatientList = () => {
     </div>
   );
 };
+
