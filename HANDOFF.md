@@ -1153,6 +1153,14 @@ Mostly confirms the build (SDF code, age brackets, RPC window, consent, auto-cou
 - **Before Defense**: encode real IPTR records to CSV → re-run algo experiments → update Chapter 4; ISO 25010:2023 evaluation (30 respondents); final ZAP scan.
 
 ## Durable gotchas (read before touching related code)
+
+- **⚠ THE EXTRACTION CONDITION CODE IS `X`/`x` AND THAT IS DELIBERATE — DO NOT "FIX" IT TO `DX`/`dx`. RE-CONFIRMED BY THE USER 2026-09-03.**
+  - The official DOH legend, printed on **page 2 of the blank IPTR** (`Individual_Patient_Treatment_Record.pdf`, supplied 2026-09-03), says `DX`/`dx` = *Indicated for Extraction*, and reserves `X` as the **treatment** code for *Extraction*. **The app diverges from the printed legend on purpose.**
+  - Original instruction: Sprint 34 (2026-08-25), *"Extraction condition code is `X/x`, not `DX/dx` (user correction)"*. Re-raised 2026-09-03 after the legend was read off the blank form, put back to the user with the conflict spelled out, and **the user chose to keep `X`/`x`**.
+  - **This will look like a bug to the next person who compares the screen with the paper form. It is not.** Anyone tempted to change it must ask the user first — this is now the second time it has been raised.
+  - Safe to leave: `computeDMFT` (`DentalChart.tsx:94,99`) counts `x`/`dx` and `X`/`DX` alike, and the colour map carries all four keys, so charts saved under either spelling keep working. **Verified 2026-09-03: no tooth record in the live database uses `X` or `x` as a condition** (conditions present: `D`4 `d`5 `M`4 `P`8 `p`6), so no migration exists to undo either way.
+  - **Coupled code, if it is ever changed:** `conditionCodes` (`DentalChart.tsx:111`), the colour map (`:35-39`), the on-screen legend (`:1358`, currently reads `X/x`), and **`TargetClientList`'s `x`/`X` status columns**, which read `conditions['x']`/`conditions['X']` — those TCL captions come from the workbook and stay `x`/`X` regardless, so a code rename would silently empty them.
+
 - **Never make the `students` read in `/stats/student-rows` `.lean()`** — encrypted fields decrypt in `post('init')`, which lean/aggregate skip, so every name in the app would silently become ciphertext. Same reason no aggregation pipeline can join on or return student names.
 - **`useAppointments(window)` takes a REQUIRED date window** (Sprint 56). Build it in a `useMemo` — an object literal computed inline on every render changes the hook's dependencies and refetches in a loop. The hook depends on the instants, not the object, so a memo with the right deps is enough.
 - **Bounding a list route is opt-in per model**: `filterable` (ObjectId), `filterableText` (unencrypted strings) and `dateField` in `crudFactory`. Never put an encrypted field in `filterableText` — random IVs mean the match silently returns nothing instead of failing loudly.
