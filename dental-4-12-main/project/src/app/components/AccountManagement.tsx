@@ -659,7 +659,11 @@ export const AccountManagement = () => {
                 </button>
                 {resetInfo && <p className="mt-2 text-sm text-green-700">{resetInfo}</p>}
               </div>
-              <div className="text-center text-xs text-gray-400">or set a password directly (for accounts without a real mailbox)</div>
+              {/* Sprint 93. Was text-gray-400 (#9ca3af): about 2.8:1 on white, which
+                  FAILS WCAG AA for text (4.5:1). The token is ~4.7:1 and passes.
+                  The two remaining gray-300s in AIAnalytics are decorative icons,
+                  not text. */}
+              <div className="text-center text-xs text-muted-foreground">or set a password directly (for accounts without a real mailbox)</div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">New Password</label>
                 <input

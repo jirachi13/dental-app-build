@@ -68,7 +68,13 @@ export const Appointments = () => {
   const [selectedGrade, setSelectedGrade] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
-  const [appointmentDate, setAppointmentDate] = useState('');
+  // Sprint 93. Prefilled with today and still fully editable — the user's ask
+  // was "automatic dapat yung date na kung ano mang date ngayon pero dapat
+  // nacclick pa din para maedit". ⚠ `TODAY` is computed once at module load,
+  // which is right for a prefill (a tab open past midnight shows yesterday
+  // in a field the user can see and change) and would be wrong for a
+  // deadline or a filter default.
+  const [appointmentDate, setAppointmentDate] = useState(TODAY);
   const [appointmentTime, setAppointmentTime] = useState('');
   const [appointmentType, setAppointmentType] = useState('');
   const [appointmentDentistId, setAppointmentDentistId] = useState('');
@@ -127,7 +133,9 @@ export const Appointments = () => {
     setSelectedGrade('');
     setSelectedSection('');
     setSelectedStudents([]);
-    setAppointmentDate('');
+    // Back to today, NOT blank: clearing it after a save would undo the
+    // prefill for the next appointment, which is when it is most wanted.
+    setAppointmentDate(TODAY);
     setAppointmentTime('');
     setAppointmentType('');
     setCreateError(null);
