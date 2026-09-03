@@ -1318,6 +1318,12 @@ Mostly confirms the build (SDF code, age brackets, RPC window, consent, auto-cou
 
 ## Durable gotchas (read before touching related code)
 
+- **⚠ `pkill -f` DOES NOT STOP THE DEV SERVERS ON THIS MACHINE — and it fails SILENTLY.** `npm run dev` and `npm run dev:server` both run as **`node`**, so `pkill -f "vite"` / `pkill -f "tsx watch"` match nothing, exit quietly, and leave the servers running. Found 2026-09-03: a session reported "dev servers stopped" when both were still up, and the proof arrived a sprint later as `EADDRINUSE :::4000` when a second API server could not bind.
+  - **Stop them by PORT, from PowerShell:** `Get-NetTCPConnection -LocalPort 4000 -State Listen` → `Stop-Process -Id <OwningProcess> -Force`. Ports in play: **4000** (API), **5173** (Vite).
+  - **⚠ VITE MUST BE ON 5173.** The API allowlists origin `http://localhost:5173` only, so a leftover process pushes Vite to 5174/5175 and **every login then returns 403 "Origin not allowed"**, which reads exactly like a wrong password. Free 5173 before starting, don't just accept the port Vite picks.
+  - **Never claim the servers are stopped without checking the ports** — the same class of silent failure as the unpulled-file rule in CLAUDE.md.
+  - Related: `verify_sprint83.mjs` takes a screenshot directory that **defaults to `.`**, so running it from `project/` drops `sprint83-program-report.png` into the repo. Delete it rather than committing test output.
+
 - **⚠ THE EXTRACTION CONDITION CODE IS `X`/`x` AND THAT IS DELIBERATE — DO NOT "FIX" IT TO `DX`/`dx`. RE-CONFIRMED BY THE USER 2026-09-03.**
   - The official DOH legend, printed on **page 2 of the blank IPTR** (`Individual_Patient_Treatment_Record.pdf`, supplied 2026-09-03), says `DX`/`dx` = *Indicated for Extraction*, and reserves `X` as the **treatment** code for *Extraction*. **The app diverges from the printed legend on purpose.**
   - Original instruction: Sprint 34 (2026-08-25), *"Extraction condition code is `X/x`, not `DX/dx` (user correction)"*. Re-raised 2026-09-03 after the legend was read off the blank form, put back to the user with the conflict spelled out, and **the user chose to keep `X`/`x`**.
