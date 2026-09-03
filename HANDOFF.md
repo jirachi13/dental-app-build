@@ -44,6 +44,36 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 
 **Knock-on:** backlog #39's request-consolidation fix drops in priority — collapsing the 3 waves now saves ~200 ms, not ~1000 ms. Still correct, no longer urgent.
 
+## ⚠ SCHOOL SWITCHER — user-reported 2026-09-04, INVESTIGATED, NOT FIXED (needs a sprint)
+Report was terse: *"the school switcher in dentist and aide and maybe other users"*. Two separate problems, and the second is much worse than the first.
+
+**FINDING 1 — the switcher's presence is inconsistent, and the DEMO DATA disagrees with the SEEDER.** The switcher renders only when `user.schools.length > 1` (`AuthContext.tsx:112`), and `user.schools` is derived from `USER.school_id`: set → exactly one school → no switcher; null → all schools → switcher. Live data:
+
+| account | role | `school_id` | switcher? |
+|---|---|---|---|
+| `admin@floral.com` | system_admin | null | yes |
+| `dentist@floral.com` | dentist | Integrated | **NO** |
+| `aide@floral.com` | dental_aide | null | yes |
+| `schooladmin@floral.com` | school_admin | Annex A | no (correct) |
+| `bho@floral.com` | bho_staff | null | yes |
+
+- ⚠ **`seedDemo.ts:77,95` assigns BOTH the dentist and the aide to `integrated._id`** — so the aide's null was set later, by hand or through Account Management. Live data and the seeder now disagree, and re-running `seed:demo` would not reproduce the current state.
+- **The dentist being pinned to one school contradicts CLAUDE.md**: there is ONE dentist for THREE schools, a `DENTIST_ROTATION` model exists, and the audit trail is specified "across all three school sites". A rotating dentist needs all three. **The aide is the same case — one aide, three schools — so `null` is right for the aide and the DENTIST is the row that is wrong.**
+- Stale rows worth cleaning while in here: five archived `@floral.local` users, and two `ZZ Test School` entries in `schools` left by earlier test runs.
+
+**⚠⚠ FINDING 2 — THE SCHOOL GATE IS CLIENT-SIDE ONLY. Found while checking Finding 1; nobody reported it.** `school_id` is signed into the JWT (`authController.ts:97,227`) and returned by `/auth/me`, but **no middleware and no controller ever reads `req.user.school_id`** — the only school filtering anywhere comes from `req.query.school`, i.e. whatever the CLIENT asks for (`routes/index.ts:68,116`). Measured against production:
+
+| account | pinned to | students returned by `/stats/student-rows` | distinct schools seen |
+|---|---|---|---|
+| `dentist@floral.com` | Integrated | 26 | **3** |
+| `schooladmin@floral.com` | **Annex A** | 26 | **3** |
+| `aide@floral.com` | (all) | 26 | 3 |
+| `bho@floral.com` | (all) | 26 | 3 |
+
+**A school_admin pinned to Annex A receives every student in all three schools from the API.** Changing the dropdown changes the request, not the permission — so the switcher is a display filter, not a boundary. This contradicts CLAUDE.md's *"role checked on every API call"* and *"School Administrator — view school reports + dashboards only, no clinical records"*, and it is exactly the class of thing a panelist asks about. **It is also a NOTHING COSMETIC violation in the rule's own terms: a control that looks authoritative but does not restrict anything.**
+
+**Decision needed before building:** (a) does the dentist get all three schools (recommended — matches the rotation model), and (b) is server-side school scoping in scope now, given it touches every read path and would need the same treatment as Sprint 56's bounding. Reproduce with the throwaway probe pattern in this section; nothing is committed for it.
+
 ## ▶ RESUME HERE — parked 2026-09-03 (4th session), everything pushed at `a614e1d6`
 Ran **Sprints 89–98** plus four maintenance jobs. Tree clean, nothing uncommitted, dev servers stopped (verify with the port check in Durable gotchas — `pkill` lies here).
 
