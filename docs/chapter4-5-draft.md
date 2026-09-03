@@ -479,15 +479,38 @@ that generated output can be submitted without manual reformatting. Reports
 default to the current reporting month and year and may be generated for any
 prior period.
 
+### **Figure 4.4.4b** *Oral Health Program Reporting Form*
+
+`docs/figures/fig-4.4.4b-program-report.png`
+
+Figure 4.4.4b shows the Oral Health Program Reporting Form as the system
+generates it, reproduced from the signed return the clinic files monthly with the
+City Health Office. Every row and column of the printed form is rendered,
+including those a school clinic can never fill, because a blank cell on a
+statutory return carries meaning that an omitted row does not. Cells display an
+em dash where the system holds no source for that figure, and cells the paper
+form blocks out are shaded and left empty, so the two states remain
+distinguishable to a reader. Sections A through C and the unlettered Other
+Procedures band follow the printed form, and the indicators the form subdivides —
+oral prophylaxis and scaling, fluoride varnish and silver diamine fluoride by
+application, and atraumatic restorative treatment, sealants, root surface
+protection and extraction by head count and tooth count — are presented with the
+same two-column split the paper uses.
+
 ### **Figure 4.4.5** *Report Export Formats*
 
 `docs/figures/fig-4.4.5-export-menu.png` (Reports' own PDF/Excel controls: `fig-4.4.5b-reports-download-controls.png`)
 
-Figure 4.4.5 presents the export facility. Reports and record lists may be
-exported in comma-separated value and Excel formats, and the Consolidated Report
-additionally exports as a formatted Excel workbook preserving the multi-tier
-header structure of the official form, and as a document-format file suitable for
-printing and submission.
+Figure 4.4.5 presents the export facility. Export is deliberately restricted to
+official aggregate output and to the audit trail; the student, preventive-care,
+and appointment lists carry no export control, because a downloaded roster of
+identified minors would leave the system's access controls behind. The audit
+trail exports in comma-separated value and Excel formats, and each official form
+exports in the format its recipient requires: the Consolidated Report and the
+Oral Health Program Reporting Form as both a formatted Excel workbook preserving
+the multi-tier header structure of the official form and a document-format file
+suitable for printing and submission, the Target Client List as Excel only, and
+the Individual Patient Treatment Record as a printable document only.
 
 Filtering and search are available across all record lists, supporting retrieval
 by name, school, grade level, section, risk classification, and appointment
