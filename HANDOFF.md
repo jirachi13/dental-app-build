@@ -62,6 +62,19 @@ The printed Target Client List is **two physical sheets sharing one set of 25 nu
 
 **Still true and still user-gated:** the roster is on SY 2025-2026 while today is 2026-2027, so recording a visit dated today is blocked for 24 of 26 students (Sprint 81). Sprint 74's Promote/Assign fixes it but changes the demo data every Chapter 4 figure shows.
 
+## README corrected (2026-09-03) — it was wrong about deployment
+Asked whether a "how to run locally" file exists. It does — the root `README.md` — but three parts had drifted, and one was actively misleading.
+
+**⚠ THE DEPLOYMENT SECTION SAID THE OPPOSITE OF THE TRUTH:** *"`git push` does NOT auto-deploy — run `npx vercel --prod`."* Push-to-`main` HAS auto-deployed since the 23h–27b sprints. **Re-confirmed 2026-09-03** by checking the live bundle: Sprints 94–97 reached production from pushes alone (the deployed CSS carried `#67687A`, the deployed JS the notification bell), with no CLI deploy. Corrected, with the old instruction called out explicitly so nobody re-adds it, plus the two-command recipe for verifying a deploy actually landed.
+
+**The env table was wrong in BOTH directions** — checked against the real `.env` (names only):
+- **Documented but absent locally:** `ML_SERVICE_URL` / `ML_SERVICE_API_KEY`. They are **optional** — `predictionRoutes.ts` defaults the URL to `http://localhost:8000` and omits the key header when empty, which is what local `uvicorn` expects. The table implied they were required.
+- **Present but undocumented:** `BREVO_API_KEY` / `BREVO_SENDER_EMAIL` (optional; `mailer.ts` logs the reset link instead of sending when unset, so the flow stays testable) and `RENDER_API_KEY` (**not read by the app at all** — a personal Render token, documented so nobody deletes it wondering what it does).
+
+**The script list was 8 of 18.** Now complete and split into seeders (in run order) and maintenance/one-off scripts, including `seed:treatments`, `apply:seed-passwords`, `purge:demo`, `backup:raw` and `verify:indexes`. Verified programmatically: **no script and no env key is now undocumented.**
+
+**Two local-dev gotchas added**, both of which cost time this session: Vite must be on **:5173** (`ALLOWED_ORIGINS` allowlists that exact origin, so 5174 gives `403 "Origin not allowed"` that reads like a bad password), and **`pkill -f` does not stop these servers on Windows** — stop them by port.
+
 ## Figures verified against `docs/chapter4-5-draft.md` (2026-09-03)
 Cross-checked every figure reference in the draft against the 21 files on disk, then read the captions against what the build actually does now.
 
