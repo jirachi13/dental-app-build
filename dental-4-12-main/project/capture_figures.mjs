@@ -51,12 +51,24 @@ const PIN_FIXED = `
   aside { position: absolute !important; top: 0 !important; height: 100% !important; }
 `;
 
-async function shot(page, name, note = '') {
+/** `fullPage: false` captures the VIEWPORT only.
+ *
+ *  ⚠ Needed for figures whose subject sits at the TOP of a very long page. The
+ *  export menu on the audit trail came out 2880x25592 (5 MB) as a full-page
+ *  shot — every one of the 90-day window's log rows, with the dropdown a
+ *  sliver at the top. A figure nobody can read is not a captured figure. */
+async function shot(page, name, note = '', { fullPage = true } = {}) {
   try {
     await page.waitForTimeout(1800); // let charts/skeletons settle
+    // ⚠ Scroll to the top FIRST. Clicking a row part-way down a list leaves the
+    // page scrolled, and with the sidebar pinned to top:0 for the capture the
+    // content then rides up under it — fig-4.3.5 came out with its "Risk
+    // Classification" heading sliced in half by the sidebar.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(300);
     const style = await page.addStyleTag({ content: PIN_FIXED });
     await page.waitForTimeout(400);
-    await page.screenshot({ path: join(OUT, `${name}.png`), fullPage: true });
+    await page.screenshot({ path: join(OUT, `${name}.png`), fullPage });
     await style.evaluate((el) => el.remove()).catch(() => {});
     ok(name, note);
   } catch (e) { fail(name, e.message.split('\n')[0]); }
@@ -146,6 +158,47 @@ try {
   await go(page, '/treatment-records');  await shot(page, 'fig-4.2.2-treatment-records');
   await go(page, '/rpc');                await shot(page, 'fig-4.2.3-rpc-tracking');
   await go(page, '/ai-analytics');       await shot(page, 'fig-4.3.4-risk-classification', 'ML service may be cold');
+
+  // fig-4.3.5 — the dentist-validation panel (ADDED 2026-09-03; was the only
+  // figure captured by hand, and so the only one nobody could reproduce).
+  //
+  // ⚠ It needs a STUDENT SELECTED: the panel does not exist on the list view.
+  // ⚠ The ML service sleeps on Render's free tier — first request 30-60s and
+  // it may 503 once — so this waits generously and reports rather than failing
+  // the whole run. CLAUDE.md's premise is that the dentist validates every
+  // recommendation, which makes this the figure a panelist is most likely to
+  // ask about; it is worth the wait.
+  try {
+    const firstStudent = page.locator('button').filter({ hasText: /Bagong Tanyag|Daang Hari|Annex/ }).first();
+    if (!(await firstStudent.count())) throw new Error('no student rows on /ai-analytics');
+    await firstStudent.click();
+    await page.waitForTimeout(3000);
+
+    // ⚠ SELECTING A STUDENT IS NOT ENOUGH. The validation panel only exists
+    // once an assessment has been generated — "Generate Risk Assessment" calls
+    // the ML service first. The earlier version waited 60s for a
+    // "Validate & Save" button that could never appear, and timed out.
+    const generate = page.getByRole('button', { name: /Generate Risk Assessment/i }).first();
+    const validate = page.getByRole('button', { name: /Validate & Save/i }).first();
+    if (await generate.count()) {
+      await generate.click();
+      // ⚠ The ML service sleeps on Render's free tier: first request 30-60s,
+      // and it MAY 503 once (HANDOFF, current status). One retry is expected
+      // behaviour here, not a workaround for a flaky test.
+      try {
+        await validate.waitFor({ state: 'visible', timeout: 90000 });
+      } catch {
+        await generate.click();
+        await validate.waitFor({ state: 'visible', timeout: 90000 });
+      }
+    } else {
+      await validate.waitFor({ state: 'visible', timeout: 30000 });
+    }
+    // ⚠ CAPTURE ONLY — never click Validate & Save. That writes a validated
+    // RISK_STRATIFICATION and is recorded in the audit trail as clinical
+    // sign-off by a dentist who never saw it.
+    await shot(page, 'fig-4.3.5-dentist-validation');
+  } catch (e) { fail('fig-4.3.5-dentist-validation', e.message.split('\n')[0]); }
   await go(page, '/reports');            await shot(page, 'fig-4.4.4-reports');
 
   // ⚠ ADDED 2026-09-03. The line above captures the Reports screen at its
@@ -166,6 +219,21 @@ try {
     await shot(page, 'fig-4.4.4b-program-report');
   } catch (e) { fail('fig-4.4.4b-program-report', e.message.split('\n')[0]); }
 
+  // fig-4.4.5b — the per-form download controls (ADDED 2026-09-03).
+  //
+  // ⚠ THE MOST MISLEADING FIGURE IN THE SET while it was stale: Sprint 85
+  // changed exactly these controls, and the FORMATS ARE A DECISION, not an
+  // oversight — the Target Client List offers Excel ONLY (66 columns; also the
+  // format the City Health Office requires), the Program Report offers PDF and
+  // Excel, the IPTR is PDF only. The figure has to show a form where BOTH
+  // buttons exist, or it argues the opposite of what the design says.
+  try {
+    await page.getByRole('button', { name: /Program Report/i }).first().click();
+    await page.waitForTimeout(2500);
+    await page.getByRole('button', { name: /^PDF$/i }).first().waitFor({ state: 'visible', timeout: 15000 });
+    await shot(page, 'fig-4.4.5b-reports-download-controls');
+  } catch (e) { fail('fig-4.4.5b-reports-download-controls', e.message.split('\n')[0]); }
+
   // fig-4.4.5 (the ExportMenu dropdown) is NOT captured here. It used to look
   // for an Export button on /reports, which has never had one -- Reports offers
   // "Download PDF" and "Download Excel" directly, while ExportMenu lives on
@@ -179,6 +247,23 @@ try {
   await login(page, 'admin');
   await go(page, '/accounts'); await shot(page, 'fig-4.2.5-account-management');
   await go(page, '/audit');    await shot(page, 'fig-4.2.4-audit-trail');
+
+  // fig-4.4.5 — the Export menu, open (ADDED 2026-09-03).
+  //
+  // ⚠ CAPTURED ON THE AUDIT TRAIL, AND THAT IS THE POINT. `ExportMenu` used to
+  // appear on Students, RPC and Appointments; Sprint 52 REMOVED it from all of
+  // them, because a raw list of minors leaving the system is the exact PII leak
+  // the rule forbids. The audit trail is the ONLY screen that still carries it,
+  // so this figure now documents a deliberate restriction rather than a generic
+  // control — capturing it anywhere else would misrepresent the build.
+  try {
+    const exportBtn = page.getByRole('button', { name: /^Export/i }).first();
+    await exportBtn.waitFor({ state: 'visible', timeout: 15000 });
+    await exportBtn.click();
+    await page.waitForTimeout(800);
+    // Viewport only: the menu is at the top of a page 25,000px long.
+    await shot(page, 'fig-4.4.5-export-menu', '', { fullPage: false });
+  } catch (e) { fail('fig-4.4.5-export-menu', e.message.split('\n')[0]); }
 
   // ===== SCHOOL ADMIN =====
   console.log('\n[school_admin]');

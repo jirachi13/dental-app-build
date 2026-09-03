@@ -40,7 +40,7 @@ The printed Target Client List is **two physical sheets sharing one set of 25 nu
 
 **Still true and still user-gated:** the roster is on SY 2025-2026 while today is 2026-2027, so recording a visit dated today is blocked for 24 of 26 students (Sprint 81). Sprint 74's Promote/Assign fixes it but changes the demo data every Chapter 4 figure shows.
 
-## Chapter 4 figures RECAPTURED (2026-09-03) — 18/18 against the deployed site
+## Chapter 4 figures RECAPTURED (2026-09-03) — 21/21 against the deployed site
 Stale since 2026-08-11. Sprints 89/90/98 rewrote the Program Report and 94/96 changed every screen's text and accent colours, so the gap had grown wide enough for a panelist to notice.
 
 **Captured against the DEPLOYED site, and the deploy was verified current first** rather than assumed: the live CSS carries Sprint 94's darkened `#67687A` token and the live JS carries Sprint 97's "Notifications" label. (Backlog #25 is exactly the hazard of skipping that check.)
@@ -51,9 +51,14 @@ Stale since 2026-08-11. Sprints 89/90/98 rewrote the Program Report and 94/96 ch
 **⚠ `capture_figures.mjs` CARRIED THE SAME CRLF `.env` BUG** as verify_sprint33 — it split on `'
 '`, so with the repo's CRLF checkout it would silently have produced an EMPTY env and failed at login with a message that looks like a selector problem. Fixed here too, and `BASE_URL` is now honoured for a local capture. **Check any other script that hand-rolls a `.env` parser.**
 
-**⚠ THREE FIGURES ARE STILL STALE — the script does not cover them**, so they are untouched from 2026-08-11 and should not be assumed current:
-`fig-4.3.5-dentist-validation.png` · `fig-4.4.5-export-menu.png` · `fig-4.4.5b-reports-download-controls.png`.
-Each needs an interaction the script does not perform (opening the validation flow, opening the export menu, revealing the download controls). **4.4.5b is the most misleading of the three**, because Sprint 85 changed exactly those download controls.
+**⚠ ~~THREE FIGURES ARE STILL STALE~~ ALL THREE ADDED TO THE SCRIPT (2026-09-03) — the set is now 21/21 and fully reproducible in one command.** They had been the only hand-captured figures, and therefore the only ones nobody could reproduce.
+- **`fig-4.3.5-dentist-validation`** — ⚠ **selecting a student is NOT enough**: the validation panel only exists once *Generate Risk Assessment* has been clicked, which calls the ML service. The first attempt waited 60s for a button that could never appear. It now generates first, waits 90s, and **retries once** — the Render free tier sleeps and may 503 on the first call, which is documented behaviour, not flakiness. ⚠ **It captures only; it never clicks Validate & Save**, which would write a validated RISK_STRATIFICATION and record clinical sign-off in the audit trail by a dentist who never saw it.
+- **`fig-4.4.5-export-menu`** — captured on the **audit trail**, and that is the point: Sprint 52 REMOVED `ExportMenu` from Students, RPC and Appointments, so the audit trail is the only screen that still carries it. The figure documents a deliberate restriction; capturing it elsewhere would misrepresent the build.
+- **`fig-4.4.5b-reports-download-controls`** — on the Program Report, which offers **both** PDF and Excel. The formats are a Sprint 85 decision (TCL Excel-only, IPTR PDF-only), so a figure showing a single-format form would argue the opposite of the design.
+
+**Two capture bugs fixed while adding them:**
+- ⚠ **`fullPage` is wrong when the subject sits at the top of a long page.** The export menu came out **2880×25592 (5 MB)** — every row of the 90-day audit window, with the dropdown a sliver at the top. `shot()` now takes `{ fullPage: false }`; that figure is 2880×1800.
+- ⚠ **Scroll to the top before every capture.** Clicking a row part-way down a list leaves the page scrolled, and with the sidebar pinned to `top: 0` the content rides up under it — `fig-4.3.5` came out with its heading sliced in half by the sidebar.
 
 ## verify_sprint33.mjs repaired (2026-09-03) — 25/25
 Requested by the user after Sprint 98. Two INDEPENDENT faults, and the second is the interesting one.
@@ -1464,7 +1469,7 @@ Mostly confirms the build (SDF code, age brackets, RPC window, consent, auto-cou
 
 ## User-only items (no sprint)
 - **Manuscript work is DEPRIORITISED "for now" (user, 2026-09-02)** — not cancelled, not a permanent boundary. Applies to Open work 14 (citation renumbering) and 15 (Ch2 additions). Keep them logged; do not put them forward as the recommended next step while this holds. Revisit if defense gets close enough that the citation offset matters.
-- **Chapter 4 figures RECAPTURED 2026-09-03 — 17 refreshed + 1 new (`fig-4.4.4b-program-report`).** See the section above. ⚠ **THREE remain STALE because `capture_figures.mjs` does not cover them:** `fig-4.3.5-dentist-validation`, `fig-4.4.5-export-menu`, `fig-4.4.5b-reports-download-controls` — each needs an interaction the script does not perform, and 4.4.5b is the most misleading since Sprint 85 changed those very controls.
+- **Chapter 4 figures RECAPTURED 2026-09-03 — 17 refreshed + 1 new (`fig-4.4.4b-program-report`).** See the section above. **All 21 figures are now captured by the script in one command — no hand-captured exceptions remain.**
 - **Read the rest of the classmate notes.** One item surfaced 2026-09-02 (login autofill) and turned out to be **0d, not #23** — it was filed against #23 on 2026-09-01 on the assumption the two were the same note, which was wrong. It is built (Sprint 50). **Other items in those notes have not been read yet**, so more may land.
 - **Open work #23 is parked with NO suggestion attached** (year-varying student fields / historical IPTRs). The 2026-09-01 note claiming a classmate suggestion covered #23 was a mis-filing — corrected 2026-09-02. If nothing in the remaining classmate notes turns out to be about #23, **the park has no blocker and #23 can be scheduled on its own merits**; the verified findings and the three costed options are already in #23.
 - ~~Locate real dental IPTR Excel files~~ **VOID 2026-08-06 — no such files exist; the records are paper.** Replaced by: hand-encode a stratified sample from the paper IPTR forms — **n = 50, DECIDED 2026-09-01**, stratified on RISK LEVEL only (see Open work #3 for why school/grade are descriptive rather than strata, and for the pilot constraints). The dentist labels all 50 by hand. Any Excel that does turn up still gets an openpyxl header check before being trusted.
