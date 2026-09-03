@@ -62,6 +62,36 @@ Full reference:
 | `BREVO_API_KEY`, `BREVO_SENDER_EMAIL` | Transactional email for password-reset links. **Optional locally** — with no key, `mailer.ts` logs the link instead of sending it, so the reset flow is still testable without a mail account. |
 | `RENDER_API_KEY` | Not read by the app at all — a personal token for managing the ML service through Render's API. Listed only so nobody deletes it wondering what it does. |
 
+## Install
+
+```bash
+git clone <repo-url>
+cd dental-app-build/dental-4-12-main/project
+npm install
+```
+
+Everything (frontend, Express backend, seed and verification scripts) lives in that **one** `package.json` — there is no separate install for the server.
+
+Optional, depending on what you are doing:
+
+```bash
+npx playwright install chromium              # only for the verification scripts below;
+                                             # without it they fail with "browser not found"
+cd ../../ml-service && pip install -r requirements.txt   # only for Risk Classification
+```
+
+Then create your `.env` as described above — the app will not start without `MONGODB_URI`.
+
+### What a new collaborator cannot get from this repo
+
+Three things are deliberately not in version control, and someone on the team has to hand them over or the setup stops here:
+
+1. **`MONGODB_URI`** for the shared cluster — or use your own free Atlas cluster instead, and seed it (below).
+2. **`FIELD_ENCRYPTION_SECRET`** — required if you point at the shared cluster, because existing patient records were encrypted with it. Not needed for your own empty cluster; generate a fresh one there.
+3. **An Atlas IP allowlist entry for your machine.** Atlas rejects unknown IPs, and the failure looks like a hang or an SRV/DNS error rather than "access denied" — worth ruling out first if the server will not connect.
+
+With your own empty cluster you need no secrets from anyone: generate all of them, then run the seeders in order to get schools, accounts and demo students.
+
 ## Run locally
 
 Three processes, all from `dental-4-12-main/project/` (ML service from `ml-service/`):
