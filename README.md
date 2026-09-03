@@ -24,7 +24,32 @@ Deployment: frontend + backend on **Vercel** (Express runs as a serverless funct
 
 ## Environment variables
 
-All backend env lives in `dental-4-12-main/project/.env` (**gitignored — never commit it**):
+All backend env lives in `dental-4-12-main/project/.env` (**gitignored — never commit it**).
+
+### Creating your `.env`
+
+```bash
+cd dental-4-12-main/project
+cp .env.example .env      # PowerShell: Copy-Item .env.example .env
+```
+
+Then fill in the values. `.env.example` is committed and carries **placeholders only** — it is the template, not a working config. Generate the two JWT secrets with:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+Three things decide whether the app will actually start and stay correct:
+
+- **`MONGODB_URI`** — ask a teammate for the shared cluster string, or point at your own free Atlas cluster.
+- **⚠ `FIELD_ENCRYPTION_SECRET` — if the database already has records, this MUST be the key they were encrypted with.** A wrong value does not fail at startup; it surfaces later as garbled names or decrypt errors when reading students, and the data cannot be recovered afterwards. Only generate a fresh one for an empty database. This is the single most destructive value in the project.
+- **`ALLOWED_ORIGINS`** — keep `http://localhost:5173` for local dev, or every login returns `403 "Origin not allowed"`.
+
+`ML_SERVICE_*`, `BREVO_*` and `RENDER_API_KEY` are optional locally; the app degrades sensibly without them (see the table below).
+
+**Why the variable names appear here but no values do:** naming the variables is what makes the project runnable by someone else, and the names alone reveal nothing. The values are secrets and live in exactly two places — your untracked local `.env`, and the Vercel/Render dashboards for production. Never paste one into this file, `.env.example`, a commit message, or an issue.
+
+Full reference:
 
 | Var | Purpose |
 |---|---|

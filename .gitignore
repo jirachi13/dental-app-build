@@ -12,6 +12,10 @@ build/
 
 .vercel
 .env*
+# ...but the committed TEMPLATE is the exception: it carries placeholders only,
+# and it is the file that documents how to create a real .env. Without this
+# negation the `.env*` rule above silently swallows it.
+!.env.example
 
 # Python (ml-service/)
 __pycache__/

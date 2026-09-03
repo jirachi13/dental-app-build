@@ -73,6 +73,13 @@ Asked whether a "how to run locally" file exists. It does — the root `README.m
 
 **The script list was 8 of 18.** Now complete and split into seeders (in run order) and maintenance/one-off scripts, including `seed:treatments`, `apply:seed-passwords`, `purge:demo`, `backup:raw` and `verify:indexes`. Verified programmatically: **no script and no env key is now undocumented.**
 
+**`.env.example` ADDED (2026-09-03)** — the README listed the variables but never said how to CREATE the file. Now `cp .env.example .env` plus a filled-in template.
+- ⚠ **`.gitignore` needed a negation.** The rule `.env*` silently swallowed `.env.example` too; `!.env.example` was added below it. **Verified by actually staging the file** — `git check-ignore -v` prints the negation pattern and its exit code reads as "ignored", so it is a misleading test here. The real `.env` is still ignored (re-checked).
+- **The template carries PLACEHOLDERS ONLY**, verified programmatically: none of the 14 real values from `.env` appear in either `.env.example` or `README.md`.
+- It documents the three values that decide whether the app starts and stays correct, with the `FIELD_ENCRYPTION_SECRET` warning stated in full — a wrong value does not fail at startup, it surfaces later as unrecoverable garbled patient data.
+
+**Answered while doing it:** *should env vars be in the README at all?* **Names yes, values never.** Naming them is what makes the project runnable by someone else and reveals nothing; the values live only in an untracked local `.env` and the Vercel/Render dashboards. That reasoning is now written into the README so it is not re-litigated.
+
 **Two local-dev gotchas added**, both of which cost time this session: Vite must be on **:5173** (`ALLOWED_ORIGINS` allowlists that exact origin, so 5174 gives `403 "Origin not allowed"` that reads like a bad password), and **`pkill -f` does not stop these servers on Windows** — stop them by port.
 
 ## Figures verified against `docs/chapter4-5-draft.md` (2026-09-03)
