@@ -40,11 +40,28 @@ The printed Target Client List is **two physical sheets sharing one set of 25 nu
 
 **Still true and still user-gated:** the roster is on SY 2025-2026 while today is 2026-2027, so recording a visit dated today is blocked for 24 of 26 students (Sprint 81). Sprint 74's Promote/Assign fixes it but changes the demo data every Chapter 4 figure shows.
 
+## Chapter 4 figures RECAPTURED (2026-09-03) — 18/18 against the deployed site
+Stale since 2026-08-11. Sprints 89/90/98 rewrote the Program Report and 94/96 changed every screen's text and accent colours, so the gap had grown wide enough for a panelist to notice.
+
+**Captured against the DEPLOYED site, and the deploy was verified current first** rather than assumed: the live CSS carries Sprint 94's darkened `#67687A` token and the live JS carries Sprint 97's "Notifications" label. (Backlog #25 is exactly the hazard of skipping that check.)
+
+**⚠ THE RECAPTURE EXPOSED A GAP: the Program Report was in NO FIGURE AT ALL.** `fig-4.4.4-reports` captures the Reports screen at its DEFAULT tab and DEFAULT school year — so the form that Sprints 89, 90 and 98 spent three sprints on was invisible, and the default year (2026-2027) holds almost nothing anyway. **A new `fig-4.4.4b-program-report` was added to the script**, which switches the year picker to **2025-2026 first** — capturing the default view would have shown a form full of zeros and misrepresented the build.
+- The new figure shows the whole arc in one image: the lettered A/B/C bands plus the unlettered "Other Procedures", the lavender sub-row column (1st/2nd Scaling, Head/Tooth Count), the Sealants and Root Surface Protection rows, real Services Rendered numbers, the blocked Edentulous row, and the notification bell with its badge.
+
+**⚠ `capture_figures.mjs` CARRIED THE SAME CRLF `.env` BUG** as verify_sprint33 — it split on `'
+'`, so with the repo's CRLF checkout it would silently have produced an EMPTY env and failed at login with a message that looks like a selector problem. Fixed here too, and `BASE_URL` is now honoured for a local capture. **Check any other script that hand-rolls a `.env` parser.**
+
+**⚠ THREE FIGURES ARE STILL STALE — the script does not cover them**, so they are untouched from 2026-08-11 and should not be assumed current:
+`fig-4.3.5-dentist-validation.png` · `fig-4.4.5-export-menu.png` · `fig-4.4.5b-reports-download-controls.png`.
+Each needs an interaction the script does not perform (opening the validation flow, opening the export menu, revealing the download controls). **4.4.5b is the most misleading of the three**, because Sprint 85 changed exactly those download controls.
+
 ## verify_sprint33.mjs repaired (2026-09-03) — 25/25
 Requested by the user after Sprint 98. Two INDEPENDENT faults, and the second is the interesting one.
 
 1. **Its hand-rolled `.env` parser produced an EMPTY env** (fixed during Sprint 95). It split on `'
-'`, and with the repo's CRLF checkout every line kept a trailing `` — **`` is a LINE TERMINATOR in a JS regex**, so `(.*)$` never matched. It surfaced as `page.fill: expected string, got undefined`, which reads like a selector problem.
+'`, and with the repo's CRLF checkout every line kept a trailing `
+` — **`
+` is a LINE TERMINATOR in a JS regex**, so `(.*)$` never matched. It surfaced as `page.fill: expected string, got undefined`, which reads like a selector problem.
 2. **⚠ A CHECK THAT HAD BEEN FAILING AGAINST CORRECT CODE.** It asserted a *"Switch School" BUTTON* in the mobile drawer — the Sprint 33-era control. **Sprint 67 deliberately replaced it** with a `<select id="school-switcher">` that is **hidden for single-school accounts** ("a one-option picker is noise"), and the demo dentist has one school. The verifier was testing a control the design had removed. **This is the failure mode to watch for in old verifiers: not a regression, a stale expectation.**
    - Rewritten to the requirement that SURVIVES the redesign: a mobile user can always **see** which school they are in, and can **change** it whenever the account genuinely has more than one. It now branches on the option count rather than assuming a control.
 
@@ -1447,7 +1464,7 @@ Mostly confirms the build (SDF code, age brackets, RPC window, consent, auto-cou
 
 ## User-only items (no sprint)
 - **Manuscript work is DEPRIORITISED "for now" (user, 2026-09-02)** — not cancelled, not a permanent boundary. Applies to Open work 14 (citation renumbering) and 15 (Ch2 additions). Keep them logged; do not put them forward as the recommended next step while this holds. Revisit if defense gets close enough that the citation offset matters.
-- **Chapter 4 FIGURES ARE STALE — last captured 2026-08-11, and Sprints 47–98 have since changed the screens they show.** ⚠ Sprints 89/90/98 changed the **Program Report** most: section C was rebuilt against the filed form, wired to real numbers, and then populated by `seed:treatments`. Sprints 94/96 changed EVERY screen's text and accent colours. Offered 2026-09-02 and not taken up; recorded so it is a decision rather than an oversight. Affected: `fig-4.4.4-reports` (Sprints 54/55 added two tabs, 57b added the year picker + footnote, headers rotated), `fig-4.1.1-student-list` (53 pagination), `fig-4.2.3-rpc-tracking` (51 worklist), `fig-4.4.5`/`4.4.5b` (52 export restriction), `fig-4.1.2`/`4.1.3a-c`/`4.1.4` (49, and 57a's grade line), `fig-4.2.1-appointments` (56 scope control). `capture_figures.mjs` takes `BASE_URL`, so this is a re-run plus an eyeball, not new work. **A panelist comparing a figure to the live demo would see the mismatch.**
+- **Chapter 4 figures RECAPTURED 2026-09-03 — 17 refreshed + 1 new (`fig-4.4.4b-program-report`).** See the section above. ⚠ **THREE remain STALE because `capture_figures.mjs` does not cover them:** `fig-4.3.5-dentist-validation`, `fig-4.4.5-export-menu`, `fig-4.4.5b-reports-download-controls` — each needs an interaction the script does not perform, and 4.4.5b is the most misleading since Sprint 85 changed those very controls.
 - **Read the rest of the classmate notes.** One item surfaced 2026-09-02 (login autofill) and turned out to be **0d, not #23** — it was filed against #23 on 2026-09-01 on the assumption the two were the same note, which was wrong. It is built (Sprint 50). **Other items in those notes have not been read yet**, so more may land.
 - **Open work #23 is parked with NO suggestion attached** (year-varying student fields / historical IPTRs). The 2026-09-01 note claiming a classmate suggestion covered #23 was a mis-filing — corrected 2026-09-02. If nothing in the remaining classmate notes turns out to be about #23, **the park has no blocker and #23 can be scheduled on its own merits**; the verified findings and the three costed options are already in #23.
 - ~~Locate real dental IPTR Excel files~~ **VOID 2026-08-06 — no such files exist; the records are paper.** Replaced by: hand-encode a stratified sample from the paper IPTR forms — **n = 50, DECIDED 2026-09-01**, stratified on RISK LEVEL only (see Open work #3 for why school/grade are descriptive rather than strata, and for the pilot constraints). The dentist labels all 50 by hand. Any Excel that does turn up still gets an openpyxl header check before being trusted.

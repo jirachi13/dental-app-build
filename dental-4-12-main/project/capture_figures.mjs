@@ -12,12 +12,20 @@ import { fileURLToPath } from 'url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));       // .../dental-4-12-main/project
 const REPO = resolve(HERE, '..', '..');                      // repo root
-const BASE = 'https://dental-app-build.vercel.app';
+// Defaults to the DEPLOYED site — the figures should show what a panelist
+// would see. Override for a local capture:
+//   BASE_URL=http://localhost:5173 node capture_figures.mjs
+const BASE = process.env.BASE_URL || 'https://dental-app-build.vercel.app';
 const OUT = join(REPO, 'docs', 'figures');
 
 // --- env ---------------------------------------------------------------
 const env = {};
-for (const line of readFileSync(join(HERE, '.env'), 'utf8').split('\n')) {
+// ⚠ Split on /\r?\n/, not '\n'. With the repo's CRLF checkout every line keeps
+// a trailing \r, and \r is a LINE TERMINATOR in a JS regex — so the `(.*)$`
+// below never matches and this silently yields an EMPTY env, surfacing much
+// later as `page.fill: expected string, got undefined`. Identical bug to the
+// one repaired in verify_sprint33.mjs on 2026-09-03.
+for (const line of readFileSync(join(HERE, '.env'), 'utf8').split(/\r?\n/)) {
   const m = line.match(/^([A-Z_]+)=(.*)$/);
   if (m) env[m[1]] = m[2].trim();
 }
@@ -139,6 +147,24 @@ try {
   await go(page, '/rpc');                await shot(page, 'fig-4.2.3-rpc-tracking');
   await go(page, '/ai-analytics');       await shot(page, 'fig-4.3.4-risk-classification', 'ML service may be cold');
   await go(page, '/reports');            await shot(page, 'fig-4.4.4-reports');
+
+  // ⚠ ADDED 2026-09-03. The line above captures the Reports screen at its
+  // DEFAULT tab and DEFAULT school year, so the Oral Health Program Reporting
+  // Form — rebuilt against the filed DOH return in Sprint 89, wired to real
+  // numbers in 90 and populated in 98 — appeared in NO figure at all.
+  //
+  // ⚠ The year picker must be moved to 2025-2026 first: it defaults to the
+  // CURRENT school year, where the demo roster has almost nothing, so a capture
+  // of the default view would show a form full of zeros and misrepresent the
+  // build.
+  try {
+    const yearSelect = page.locator('select').filter({ hasText: 'All years to date' }).first();
+    await yearSelect.selectOption('2025-2026');
+    await page.waitForTimeout(1500);
+    await page.getByRole('button', { name: /Program Report/i }).first().click();
+    await page.waitForTimeout(3500);
+    await shot(page, 'fig-4.4.4b-program-report');
+  } catch (e) { fail('fig-4.4.4b-program-report', e.message.split('\n')[0]); }
 
   // fig-4.4.5 (the ExportMenu dropdown) is NOT captured here. It used to look
   // for an Export button on /reports, which has never had one -- Reports offers
