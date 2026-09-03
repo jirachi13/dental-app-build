@@ -18,5 +18,20 @@
       "PowerShell(Select-String *)",
       "PowerShell(Test-Path *)"
     ]
-  }
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" || exit 0; git fetch -q origin main 2>/dev/null; b=$(git rev-list --count HEAD..origin/main 2>/dev/null); if [ -z \"$b\" ] || [ \"$b\" = 0 ]; then exit 0; fi; printf \"{\\\"systemMessage\\\":\\\"git: %s commit(s) behind origin/main - PULL BEFORE READING HANDOFF.md or any tracked file.\\\",\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"SessionStart\\\",\\\"additionalContext\\\":\\\"This working tree is %s commit(s) BEHIND origin/main. Per CLAUDE.md: pull then read, never read then pull. Run git pull before reading HANDOFF.md or any tracked file, and before stating anything about project state.\\\"}}\" \"$b\" \"$b\"",
+            "timeout": 20,
+            "statusMessage": "Checking origin/main"
+          }
+        ]
+      }
+    ]
+  },
+  "description": "Project settings: shared tsc/vercel read permissions, plus a SessionStart hook that fetches origin/main and warns when this working tree is behind (CLAUDE.md: pull then read)."
 }
