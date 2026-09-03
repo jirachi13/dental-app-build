@@ -53,6 +53,17 @@ export interface RPCRow {
   // PREVENTIVE_CARE_RECORD stores no services at all (iptr_id, visit_date,
   // visit_number only), so per-visit treatment data does not exist to filter on.
   treatmentCodes: string[];
+  /** TOOTH COUNT per treatment code, e.g. { PFS: 4, TF: 2 }. The Target Client
+   *  List has genuine tooth-count columns (Pit and Fissure Sealant, Temporary
+   *  Filling, 2nd SDF application) where `treatmentCodes` above only answers
+   *  "did this student ever have it". Same caveat as that field: this counts
+   *  TOOTH_RECORDs across the student's charts, not services at a given visit —
+   *  per-visit services are still recorded nowhere. */
+  treatmentToothCounts: Record<string, number>;
+  /** `facility_based` of the FIRST recorded visit (Sprint 81) — the visit the
+   *  TCL's "Date of consultation" column reports. Null = not recorded, which is
+   *  every visit created before Sprint 81; it must NOT be shown as "No". */
+  visit1FacilityBased: boolean | null;
   /** This student's IPTR id keyed by school year, e.g. { '2025-2026': '…' }.
    *
    *  A new visit attaches to the IPTR for the school year of THE VISIT DATE,
@@ -106,19 +117,32 @@ export function useRPCTracking() {
         // student → set of treatment codes, resolved through
         // TOOTH_RECORD → DENTAL_CHART → STUDENT_IPTR → STUDENT.
         const codesByChart = new Map<string, Set<string>>();
+        // Counts alongside the set: the TCL has real tooth-count columns, and a
+        // Set can only answer "ever had it". Counted per chart first so the
+        // chart → iptr → student roll-up below adds rather than overwrites.
+        const countsByChart = new Map<string, Record<string, number>>();
         for (const tr of toothRecords) {
           if (!tr.treatment_code) continue;
           const set = codesByChart.get(tr.chart_id) ?? new Set<string>();
           set.add(tr.treatment_code);
           codesByChart.set(tr.chart_id, set);
+          const counts = countsByChart.get(tr.chart_id) ?? {};
+          counts[tr.treatment_code] = (counts[tr.treatment_code] ?? 0) + 1;
+          countsByChart.set(tr.chart_id, counts);
         }
         const codesByIptr = new Map<string, Set<string>>();
+        const countsByIptr = new Map<string, Record<string, number>>();
         for (const chart of charts) {
           const codes = codesByChart.get(chart._id);
           if (!codes) continue;
           const set = codesByIptr.get(chart.iptr_id) ?? new Set<string>();
           for (const c of codes) set.add(c);
           codesByIptr.set(chart.iptr_id, set);
+          const acc = countsByIptr.get(chart.iptr_id) ?? {};
+          for (const [code, n] of Object.entries(countsByChart.get(chart._id) ?? {})) {
+            acc[code] = (acc[code] ?? 0) + n;
+          }
+          countsByIptr.set(chart.iptr_id, acc);
         }
 
         const now = Date.now();
@@ -177,6 +201,11 @@ export function useRPCTracking() {
             syCutoff,
             syDeadline,
             treatmentCodes: [...new Set(studentIptrs.flatMap((iptr) => [...(codesByIptr.get(iptr._id) ?? [])]))],
+            treatmentToothCounts: studentIptrs.reduce<Record<string, number>>((acc, iptr) => {
+              for (const [code, n] of Object.entries(countsByIptr.get(iptr._id) ?? {})) acc[code] = (acc[code] ?? 0) + n;
+              return acc;
+            }, {}),
+            visit1FacilityBased: visit1?.facility_based ?? null,
             iptrIdBySchoolYear: Object.fromEntries(studentIptrs.map((i) => [i.school_year, i._id])),
             nextVisitNumber: !visit1 ? 1 : !visit2 ? 2 : null,
           };

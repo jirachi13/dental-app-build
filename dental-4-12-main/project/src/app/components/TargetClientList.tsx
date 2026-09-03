@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
-import type { ApiStudent } from '../api/types';
+import type { ApiStudent, ApiAppointment } from '../api/types';
 import { useStudents } from '../hooks/useStudents';
 import { useRPCTracking } from '../hooks/useRPCTracking';
 import { SkeletonTable } from './Skeleton';
@@ -15,11 +15,38 @@ import { formatDate, toLocalDateString } from '../utils/localDate';
 //
 // HONESTY NOTE — several columns are rendered but CANNOT be filled from the
 // current data model, and are deliberately left blank rather than faked:
-// PREVENTIVE_CARE_RECORD stores only `iptr_id`, `visit_date` and
-// `visit_number`, so no per-visit service is recorded anywhere. That means the
-// FIRST/SECOND service columns (oral hygiene instruction, counselling, oral
-// prophylaxis, fluoride varnish, completed BPOC) have no source. The visit
-// DATES are real, and so are the curative treatment codes.
+// PREVENTIVE_CARE_RECORD stores per-visit DATE, NUMBER and (since Sprint 81)
+// facility_based, but no per-visit SERVICE. That means the FIRST/SECOND
+// service columns (oral hygiene instruction, counselling, oral prophylaxis,
+// fluoride varnish, complete RPC) still have no source. The visit DATES are
+// real, and so are the curative treatment codes.
+//
+// Sprint 82 added the columns the real form has and this table did not, using
+// the missing-column list Sprint 80 read off the DOH workbook
+// (TCLForm2andFHSISReport.xlsx). Which of them carry REAL data:
+//   * Facility Based (column C) — real, from Sprint 81's facility_based.
+//   * Pit and Fissure Sealant / Temporary Filling (Tooth Count) — real TOOTH
+//     COUNTS from TOOTH_RECORD, not just "ever had it".
+//   * Orally Fit Child, Upon Oral Examination — real, the same oralStatus the
+//     dashboard and the Program Report's OFC row read.
+//   * Last / Next Dental Visit — real, from APPOINTMENT (split on now).
+// Blank because nothing records them: Family Serial Number, Barangay (STUDENT
+// has no such fields — address is one free-text line), Complete Mouth Rehab,
+// Orally Fit After Complete Mouth Rehabilitation.
+//
+// ⚠ Two column-set corrections, both from the workbook, NOT invented here:
+//   * `Gum Treatment` was ONE guessed column; the form has TWO (Scaling,
+//     Prescription). Split, which removes an `unverified` flag rather than
+//     adding one.
+//   * `Complete Health Record` was REMOVED — Sprint 80 established it does not
+//     exist on the real form at all. This is the one deletion; every other
+//     column stays even when empty, per CLAUDE.md.
+//
+// ⚠ NOT VERIFIABLE ON THIS MACHINE: the workbook lives in per-device `data/`
+// and was supplied to the other laptop, so the "66 columns" total could not be
+// re-counted here. The additions follow HANDOFF's written list from the
+// session that DID read the file. Re-check the count against the workbook
+// before treating this table as complete.
 
 const AGE_GROUPS = ['4 yrs & below', '5-9 yrs', '10-14 yrs', '15-19 yrs', '20 yrs & above'];
 
@@ -137,9 +164,19 @@ type Row = {
   visit1Done: boolean;
   visit2Done: boolean;
   treatments: string[];
+  /** Tooth counts per treatment code, for the form's tooth-count columns. */
+  toothCounts: Record<string, number>;
+  /** Sprint 81's facility_based on the first visit. Null = not recorded. */
+  facilityBased: boolean | null;
+  /** Orally fit on examination — `useStudents`' own oralStatus, the same
+   *  source the dashboard and the Program Report's OFC row read. */
+  orallyFit: boolean;
+  /** Most recent PAST and next FUTURE appointment, from APPOINTMENT. */
+  lastVisit: string | null;
+  nextVisit: string | null;
 };
 type ServiceCol = {
-  group: 'FIRST' | 'SECOND' | 'OTHER SERVICES';
+  group: 'FIRST' | 'SECOND' | 'OTHER SERVICES' | 'ORALLY FIT CHILD' | 'DENTAL VISIT';
   label: string;
   value?: (r: Row) => string;
   unverified?: boolean;
@@ -179,13 +216,30 @@ const SERVICE_COLUMNS: ServiceCol[] = [
   { group: 'OTHER SERVICES', label: 'ART', value: (r) => (r.treatments.includes('TR') ? '✓' : '') },
   { group: 'OTHER SERVICES', label: 'Temporary Filling', value: (r) => (r.treatments.includes('TF') ? '✓' : '') },
   { group: 'OTHER SERVICES', label: 'Extraction', value: (r) => (r.treatments.includes('X') ? '✓' : '') },
-  { group: 'OTHER SERVICES', label: 'Gum Treatment', unverified: true },
+  // Sprint 80 established from the DOH workbook that the form carries TWO gum
+  // columns (Scaling, Prescription), not the single guessed one this table had.
+  // Splitting them removes an `unverified` guess rather than adding one; both
+  // are blank because no per-visit service is recorded anywhere.
+  { group: 'OTHER SERVICES', label: 'Gum Treatment - Scaling' },
+  { group: 'OTHER SERVICES', label: 'Gum Treatment - Prescription' },
   { group: 'OTHER SERVICES', label: 'Removal of Plaque / Calculus', unverified: true },
+  { group: 'OTHER SERVICES', label: 'Pit and Fissure Sealant (Tooth Count)', value: (r) => String(r.toothCounts['PFS'] ?? '') },
+  { group: 'OTHER SERVICES', label: 'Temporary Filling (Tooth Count)', value: (r) => String(r.toothCounts['TF'] ?? '') },
   { group: 'OTHER SERVICES', label: 'Silver Diamine Fluoride App', value: (r) => (r.treatments.includes('SDF') ? '✓' : '') },
   { group: 'OTHER SERVICES', label: '2nd Silver Diamine Fluoride App (tooth count)' },
+  { group: 'OTHER SERVICES', label: 'Complete Mouth Rehab' },
   { group: 'OTHER SERVICES', label: 'Consultation' },
   { group: 'OTHER SERVICES', label: 'Referred Out' },
-  { group: 'OTHER SERVICES', label: 'Complete Health Record', unverified: true },
+
+  // The form's "Orally Fit Child" pair and its two visit-date columns, banded
+  // under their own headings after the services — they are an assessment and
+  // two dates, not services.
+  { group: 'ORALLY FIT CHILD', label: 'Upon Oral Examination', value: (r) => (r.orallyFit ? '✓' : '') },
+  // Nothing records a completed mouth rehabilitation, so this stays blank
+  // rather than reusing the examination answer, which would double-count.
+  { group: 'ORALLY FIT CHILD', label: 'After Complete Mouth Rehabilitation' },
+  { group: 'DENTAL VISIT', label: 'Last Dental Visit', value: (r) => (r.lastVisit ? formatDate(r.lastVisit) : '') },
+  { group: 'DENTAL VISIT', label: 'Next Dental Visit', value: (r) => (r.nextVisit ? formatDate(r.nextVisit) : '') },
 ];
 
 const SERVICE_GROUPS = SERVICE_COLUMNS.reduce<{ label: string; span: number }[]>((acc, c) => {
@@ -196,8 +250,10 @@ const SERVICE_GROUPS = SERVICE_COLUMNS.reduce<{ label: string; span: number }[]>
 }, []);
 
 const TCL_UNVERIFIED = SERVICE_COLUMNS.filter((c) => c.unverified).length;
-/** Identity columns + service columns + No. + Remarks. */
-const TCL_COLSPAN = 10 + SERVICE_COLUMNS.length + 1;
+// TCL_COLSPAN removed 2026-09-03: it hardcoded "10 identity columns", was read
+// by nothing (the JSX computes its own colSpan from the VISIBLE columns, which
+// is what a hideable table needs), and Sprint 82 took identity to 13 — a dead
+// constant that was now also wrong.
 
 export const TargetClientList = () => {
   const { selectedSchool } = useAuth();
@@ -210,15 +266,35 @@ export const TargetClientList = () => {
   const [period, setPeriod] = useState<Period>('monthly');
   const [anchor, setAnchor] = useState(() => toLocalDateString(new Date()));
 
+  // Appointments back the form's Last / Next Dental Visit columns. Fetched
+  // here rather than added to useRPCTracking: no other consumer of that hook
+  // needs them, and it already pulls six collections.
+  const [appointments, setAppointments] = useState<ApiAppointment[]>([]);
+
   useEffect(() => {
     apiClient.get<ApiStudent[]>('/students')
       .then(setRaw)
       .catch(() => setRawError('Could not load address and PhilHealth details.'));
+    apiClient.get<ApiAppointment[]>('/appointments')
+      .then(setAppointments)
+      .catch(() => setAppointments([]));
   }, []);
 
   const rows = useMemo(() => {
     const rawById = new Map(raw.map((s) => [s._id, s]));
     const rpcById = new Map(rpcRecords.map((r) => [r.id, r]));
+    // Past / future appointment dates per student, for Last and Next Dental
+    // Visit. Split on "now" rather than on status so a completed-but-future or
+    // an unstatused past booking still lands on the correct side.
+    const now = Date.now();
+    const apptsByStudent = new Map<string, { past: number[]; future: number[] }>();
+    for (const a of appointments) {
+      const t = new Date(a.appointment_datetime).getTime();
+      if (Number.isNaN(t)) continue;
+      const b = apptsByStudent.get(a.student_id) ?? { past: [], future: [] };
+      (t <= now ? b.past : b.future).push(t);
+      apptsByStudent.set(a.student_id, b);
+    }
     return students
       .filter((s) => !s.pending && (!selectedSchool || s.school === selectedSchool))
       .map((s) => {
@@ -240,9 +316,20 @@ export const TargetClientList = () => {
           visit1Done: r?.visit1Status === 'Completed',
           visit2Done: r?.visit2Status === 'Completed',
           treatments: r?.treatmentCodes ?? [],
+          toothCounts: r?.treatmentToothCounts ?? {},
+          facilityBased: r?.visit1FacilityBased ?? null,
+          orallyFit: s.oralStatus === 'Orally Fit',
+          lastVisit: (() => {
+            const p = apptsByStudent.get(s.id)?.past ?? [];
+            return p.length ? toLocalDateString(new Date(Math.max(...p))) : null;
+          })(),
+          nextVisit: (() => {
+            const f = apptsByStudent.get(s.id)?.future ?? [];
+            return f.length ? toLocalDateString(new Date(Math.min(...f))) : null;
+          })(),
         };
       });
-  }, [students, rpcRecords, raw, selectedSchool]);
+  }, [students, rpcRecords, raw, appointments, selectedSchool]);
 
   const { start, end, label: periodLabel } = useMemo(() => periodRange(anchor, period), [anchor, period]);
 
@@ -284,6 +371,13 @@ export const TargetClientList = () => {
   const IDENTITY_COLUMNS: IdentityCol[] = [
     { key: 'no', label: 'No.', value: (_r, i) => i + 1 },
     { key: 'consult', label: 'Date of consultation', head: <>Date of<br />consultation</>, value: (r) => (r.consultDate ? formatDate(r.consultDate) : '') },
+    // Column C of the real form. Sprint 81 gave it a source; null stays blank
+    // rather than printing "0 - No", which would be a claim, not a blank.
+    { key: 'facility', label: 'Facility Based', rotate: true, head: <>Facility Based<br /><span className="font-normal">0 - No · 1 - Yes</span></>, value: (r) => (r.facilityBased === null ? NO_SOURCE : r.facilityBased ? '1' : '0') },
+    // On the real form, no source in Floral — STUDENT has no family serial and
+    // no barangay field (address is one free-text line).
+    { key: 'familyserial', label: 'Family Serial Number', value: () => NO_SOURCE },
+    { key: 'barangay', label: 'Barangay', rotate: true, value: () => NO_SOURCE },
     { key: 'philhealth', label: 'PhilHealth No.', value: (r) => r.philhealth },
     { key: 'name', label: 'Name', head: <>Name<br /><span className="font-normal">(Last, First, MI)</span></>, value: (r) => r.name, cls: 'font-medium' },
     { key: 'address', label: 'Complete Address', value: (r) => r.address, cls: 'max-w-[220px] truncate' },
