@@ -67,7 +67,7 @@ export const SchoolSelect = () => {
               <div className="text-xs text-muted-foreground -mt-0.5">Dental Health Record Management System</div>
             </div>
           </div>
-          <button onClick={handleLogout} className="flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+          <button onClick={handleLogout} className="flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-danger-surface rounded-lg transition-colors">
             <LogOut className="w-4 h-4" />
             <span>Logout</span>
           </button>

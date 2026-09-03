@@ -38,7 +38,7 @@ interface ModelStatus {
 const RISK_BADGE: Record<string, string> = {
   High: 'bg-red-100 text-red-700 border-red-200',
   Medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-  Low: 'bg-green-100 text-green-700 border-green-200',
+  Low: 'bg-green-100 text-green-800 border-green-200',
 };
 
 const FEATURE_LABELS: Record<string, string> = {
@@ -315,8 +315,8 @@ export const AIAnalytics = () => {
     const order = { Low: 0, Medium: 1, High: 2 };
     const delta =
       order[history[history.length - 1].riskLevel] - order[history[history.length - 2].riskLevel];
-    if (delta < 0) return { icon: TrendingDown, label: 'Improving', cls: 'text-green-600' };
-    if (delta > 0) return { icon: TrendingUp, label: 'Worsening', cls: 'text-red-600' };
+    if (delta < 0) return { icon: TrendingDown, label: 'Improving', cls: 'text-success' };
+    if (delta > 0) return { icon: TrendingUp, label: 'Worsening', cls: 'text-destructive' };
     return { icon: Minus, label: 'Stable', cls: 'text-muted-foreground' };
   };
 
@@ -360,18 +360,18 @@ export const AIAnalytics = () => {
           <SkeletonTable rows={5} />
         </div>
       ) : error ? (
-        <div className="text-red-500 text-sm py-12 text-center">{error}</div>
+        <div className="text-destructive text-sm py-12 text-center">{error}</div>
       ) : (
         <>
           {/* Risk overview — latest assessment per student (Sprint 21g) */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {([
-              { label: 'High Risk', value: overview.High, cls: 'text-red-600' },
-              { label: 'Medium Risk', value: overview.Medium, cls: 'text-yellow-600' },
-              { label: 'Low Risk', value: overview.Low, cls: 'text-green-600' },
+              { label: 'High Risk', value: overview.High, cls: 'text-destructive' },
+              { label: 'Medium Risk', value: overview.Medium, cls: 'text-warning' },
+              { label: 'Low Risk', value: overview.Low, cls: 'text-success' },
               { label: 'Unassessed', value: overview.unassessed, cls: 'text-muted-foreground' },
-              { label: 'Worsening', value: overview.worsening, cls: 'text-red-600' },
-              { label: 'Improving', value: overview.improving, cls: 'text-green-600' },
+              { label: 'Worsening', value: overview.worsening, cls: 'text-destructive' },
+              { label: 'Improving', value: overview.improving, cls: 'text-success' },
             ] as const).map((t) => (
               <div key={t.label} className="bg-white rounded-xl border border-gray-200 p-4">
                 <span className="text-sm text-muted-foreground">{t.label}</span>
@@ -447,7 +447,7 @@ export const AIAnalytics = () => {
               {bulkFailed && (
                 <div className="space-y-0.5">
                   {bulkFailed.permanent > 0 && (
-                    <p className="text-xs text-red-600">
+                    <p className="text-xs text-destructive">
                       {bulkFailed.permanent} couldn't be assessed — the record was rejected (often a missing birthday/age). Fix the student's record; retrying won't help until then.
                     </p>
                   )}
@@ -554,7 +554,7 @@ export const AIAnalytics = () => {
                       </div>
                     ))}
                   </div>
-                  {predictError && <p className="text-sm text-red-600 mt-3">{predictError}</p>}
+                  {predictError && <p className="text-sm text-destructive mt-3">{predictError}</p>}
                 </div>
 
                 {/* Result card */}

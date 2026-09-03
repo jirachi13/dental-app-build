@@ -49,11 +49,23 @@ export const AuditTrail = () => {
     return matchesSearch && matchesUser && matchesModule && matchesStart && matchesEnd;
   }), [logs, searchTerm, userFilter, moduleFilter, startDate, endDate]);
 
+  // ⚠ SEMANTIC TOKENS, NOT RAW TAILWIND ACCENTS (Sprint 96). The previous
+  // green-600/blue-600/red-600/purple-600 measured 3.22:1 on white — below the
+  // 4.5:1 AA threshold — and this is the most-read text on the screen: 76
+  // failing nodes on one page load. The tokens are the same vocabulary the rest
+  // of the app uses and are legible by design (success 5.02:1, warning 5.02:1,
+  // destructive 4.83:1, primary 8.72:1).
+  //
+  // ⚠ `Restored` moved from purple to WARNING rather than gaining a fifth
+  // colour. DESIGN.md deliberately restrains the palette to blue/green/amber/red
+  // (Sprint 23g), and there is no purple token; amber also reads correctly here,
+  // since restoring an archived clinical record is an exceptional admin action
+  // worth noticing rather than a routine one.
   const getActionColor = (action: string) => {
-    if (action.startsWith('Created')) return 'text-green-600';
-    if (action.startsWith('Updated')) return 'text-blue-600';
-    if (action.startsWith('Archived')) return 'text-red-600';
-    if (action.startsWith('Restored')) return 'text-purple-600';
+    if (action.startsWith('Created')) return 'text-success';
+    if (action.startsWith('Updated')) return 'text-primary';
+    if (action.startsWith('Archived')) return 'text-destructive';
+    if (action.startsWith('Restored')) return 'text-warning';
     return 'text-muted-foreground';
   };
 
@@ -84,7 +96,7 @@ export const AuditTrail = () => {
   if (error) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-        <p className="text-red-600">{error}</p>
+        <p className="text-destructive">{error}</p>
         <p className="text-sm text-muted-foreground mt-1">Audit trail is restricted to System Admin — make sure you're logged in with that role.</p>
       </div>
     );

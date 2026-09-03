@@ -1,5 +1,11 @@
 // School Color Coding System
 // Each school has a unique color used consistently everywhere
+//
+// ⚠ Same accessibility correction as gradeColors.ts (Sprint 96): `solid` and
+// `text` are painted on `light`, and two of the three were below 4.5:1 there.
+// Darkened in HSL with hue held fixed. BT Integrated's blue already passed at
+// 7.15:1 and is untouched. `border` is decorative and is left alone — WCAG's
+// text rule does not apply to it.
 
 export interface SchoolColor {
   name: string;
@@ -19,16 +25,16 @@ export const SCHOOL_COLORS: Record<string, SchoolColor> = {
   },
   'Bagong Tanyag Elementary School Annex A': {
     name: 'Bagong Tanyag Elementary School Annex A',
-    solid: '#0D9488',
+    solid: '#0B7A70',
     light: '#CCFBF1',
-    text: '#0D9488',
+    text: '#0B7A70',
     border: '#5EEAD4',
   },
   'South Daang Hari Elementary School Main': {
     name: 'South Daang Hari Elementary School Main',
-    solid: '#EA580C',
+    solid: '#BC470A',
     light: '#FFEDD5',
-    text: '#EA580C',
+    text: '#BC470A',
     border: '#FDBA74',
   },
 };

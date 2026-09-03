@@ -709,14 +709,14 @@ export const Reports = () => {
                     {visibleGrades.map(g =>
                       [...GRADE_BRACKETS[g].ages.flatMap(a => [
                         <th key={g+a+'M'} className={`${thBase} text-blue-600 w-6`}>M</th>,
-                        <th key={g+a+'F'} className={`${thBase} text-pink-600 w-6`}>F</th>,
+                        <th key={g+a+'F'} className={`${thBase} text-pink-700 w-6`}>F</th>,
                       ]),
                       <th key={g+'totM'} className={`${thBase} text-blue-700 font-bold w-6`}>M</th>,
                       <th key={g+'totF'} className={`${thBase} text-pink-700 font-bold border-r-2 border-blue-200 w-6`}>F</th>]
                     )}
                     {SUMMARY_BRACKETS.flatMap(b => [
                       <th key={'sum'+b+'M'} className={`${thBase} text-blue-600 w-6`}>M</th>,
-                      <th key={'sum'+b+'F'} className={`${thBase} text-pink-600 w-6`}>F</th>,
+                      <th key={'sum'+b+'F'} className={`${thBase} text-pink-700 w-6`}>F</th>,
                     ])}
                   </tr>
                 </thead>
