@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router';
-import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, TrendingUp, FileText, Plus, Pencil, Trash2, Brain } from 'lucide-react';
+import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, TrendingUp, FileText, Plus, Pencil, Trash2, Brain, Download } from 'lucide-react';
+import { exportDohReportToPdf } from '../utils/exportPdf';
 import { getGradeColor } from '../utils/gradeColors';
 import { computeBmi, BMI_NOTE } from '../utils/bmi';
 import { useAuth } from '../context/AuthContext';
@@ -229,6 +230,10 @@ export const DentalChart = () => {
   const [infoError, setInfoError] = useState<string | null>(null);
   const [isManagingYears, setIsManagingYears] = useState(false);
   const headerRowRef = useRef<HTMLDivElement | null>(null);
+  // Wraps the record body for the PDF export, excluding the sticky toolbar —
+  // a downloaded patient record should not carry Edit/Save buttons.
+  const recordRef = useRef<HTMLDivElement | null>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
   const tabsRowRef = useRef<HTMLDivElement | null>(null);
   const [stickyOffsets, setStickyOffsets] = useState({ tabsTop: 0, yearTop: 0 });
 
@@ -757,6 +762,20 @@ export const DentalChart = () => {
   const NOT_RECORDED = 'Grade not recorded';
   const yearGradeLabel = yearGrade ? `${yearGrade}${yearSection ? ` ${yearSection}` : ''}` : NOT_RECORDED;
 
+  // The patient's own record as a PDF — Sprint 52 named this "the one export a
+  // clinic actually needs (a patient's own record for their file)" and left it
+  // unbuilt. Captures the record body, not the sticky toolbar.
+  const onIptrPdf = async () => {
+    if (!recordRef.current) return;
+    setPdfBusy(true);
+    try {
+      const who = surnameFirst(student).replace(/[^\w]+/g, '-');
+      await exportDohReportToPdf(recordRef.current, `IPTR_${who}.pdf`);
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-4 max-w-5xl mx-auto">
       {/* Sticky header row */}
@@ -772,6 +791,20 @@ export const DentalChart = () => {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {/* PDF ONLY — no Excel, deliberately. This is one patient's own
+              record, the document a family or a referral needs; a spreadsheet
+              of a single patient serves nobody and would be a decrypted PII
+              file with no filing purpose. Sprint 52 removed the bulk patient
+              exports for exactly that reason and named THIS as the one export
+              a clinic actually needs. */}
+          <button
+            onClick={onIptrPdf}
+            disabled={pdfBusy}
+            title="Download this patient's record as a PDF"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs border border-border rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          >
+            <Download className="w-3.5 h-3.5" />{pdfBusy ? 'Preparing…' : 'PDF'}
+          </button>
           <div className="hidden sm:flex items-center gap-1 border border-border rounded-lg overflow-hidden">
             <button
               onClick={() => prevPatient && navigate(`/dental-chart/${prevPatient.id}`)}
@@ -813,6 +846,9 @@ export const DentalChart = () => {
       </div>
       </div>
 
+      {/* Everything below the sticky toolbar is the record itself, and is what
+          the PDF captures. */}
+      <div ref={recordRef} className="space-y-4">
       {/* Patient Info Card */}
       <div className="bg-card rounded-xl border border-border p-4">
         {editingInfo ? (
@@ -1615,6 +1651,7 @@ export const DentalChart = () => {
         </>
         )}
       </div>
+      </div>{/* end recordRef — PDF capture region */}
       <ConfirmDialog
         open={confirmDeleteYear !== null}
         title={`Remove ${confirmDeleteYear !== null ? years[confirmDeleteYear]?.iptr.school_year ?? 'school year' : 'school year'}?`}

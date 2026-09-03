@@ -7,6 +7,8 @@ import { useRPCTracking, SOUND_TEMPORARY, SOUND_PERMANENT } from '../hooks/useRP
 import { SkeletonTable } from './Skeleton';
 import { formatDate, toLocalDateString } from '../utils/localDate';
 import { FORM_SECTION_BAND } from '../utils/dohFormStyle';
+import { exportToXlsx } from '../utils/exportXlsx';
+import { FileSpreadsheet } from 'lucide-react';
 
 // ─── Target Client List for Oral Health Care and Services ────────────────────
 // Transcribed from the manuscript's APPENDIX E (not D — Appendix D is the DMFX
@@ -327,6 +329,7 @@ export const TargetClientList = () => {
   // here rather than added to useRPCTracking: no other consumer of that hook
   // needs them, and it already pulls six collections.
   const [appointments, setAppointments] = useState<ApiAppointment[]>([]);
+  const [busy, setBusy] = useState<'xlsx' | null>(null);
   const [orals, setOrals] = useState<ApiOralHealthCondition[]>([]);
   const [iptrs, setIptrs] = useState<ApiStudentIptr[]>([]);
 
@@ -459,6 +462,47 @@ export const TargetClientList = () => {
     try { window.localStorage.setItem('tcl-hidden-cols', '[]'); } catch { /* private mode */ }
   };
 
+  // ── Official output ───────────────────────────────────────────────────────
+  // ⚠ THIS TABLE IS A NAMED LIST OF MINORS and it is exported anyway. That is a
+  // deliberate, narrow exception to Sprint 52's rule ("official aggregate
+  // output may leave the system; raw patient lists may not"), on the user's
+  // decision 2026-09-03: **the City Health Office requires the Excel format** —
+  // the DOH source itself ships as TCLForm2andFHSISReport.xlsx. This is the
+  // filed statutory return, not a convenience dump, which is exactly the
+  // distinction Sprint 52 drew when it removed the Students/RPC/Appointments
+  // exports. Do NOT generalise it into a "download the roster" feature.
+  // Filename carries the period and school, so a filed return is identifiable
+  // from the file alone rather than from where it happened to be saved.
+  const exportBaseName = `TCL_${(selectedSchool ?? 'All Schools').replace(/[^\w]+/g, '-')}_${periodLabel.replace(/[^\w]+/g, '-')}`;
+
+  // Writes the SAME cells the screen shows, "—" included, so the workbook makes
+  // the identical claims as the report. Writing 0 where the screen says "—"
+  // would turn "not recorded" into "none" the moment it left the app.
+  const onXlsx = async () => {
+    setBusy('xlsx');
+    try {
+      const cols = [
+        ...visibleIdentity.map((c) => ({
+          label: c.label,
+          value: (r: { row: Row; i: number }) => String(c.value(r.row, r.i) ?? ''),
+        })),
+        ...visibleServices.map((c) => ({
+          label: `${c.group} — ${c.label}`,
+          value: (r: { row: Row; i: number }) => String(c.value ? c.value(r.row) : NO_SOURCE),
+        })),
+        ...(remarksVisible ? [{ label: 'REMARKS (Specify other findings)', value: () => '' }] : []),
+      ];
+      await exportToXlsx(
+        visible.map((row, i) => ({ row, i })),
+        cols,
+        `${exportBaseName}.xlsx`,
+        'Target Client List',
+      );
+    } finally {
+      setBusy(null);
+    }
+  };
+
   if (studentsLoading || rpcLoading) return <SkeletonTable rows={8} />;
 
   const IDENTITY_COLUMNS: IdentityCol[] = [
@@ -559,6 +603,21 @@ export const TargetClientList = () => {
               className="border border-border rounded-lg px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </label>
+          {/* Excel ONLY, deliberately — no PDF button here (decided
+              2026-09-03). This table is 66 columns; Excel paginates columns
+              natively where a PDF is either unreadably small or sprayed across
+              pages, which is the same width problem the print stylesheet has
+              never solved. It is also the format the City Health Office
+              requires. Do not "add the missing PDF export". */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onXlsx}
+              disabled={busy !== null || visible.length === 0}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-gray-50 disabled:opacity-50"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />{busy === 'xlsx' ? 'Preparing…' : 'Excel'}
+            </button>
+          </div>
         </div>
         <p className="text-xs text-muted-foreground mt-2">
           <button

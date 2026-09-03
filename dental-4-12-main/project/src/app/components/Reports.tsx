@@ -17,6 +17,7 @@ import { useStudents } from '../hooks/useStudents';
 import { TargetClientList } from './TargetClientList';
 import { OralHealthProgramReport } from './OralHealthProgramReport';
 import { FhsisReport } from './FhsisReport';
+import { ConsentForm } from './ConsentForm';
 import { treatmentCodes } from './DentalChart';
 import { schoolYearLabel } from '../utils/schoolYear';
 import { useSchools } from '../hooks/useSchools';
@@ -239,7 +240,7 @@ export const Reports = () => {
       if (ages.includes(bracket)) return s + V(g, bracket, sex, field);
       return s;
     }, 0);
-  const [activeReportTab, setActiveReportTab] = useState<'doh'|'internal'|'tcl'|'ohprf'|'fhsis'>('doh');
+  const [activeReportTab, setActiveReportTab] = useState<'doh'|'internal'|'tcl'|'ohprf'|'fhsis'|'consent'>('doh');
   const [reportMonth, setReportMonth] = useState(new Date().getMonth() + 1);
   const [reportYear,  setReportYear]  = useState(new Date().getFullYear());
   // Local school override — defaults to All Schools regardless of global context
@@ -483,8 +484,10 @@ export const Reports = () => {
         <div className="text-sm text-destructive bg-red-50 border border-red-200 rounded-lg px-4 py-2">{downloadError}</div>
       )}
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+      {/* Tabs — scroll inside their own container: six tabs no longer fit a
+          390px phone, and the three-device-classes rule forbids letting a
+          control row push the page sideways. `w-fit` alone would overflow. */}
+      <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 w-fit max-w-full overflow-x-auto">
         <button onClick={() => setActiveReportTab('doh')}
           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeReportTab==='doh' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
           <FileSpreadsheet className="w-4 h-4" /> DOH Consolidated
@@ -504,6 +507,10 @@ export const Reports = () => {
         <button onClick={() => setActiveReportTab('fhsis')}
           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeReportTab==='fhsis' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
           <FileSpreadsheet className="w-4 h-4" /> FHSIS
+        </button>
+        <button onClick={() => setActiveReportTab('consent')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${activeReportTab==='consent' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+          <FileText className="w-4 h-4" /> Consent Form
         </button>
       </div>
 
@@ -1211,6 +1218,8 @@ export const Reports = () => {
       {/* ── ORAL HEALTH PROGRAM REPORTING FORM (Appendix F) ── */}
       {activeReportTab === 'ohprf' && <OralHealthProgramReport schoolYear={dohSchoolYear} schoolName={reportSchool} />}
       {activeReportTab === 'fhsis' && <FhsisReport schoolName={reportSchool} />}
+      {/* No school/year props: the consent form is blank by design. */}
+      {activeReportTab === 'consent' && <ConsentForm />}
     </div>
   );
 };

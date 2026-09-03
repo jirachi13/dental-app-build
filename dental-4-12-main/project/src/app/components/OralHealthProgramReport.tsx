@@ -1,7 +1,14 @@
-import { useMemo, useState, Fragment } from 'react';
+import { useMemo, useState, useRef, Fragment } from 'react';
 import { useDohReportData } from '../hooks/useDohReportData';
 import { SkeletonTable } from './Skeleton';
 import { FORM_SECTION_BAND, BLOCKED_CELL, BLOCKED_TITLE } from '../utils/dohFormStyle';
+import { exportDohReportToPdf } from '../utils/exportPdf';
+import { exportToXlsx } from '../utils/exportXlsx';
+import { Download, FileSpreadsheet } from 'lucide-react';
+
+/** What a no-source cell says in the exported workbook — the same mark the
+ *  screen shows, so the file makes the identical claims as the report. */
+const NO_SOURCE_MARK = '—';
 
 // ─── Oral Health Program Reporting Form ──────────────────────────────────────
 // Transcribed from the manuscript's APPENDIX F (the user said E; E is the
@@ -214,6 +221,9 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
   const [hiddenCols, setHiddenCols] = useState<Set<string>>(() => loadSet('ohprf-hidden-cols'));
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [showPicker, setShowPicker] = useState(false);
+  const [busy, setBusy] = useState<'pdf' | 'xlsx' | null>(null);
+  // Wraps only the table, so the PDF carries the form and not the toolbar.
+  const printableRef = useRef<HTMLDivElement>(null);
 
   const persist = (key: string, next: Set<string>) => {
     try { window.localStorage.setItem(key, JSON.stringify([...next])); } catch { /* private mode */ }
@@ -324,6 +334,69 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
     </tr>
   );
 
+  const exportBaseName = `OHPRF_${(schoolName ?? 'All Schools').replace(/[^\w]+/g, '-')}_${schoolYear ?? 'all-years'}`;
+
+  const onPdf = async () => {
+    if (!printableRef.current) return;
+    setBusy('pdf');
+    try {
+      await exportDohReportToPdf(printableRef.current, `${exportBaseName}.pdf`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // One row per indicator, one column per age-band/sex cell — the shape of the
+  // printed form. Writes exactly what the screen shows, "—" included: turning a
+  // "—" into 0 in the workbook would convert "no source" into "none found" the
+  // moment the file left the app. Blocked cells stay EMPTY, since the form
+  // forbids writing in them at all.
+  const onXlsx = async () => {
+    setBusy('xlsx');
+    try {
+      type XRow = { section: string; indicator: string; cells: (string | number)[]; total: string | number };
+      const rows: XRow[] = [];
+      const push = (section: string, list: Row[]) => {
+        for (const r of list) {
+          if (!rowVisible(r)) continue;
+          const emit = (row: Row, label: string) => {
+            rows.push({
+              section,
+              indicator: label,
+              cells: visibleCols.flatMap((c) => SEXES.map((s) => {
+                if (row.blocked) return '';
+                const v = cell(row.field, c, s);
+                return v === null ? NO_SOURCE_MARK : v;
+              })),
+              total: row.blocked ? '' : (rowTotal(row.field) ?? NO_SOURCE_MARK),
+            });
+          };
+          emit(r, r.label);
+          if (r.children && expanded.has(r.label)) {
+            for (const c of r.children) if (rowVisible(c)) emit(c, `    ${c.label}`);
+          }
+        }
+      };
+      push('A. Patient Seeking Utilization', UTILIZATION_ROWS);
+      push('B. Oral Health Status', STATUS_ROWS);
+      push('C. Services Rendered', SERVICE_ROWS);
+      push('D. Other Parameters', OTHER_ROWS);
+
+      const cols = [
+        { label: 'Section', value: (r: XRow) => r.section },
+        { label: 'Indicator', value: (r: XRow) => r.indicator },
+        ...visibleCols.flatMap((c, ci) => SEXES.map((s, si) => ({
+          label: `${c.group} · ${c.label} · ${s}`,
+          value: (r: XRow) => r.cells[ci * SEXES.length + si] ?? '',
+        }))),
+        { label: 'Grand Total', value: (r: XRow) => r.total },
+      ];
+      await exportToXlsx(rows, cols, `${exportBaseName}.xlsx`, 'Program Report');
+    } finally {
+      setBusy(null);
+    }
+  };
+
   return (
     <div className="space-y-3">
       <div className="bg-card rounded-xl border border-border p-4">
@@ -343,6 +416,23 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
             <span className="text-xs text-muted-foreground">
               {schoolYear ? `School year ${schoolYear}` : 'All years to date'}
             </span>
+            {/* PDF *and* Excel here, unlike the Target Client List: this form
+                is aggregate counts with no patient names, so it carries none
+                of the TCL's PII weight, and its width is bounded. */}
+            <button
+              onClick={onPdf}
+              disabled={busy !== null}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-gray-50 disabled:opacity-50"
+            >
+              <Download className="w-3.5 h-3.5" />{busy === 'pdf' ? 'Preparing…' : 'PDF'}
+            </button>
+            <button
+              onClick={onXlsx}
+              disabled={busy !== null}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-gray-50 disabled:opacity-50"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />{busy === 'xlsx' ? 'Preparing…' : 'Excel'}
+            </button>
             <button
               onClick={() => setShowPicker((v) => !v)}
               aria-expanded={showPicker}
@@ -428,7 +518,7 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
         </div>
       )}
 
-      <div className="bg-card rounded-xl border border-border overflow-x-auto">
+      <div ref={printableRef} className="bg-card rounded-xl border border-border overflow-x-auto">
         <table className="border-collapse w-full">
           <thead className="bg-gray-50">
             {/* Three header levels, matching the paper form: population group
