@@ -86,6 +86,20 @@ const widened = (await get(sa, `/stats/high-risk-count?school=${encodeURICompone
 check('?school pointing outside the account cannot widen', widened && widened.count === 0,
   `count ${widened?.count}`);
 
+// --- the bug the first run caught: a parent filter must SURVIVE the scope
+// clause. Spreading them let the scope overwrite `iptr_id`, so one pupil's
+// request returned every in-scope pupil's records.
+const ownStudent = saRows[0];
+const ownIptrs = (await get(sa, `/student-iptrs?student_id=${ownStudent.id}`)).body;
+check('a parent filter is not swallowed by the scope clause', ownIptrs.length > 0 && ownIptrs.length < saIptrs.length,
+  `${ownIptrs.length} iptrs for one pupil vs ${saIptrs.length} in scope`);
+if (ownIptrs.length) {
+  const oneIptr = (await get(sa, `/medical-histories?iptr_id=${ownIptrs[0]._id}`)).body;
+  const allMine = (await get(sa, '/medical-histories')).body;
+  check('medical-histories honours iptr_id AND scope', oneIptr.length <= allMine.length && oneIptr.every((m) => m.iptr_id === ownIptrs[0]._id),
+    `${oneIptr.length} for one iptr, ${allMine.length} in scope`);
+}
+
 // --- unscoped roles must be untouched by all of this
 for (const [email, key] of [['dentist@floral.com', 'SEED_DENTIST_PASSWORD'], ['bho@floral.com', 'SEED_BHO_PASSWORD']]) {
   const c = await login(email, env[key]);

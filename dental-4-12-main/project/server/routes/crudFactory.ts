@@ -173,10 +173,14 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
         }
         if (Object.keys(range).length > 0) filter[options.dateField] = range;
       }
-      // School scoping (Sprint 101). Merged LAST so a client-supplied filter
-      // can only ever narrow the result, never widen it past the user's schools.
+      // School scoping (Sprint 101). Combined with $and, NOT by spreading:
+      // the scope clause keys on the very same fields as `filterable`
+      // (student_id, iptr_id, chart_id), so `{ ...filter, ...scope }` would
+      // silently DROP the caller's filter. `GET /medical-histories?iptr_id=X`
+      // would then return every in-scope medical history instead of that
+      // pupil's — one child's record rendered under another's name.
       const scope = await scopeFilter(modelName, req);
-      const docs = await model.find(scope ? { ...filter, ...scope } : filter);
+      const docs = await model.find(scope ? { $and: [filter, scope] } : filter);
       res.json(docs);
     }),
   );

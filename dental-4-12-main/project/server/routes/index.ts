@@ -74,9 +74,12 @@ router.get("/stats/high-risk-count", requireAuth, asyncHandler(async (req, res) 
     studentFilter = { ...studentFilter, school_id: school._id };
   }
   // The ?school param is the CLIENT's choice; this is the user's permission
-  // (Sprint 101). Merged after, so the query can narrow but never widen.
+  // (Sprint 101). Both must hold, so they are $and-ed rather than spread —
+  // spreading let the scope OVERWRITE the requested school_id, which returned
+  // the user's own school's number under another school's name. Disjoint sets
+  // now correctly yield nothing.
   const scope = await scopeFilter("Student", req);
-  if (scope) studentFilter = { ...studentFilter, ...scope };
+  if (scope) studentFilter = { $and: [studentFilter, scope] };
   const [students, iptrs, preventives, risks] = await Promise.all([
     Student.find(studentFilter).select("_id").lean(),
     StudentIptr.find({ isArchived: false }).select("_id student_id").lean(),
@@ -126,9 +129,12 @@ router.get("/stats/notifications", requireAuth, asyncHandler(async (req, res) =>
     studentFilter = { ...studentFilter, school_id: school._id };
   }
   // The ?school param is the CLIENT's choice; this is the user's permission
-  // (Sprint 101). Merged after, so the query can narrow but never widen.
+  // (Sprint 101). Both must hold, so they are $and-ed rather than spread —
+  // spreading let the scope OVERWRITE the requested school_id, which returned
+  // the user's own school's number under another school's name. Disjoint sets
+  // now correctly yield nothing.
   const scope = await scopeFilter("Student", req);
-  if (scope) studentFilter = { ...studentFilter, ...scope };
+  if (scope) studentFilter = { $and: [studentFilter, scope] };
 
   // Today in the SERVER's local day. The clinic and the server share a
   // timezone; if that ever stops being true this needs the client's offset,
