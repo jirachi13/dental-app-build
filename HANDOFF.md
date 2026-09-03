@@ -9,6 +9,20 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
+## ▶ RESUME HERE — parked 2026-09-03 (usage), everything pushed at `f3aa1ae4`
+Session ran Sprints 81–86 plus the SessionStart hook. Tree clean, nothing uncommitted, no half-finished work.
+
+**Next sprint, already scoped — the small OCR corrections.** ~1 file (`iptrOcr.ts`), low complexity, no schema change:
+1. Drop the `grade` / `section` anchors — **the official IPTR has neither field**, so they can never match (CLAUDE.md's OCR spec also lists them and is wrong on this point).
+2. Add anchors for `Occupation`, `PhilHealth #: Principal / Dependent`, `4Ps/NHTS`. **PhilHealth is the valuable one** — a STUDENT field the Target Client List prints.
+3. **Handle page-2 rotation.** The supplied IPTR stores page 2 **180° rotated**; OCR on an inverted page returns nothing rather than erroring, so it fails silently today.
+
+**Source files the user supplied 2026-09-03 — they are in `~/.claude/uploads/`, NOT in the repo, and `data/` is per-device.** If the next session is on the other laptop or after a cleanup, these must be re-supplied before any DOH-form work: `TCLForm2andFHSISReport.xlsx` (authoritative TCL columns, sheet "6-9 Y.O (M)" cols B–BN), `2026Form2withFHSIS.xlsx`, and the blank `Individual_Patient_Treatment_Record.pdf` (needed to re-run `verify_sprint86.mjs`).
+
+**Not started, raised this session:** the per-school summary sheet (`South_Daang_Hari.pdf` — caries/gingivitis/debris/calculus and D M F X / d f x / VG / No Fluoride by sex; no report in the app produces that shape), and the Program Report's section C, whose sub-row structure still differs from the paper form (OP Scaling 1st/2nd, SDF 1st/2nd, Head Count / Tooth Count pairs, plus missing `Sealant` and `Root Surface Protection` rows).
+
+**Still true and still user-gated:** the roster is on SY 2025-2026 while today is 2026-2027, so recording a visit dated today is blocked for 24 of 26 students (Sprint 81). Sprint 74's Promote/Assign fixes it but changes the demo data every Chapter 4 figure shows.
+
 ## Sprint 86 (OCR reads the IPTR checkbox grid) — DONE 2026-09-03 (tsc both + build clean; 11/11 verified against the REAL form)
 Closes the capability HANDOFF item 36 called *"genuinely ahead of ours"* in the Base44 build. Unblocked by the **blank IPTR template** the user supplied 2026-09-03 — backlog #16 had been parked since 2026-08-08 for want of exactly that file.
 
