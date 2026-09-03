@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef, Fragment } from 'react';
 import { useDohReportData } from '../hooks/useDohReportData';
 import { SkeletonTable } from './Skeleton';
-import { FORM_SECTION_BAND, BLOCKED_CELL, BLOCKED_TITLE } from '../utils/dohFormStyle';
+import { FORM_SECTION_BAND, BLOCKED_CELL, BLOCKED_TITLE, FORM_SUBROW_LABEL } from '../utils/dohFormStyle';
 import { exportDohReportToPdf } from '../utils/exportPdf';
 import { exportToXlsx } from '../utils/exportXlsx';
 import { Download, FileSpreadsheet } from 'lucide-react';
@@ -116,6 +116,11 @@ const SEXES = ['M', 'F'] as const;
 /** Indicator rows. `field` maps to useDohReportData's real fields; a null
  *  field means the paper form has the row but the system has no source. */
 type Row = {
+  /** Unique key — NOT the label. Sub-row captions repeat across parents
+   *  ("Head Count" appears under ART, Sealants, Root Surface Protection and
+   *  Tooth Extraction), so keying on the label would collide in React and in
+   *  the hidden-rows set. */
+  key: string;
   label: string;
   field: string | null;
   indent?: boolean;
@@ -124,11 +129,19 @@ type Row = {
    *  a number and this system has no source for it. Conflating the two would
    *  claim the form forbids a cell it merely leaves empty. */
   blocked?: boolean;
-  /** Rows nested under this one. ART splits by restorative material (per the
-   *  dentist): the parent can be shown alone, or expanded to show each
-   *  material separately. Collapsed by default — the parent is what the form
-   *  asks for; the split is the detail behind it. */
-  children?: Row[];
+  /** ⚠ FORM-MANDATED SUB-ROWS, AND THEY ARE ALWAYS SHOWN (Sprint 89).
+   *
+   *  On the printed form these indicators do not have cells of their own: the
+   *  indicator column is split in two, the label spans the group, and each
+   *  sub-row carries its own line of values — "OP / Scaling" over
+   *  "1st Scaling / 2nd Scaling", "ART" over "Head Count / Tooth Count".
+   *
+   *  This REPLACES the old collapsible `children`, which was a convenience
+   *  split (ART by restorative material) the reader could fold away. These are
+   *  part of the form, so they are not collapsible: hiding one would file a
+   *  form with a missing line. A parent carrying sub-rows renders NO values
+   *  itself — its `field` is meaningless and stays null. */
+  subRows?: Row[];
 };
 
 /** Section A of the paper form. Read off Appendix F (`image18`) on 2026-09-03
@@ -139,56 +152,136 @@ type Row = {
  *  `facility_based` on the first visit, and the two RPOC rows are the visit
  *  numbers the RPC module has always recorded. */
 const UTILIZATION_ROWS: Row[] = [
-  { label: 'No. of patients who visited the DENTAL FACILITY for the 1st time', field: 'visit_facility_1st' },
-  { label: 'No. of patients who visited NON-FACILITY for the 1st time', field: 'visit_nonfacility_1st' },
-  { label: 'No. of patients who availed the Routine Preventive Oral Care (RPOC) — 1ST VISIT', field: 'rpoc_visit1' },
-  { label: 'No. of patients who availed the Routine Preventive Oral Care (RPOC) — 2ND VISIT', field: 'rpoc_visit2' },
+  { key: 'visit_facility_1st', label: 'No. of patients who visited the DENTAL FACILITY for the 1st time', field: 'visit_facility_1st' },
+  { key: 'visit_nonfacility_1st', label: 'No. of patients who visited NON-FACILITY for the 1st time', field: 'visit_nonfacility_1st' },
+  { key: 'rpoc_visit1', label: 'No. of Patients who availed the Routine Preventive Oral Care (RPOC) - 1ST VISIT', field: 'rpoc_visit1' },
+  { key: 'rpoc_visit2', label: 'No. of Patients who availed the Routine Preventive Oral Care (RPOC) - 2ND VISIT', field: 'rpoc_visit2' },
 ];
 
 const STATUS_ROWS: Row[] = [
-  { label: 'Number of patients with Dental Caries', field: 'DMF_total' },
+  { key: 'caries', label: 'Number of patients with Dental Caries', field: 'DMF_total' },
   // ONE row on the paper form, not two. Counted as "debris OR calculus" in
   // useDohReportData rather than by adding the two separate tallies, which
   // would double-count every patient who has both.
-  { label: 'Number of patients with Oral Debris / Calculus Deposits', field: 'debris_or_calculus' },
-  { label: 'Number of patients with Gingivitis', field: 'gingivitis' },
+  // ⚠ "Calcular", not "Calculus" — the filed form's own wording (Sprint 89,
+  // read off the January 2026 return). Same rule as the other DOH spellings.
+  { key: 'debris_or_calculus', label: 'Number of patients with Oral Debris / Calcular Deposits', field: 'debris_or_calculus' },
+  { key: 'gingivitis', label: 'Number of patients with Gingivitis', field: 'gingivitis' },
   // Was absent although ORAL_HEALTH_CONDITION has carried the boolean all
   // along — it was simply never mapped in useDohReportData.
-  { label: 'Number of patients with Periodontitis', field: 'periodontitis' },
-  { label: 'Number of patients with suspected oral lesions', field: 'anomaly' },
+  { key: 'periodontitis', label: 'Number of patients with Periodontitis', field: 'periodontitis' },
+  { key: 'lesions', label: 'Number of patients w/ suspected oral lesions', field: 'anomaly' },
   // On the form, and structurally impossible here: this table covers school
   // children and carries no adult or elderly column at all. Blocked (dark
   // grey) rather than "—" — the form itself blocks these cells, which is a
   // different statement from "we have no data".
-  { label: 'Number of Completely Edentulous Adults / Elderly', field: null, blocked: true },
-  { label: 'OFC Upon Oral Examination', field: 'ofc_exam' },
+  { key: 'edentulous', label: 'Number of Completely Edentulous Adults / Elderly', field: null, blocked: true },
+  { key: 'ofc_exam', label: 'OFC Upon Oral Examination', field: 'ofc_exam' },
   // No completed mouth rehabilitation is recorded anywhere, so this is a
   // genuine no-source row, not a blocked one.
-  { label: 'OFC Upon Complete Oral Rehabilitation', field: null },
+  { key: 'ofc_rehab', label: 'OFC Upon Complete Oral Rehabilitation', field: null },
 ];
 
+/** Section C, TRANSCRIBED FROM THE FILED FORM (Sprint 89).
+ *
+ *  ⚠ The source here is the **January 2026 return the clinic actually filed**
+ *  (`Jan_2026_ORAL_HEALTH_PROGRAM_REPORTING_FORM.pdf`, signed, one page per
+ *  school), not Appendix F and NOT the `2026 Form 2` sheet in the DOH
+ *  workbook. **The workbook is a DIFFERENT form** with a different row set
+ *  (it separates Oral Debris from Calcular Deposits, adds Caries Free, Total
+ *  dfx/DMFX breakdowns and a Gum Treatment row). Sprint 84 made the workbook
+ *  authoritative for the TARGET CLIENT LIST; it is not authoritative here.
+ *  The filed return is.
+ *
+ *  Six of these nine indicators carry the form's own two-line split, and four
+ *  of them are Head Count / Tooth Count — the same head-vs-tooth distinction
+ *  Sprint 88's summary sheet turns on.
+ *
+ *  ⚠ REMOVED, deliberately: "Number of patients given Permanent Filling" —
+ *  it is NOT on the filed form. Also removed: the ART → Glass Ionomer /
+ *  Composite split, which was a convenience breakdown that showed dashes
+ *  anyway; the form splits ART by Head Count / Tooth Count instead. The
+ *  material a filling used is still recorded on the dental chart. */
 const SERVICE_ROWS: Row[] = [
-  { label: 'Number of patients examined / given Oral Examination', field: 'examined' },
-  { label: 'Number of patients provided Oral Health Counselling', field: null },
-  { label: 'Number of patients given Oral Prophylaxis', field: null },
-  { label: 'Number of patients given Fluoride Varnish — 1st application', field: null, indent: true },
-  { label: 'Number of patients given Fluoride Varnish — 2nd application', field: null, indent: true },
-  { label: 'Number of patients given Silver Diamine Fluoride (SDF)', field: null },
+  { key: 'examined', label: 'Number of patients Examined / given Oral Examination', field: 'examined' },
+  { key: 'counselling', label: 'Number of patients provided with Oral Health Counselling', field: null },
   {
-    label: 'Number of patients given ART',
+    key: 'op_scaling',
+    label: 'Number of patients given OP / Scaling',
     field: null,
-    children: [
-      { label: 'Glass Ionomer (GI)', field: null, indent: true },
-      { label: 'Composite', field: null, indent: true },
+    subRows: [
+      { key: 'op_scaling_1st', label: '1st Scaling', field: null },
+      { key: 'op_scaling_2nd', label: '2nd Scaling', field: null },
     ],
   },
-  { label: 'Number of patients given Permanent Filling', field: null },
-  { label: 'Number of patients given Tooth Extraction', field: null },
+  {
+    key: 'fluoride',
+    label: 'Number of patients given Fluoride Varnish',
+    field: null,
+    subRows: [
+      { key: 'fluoride_1st', label: '1st Application', field: null },
+      { key: 'fluoride_2nd', label: '2nd Application', field: null },
+    ],
+  },
+  {
+    key: 'sdf',
+    label: 'Number of patients given Silver Diamine Fluoride (SDF)',
+    field: null,
+    subRows: [
+      { key: 'sdf_1st', label: '1st Application', field: null },
+      { key: 'sdf_2nd', label: '2nd Application', field: null },
+    ],
+  },
+  {
+    key: 'art',
+    label: 'Number of patients given ART',
+    field: null,
+    subRows: [
+      { key: 'art_head', label: 'Head Count', field: null },
+      { key: 'art_tooth', label: 'Tooth Count', field: null },
+    ],
+  },
+  {
+    key: 'sealants',
+    label: 'Number of patients given Sealants',
+    field: null,
+    subRows: [
+      { key: 'sealants_head', label: 'Head Count', field: null },
+      { key: 'sealants_tooth', label: 'Tooth Count', field: null },
+    ],
+  },
+  {
+    // "patient", singular, is the form's own wording — left as printed.
+    key: 'rsp',
+    label: 'Number of patient given Root Surface Protection',
+    field: null,
+    subRows: [
+      { key: 'rsp_head', label: 'Head Count', field: null },
+      { key: 'rsp_tooth', label: 'Tooth Count', field: null },
+    ],
+  },
+  {
+    key: 'extraction',
+    label: 'Number of patients who had Tooth Extraction',
+    field: null,
+    subRows: [
+      { key: 'extraction_head', label: 'Head Count', field: null },
+      { key: 'extraction_tooth', label: 'Tooth Count', field: null },
+    ],
+  },
 ];
 
+/** The form's fourth band. ⚠ It is titled "Other Procedures" and carries NO
+ *  letter, where A/B/C do — the app previously invented "D. Other Parameters".
+ *  The three a/b/c referral rows and the prescriptions row were missing
+ *  entirely. */
 const OTHER_ROWS: Row[] = [
-  { label: 'No. of patients referred to other Primary Care Facilities', field: null },
-  { label: 'Total no. of patients referred to a Higher Level of Care', field: null },
+  { key: 'ref_primary', label: 'No. of patients referred to other Primary Care Facilities', field: null },
+  { key: 'ref_higher', label: 'Total no. of patients referred to Higher Level of Care', field: null },
+  { key: 'ref_cancer', label: 'a. No. of patients for Oral Cancer Screening Referrals', field: null, indent: true },
+  { key: 'ref_surgical', label: 'b. No. of patients for Surgical Procedures', field: null, indent: true },
+  { key: 'ref_private', label: 'c. No. of Referrals to Private Facilities', field: null, indent: true },
+  { key: 'prescriptions', label: 'No. of patients given Dental Prescriptions', field: null },
 ];
 
 /** Stable key for a column — group + label, since labels repeat across groups
@@ -219,7 +312,6 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
   // complete is the failure mode worth preventing.
   const [hiddenRows, setHiddenRows] = useState<Set<string>>(() => loadSet('ohprf-hidden-rows'));
   const [hiddenCols, setHiddenCols] = useState<Set<string>>(() => loadSet('ohprf-hidden-cols'));
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [showPicker, setShowPicker] = useState(false);
   const [busy, setBusy] = useState<'pdf' | 'xlsx' | null>(null);
   // Wraps only the table, so the PDF carries the form and not the toolbar.
@@ -243,7 +335,7 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
     return acc;
   }, []);
   const hiddenCount = hiddenRows.size + hiddenCols.size;
-  const rowVisible = (r: Row) => !hiddenRows.has(r.label);
+  const rowVisible = (r: Row) => !hiddenRows.has(r.key);
 
   // The form's columns are age × sex only. This reads the hook's across-all-
   // grades total rather than summing getRealCount over a grade list: that sum
@@ -279,37 +371,14 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
     // path) resolves cell backgrounds reliably and row backgrounds not always,
     // so a tr-only fill can vanish from the exported form.
     <tr className={FORM_SECTION_BAND}>
-      <td className={`${labelTd} font-bold ${FORM_SECTION_BAND}`} colSpan={visibleCols.length * 2 + 2}>{title}</td>
+      <td className={`${labelTd} font-bold ${FORM_SECTION_BAND}`} colSpan={visibleCols.length * 2 + 3}>{title}</td>
     </tr>
   );
 
-  const renderRow = (r: Row): React.ReactNode => {
-    if (!rowVisible(r)) return null;
-    const isOpen = expanded.has(r.label);
-    return (
-      <Fragment key={r.label}>
-        {renderOneRow(r, isOpen)}
-        {/* Sub-rows only when the parent is expanded — "show ART only, or also
-            show the subrows". */}
-        {r.children && isOpen && r.children.filter(rowVisible).map((c) => renderOneRow(c, false))}
-      </Fragment>
-    );
-  };
-
-  const renderOneRow = (r: Row, isOpen: boolean) => (
-    <tr key={r.label} className="hover:bg-gray-50">
-      <td className={`${labelTd} ${r.indent ? 'pl-6' : ''}`}>
-        {r.children ? (
-          <button
-            onClick={() => setExpanded((p) => toggle(p, r.label))}
-            aria-expanded={isOpen}
-            className="inline-flex items-center gap-1 text-left hover:text-primary"
-          >
-            <span className="text-[10px] w-3 inline-block">{isOpen ? '▾' : '▸'}</span>
-            {r.label}
-          </button>
-        ) : r.label}
-      </td>
+  /** The value cells for one line — every age/sex column plus the grand total.
+   *  Shared by plain rows and sub-rows, which carry identical value grids. */
+  const valueCells = (r: Row) => (
+    <>
       {visibleCols.map((c) => SEXES.map((s) => {
         const v = cell(r.field, c, s);
         return (
@@ -331,8 +400,39 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
         {rowTotal(r.field) === null ? <span className="text-muted-foreground">—</span> : rowTotal(r.field)}
       </td>
       )}
-    </tr>
+    </>
   );
+
+  const renderRow = (r: Row): React.ReactNode => {
+    if (!rowVisible(r)) return null;
+
+    // An indicator with the form's own two-line split: the label spans its
+    // sub-rows and carries NO values of its own, exactly as printed. The
+    // sub-rows are not collapsible — they are part of the form.
+    if (r.subRows) {
+      return (
+        <Fragment key={r.key}>
+          {r.subRows.map((sub, i) => (
+            <tr key={sub.key} className="hover:bg-gray-50">
+              {i === 0 && (
+                <td className={`${labelTd} align-middle`} rowSpan={r.subRows!.length}>{r.label}</td>
+              )}
+              <td className={`${labelTd} ${FORM_SUBROW_LABEL} text-[11px]`}>{sub.label}</td>
+              {valueCells(sub)}
+            </tr>
+          ))}
+        </Fragment>
+      );
+    }
+
+    // A plain indicator spans both label columns, as the form does.
+    return (
+      <tr key={r.key} className="hover:bg-gray-50">
+        <td className={`${labelTd} ${r.indent ? 'pl-6' : ''}`} colSpan={2}>{r.label}</td>
+        {valueCells(r)}
+      </tr>
+    );
+  };
 
   const exportBaseName = `OHPRF_${(schoolName ?? 'All Schools').replace(/[^\w]+/g, '-')}_${schoolYear ?? 'all-years'}`;
 
@@ -354,15 +454,19 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
   const onXlsx = async () => {
     setBusy('xlsx');
     try {
-      type XRow = { section: string; indicator: string; cells: (string | number)[]; total: string | number };
+      // The workbook mirrors the form's TWO label columns, so a sub-row keeps
+      // its parent's name beside it — "ART | Tooth Count" reads correctly in a
+      // spreadsheet, where an indented orphan "Tooth Count" would not.
+      type XRow = { section: string; indicator: string; sub: string; cells: (string | number)[]; total: string | number };
       const rows: XRow[] = [];
       const push = (section: string, list: Row[]) => {
         for (const r of list) {
           if (!rowVisible(r)) continue;
-          const emit = (row: Row, label: string) => {
+          const emit = (row: Row, indicator: string, sub: string) => {
             rows.push({
               section,
-              indicator: label,
+              indicator,
+              sub,
               cells: visibleCols.flatMap((c) => SEXES.map((s) => {
                 if (row.blocked) return '';
                 const v = cell(row.field, c, s);
@@ -371,20 +475,21 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
               total: row.blocked ? '' : (rowTotal(row.field) ?? NO_SOURCE_MARK),
             });
           };
-          emit(r, r.label);
-          if (r.children && expanded.has(r.label)) {
-            for (const c of r.children) if (rowVisible(c)) emit(c, `    ${c.label}`);
-          }
+          // A parent with sub-rows has no values of its own on the form, so it
+          // contributes no row of its own here either.
+          if (r.subRows) for (const sub of r.subRows) emit(sub, r.label, sub.label);
+          else emit(r, r.label, '');
         }
       };
-      push('A. Patient Seeking Utilization', UTILIZATION_ROWS);
+      push('A. Patient Seeking Behaviour', UTILIZATION_ROWS);
       push('B. Oral Health Status', STATUS_ROWS);
       push('C. Services Rendered', SERVICE_ROWS);
-      push('D. Other Parameters', OTHER_ROWS);
+      push('Other Procedures', OTHER_ROWS);
 
       const cols = [
         { label: 'Section', value: (r: XRow) => r.section },
         { label: 'Indicator', value: (r: XRow) => r.indicator },
+        { label: '', value: (r: XRow) => r.sub },
         ...visibleCols.flatMap((c, ci) => SEXES.map((s, si) => ({
           label: `${c.group} · ${c.label} · ${s}`,
           value: (r: XRow) => r.cells[ci * SEXES.length + si] ?? '',
@@ -494,11 +599,11 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
             <div className="font-semibold text-foreground mb-1.5">Rows</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
               {[...UTILIZATION_ROWS, ...STATUS_ROWS, ...SERVICE_ROWS, ...OTHER_ROWS].map((r) => (
-                <label key={r.label} className="flex items-center gap-1.5 cursor-pointer">
+                <label key={r.key} className="flex items-center gap-1.5 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={!hiddenRows.has(r.label)}
-                    onChange={() => setHiddenRows((p) => { const n = toggle(p, r.label); persist('ohprf-hidden-rows', n); return n; })}
+                    checked={!hiddenRows.has(r.key)}
+                    onChange={() => setHiddenRows((p) => { const n = toggle(p, r.key); persist('ohprf-hidden-rows', n); return n; })}
                     className="w-3.5 h-3.5 rounded accent-primary"
                   />
                   <span className="truncate" title={r.label}>{r.label}</span>
@@ -529,7 +634,7 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
                 rendered — see the note above about the adult / senior citizen /
                 pregnant-women sections. */}
             <tr>
-              <th className={`${th} text-left align-bottom`} rowSpan={3}>INDICATORS</th>
+              <th className={`${th} text-left align-bottom`} rowSpan={3} colSpan={2}>INDICATORS</th>
               {visibleGroups.map((g, i) => (
                 <th key={`${g.label}-${i}`} className={`${th} bg-gray-100`} colSpan={g.span * SEXES.length}>
                   {g.label}
@@ -558,13 +663,13 @@ export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }
           <tbody>
             {/* Lettered A–D, as the paper form numbers them. The app used
                 I/II/III and was missing section A entirely. */}
-            {section('A. Patient Seeking Utilization')}
+            {section('A. Patient Seeking Behaviour')}
             {UTILIZATION_ROWS.map(renderRow)}
             {section('B. Oral Health Status')}
             {STATUS_ROWS.map(renderRow)}
             {section('C. Services Rendered')}
             {SERVICE_ROWS.map(renderRow)}
-            {section('D. Other Parameters')}
+            {section('Other Procedures')}
             {OTHER_ROWS.map(renderRow)}
           </tbody>
         </table>

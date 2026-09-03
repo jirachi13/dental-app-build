@@ -30,33 +30,38 @@ const run = async () => {
   const body = await page.innerText('table');
 
   // ── Section A: the whole section was missing ─────────────────────────────
-  check('section A band present, lettered as the form does', /A\.\s*Patient Seeking Utilization/i.test(body));
+  // ⚠ Captions below were CORRECTED in Sprint 89 against the FILED January
+  // 2026 return — "Behaviour" not "Utilization", a hyphen not an em dash in
+  // the RPOC rows, "Calcular" not "Calculus", and an UNLETTERED "Other
+  // Procedures" band. The rows and the merge THIS sprint introduced are
+  // unchanged; only the wording moved to the paper's own.
+  check('section A band present, lettered as the form does', /A\.\s*Patient Seeking Behaviour/i.test(body));
   for (const label of [
     'visited the DENTAL FACILITY for the 1st time',
     'visited NON-FACILITY for the 1st time',
-    'RPOC) — 1ST VISIT',
-    'RPOC) — 2ND VISIT',
+    'RPOC) - 1ST VISIT',
+    'RPOC) - 2ND VISIT',
   ]) check(`section A row present: ${label}`, body.includes(label));
 
   // ── Sections relettered B/C/D ────────────────────────────────────────────
-  check('sections are lettered B, C, D (not I/II/III)',
-    /B\.\s*Oral Health Status/i.test(body) && /C\.\s*Services Rendered/i.test(body) && /D\.\s*Other Parameters/i.test(body));
+  check('sections are lettered B and C, with Other Procedures unlettered as printed',
+    /B\.\s*Oral Health Status/i.test(body) && /C\.\s*Services Rendered/i.test(body) && /Other Procedures/i.test(body));
 
   // ── Section B additions and the merge ────────────────────────────────────
   check('Periodontitis row added', body.includes('Periodontitis'));
   check('Completely Edentulous row added', /Completely Edentulous/i.test(body));
   check('OFC Upon Complete Oral Rehabilitation row added', /OFC Upon Complete Oral Rehabilitation/i.test(body));
   check('Oral Debris / Calculus is ONE merged row, as printed',
-    body.includes('Oral Debris / Calculus Deposits'));
+    body.includes('Oral Debris / Calcular Deposits'));
   check('the two separate debris and calculus rows are gone',
-    !/Number of patients with Oral Debris\n/.test(body) && !/with Calculus Deposits/.test(body.replace('Oral Debris / Calculus Deposits', '')));
+    !/Number of patients with Oral Debris\n/.test(body) && !/with Calcular Deposits/.test(body.replace('Oral Debris / Calcular Deposits', '')));
 
   // ── Section A must carry REAL numbers, not dashes ────────────────────────
   // The facility rows read Sprint 81's flag; the RPOC rows read visit numbers,
   // which the seeded data has, so the grand total must be a number.
   const rpocTotal = await page.evaluate(() => {
     const tr = [...document.querySelectorAll('table tbody tr')]
-      .find((r) => r.innerText.includes('RPOC) — 1ST VISIT'));
+      .find((r) => r.innerText.includes('RPOC) - 1ST VISIT'));
     if (!tr) return null;
     const tds = tr.querySelectorAll('td');
     return tds[tds.length - 1].innerText.trim();
@@ -79,7 +84,7 @@ const run = async () => {
   // ── Section bands carry the form's amber ─────────────────────────────────
   const bandBg = await page.evaluate(() => {
     const tr = [...document.querySelectorAll('table tbody tr')]
-      .find((r) => /A\.\s*Patient Seeking Utilization/i.test(r.innerText));
+      .find((r) => /A\.\s*Patient Seeking Behaviour/i.test(r.innerText));
     return tr ? getComputedStyle(tr.querySelector('td')).backgroundColor : null;
   });
   check('section band is the form amber, not a pale tint',
