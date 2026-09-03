@@ -26,4 +26,7 @@ const medicalHistorySchema = new mongoose.Schema(
 
 medicalHistorySchema.plugin(fieldEncryption, fieldEncryptionOptions(["allergies", "others"]));
 
+// Sprint 91. `filterable: ["iptr_id"]` — one IPTR's history, not the collection.
+medicalHistorySchema.index({ isArchived: 1, iptr_id: 1 });
+
 export default getModel("MedicalHistory", medicalHistorySchema);

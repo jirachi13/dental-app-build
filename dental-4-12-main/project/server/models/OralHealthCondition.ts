@@ -18,4 +18,7 @@ const oralHealthConditionSchema = new mongoose.Schema(
   { timestamps: { createdAt: "created_at", updatedAt: false } },
 );
 
+// Sprint 91. `filterable: ["iptr_id"]`.
+oralHealthConditionSchema.index({ isArchived: 1, iptr_id: 1 });
+
 export default getModel("OralHealthCondition", oralHealthConditionSchema);

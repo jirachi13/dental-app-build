@@ -19,7 +19,8 @@
     "migrate:iptr-grades": "tsx server/scripts/migrateIptrGrades.ts",
     "apply:seed-passwords": "tsx server/scripts/applySeedPasswords.ts",
     "purge:demo": "tsx server/scripts/purgeDemoData.ts",
-    "backup:raw": "tsx server/scripts/backupRaw.ts"
+    "backup:raw": "tsx server/scripts/backupRaw.ts",
+    "verify:indexes": "tsx server/scripts/verifySprint91Indexes.ts"
   },
   "overrides": {
     "exceljs": {

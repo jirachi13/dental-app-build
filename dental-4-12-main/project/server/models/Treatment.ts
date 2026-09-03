@@ -19,4 +19,7 @@ const treatmentSchema = new mongoose.Schema(
 
 treatmentSchema.plugin(fieldEncryption, fieldEncryptionOptions(["diagnosis", "treatment_done"]));
 
+// Sprint 91. `filterable: ["iptr_id"]`.
+treatmentSchema.index({ isArchived: 1, iptr_id: 1 });
+
 export default getModel("Treatment", treatmentSchema);

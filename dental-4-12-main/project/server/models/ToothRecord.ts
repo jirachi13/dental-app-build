@@ -12,4 +12,8 @@ const toothRecordSchema = new mongoose.Schema({
   ...softDeleteFields,
 });
 
+// Sprint 91. `filterable: ["chart_id"]` — one chart's teeth. The heaviest
+// child collection: up to 52 rows per chart, per year, per student.
+toothRecordSchema.index({ isArchived: 1, chart_id: 1 });
+
 export default getModel("ToothRecord", toothRecordSchema);

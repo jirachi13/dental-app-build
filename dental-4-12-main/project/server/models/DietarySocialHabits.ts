@@ -17,4 +17,7 @@ const dietarySocialHabitsSchema = new mongoose.Schema(
   { timestamps: { createdAt: "created_at", updatedAt: false } },
 );
 
+// Sprint 91. `filterable: ["iptr_id"]`.
+dietarySocialHabitsSchema.index({ isArchived: 1, iptr_id: 1 });
+
 export default getModel("DietarySocialHabits", dietarySocialHabitsSchema);

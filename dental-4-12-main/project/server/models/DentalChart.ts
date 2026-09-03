@@ -9,4 +9,8 @@ const dentalChartSchema = new mongoose.Schema({
   ...softDeleteFields,
 });
 
+// Sprint 91. `filterable: ["iptr_id"]`, and the join Sprints 88 and 90 walk:
+// student -> IPTR -> charts -> tooth records.
+dentalChartSchema.index({ isArchived: 1, iptr_id: 1 });
+
 export default getModel("DentalChart", dentalChartSchema);

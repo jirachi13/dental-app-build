@@ -20,4 +20,7 @@ const preventiveCareRecordSchema = new mongoose.Schema(
   { timestamps: { createdAt: "created_at", updatedAt: false } },
 );
 
+// Sprint 91. `filterable: ["iptr_id"]` — the RPC visit lookup.
+preventiveCareRecordSchema.index({ isArchived: 1, iptr_id: 1 });
+
 export default getModel("PreventiveCareRecord", preventiveCareRecordSchema);

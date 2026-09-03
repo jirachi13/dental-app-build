@@ -38,4 +38,14 @@ const studentIptrSchema = new mongoose.Schema(
   { timestamps: { createdAt: "created_at", updatedAt: false } },
 );
 
+// Sprint 91. Leads with isArchived because every GET filters on it.
+// One student's records for the IPTR screen — `filterable: ["student_id"]`
+// (routes/index.ts), the read Sprint 48 measured at -92.6%.
+studentIptrSchema.index({ isArchived: 1, student_id: 1 });
+// The uniqueness check behind `uniqueBy: ["student_id", "school_year"]`, which
+// runs on every create AND on every restore (Sprint 76). ⚠ That query carries
+// NO isArchived — a restore must see archived rows — so the index above cannot
+// serve it and this one is not redundant.
+studentIptrSchema.index({ student_id: 1, school_year: 1 });
+
 export default getModel("StudentIptr", studentIptrSchema);
