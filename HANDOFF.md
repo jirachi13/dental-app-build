@@ -29,11 +29,18 @@
 
 **Teardown COMPLETE 2026-09-04** — the us-east-1 experiment leaves nothing behind: cluster `floral-use1` deleted, project `floral-us-east` deleted (the key now sees 0 projects), the four `tmp_atlas_*`/`tmp_blankcheck` scripts removed, and `MONGODB_URI_USE1` + `ATLAS_PUBLIC_KEY` + `ATLAS_PRIVATE_KEY` stripped from `.env` (back to its original 14 keys). Production re-probed after teardown: **401 ms, still healthy.** The Singapore cluster was never touched at any point — the Admin key had Project Creator scope only and could not see it.
 
-**⚠ STILL OWED BY THE USER, both dashboard-only:**
-- **ROTATE the Atlas Admin API key pair** (public `oiifrvkq`) — it was pasted into a chat transcript. Removed from disk, still live on the account until revoked.
-- **DELETE the Voyage AI model API key** created by mistake at `ai.mongodb.com` (wrong product entirely — it does embeddings, not cluster management). Billable while it exists.
+**⚠ STILL OWED BY THE USER, dashboard-only:**
+- **ROTATE the Atlas Admin API key pair** (public `oiifrvkq`) — it was pasted into a chat transcript. Removed from disk, still live on the account until revoked. **This is the last open security item from this session.**
+- ~~Delete the Voyage AI model API key~~ **DONE by the user 2026-09-04.** It had been created by mistake at `ai.mongodb.com` — a different product (embeddings/reranking), not the Atlas control plane. Recorded because the two are easy to confuse: the Atlas Admin key lives at `cloud.mongodb.com` under **Organization → Access Manager → API Keys** and issues a PAIR (8-char public + UUID private); anything that hands back a single string is the wrong product.
 
 **Not proven, do not claim it:** the 7.3 s cold start is **untested** under `sin1`. Probe run 1 was labelled "cold" but followed 45 s of polling `/api/health`, so nothing cold was measured. Needs a genuine idle period before any statement about it reaches Chapter 4.
+
+**Vercel Speed Insights — DECLINED "for now" 2026-09-04, not started.** The user installed `@vercel/speed-insights` but at the repo ROOT (`package.json` + `package-lock.json` + a 490 KB `node_modules/`, all untracked), which the Vercel build never sees — the app builds from `dental-4-12-main/project`. Nothing was wired up and the user has parked it. If revived, the whole job is: install inside the project, then two lines in `src/app/App.tsx` —
+```tsx
+import { SpeedInsights } from '@vercel/speed-insights/react';
+<SpeedInsights beforeSend={(e) => ({ ...e, url: e.url.replace(/\/dental-chart\/[^/?#]+/, '/dental-chart/[id]') })} />
+```
+⚠ **The `beforeSend` mask is mandatory, not decoration.** Speed Insights reports the raw pathname, and `dental-chart/:id` (`routes.tsx:33`) is the ONLY parameterised route in all 16 — that `:id` is a student's ObjectId, so an unmasked install ships patient identifiers to a third-party endpoint. Also requires enabling Speed Insights in the Vercel dashboard, and ⚠ **it would not have shown the Sprint 99 problem at all** — it reports frontend Core Web Vitals, and the ~500 ms API cost landed in none of them.
 
 **Knock-on:** backlog #39's request-consolidation fix drops in priority — collapsing the 3 waves now saves ~200 ms, not ~1000 ms. Still correct, no longer urgent.
 
