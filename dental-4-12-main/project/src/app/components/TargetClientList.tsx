@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
-import type { ApiStudent, ApiAppointment } from '../api/types';
+import type { ApiStudent, ApiAppointment, ApiOralHealthCondition, ApiStudentIptr } from '../api/types';
 import { useStudents } from '../hooks/useStudents';
-import { useRPCTracking } from '../hooks/useRPCTracking';
+import { useRPCTracking, SOUND_TEMPORARY, SOUND_PERMANENT } from '../hooks/useRPCTracking';
 import { SkeletonTable } from './Skeleton';
 import { formatDate, toLocalDateString } from '../utils/localDate';
 import { FORM_SECTION_BAND } from '../utils/dohFormStyle';
@@ -167,6 +167,16 @@ type Row = {
   treatments: string[];
   /** Tooth counts per treatment code, for the form's tooth-count columns. */
   toothCounts: Record<string, number>;
+  /** Tooth counts per CONDITION code — the form's d/f/x and D/M/F/X columns
+   *  plus the two Sound counts. */
+  conditions: Record<string, number>;
+  /** Any permanent tooth charted, for the form's "5 Year Old with Permanent
+   *  Dentition" column. FDI: permanent 11-48, primary 51-85. */
+  hasPermanentTooth: boolean;
+  /** ORAL_HEALTH_CONDITION for this student, or null when none is recorded —
+   *  null renders "—" rather than "0", which would claim a negative finding
+   *  where there was simply no examination. */
+  oral: { gum: boolean; debris: boolean; calculus: boolean; anomaly: boolean } | null;
   /** Sprint 81's facility_based on the first visit. Null = not recorded. */
   facilityBased: boolean | null;
   /** Orally fit on examination — `useStudents`' own oralStatus, the same
@@ -177,19 +187,21 @@ type Row = {
   nextVisit: string | null;
 };
 type ServiceCol = {
-  group: 'FIRST' | 'SECOND' | 'OTHER SERVICES' | 'ORALLY FIT CHILD' | 'DENTAL VISIT';
+  group: 'ORAL HEALTH STATUS' | 'FIRST' | 'SECOND' | 'OTHER SERVICES' | 'ORALLY FIT CHILD' | 'DENTAL VISIT';
   label: string;
   value?: (r: Row) => string;
   unverified?: boolean;
 };
 
+// ⚠ 'Oral Hygiene Instruction' was REMOVED 2026-09-03: the workbook's FIRST
+// block is columns AH-AO, eight columns, and no Oral Hygiene Instruction is
+// among them. It was read into the app off the illegible Appendix E scan.
 const PREVENTIVE_SET = (visitDone: (r: Row) => boolean, isSecond: boolean): Omit<ServiceCol, 'group'>[] => [
   { label: 'Oral screening', value: (r) => (visitDone(r) ? '✓' : '') },
-  { label: 'Caries Risk: Low', value: (r) => (!isSecond && r.risk === 'Low' ? '✓' : '') },
-  { label: 'Caries Risk: Moderate', value: (r) => (!isSecond && r.risk === 'Medium' ? '✓' : '') },
-  { label: 'Caries Risk: High', value: (r) => (!isSecond && r.risk === 'High' ? '✓' : '') },
-  { label: 'Oral Hygiene Instruction' },
-  { label: 'Counselling' },
+  { label: 'Caries Risk assessment - Low', value: (r) => (!isSecond && r.risk === 'Low' ? '✓' : '') },
+  { label: 'Caries Risk assessment - Moderate', value: (r) => (!isSecond && r.risk === 'Medium' ? '✓' : '') },
+  { label: 'Caries Risk assessment - High', value: (r) => (!isSecond && r.risk === 'High' ? '✓' : '') },
+  { label: 'Counseling' },
   { label: 'Oral Prophylaxis', value: (r) => (!isSecond && r.treatments.includes('OP') ? '✓' : '') },
   { label: 'Fluoride Varnish App', value: (r) => (r.treatments.includes('FV') ? '✓' : '') },
   { label: isSecond ? 'Complete RPC for 2nd Visit Routine Preventive Care' : 'Complete RPC for 1st Visit Routine Preventative Care', unverified: isSecond },
@@ -210,27 +222,71 @@ type IdentityCol = {
   cls?: string;
 };
 
+/** ORAL HEALTH STATUS — workbook columns N–AG, twenty of them, and the app
+ *  had NONE of them until 2026-09-03. Transcribed from
+ *  `TCLForm2andFHSISReport.xlsx`, sheet "6-9 Y.O (M)", which the user supplied;
+ *  the "0 - No 1 - Yes" suffix the workbook carries is dropped from the caption
+ *  and expressed by rendering 1/0 rather than a tick, as the form does.
+ *
+ *  Caries EXPERIENCE means decayed, missing or filled — a treated tooth still
+ *  counts. Caries ACTIVE means currently decayed. They are different questions
+ *  and the form asks both. */
+const dmftPerm = (r: Row) => (r.conditions['D'] ?? 0) + (r.conditions['M'] ?? 0) + (r.conditions['F'] ?? 0);
+const dftTemp = (r: Row) => (r.conditions['d'] ?? 0) + (r.conditions['f'] ?? 0);
+const yesNo = (b: boolean) => (b ? '1' : '0');
+
+const STATUS_COLUMNS: ServiceCol[] = [
+  { group: 'ORAL HEALTH STATUS', label: 'With Caries experience', value: (r) => yesNo(dmftPerm(r) + dftTemp(r) > 0) },
+  { group: 'ORAL HEALTH STATUS', label: 'With Caries experience in Temporary Dentition', value: (r) => yesNo(dftTemp(r) > 0) },
+  { group: 'ORAL HEALTH STATUS', label: 'With Caries experience in Permanent Dentition', value: (r) => yesNo(dmftPerm(r) > 0) },
+  // Age 5 AND any permanent tooth charted — the form asks this of five-year-olds
+  // only, so it stays blank at every other age rather than printing a "0" that
+  // reads as an answer.
+  { group: 'ORAL HEALTH STATUS', label: '5 Year Old with Permanent Dentition', value: (r) => (r.age === 5 ? yesNo(r.hasPermanentTooth) : '') },
+  { group: 'ORAL HEALTH STATUS', label: 'With Active Dental Caries', value: (r) => yesNo((r.conditions['D'] ?? 0) + (r.conditions['d'] ?? 0) > 0) },
+  { group: 'ORAL HEALTH STATUS', label: 'Gum/Perio Disease', value: (r) => (r.oral === null ? NO_SOURCE : yesNo(r.oral.gum)) },
+  { group: 'ORAL HEALTH STATUS', label: 'Oral Debris', value: (r) => (r.oral === null ? NO_SOURCE : yesNo(r.oral.debris)) },
+  { group: 'ORAL HEALTH STATUS', label: 'Calcular Deposits', value: (r) => (r.oral === null ? NO_SOURCE : yesNo(r.oral.calculus)) },
+  { group: 'ORAL HEALTH STATUS', label: 'Dento-Facial Anomaly', value: (r) => (r.oral === null ? NO_SOURCE : yesNo(r.oral.anomaly)) },
+  // On the form; impossible for a school roll and recorded nowhere.
+  { group: 'ORAL HEALTH STATUS', label: 'Completely Edentulous / No Dentition' },
+  { group: 'ORAL HEALTH STATUS', label: 'd', value: (r) => String(r.conditions['d'] ?? '') },
+  { group: 'ORAL HEALTH STATUS', label: 'f', value: (r) => String(r.conditions['f'] ?? '') },
+  { group: 'ORAL HEALTH STATUS', label: 'x', value: (r) => String(r.conditions['x'] ?? '') },
+  { group: 'ORAL HEALTH STATUS', label: 'Sound Temporary Tooth/Teeth', value: (r) => String(r.conditions[SOUND_TEMPORARY] ?? '') },
+  { group: 'ORAL HEALTH STATUS', label: 'D', value: (r) => String(r.conditions['D'] ?? '') },
+  { group: 'ORAL HEALTH STATUS', label: 'M', value: (r) => String(r.conditions['M'] ?? '') },
+  { group: 'ORAL HEALTH STATUS', label: 'F', value: (r) => String(r.conditions['F'] ?? '') },
+  { group: 'ORAL HEALTH STATUS', label: 'X', value: (r) => String(r.conditions['X'] ?? '') },
+  { group: 'ORAL HEALTH STATUS', label: 'Sound Permanent Tooth/Teeth', value: (r) => String(r.conditions[SOUND_PERMANENT] ?? '') },
+  { group: 'ORAL HEALTH STATUS', label: 'Caries Free', value: (r) => yesNo(dmftPerm(r) + dftTemp(r) === 0) },
+];
+
 const SERVICE_COLUMNS: ServiceCol[] = [
+  ...STATUS_COLUMNS,
   ...PREVENTIVE_SET((r) => r.visit1Done, false).map((c) => ({ ...c, group: 'FIRST' as const })),
   ...PREVENTIVE_SET((r) => r.visit2Done, true).map((c) => ({ ...c, group: 'SECOND' as const })),
-  { group: 'OTHER SERVICES', label: 'Composite Filling', value: (r) => (r.treatments.includes('PF') ? '✓' : '') },
-  { group: 'OTHER SERVICES', label: 'ART', value: (r) => (r.treatments.includes('TR') ? '✓' : '') },
-  { group: 'OTHER SERVICES', label: 'Temporary Filling', value: (r) => (r.treatments.includes('TF') ? '✓' : '') },
-  { group: 'OTHER SERVICES', label: 'Extraction', value: (r) => (r.treatments.includes('X') ? '✓' : '') },
-  // Sprint 80 established from the DOH workbook that the form carries TWO gum
-  // columns (Scaling, Prescription), not the single guessed one this table had.
-  // Splitting them removes an `unverified` guess rather than adding one; both
-  // are blank because no per-visit service is recorded anywhere.
+  // ⚠ ALL of these are TOOTH COUNTS on the form (workbook AX-BD), not ticks.
+  // The app rendered ✓ for the first four, and Sprint 82 additionally created a
+  // DUPLICATE Temporary Filling column by adding the tooth-count variant beside
+  // the tick one. Both errors corrected here against the workbook.
+  { group: 'OTHER SERVICES', label: 'Composite Filling (Tooth Count)', value: (r) => String(r.toothCounts['PF'] ?? '') },
+  { group: 'OTHER SERVICES', label: 'ART/Glass Ionomer Filling (Tooth Count)', value: (r) => String(r.toothCounts['TR'] ?? '') },
+  { group: 'OTHER SERVICES', label: 'Temporary Filling (Tooth Count)', value: (r) => String(r.toothCounts['TF'] ?? '') },
+  { group: 'OTHER SERVICES', label: 'Extraction (Tooth Count)', value: (r) => String(r.toothCounts['X'] ?? '') },
+  // 'Removal of Plaque / Calculus' REMOVED 2026-09-03 — confirmed absent from
+  // the workbook, like 'Complete Health Record' before it. Both were read off
+  // the illegible Appendix E scan.
+  { group: 'OTHER SERVICES', label: 'Pit and Fissure Sealant (Tooth Count)', value: (r) => String(r.toothCounts['PFS'] ?? '') },
+  // The form has a 1st AND a 2nd SDF column, both tooth counts. The app had a
+  // tick for the 1st and a blank for the 2nd.
+  { group: 'OTHER SERVICES', label: '1st Silver Diamine Fluoride App (tooth count)', value: (r) => String(r.toothCounts['SDF'] ?? '') },
+  { group: 'OTHER SERVICES', label: '2nd Silver Diamine Fluoride App (tooth count)' },
   { group: 'OTHER SERVICES', label: 'Gum Treatment - Scaling' },
   { group: 'OTHER SERVICES', label: 'Gum Treatment - Prescription' },
-  { group: 'OTHER SERVICES', label: 'Removal of Plaque / Calculus', unverified: true },
-  { group: 'OTHER SERVICES', label: 'Pit and Fissure Sealant (Tooth Count)', value: (r) => String(r.toothCounts['PFS'] ?? '') },
-  { group: 'OTHER SERVICES', label: 'Temporary Filling (Tooth Count)', value: (r) => String(r.toothCounts['TF'] ?? '') },
-  { group: 'OTHER SERVICES', label: 'Silver Diamine Fluoride App', value: (r) => (r.treatments.includes('SDF') ? '✓' : '') },
-  { group: 'OTHER SERVICES', label: '2nd Silver Diamine Fluoride App (tooth count)' },
-  { group: 'OTHER SERVICES', label: 'Complete Mouth Rehab' },
   { group: 'OTHER SERVICES', label: 'Consultation' },
   { group: 'OTHER SERVICES', label: 'Referred Out' },
+  { group: 'OTHER SERVICES', label: 'Complete Mouth Rehab' },
 
   // The form's "Orally Fit Child" pair and its two visit-date columns, banded
   // under their own headings after the services — they are an assessment and
@@ -271,6 +327,8 @@ export const TargetClientList = () => {
   // here rather than added to useRPCTracking: no other consumer of that hook
   // needs them, and it already pulls six collections.
   const [appointments, setAppointments] = useState<ApiAppointment[]>([]);
+  const [orals, setOrals] = useState<ApiOralHealthCondition[]>([]);
+  const [iptrs, setIptrs] = useState<ApiStudentIptr[]>([]);
 
   useEffect(() => {
     apiClient.get<ApiStudent[]>('/students')
@@ -279,6 +337,15 @@ export const TargetClientList = () => {
     apiClient.get<ApiAppointment[]>('/appointments')
       .then(setAppointments)
       .catch(() => setAppointments([]));
+    // ORAL_HEALTH_CONDITION backs the form's Gum/Perio, Debris, Calcular and
+    // Dento-Facial Anomaly columns. Joined through STUDENT_IPTR, which is why
+    // both are fetched.
+    Promise.all([
+      apiClient.get<ApiOralHealthCondition[]>('/oral-health-conditions'),
+      apiClient.get<ApiStudentIptr[]>('/student-iptrs'),
+    ])
+      .then(([o, i]) => { setOrals(o); setIptrs(i); })
+      .catch(() => { setOrals([]); setIptrs([]); });
   }, []);
 
   const rows = useMemo(() => {
@@ -287,6 +354,27 @@ export const TargetClientList = () => {
     // Past / future appointment dates per student, for Last and Next Dental
     // Visit. Split on "now" rather than on status so a completed-but-future or
     // an unstatused past booking still lands on the correct side.
+    // Oral findings per STUDENT, resolved through the IPTR. When a student has
+    // several years, the LATEST recorded examination wins — the form reports a
+    // current status, not a historical one.
+    const iptrToStudent = new Map(iptrs.map((i) => [i._id, i.student_id]));
+    const iptrYear = new Map(iptrs.map((i) => [i._id, i.school_year ?? '']));
+    const oralByStudent = new Map<string, { gum: boolean; debris: boolean; calculus: boolean; anomaly: boolean }>();
+    const oralYear = new Map<string, string>();
+    for (const o of orals) {
+      const sid = iptrToStudent.get(o.iptr_id);
+      if (!sid) continue;
+      const year = iptrYear.get(o.iptr_id) ?? '';
+      if (oralByStudent.has(sid) && (oralYear.get(sid) ?? '') >= year) continue;
+      oralYear.set(sid, year);
+      oralByStudent.set(sid, {
+        gum: o.gingivitis === true || o.periodontal_disease === true,
+        debris: o.debris === true,
+        calculus: o.calculus === true,
+        anomaly: o.abnormal_growth === true,
+      });
+    }
+
     const now = Date.now();
     const apptsByStudent = new Map<string, { past: number[]; future: number[] }>();
     for (const a of appointments) {
@@ -318,6 +406,10 @@ export const TargetClientList = () => {
           visit2Done: r?.visit2Status === 'Completed',
           treatments: r?.treatmentCodes ?? [],
           toothCounts: r?.treatmentToothCounts ?? {},
+          conditions: r?.conditionToothCounts ?? {},
+          hasPermanentTooth: (r?.conditionToothCounts ?? {})[SOUND_PERMANENT] > 0
+            || ['D', 'M', 'F', 'X'].some((c) => ((r?.conditionToothCounts ?? {})[c] ?? 0) > 0),
+          oral: oralByStudent.get(s.id) ?? null,
           facilityBased: r?.visit1FacilityBased ?? null,
           orallyFit: s.oralStatus === 'Orally Fit',
           lastVisit: (() => {
@@ -330,7 +422,7 @@ export const TargetClientList = () => {
           })(),
         };
       });
-  }, [students, rpcRecords, raw, appointments, selectedSchool]);
+  }, [students, rpcRecords, raw, appointments, orals, iptrs, selectedSchool]);
 
   const { start, end, label: periodLabel } = useMemo(() => periodRange(anchor, period), [anchor, period]);
 

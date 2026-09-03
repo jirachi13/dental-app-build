@@ -20,6 +20,12 @@ const RPC_MIN_INTERVAL_DAYS = 120;
 const RPC_MAX_INTERVAL_DAYS = 180;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+/** Synthetic condition keys for the two Sound columns the DOH Target Client
+ *  List prints. Not real tooth codes — '✓' is stored for both dentitions, so
+ *  the split is made when counting (see conditionToothCounts). */
+export const SOUND_TEMPORARY = 'sound_temporary';
+export const SOUND_PERMANENT = 'sound_permanent';
+
 // Visit 2 only counts for DOH/PhilHealth if it lands within the same school
 // year as Visit 1 (June–April, per the dentist: "kailangan pumasok siya sa
 // school calendar"). The rule itself now lives in utils/schoolYear.ts, shared
@@ -60,6 +66,13 @@ export interface RPCRow {
    *  TOOTH_RECORDs across the student's charts, not services at a given visit —
    *  per-visit services are still recorded nowhere. */
   treatmentToothCounts: Record<string, number>;
+  /** TOOTH COUNT per CONDITION code — the form's `d f D M F X` columns, plus
+   *  the sound-teeth counts. Case encodes the dentition (`DentalChart`'s
+   *  conditionCodes: permanent uppercase, temporary lowercase), so counting the
+   *  exact stored string separates primary from permanent with no extra lookup.
+   *  Distinct from `treatmentToothCounts`, which counts what was DONE; this
+   *  counts what was FOUND. */
+  conditionToothCounts: Record<string, number>;
   /** `facility_based` of the FIRST recorded visit (Sprint 81) — the visit the
    *  TCL's "Date of consultation" column reports. Null = not recorded, which is
    *  every visit created before Sprint 81; it must NOT be shown as "No". */
@@ -121,7 +134,21 @@ export function useRPCTracking() {
         // Set can only answer "ever had it". Counted per chart first so the
         // chart → iptr → student roll-up below adds rather than overwrites.
         const countsByChart = new Map<string, Record<string, number>>();
+        const condByChart = new Map<string, Record<string, number>>();
         for (const tr of toothRecords) {
+          if (tr.condition) {
+            // Every code except Sound already encodes its dentition by case
+            // (D/d, F/f, X/x). Sound is '✓' for BOTH, so it is split here by
+            // FDI tooth number — permanent 11-48, primary 51-85 — because the
+            // form has separate "Sound Temporary" and "Sound Permanent"
+            // columns and the code alone cannot tell them apart.
+            const key = tr.condition === '✓'
+              ? (tr.tooth_number >= 51 ? SOUND_TEMPORARY : SOUND_PERMANENT)
+              : tr.condition;
+            const cc = condByChart.get(tr.chart_id) ?? {};
+            cc[key] = (cc[key] ?? 0) + 1;
+            condByChart.set(tr.chart_id, cc);
+          }
           if (!tr.treatment_code) continue;
           const set = codesByChart.get(tr.chart_id) ?? new Set<string>();
           set.add(tr.treatment_code);
@@ -132,6 +159,17 @@ export function useRPCTracking() {
         }
         const codesByIptr = new Map<string, Set<string>>();
         const countsByIptr = new Map<string, Record<string, number>>();
+        const condByIptr = new Map<string, Record<string, number>>();
+        // Conditions roll up on their own loop: a chart can carry conditions
+        // with no treatments at all, and the treatment loop below `continue`s
+        // past exactly those charts.
+        for (const chart of charts) {
+          const cc = condByChart.get(chart._id);
+          if (!cc) continue;
+          const acc = condByIptr.get(chart.iptr_id) ?? {};
+          for (const [code, n] of Object.entries(cc)) acc[code] = (acc[code] ?? 0) + n;
+          condByIptr.set(chart.iptr_id, acc);
+        }
         for (const chart of charts) {
           const codes = codesByChart.get(chart._id);
           if (!codes) continue;
@@ -203,6 +241,10 @@ export function useRPCTracking() {
             treatmentCodes: [...new Set(studentIptrs.flatMap((iptr) => [...(codesByIptr.get(iptr._id) ?? [])]))],
             treatmentToothCounts: studentIptrs.reduce<Record<string, number>>((acc, iptr) => {
               for (const [code, n] of Object.entries(countsByIptr.get(iptr._id) ?? {})) acc[code] = (acc[code] ?? 0) + n;
+              return acc;
+            }, {}),
+            conditionToothCounts: studentIptrs.reduce<Record<string, number>>((acc, iptr) => {
+              for (const [code, n] of Object.entries(condByIptr.get(iptr._id) ?? {})) acc[code] = (acc[code] ?? 0) + n;
               return acc;
             }, {}),
             visit1FacilityBased: visit1?.facility_based ?? null,
