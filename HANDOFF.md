@@ -9,50 +9,33 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ⚠ IN FLIGHT — Atlas region move, started 2026-09-04, NOT finished
-Acting on backlog #39's measured finding (the Vercel function runs in `iad1`/Washington DC while the database sits in Singapore, so every API call crosses the Pacific twice). Moving the DB to `us-east-1` to sit beside the function.
+## Sprint 99 — the API runs in `sin1` now (2026-09-04, DONE, measured, cleaned up)
+**The ~500 ms per API request was geography, not code.** `x-vercel-id` read `hkg1::iad1`: requests entered the Hong Kong edge and executed in Washington DC, while the Atlas cluster sits in Singapore — so every call crossed the Pacific twice. Fix was one line in `dental-4-12-main/project/vercel.json`: `"regions": ["sin1"]`. Commits `5a3840e5` + `85af6441`.
 
-**Done so far — these are REAL account changes, not local edits:**
-- Atlas Admin API key created by the user; `ATLAS_PUBLIC_KEY` / `ATLAS_PRIVATE_KEY` appended to `dental-4-12-main/project/.env` (still gitignored — verified). Org = `Jerald's Org - 2026-06-16` (`6a312fe57ed005d5bfd213ce`). ⚠ The key has **Organization Project Creator** only, so it sees ZERO existing projects — it cannot touch the live Singapore cluster. That is a feature here, not a limitation.
-- **New project `floral-us-east` created** — group id `6a99bac9ef185dd9e21f9303`. A second project was REQUIRED: Atlas allows one M0 free cluster per project and the Singapore one already uses the original project's slot.
-- **M0 cluster `floral-use1` created in `US_EAST_1`**, state `CREATING`.
-- ⚠ **API version matters:** `POST /groups/{id}/clusters` with the tenant/M0 body is rejected as `INVALID_ATTRIBUTE regionConfigs` under `Accept: application/vnd.atlas.2023-01-01+json`, and accepted under **`2024-08-05`**. Same body both times. Do not re-derive this.
+| | before (`iad1`) | after (`sin1`) |
+|---|---|---|
+| IPTR screen open (3 waves) | 1535 / 1572 ms | **422 / 396 / 365 / 401 ms** |
+| per request (the flat floor) | ~500 ms | **~70-150 ms** |
+| `login` | 7089 ms cold, ~1200 ms warm | **451 / 362 / 380 ms** |
+| `stats/student-rows` | 788 ms | **182-225 ms** |
 
-**Provisioning FINISHED (user ran `tmp_atlas_setup.mjs` 2026-09-04):** DB user `jeraldalondres_db_user` created, `0.0.0.0/0` access-list entry added, cluster IDLE at host **`floral-use1.lsok7pd.mongodb.net`**, and `MONGODB_URI_USE1` written to `.env`.
-- **Region CONFIRMED by latency, not by trusting the API response.** TCP connect from this machine: old cluster `ac-mnhdfsk-…edqpjtu` = **37 ms** (matches `ec2.ap-southeast-1` at 34-38 ms); new cluster `ac-kuuvgyn-…lsok7pd` = **230-238 ms** (matches `ec2.us-east-1` at 225-232 ms). The new cluster really is in Virginia.
-- ⚠ **THE TRADE-OFF THIS EXPOSES, and it must be decided before cutover.** Moving the DB to Virginia helps PRODUCTION (function in `iad1` reaches it in ~2 ms instead of crossing the Pacific: ~500 ms/request → ~280 ms) but makes LOCAL DEV SLOWER — this laptop goes from 37 ms to ~231 ms per query. Both cannot be optimised at once while the function is pinned to `iad1`, and after cutover local and prod must share one database or the data diverges.
-- **⚠⚠ THE WHOLE MIGRATION IS PROBABLY UNNECESSARY — MOVING THE FUNCTION IS FREE.** This session first asserted that function region selection needs Vercel Pro. **That is WRONG.** The `vercel.json` reference says verbatim: *"Users on Pro and Enterprise can deploy to multiple regions. **Hobby plans can select any single region.**"* The plan gates the NUMBER of regions, not WHICH one. So `"regions": ["sin1"]` is available on the free plan today, keeps the Singapore cluster where it already is, and needs no data migration at all.
-  - **`"regions": ["sin1"]` ADDED to `dental-4-12-main/project/vercel.json` 2026-09-04** (JSON re-validated). NOT yet pushed — pushing to `main` auto-deploys, so this is a production change awaiting approval.
-  - **✅ SHIPPED AND MEASURED 2026-09-04 as Sprint 99 (`5a3840e5`). It worked.** `x-vercel-id` now reads **`sin1::sin1`** (edge AND function in Singapore); the deploy landed ~45 s after the push. Three probe runs against production:
+**~4.2x on the screen open, ~7x per request. No code, no migration, no money.** `probe_iptr_timing.mjs` (committed) reproduces all of it.
 
-    | | before (`iad1`) | after (`sin1`) |
-    |---|---|---|
-    | IPTR waves total | 1535 / 1572 ms | **422 / 396 / 365 ms** |
-    | per request (the flat floor) | ~500 ms | **~70-150 ms** |
-    | `login` | 7089 ms cold, ~1200 ms warm | **451 / 362 / 380 ms** |
-    | `stats/student-rows` | 788 ms | **182-225 ms** |
+**⚠ THE CLAIM THAT COST THE MOST TIME THIS SESSION WAS MY OWN, AND IT WAS WRONG.** I asserted that Vercel Hobby cannot change the function region, and on that basis built an entire Atlas migration to `us-east-1` — new project, new cluster, 729 documents copied and verified. The `vercel.json` reference says plainly: *"Users on Pro and Enterprise can deploy to multiple regions. **Hobby plans can select any single region.**"* The plan gates the NUMBER of regions, not WHICH one. **Check the vendor's own reference before designing around a platform limitation.** The migration was then deleted in full (below). Cost: about an hour. The measurements that found the real cause were worth keeping; the workaround built on the false premise was not.
 
-    **~4.2x on the screen open, ~7x on the individual request.** One line of config, no code, no migration, no money.
-  - ⚠ **DO NOT claim the 7.3 s cold start is fixed — it was not measured.** Probe run 1 is labelled "cold" but followed 45 s of polling `/api/health`, so the function was already warm. Cold start is untested under `sin1`; measure it after a genuine idle period before putting any claim in Chapter 4.
-  - **The per-request floor is now ~70 ms, so backlog #39's request-consolidation fix is much less urgent** — collapsing 3 waves saves ~200 ms now rather than ~1000 ms. Still correct, no longer the priority.
-  - Superseded projection, kept only to show the estimate was in the right range: **~500 ms → ~50-60 ms per request** (user → sin1 edge/function ~40 ms, function → Atlas Singapore ~5 ms), against ~280 ms for the us-east-1 database move. Roughly 8-10x rather than 2x. **Prove it with `probe_iptr_timing.mjs` after the deploy — do not take the projection on faith.**
-  - **If it works, the `floral-us-east` project and its cluster should be DELETED** and `MONGODB_URI_USE1` removed from `.env`. Keep the Singapore cluster as the single database. Local dev also stays fast (37 ms), which the DB move would have cost.
-  - Render's free Singapore region was considered and rejected regardless: it sleeps after 15 min idle (30-60 s cold start), already documented for the ML service, which is unacceptable for the main API.
+**⚠ Two more measurement lessons from the same session, both the same shape as the "suspect the verifier first" rule above:**
+- **A round trip cost ~500 ms no matter what it did** — 1 row and 8 rows both ~490 ms. That is what proved the cost was per-request overhead, not query or payload. Isolating it needed `/api/health` (no DB, no auth, ~250 ms) and a static file (~35 ms) as controls. **Measure the floor before optimising anything above it.**
+- **Raw `$ne: ""` counts are meaningless on encrypted fields** — a plaintext empty string still stores as a full `<iv>:<ciphertext>` blob, so "35 of 35 allergies present" meant 35 blobs existed, not 35 values.
 
-**COPY DONE 2026-09-04 — 17/17 collections, 729 documents, all counts match**, plus 14 non-`_id` indexes carried over so `npm run verify:indexes` still has something to assert. `tmp_atlas_migrate.mjs` is read-only against Singapore.
-- ⚠ **IT IS A POINT-IN-TIME SNAPSHOT, AND THE SOURCE IS LIVE.** `audittrails` went 231 → 236 and `dentistrotations` 1 → 3 between the first probe and the copy, purely from this session's own logins. **Anything written to Singapore after the copy is NOT in the new cluster.** `tmp_atlas_migrate.mjs --refresh` drops the target and re-copies — run it immediately before cutover, or those writes are silently lost.
+**Teardown COMPLETE 2026-09-04** — the us-east-1 experiment leaves nothing behind: cluster `floral-use1` deleted, project `floral-us-east` deleted (the key now sees 0 projects), the four `tmp_atlas_*`/`tmp_blankcheck` scripts removed, and `MONGODB_URI_USE1` + `ATLAS_PUBLIC_KEY` + `ATLAS_PRIVATE_KEY` stripped from `.env` (back to its original 14 keys). Production re-probed after teardown: **401 ms, still healthy.** The Singapore cluster was never touched at any point — the Admin key had Project Creator scope only and could not see it.
 
-**ENCRYPTION VERIFIED 2026-09-04 — the copy is usable, not just present.** Read back through the app's own Mongoose models against the new cluster: five student names decrypt cleanly (`Fernandez, Joshua` …) and the dental aide's contact reads `09171234567`. `tmp_atlas_verify.ts` does this; ⚠ it lives at the PROJECT ROOT, so its imports are `./server/...`, not the `../` that `server/scripts/*.ts` use.
-- **The blank `contact_number` and `allergies` in that output are NOT decryption failures**, checked rather than assumed: only **4 of 30** students have a `contact_number` at all, so the five sampled genuinely have none. And the decisive evidence — the raw stored value is **byte-identical on both clusters** (`856b452aa5a298e3f2037e0b77c7134a:244caae1dba9…`, same IV, same ciphertext). A verbatim copy cannot change what a field decrypts to; anything blank here was blank in Singapore.
-- ⚠ Raw `$ne: ""` counts are meaningless on encrypted fields: a plaintext empty string still stores as a full `<iv>:<ciphertext>` blob, so "35 of 35 allergies present" means 35 blobs exist, NOT 35 non-empty values.
+**⚠ STILL OWED BY THE USER, both dashboard-only:**
+- **ROTATE the Atlas Admin API key pair** (public `oiifrvkq`) — it was pasted into a chat transcript. Removed from disk, still live on the account until revoked.
+- **DELETE the Voyage AI model API key** created by mistake at `ai.mongodb.com` (wrong product entirely — it does embeddings, not cluster management). Billable while it exists.
 
-**Superseded (kept for the sandbox note) — `tmp_atlas_setup.mjs` (project dir) was BLOCKED from running by the sandbox and the user ran it manually:** creates the DB user `jeraldalondres_db_user` with a freshly generated 28-char URL-safe password, adds `0.0.0.0/0` to the access list, waits for `IDLE`, then appends `MONGODB_URI_USE1` to `.env`. **The user must run it: `node tmp_atlas_setup.mjs` from `dental-4-12-main/project`.**
+**Not proven, do not claim it:** the 7.3 s cold start is **untested** under `sin1`. Probe run 1 was labelled "cold" but followed 45 s of polling `/api/health`, so nothing cold was measured. Needs a genuine idle period before any statement about it reaches Chapter 4.
 
-**Then, still to do:** copy all 17 collections across (driver-only — no `mongodump`/`mongosh` on this machine) → verify counts AND that encrypted fields still decrypt → user swaps `MONGODB_URI` in the Vercel dashboard → re-run `probe_iptr_timing.mjs` to prove the gain. **`FIELD_ENCRYPTION_SECRET` must NOT change** — ciphertext copies across as-is, so the same secret keeps decrypting it; a new secret makes every encrypted patient field permanently unreadable.
-
-**Two security items, both live:**
-- ⚠ **The Atlas key pair was pasted into a chat transcript. ROTATE IT once the migration is done.** Same for the Voyage AI model API key the user created by mistake at `ai.mongodb.com` (wrong product — it does embeddings, not cluster management) — that one should just be deleted.
-- The `0.0.0.0/0` access list entry is deliberate: Vercel serverless has no fixed egress IPs, so the existing cluster necessarily allows the same. Access is gated by SCRAM credentials, not by network. Stating it here so it is a recorded decision rather than a surprise finding later.
+**Knock-on:** backlog #39's request-consolidation fix drops in priority — collapsing the 3 waves now saves ~200 ms, not ~1000 ms. Still correct, no longer urgent.
 
 ## ▶ RESUME HERE — parked 2026-09-03 (4th session), everything pushed at `a614e1d6`
 Ran **Sprints 89–98** plus four maintenance jobs. Tree clean, nothing uncommitted, dev servers stopped (verify with the port check in Durable gotchas — `pkill` lies here).
