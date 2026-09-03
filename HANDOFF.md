@@ -40,6 +40,19 @@ The printed Target Client List is **two physical sheets sharing one set of 25 nu
 
 **Still true and still user-gated:** the roster is on SY 2025-2026 while today is 2026-2027, so recording a visit dated today is blocked for 24 of 26 students (Sprint 81). Sprint 74's Promote/Assign fixes it but changes the demo data every Chapter 4 figure shows.
 
+## Figures verified against `docs/chapter4-5-draft.md` (2026-09-03)
+Cross-checked every figure reference in the draft against the 21 files on disk, then read the captions against what the build actually does now.
+
+**⚠ FINDING 1 — A FACTUAL CLAIM THE BUILD CONTRADICTS. Figure 4.4.5's caption says:** *"Reports **and record lists** may be exported in comma-separated value and Excel formats."* **Sprint 52 REMOVED export from the record lists** (Students, RPC, Appointments) precisely because a raw list of minors leaving the system is the PII leak that rule forbids. Verified in code: `ExportMenu` is imported by **`AuditTrail.tsx` and nothing else**. The CSV/Excel pair the sentence describes now applies to the audit trail alone. **The rest of that caption is accurate** — the DOH Consolidated tab does export both a formatted Excel workbook and a PDF. **This is a sentence in a thesis chapter asserting a capability that was deliberately removed; it needs one edit before defense.**
+
+**FINDING 2 — `fig-4.4.4b-program-report` is ORPHANED.** 21 files on disk, 20 referenced. The new Program Report figure has no slot in the draft. Natural home: beside Figure 4.4.4, which currently covers report generation generically.
+
+**Checked and CORRECT, so they need no work:** 4.2.4 (audit trail — the caption is about what is RECORDED, which Sprint 92's 90-day display window does not change), 4.3.5 (validation — pre-filled editable fields, dentist confirms or amends, audit records accepted-vs-changed: all still true), and every other reference resolves to a file.
+
+⚠ **My first cross-check script reported a clean result and was WRONG** — it truncated `fig-4.4.4b-program-report` to the key `fig-4.4` when matching, which matches every 4.4.x reference in the draft. The orphan was only found by counting: 21 files vs 20 referenced. **A verification script that returns "all clear" deserves one confirming count.**
+
+**Fixed here (code, not manuscript):** `Reports.tsx` carried a stale comment claiming the DOH Consolidated tab "is the only one with PDF and Excel export" — untrue since Sprints 85/88 gave the Program Report, TCL, IPTR and School Summary their own controls.
+
 ## Chapter 4 figures RECAPTURED (2026-09-03) — 21/21 against the deployed site
 Stale since 2026-08-11. Sprints 89/90/98 rewrote the Program Report and 94/96 changed every screen's text and accent colours, so the gap had grown wide enough for a panelist to notice.
 
@@ -1475,6 +1488,7 @@ Mostly confirms the build (SDF code, age brackets, RPC window, consent, auto-cou
 - ~~Locate real dental IPTR Excel files~~ **VOID 2026-08-06 — no such files exist; the records are paper.** Replaced by: hand-encode a stratified sample from the paper IPTR forms — **n = 50, DECIDED 2026-09-01**, stratified on RISK LEVEL only (see Open work #3 for why school/grade are descriptive rather than strata, and for the pilot constraints). The dentist labels all 50 by hand. Any Excel that does turn up still gets an openpyxl header check before being trusted.
 - Chase the dentist's promised documents: DOH risk-classification lecture/study (citable labeling source for 21a-d), blank standard forms, factor list. Send her the questionnaire digitally. **⬆ RAISED IN PRIORITY 2026-09-01 — the DOH source now blocks the critical path, not just a citation.** `docs/iptr-encoding-brief.md` is written and ready except for Section 4, which states the High/Medium/Low criteria and cannot be written without it; nothing downstream (encoding → 21a-d re-run → §4.3 → three Ch5 passages) starts until the brief goes out. If no written source exists, say so — the brief has fallback wording describing it as her clinical protocol instead, but that must be settled BEFORE labelling, not after.
 - **⚠ SUPPLY A FLAT SCAN OF A BLANK "FORM 3 — INDIVIDUAL TREATMENT RECORD", FRONT AND BACK** (raised 2026-09-03). The user confirmed **both** IPTR forms circulate, so the app has two forms to be right about — but nothing can be built or verified against angled phone photos. Exactly the blocker that parked backlog #16 from 2026-08-08 until the blank Taguig IPTR arrived and unblocked Sprint 86. See Open work #37 for the full transcription and the tick-vs-x problem.
+- **⚠ Chapter 4 draft, Figure 4.4.5 caption is FACTUALLY WRONG:** it says record lists can be exported; Sprint 52 removed that, and only the audit trail still can. One sentence to fix. Also `fig-4.4.4b-program-report` has no figure slot. Both found 2026-09-03 — see the verification section above. Left unedited because manuscript work is deprioritised; **unpark it for these two before defense.**
 - Verify DOH form typo spellings (Transfussion/Scalling/Flouride) against the paper form before "fixing".
 - Enable 2FA per account in Account Management once real staff emails are set (no account has it yet).
 - Post-Sprint-26 live smoke (expected fine — seeder already exercised decrypt): Students list renders names; open one chart's medical history.

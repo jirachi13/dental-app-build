@@ -198,9 +198,10 @@ export const Reports = () => {
   // browser (Sprint 73). Same rule as the other two report tabs: hiding
   // changes the OUTPUT, not just the view.
   //
-  // ⚠ This tab is the only one with PDF and Excel export, so a hidden column
-  // here leaves in a FILE that can be forwarded without the screen it came
-  // from. The PDF inherits hiding for free (html2canvas captures the DOM), but
+  // ⚠ A hidden column here leaves in a FILE that can be forwarded without the
+  // screen it came from. (This tab was once the only one that could export;
+  // Sprints 85 and 88 gave the Program Report, Target Client List, IPTR and
+  // School Summary their own controls, so the same care applies there.) The PDF inherits hiding for free (html2canvas captures the DOM), but
   // the Excel path is fed `rows` and `grades` explicitly and must be handed the
   // FILTERED lists — otherwise the spreadsheet would silently disagree with
   // both the screen and the PDF.
