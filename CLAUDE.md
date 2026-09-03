@@ -116,7 +116,7 @@ Full field-level specs for all 16 models live in **`/docs/DATA-MODEL.md`** — R
 
 ## SPRINT LOOP (every session)
 - **Two local dev devices in use.** Git-tracked files sync only via push/pull — never assume HANDOFF is current without pulling. Per-device (NOT synced): `.env`, `data/` Excel files, `.claude/settings.local.json`, Claude auto-memory, and machine quirks (Node 24 DNS workaround applies to one machine only).
-- **Start:** `git pull` first (HANDOFF/CLAUDE.md may be stale if last sprint ran on another device), then read HANDOFF.md, /compact if resuming. Complex sprints use /grill-me first: Sprints 1, 2, 7, 8, 16, 19, 21.
+- **Start — PULL THEN READ, never read then pull.** `git pull` FIRST, before opening HANDOFF.md or any tracked file; only then read HANDOFF.md, /compact if resuming. If a pull isn't appropriate yet, **compare** instead — `git fetch` + `git rev-list --left-right --count HEAD...origin/main` — and state the behind-count before treating any file as current. An unpulled tracked file is UNKNOWN, not state: never claim "nothing is in progress", "X doesn't exist", or "the last sprint was N" from it. (2026-09-03: reading first put a session 43 commits behind — Sprints 56–80 — and produced a confidently wrong answer about the demo seed passwords; the failure is silent, a stale file reads as valid.) Complex sprints use /grill-me first: Sprints 1, 2, 7, 8, 16, 19, 21.
 - **End:** save HANDOFF.md → git add . → git commit -m "Sprint X: description" → git push.
 
 ## CHAPTER REFERENCES
