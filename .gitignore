@@ -48,3 +48,8 @@ docs/reference/
 
 # Word exports generated from the .md sources — regenerate, don't commit binaries
 docs/*.docx
+
+# Verifier screenshots — verify_sprint83.mjs defaults its shots directory to
+# "." and drops PNGs into the repo when run from project/. Test output, not
+# source (Sprint 90).
+dental-4-12-main/project/sprint*.png
