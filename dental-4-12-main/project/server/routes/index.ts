@@ -254,6 +254,11 @@ router.use("/dentist-rotations", createCrudRouter(DentistRotation, { writeRoles:
 
 // Audit trail — System Admin only, both to read and (already, since Sprint 6)
 // impossible to write directly; entries are created internally via logAudit().
-router.use("/audit-trails", createCrudRouter(AuditTrail, { readOnly: true, readRoles: ADMIN_ONLY }));
+// dateField (Sprint 92): the audit trail is the fastest-growing collection in
+// the system — every action, every user, three schools, forever — and this
+// route returned ALL of it. Unlike the appointment window it has no natural
+// boundary, so the client sends an explicit `from`, and "show earlier" widens
+// it. AuditTrail has no isArchived, so the date range is the only filter.
+router.use("/audit-trails", createCrudRouter(AuditTrail, { readOnly: true, readRoles: ADMIN_ONLY, dateField: "timestamp" }));
 
 export default router;

@@ -9,4 +9,12 @@ const auditTrailSchema = new mongoose.Schema({
   affected_model: { type: String, maxlength: 50, required: true },
 });
 
+// Sprint 92. Sprint 91 deliberately left this collection unindexed, and was
+// right at the time: nothing narrowed it, so an index would have been pure
+// write cost. Bounding the route on `timestamp` creates the query shape that
+// justifies one. Descending because every read wants the most recent first.
+// ⚠ No isArchived here — AuditTrail is the one model without soft delete,
+// deliberately: an audit record that can be archived is not an audit record.
+auditTrailSchema.index({ timestamp: -1 });
+
 export default getModel("AuditTrail", auditTrailSchema);

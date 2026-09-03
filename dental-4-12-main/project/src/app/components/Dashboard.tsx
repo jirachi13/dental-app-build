@@ -40,6 +40,7 @@ import { useAppointments } from '../hooks/useAppointments';
 import { useRPCTracking } from '../hooks/useRPCTracking';
 import { apiClient } from '../api/client';
 import type { ApiUser, ApiTreatment, ApiStudentIptr, ApiAuditTrail, ApiRiskStratification } from '../api/types';
+import { windowStart, AUDIT_WINDOW_DAYS } from '../hooks/useAuditTrail';
 import { treatmentCodes, treatmentLabel } from './DentalChart';
 
 export const Dashboard = () => {
@@ -88,7 +89,14 @@ export const Dashboard = () => {
           apiClient.get<ApiTreatment[]>('/treatments'),
           apiClient.get<ApiStudentIptr[]>('/student-iptrs'),
           apiClient.get<{ _id: string; iptr_id: string }[]>('/dental-charts'),
-          user?.role === 'system_admin' ? apiClient.get<ApiAuditTrail[]>('/audit-trails') : Promise.resolve([]),
+          // Sprint 92: bounded to the same window the Audit Trail screen uses.
+          // Every consumer below wants recent activity (today's events, the
+          // busiest module today, the 5 most recent) EXCEPT actions-by-module,
+          // which counted all time — that chart's subtitle now says the window
+          // rather than letting a bounded count read as the whole history.
+          user?.role === 'system_admin'
+            ? apiClient.get<ApiAuditTrail[]>(`/audit-trails?from=${encodeURIComponent(windowStart().toISOString())}`)
+            : Promise.resolve([]),
           apiClient.get<{ chart_id: string; treatment_code?: string }[]>('/tooth-records'),
           apiClient.get<ApiRiskStratification[]>('/risk-stratifications'),
           apiClient.get<{ _id: string; iptr_id: string }[]>('/preventive-care-records'),
@@ -1431,7 +1439,7 @@ export const Dashboard = () => {
           {/* Actions by Module - Horizontal Bar Chart (real, from audit trail) */}
           <div className="bg-card p-4 rounded-xl border border-border">
             <h2 className="text-sm font-bold text-foreground mb-0.5">Actions by Module</h2>
-            <p className="text-[11px] text-muted-foreground mb-3">Audit-trail entries per data model</p>
+            <p className="text-[11px] text-muted-foreground mb-3">Audit-trail entries per data model · last {AUDIT_WINDOW_DAYS} days</p>
             <ChartBody ready={!extraLoading}>
             {actionsByModuleData.length === 0 ? (
               <NoDataYet message="No audit trail activity recorded yet." />

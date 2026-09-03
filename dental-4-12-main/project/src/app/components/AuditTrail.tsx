@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Search, Filter, Calendar, Download } from 'lucide-react';
-import { useAuditTrail } from '../hooks/useAuditTrail';
+import { useAuditTrail, windowStart, AUDIT_WINDOW_DAYS } from '../hooks/useAuditTrail';
 import { exportToCsv, type ExportColumn } from '../utils/exportCsv';
 import { exportToXlsx } from '../utils/exportXlsx';
 import { ExportMenu, type ExportFormat } from './ExportMenu';
@@ -8,12 +8,29 @@ import { toLocalDateString, formatDateTime } from '../utils/localDate';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 
 export const AuditTrail = () => {
-  const { logs, loading, error } = useAuditTrail();
   const [searchTerm, setSearchTerm] = useState('');
   const [userFilter, setUserFilter] = useState('all');
   const [moduleFilter, setModuleFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  /** Set when the user asks for everything — no lower bound on the fetch. */
+  const [showAll, setShowAll] = useState(false);
+
+  // ⚠ THE FETCH FOLLOWS THE FILTER, and it has to (Sprint 92). The route is
+  // now date-bounded, so a Start Date earlier than the window would filter a
+  // set that was never fetched and report "No audit logs found" for a period
+  // that has plenty — a control that looks like it works and lies, which
+  // CLAUDE.md calls out by name. Asking for an earlier start widens the fetch.
+  const fetchFrom = useMemo(() => {
+    if (showAll) return null;
+    const def = windowStart();
+    if (!startDate) return def;
+    const picked = new Date(startDate);
+    if (Number.isNaN(picked.getTime())) return def;
+    return picked < def ? picked : def;
+  }, [showAll, startDate]);
+
+  const { logs, loading, error } = useAuditTrail(fetchFrom);
 
   const users = useMemo(() => ['all', ...new Set(logs.map((log) => log.user))], [logs]);
   const modules = useMemo(() => ['all', ...new Set(logs.map((log) => log.module))], [logs]);
@@ -79,9 +96,27 @@ export const AuditTrail = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Audit Trail</h1>
-          <p className="text-gray-600 mt-1">{filteredLogs.length} activity logs</p>
+          {/* Says WHICH logs are counted. A bare count over a bounded window
+              reads as the whole history and would understate it silently. */}
+          <p className="text-gray-600 mt-1">
+            {filteredLogs.length} activity {filteredLogs.length === 1 ? 'log' : 'logs'}
+            {' · '}
+            {fetchFrom === null
+              ? 'all time'
+              : `since ${fetchFrom.toLocaleDateString()}`}
+          </p>
         </div>
-        <ExportMenu onExport={handleExport} />
+        <div className="flex items-center gap-2">
+          {fetchFrom !== null && (
+            <button
+              onClick={() => setShowAll(true)}
+              className="px-3 py-2 text-sm font-medium border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+            >
+              Show earlier
+            </button>
+          )}
+          <ExportMenu onExport={handleExport} />
+        </div>
       </div>
 
       {/* Filters */}
@@ -219,6 +254,14 @@ export const AuditTrail = () => {
         <div className="py-12 text-center text-gray-500">
           <Filter className="w-8 h-8 mx-auto mb-2 opacity-30" />
           <p className="text-sm">No audit logs found matching your filters.</p>
+          {fetchFrom !== null && (
+            <p className="text-sm mt-1">
+              Only the last {AUDIT_WINDOW_DAYS} days are loaded —{' '}
+              <button onClick={() => setShowAll(true)} className="underline hover:text-gray-700">
+                show earlier
+              </button>.
+            </p>
+          )}
         </div>
       )}
     </div>

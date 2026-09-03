@@ -158,15 +158,23 @@ async function run() {
   await expectIndexPresent("Student", Student as any, ["isArchived", "school_id", "birthday"]);
   await expectIndexPresent("Appointment", Appointment as any, ["isArchived", "appointment_datetime"]);
 
-  // ⚠ Deliberately NOT indexed. School/User hold single-digit to low-double-digit
-  // rows, and RiskStratification/AuditTrail are only ever read whole — an index
-  // on a filter nothing narrows is write cost for nothing. AuditTrail's problem
-  // is that the read is unbounded, which an index does not fix.
+  // ⚠ Deliberately NOT indexed. School and User hold single-digit to
+  // low-double-digit rows, and RiskStratification is only ever read whole — an
+  // index on a filter nothing narrows is write cost for nothing.
   for (const [name, model] of [
-    ["School", School], ["User", User], ["RiskStratification", RiskStratification], ["AuditTrail", AuditTrail],
+    ["School", School], ["User", User], ["RiskStratification", RiskStratification],
   ] as [string, mongoose.Model<any>][]) {
     await expectNoPerformanceIndexes(name, model);
   }
+
+  // ⚠ AuditTrail MOVED OUT of the not-indexed list in Sprint 92, and the move
+  // is the point: Sprint 91 left it unindexed because nothing narrowed the
+  // collection, which was true then. Sprint 92 bounded the route on
+  // `timestamp`, creating the query shape that earns the index. The rule did
+  // not bend — the query changed.
+  await expectIndexPresent("AuditTrail", AuditTrail as any, ["timestamp"]);
+  await expectIndexScan("AuditTrail windowed read", AuditTrail as any,
+    { timestamp: { $gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) } });
 
   console.log(`\n${pass}/${pass + fail} passed\n`);
   await mongoose.disconnect();
