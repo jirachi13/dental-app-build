@@ -25,11 +25,16 @@ const NO_SOURCE_MARK = '—';
 // where there is nothing to report. A blank cell on a DOH form is meaningful,
 // and a form missing columns is not the form.
 //
-// HONESTY: the Services Rendered rows are shown but NOT populated. Per-visit
-// services are recorded nowhere — PREVENTIVE_CARE_RECORD stores only
-// `iptr_id`, `visit_date` and `visit_number` (the same limitation the Target
-// Client List hits). Oral Health Status rows ARE real, summed from the same
-// source the DOH Consolidated report uses.
+// HONESTY: Oral Health Status rows are real, summed from the same source the
+// DOH Consolidated report uses. Services Rendered became real in Sprint 90 —
+// ⚠ THE OLD NOTE HERE ("shown but NOT populated") IS SUPERSEDED, and so is its
+// reasoning. It said per-visit services are recorded nowhere because
+// PREVENTIVE_CARE_RECORD stores only `iptr_id`, `visit_date` and
+// `visit_number`. True, and beside the point: the services were on
+// TOOTH_RECORD.treatment_code the whole time, reachable through
+// DENTAL_CHART.iptr_id. What genuinely has no source is narrower —
+// Oral Health Counselling and Root Surface Protection have no treatment code
+// in the system, so those two rows still print "—" on purpose.
 
 const AGE_BANDS = ['4 yrs & below', '5-9 yrs', '10-14 yrs', '15-19 yrs', '20 yrs & above'] as const;
 type AgeBand = typeof AGE_BANDS[number];
@@ -210,8 +215,8 @@ const SERVICE_ROWS: Row[] = [
     label: 'Number of patients given OP / Scaling',
     field: null,
     subRows: [
-      { key: 'op_scaling_1st', label: '1st Scaling', field: null },
-      { key: 'op_scaling_2nd', label: '2nd Scaling', field: null },
+      { key: 'op_scaling_1st', label: '1st Scaling', field: 'op_scaling_1st' },
+      { key: 'op_scaling_2nd', label: '2nd Scaling', field: 'op_scaling_2nd' },
     ],
   },
   {
@@ -219,8 +224,8 @@ const SERVICE_ROWS: Row[] = [
     label: 'Number of patients given Fluoride Varnish',
     field: null,
     subRows: [
-      { key: 'fluoride_1st', label: '1st Application', field: null },
-      { key: 'fluoride_2nd', label: '2nd Application', field: null },
+      { key: 'fluoride_1st', label: '1st Application', field: 'fv_1st' },
+      { key: 'fluoride_2nd', label: '2nd Application', field: 'fv_2nd' },
     ],
   },
   {
@@ -228,8 +233,8 @@ const SERVICE_ROWS: Row[] = [
     label: 'Number of patients given Silver Diamine Fluoride (SDF)',
     field: null,
     subRows: [
-      { key: 'sdf_1st', label: '1st Application', field: null },
-      { key: 'sdf_2nd', label: '2nd Application', field: null },
+      { key: 'sdf_1st', label: '1st Application', field: 'sdf_1st' },
+      { key: 'sdf_2nd', label: '2nd Application', field: 'sdf_2nd' },
     ],
   },
   {
@@ -237,8 +242,8 @@ const SERVICE_ROWS: Row[] = [
     label: 'Number of patients given ART',
     field: null,
     subRows: [
-      { key: 'art_head', label: 'Head Count', field: null },
-      { key: 'art_tooth', label: 'Tooth Count', field: null },
+      { key: 'art_head', label: 'Head Count', field: 'art_head' },
+      { key: 'art_tooth', label: 'Tooth Count', field: 'art_tooth' },
     ],
   },
   {
@@ -246,8 +251,8 @@ const SERVICE_ROWS: Row[] = [
     label: 'Number of patients given Sealants',
     field: null,
     subRows: [
-      { key: 'sealants_head', label: 'Head Count', field: null },
-      { key: 'sealants_tooth', label: 'Tooth Count', field: null },
+      { key: 'sealants_head', label: 'Head Count', field: 'sealant_head' },
+      { key: 'sealants_tooth', label: 'Tooth Count', field: 'sealant_tooth' },
     ],
   },
   {
@@ -265,8 +270,8 @@ const SERVICE_ROWS: Row[] = [
     label: 'Number of patients who had Tooth Extraction',
     field: null,
     subRows: [
-      { key: 'extraction_head', label: 'Head Count', field: null },
-      { key: 'extraction_tooth', label: 'Tooth Count', field: null },
+      { key: 'extraction_head', label: 'Head Count', field: 'extraction_head' },
+      { key: 'extraction_tooth', label: 'Tooth Count', field: 'extraction_tooth' },
     ],
   },
 ];

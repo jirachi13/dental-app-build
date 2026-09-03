@@ -10,7 +10,81 @@ import type {
   ApiOralHealthCondition,
   ApiPreventiveCareRecord,
   ApiRiskStratification,
+  ApiDentalChart,
+  ApiToothRecord,
 } from '../api/types';
+
+// ─── Section C — Services Rendered (Sprint 90) ───────────────────────────────
+// Until now every Services Rendered row was `field: null` and the whole section
+// printed dashes. The source was there the whole time: TOOTH_RECORD carries a
+// `treatment_code`, and DENTAL_CHART hangs off `iptr_id`, so a service can be
+// attributed to the right school year, age band and sex without a schema
+// change.
+//
+// ⚠ `treatment_code`, NEVER `condition`. `X` means Extraction as a TREATMENT
+// and "indicated for extraction" as a CONDITION (see the durable gotcha about
+// X/x). Reading the wrong column here would report every tooth flagged for
+// extraction as one already pulled.
+
+/** Services the form reports as 1st / 2nd application.
+ *
+ *  ⚠ THE ORDINAL IS DERIVED FROM CHART DATES, and that is an interpretation
+ *  worth understanding. Nothing records "this was the 2nd application":
+ *  PREVENTIVE_CARE_RECORD stores no services at all. So within ONE school
+ *  year's IPTR, the student's charts are ordered by `date_charted` and the
+ *  first chart carrying the code is the 1st application, the second is the
+ *  2nd. Counting occurrences WITHIN a chart would be wrong — several teeth
+ *  varnished in one sitting is one application, not five. */
+const ORDINAL_TREATMENTS: Record<string, string> = {
+  OP: 'op_scaling',
+  FV: 'fv',
+  SDF: 'sdf',
+};
+
+/** Services the form reports as Head Count / Tooth Count.
+ *
+ *  ⚠ `TR` for ART is the mapping the TARGET CLIENT LIST already uses
+ *  (`TargetClientList.tsx:276`, "ART/Glass Ionomer Filling"). Following it
+ *  keeps the two DOH returns consistent; inventing a second answer here would
+ *  make two filed forms disagree about the same treatments. */
+const HEAD_TOOTH_TREATMENTS: Record<string, string> = {
+  TR: 'art',
+  PFS: 'sealant',
+  X: 'extraction',
+};
+
+/** Per-IPTR service tallies: teeth treated per code, and how many SITTINGS
+ *  (charts) carried each code.
+ *
+ *  Exported and pure so it can be tested against controlled input. That is not
+ *  a nicety here: **no tooth record in the demo database carries a
+ *  `treatment_code` at all** (verified 2026-09-03 — all 27 have only a
+ *  `condition`), so every Services Rendered figure is legitimately 0 and the
+ *  live data cannot demonstrate that the arithmetic is right. The distinction
+ *  this function exists to get right — four sealants in one visit is ONE
+ *  patient, FOUR teeth and ONE application — is exactly what a screen full of
+ *  zeros cannot show. */
+export function tallyIptrServices(
+  charts: ApiDentalChart[],
+  toothByChart: Map<string, ApiToothRecord[]>,
+): { teethByCode: Record<string, number>; sittingsByCode: Record<string, number> } {
+  const teethByCode: Record<string, number> = {};
+  const sittingsByCode: Record<string, number> = {};
+  const ordered = charts
+    .slice()
+    .sort((a, b) => new Date(a.date_charted).getTime() - new Date(b.date_charted).getTime());
+  for (const chart of ordered) {
+    const inThisChart = new Set<string>();
+    for (const tooth of toothByChart.get(chart._id) ?? []) {
+      const code = tooth.treatment_code;
+      if (!code) continue;
+      teethByCode[code] = (teethByCode[code] ?? 0) + 1;
+      inThisChart.add(code);
+    }
+    for (const code of inThisChart) sittingsByCode[code] = (sittingsByCode[code] ?? 0) + 1;
+  }
+  return { teethByCode, sittingsByCode };
+}
 
 // Fields with a direct, defensible mapping to real seeded data. Everything
 // else in the DOH table (Services Rendered, and a handful of oral-health/DMF
@@ -128,7 +202,12 @@ export function useDohReportData(schoolYear: string | null = null, schoolName: s
     beginLoad();
 
     try {
-      const [schools, students, iptrs, medicals, dietaries, orals, preventives, risks] = await Promise.all([
+      // ⚠ Two more whole-collection reads (charts + tooth records), on a hook
+      // already listed under the unbounded-reads work (Open work 0b / 24).
+      // Accepted deliberately: without them Services Rendered cannot be filled
+      // at all, and the same two collections are already fetched this way by
+      // useRPCTracking. It makes the pagination work more urgent, not less.
+      const [schools, students, iptrs, medicals, dietaries, orals, preventives, risks, charts, toothRecords] = await Promise.all([
         apiClient.get<ApiSchool[]>('/schools'),
         apiClient.get<ApiStudent[]>('/students'),
         apiClient.get<ApiStudentIptr[]>('/student-iptrs'),
@@ -137,6 +216,8 @@ export function useDohReportData(schoolYear: string | null = null, schoolName: s
         apiClient.get<ApiOralHealthCondition[]>('/oral-health-conditions'),
         apiClient.get<ApiPreventiveCareRecord[]>('/preventive-care-records'),
         apiClient.get<ApiRiskStratification[]>('/risk-stratifications'),
+        apiClient.get<ApiDentalChart[]>('/dental-charts'),
+        apiClient.get<ApiToothRecord[]>('/tooth-records'),
       ]);
 
       // Scope to one school. Matched on school_id rather than the display name:
@@ -205,7 +286,22 @@ export function useDohReportData(schoolYear: string | null = null, schoolName: s
         if (p) riskByIptr.set(p.iptr_id, r);
       }
 
-      const increment = (map: Map<string, number>, key: string) => map.set(key, (map.get(key) ?? 0) + 1);
+      // Charts belong to an IPTR, so a service lands in the right school year
+      // by construction — the same join Sprint 88's summary sheet uses.
+      const chartsByIptr = new Map<string, ApiDentalChart[]>();
+      for (const c of charts) {
+        const list = chartsByIptr.get(c.iptr_id) ?? [];
+        list.push(c);
+        chartsByIptr.set(c.iptr_id, list);
+      }
+      const toothByChart = new Map<string, ApiToothRecord[]>();
+      for (const t of toothRecords) {
+        const list = toothByChart.get(t.chart_id) ?? [];
+        list.push(t);
+        toothByChart.set(t.chart_id, list);
+      }
+
+      const increment = (map: Map<string, number>, key: string, by = 1) => map.set(key, (map.get(key) ?? 0) + by);
       const result = new Map<string, number>();
 
       // One pass per IPTR, not per student. Grade and age now belong to the
@@ -225,9 +321,9 @@ export function useDohReportData(schoolYear: string | null = null, schoolName: s
           // total across grades (the OHPRF) read the latter, so a record whose
           // grade predates Sprint 57a still counts toward the total instead of
           // silently vanishing from a submitted figure.
-          const bump = (field: string) => {
-            increment(result, `${grade}|${age}|${sex}|${field}`);
-            increment(result, `${GRADE_ALL}|${age}|${sex}|${field}`);
+          const bump = (field: string, by = 1) => {
+            increment(result, `${grade}|${age}|${sex}|${field}`, by);
+            increment(result, `${GRADE_ALL}|${age}|${sex}|${field}`, by);
           };
 
           const medical = medicalByIptr.get(iptrId);
@@ -276,6 +372,30 @@ export function useDohReportData(schoolYear: string | null = null, schoolName: s
             if (visits.hasVisit2) bump('rpoc_visit2');
             if (visits.firstFacility === true) bump('visit_facility_1st');
             if (visits.firstFacility === false) bump('visit_nonfacility_1st');
+          }
+
+          // ── Section C, Services Rendered (Sprint 90) ─────────────────────
+          // Two different shapes from one walk of this IPTR's charts:
+          //   · teeth — every tooth record carrying the code
+          //   · sittings — how many CHARTS carried it at all, which is what
+          //     "1st / 2nd application" means. Five teeth varnished in one
+          //     visit is one application.
+          const { teethByCode, sittingsByCode } =
+            tallyIptrServices(chartsByIptr.get(iptrId) ?? [], toothByChart);
+          for (const [code, field] of Object.entries(ORDINAL_TREATMENTS)) {
+            const sittings = sittingsByCode[code] ?? 0;
+            // A patient counts in BOTH rows when they had two applications —
+            // the form asks how many patients received a 1st and how many
+            // received a 2nd, not which was their last.
+            if (sittings >= 1) bump(`${field}_1st`);
+            if (sittings >= 2) bump(`${field}_2nd`);
+          }
+          for (const [code, field] of Object.entries(HEAD_TOOTH_TREATMENTS)) {
+            const teeth = teethByCode[code] ?? 0;
+            if (teeth > 0) {
+              bump(`${field}_head`);      // one patient
+              bump(`${field}_tooth`, teeth); // however many teeth
+            }
           }
 
           // DMF/dmf and OFC come from RiskStratification rather than a per-field
@@ -343,6 +463,14 @@ export function useDohReportData(schoolYear: string | null = null, schoolName: s
     'rpoc_visit2',
     'visit_facility_1st',
     'visit_nonfacility_1st',
+    // Sprint 90 — Services Rendered, from TOOTH_RECORD.treatment_code.
+    // ⚠ This allowlist is what keeps "no source" honest: a field NOT named
+    // here returns null and the form prints "—". So the rows still absent
+    // below are absent ON PURPOSE — Oral Health Counselling and Root Surface
+    // Protection have no treatment code in the system, and inventing a
+    // mapping for them would put a fabricated number on a filed return.
+    ...Object.values(ORDINAL_TREATMENTS).flatMap((f) => [`${f}_1st`, `${f}_2nd`]),
+    ...Object.values(HEAD_TOOTH_TREATMENTS).flatMap((f) => [`${f}_head`, `${f}_tooth`]),
   ]);
 
   function getRealCount(grade: string, age: string, sex: 'M' | 'F', field: string): number | null {
