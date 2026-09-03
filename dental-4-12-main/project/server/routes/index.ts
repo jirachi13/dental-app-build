@@ -100,6 +100,88 @@ router.get("/stats/high-risk-count", requireAuth, asyncHandler(async (req, res) 
   res.json({ count });
 }));
 
+// Notification counts for the sidebar bell (Sprint 97).
+//
+// ⚠ SERVER-SIDE BECAUSE THE SIDEBAR IS ON EVERY SCREEN. The three sources live
+// in `useRPCTracking` (six whole collections) and `useAppointments`; mounting
+// those in the sidebar would multiply the app's largest reads across every
+// page. This joins the same data once and returns three integers.
+//
+// ⚠ COUNTS ONLY, AND NOTHING IS INVENTED. There is no NOTIFICATION model, no
+// read/unread state and no per-item text — those would need a schema change and
+// a decision about persistence. Each count links to the screen that already
+// shows the detail, so the bell points at real records rather than paraphrasing
+// them (CLAUDE.md: a control that appears to work must work).
+router.get("/stats/notifications", requireAuth, asyncHandler(async (req, res) => {
+  const schoolName = typeof req.query.school === "string" ? req.query.school : null;
+  let studentFilter: Record<string, unknown> = { isArchived: false };
+  if (schoolName) {
+    const school = await School.findOne({ school_name: schoolName, isArchived: false }).select("_id").lean<{ _id: unknown } | null>();
+    if (!school) { res.json({ overdueRpc: 0, appointmentsToday: 0, awaitingValidation: 0 }); return; }
+    studentFilter = { ...studentFilter, school_id: school._id };
+  }
+
+  // Today in the SERVER's local day. The clinic and the server share a
+  // timezone; if that ever stops being true this needs the client's offset,
+  // because "today's appointments" is a local-day question, not a UTC one.
+  const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);
+
+  const [students, iptrs, preventives, risks, appointmentsToday] = await Promise.all([
+    Student.find(studentFilter).select("_id").lean(),
+    StudentIptr.find({ isArchived: false }).select("_id student_id").lean(),
+    PreventiveCareRecord.find({ isArchived: false }).select("iptr_id visit_number visit_date").lean(),
+    RiskStratification.find({ isArchived: false }).select("preventive_id validated_by_dentist").lean(),
+    Appointment.countDocuments({
+      isArchived: false,
+      appointment_datetime: { $gte: dayStart, $lt: dayEnd },
+    }),
+  ]);
+
+  const inScope = new Set(students.map((s) => String(s._id)));
+  const scopedIptrIds = new Set(
+    iptrs.filter((i) => inScope.has(String(i.student_id))).map((i) => String(i._id)),
+  );
+
+  // ⚠ MIRRORS useRPCTracking's definition EXACTLY: visit 1 recorded, visit 2
+  // NOT, and more than RPC_INTERVAL_DAYS (150) elapsed. If that rule ever
+  // changes, both places change — a bell that disagrees with the screen it
+  // links to is worse than no bell.
+  const RPC_INTERVAL_DAYS = 150;
+  const MS_PER_DAY = 24 * 60 * 60 * 1000;
+  const visits = new Map<string, { first: number | null; hasSecond: boolean }>();
+  for (const p of preventives) {
+    const key = String(p.iptr_id);
+    if (!scopedIptrIds.has(key)) continue;
+    const entry = visits.get(key) ?? { first: null, hasSecond: false };
+    if (p.visit_number === 2) entry.hasSecond = true;
+    if (p.visit_number === 1 && p.visit_date) {
+      const t = new Date(p.visit_date as unknown as string).getTime();
+      if (!Number.isNaN(t) && (entry.first === null || t < entry.first)) entry.first = t;
+    }
+    visits.set(key, entry);
+  }
+  const now = Date.now();
+  let overdueRpc = 0;
+  for (const { first, hasSecond } of visits.values()) {
+    if (hasSecond || first === null) continue;
+    if (Math.floor((now - first) / MS_PER_DAY) > RPC_INTERVAL_DAYS) overdueRpc++;
+  }
+
+  const preventiveIptr = new Map(preventives.map((p) => [String((p as { _id?: unknown })._id), String(p.iptr_id)]));
+  let awaitingValidation = 0;
+  for (const r of risks) {
+    if (r.validated_by_dentist) continue;
+    const iptrId = preventiveIptr.get(String(r.preventive_id));
+    // A risk row whose preventive record is outside the selected school must
+    // not be counted; without the scope check the badge would ignore the
+    // school switcher entirely.
+    if (iptrId && scopedIptrIds.has(iptrId)) awaitingValidation++;
+  }
+
+  res.json({ overdueRpc, appointmentsToday, awaitingValidation });
+}));
+
 // The patient-list row, joined server-side (Sprint 56b). Same join as the
 // badge above, one level richer: every screen that shows a student list needs
 // name, grade, school, last visit and risk, and useStudents used to build that

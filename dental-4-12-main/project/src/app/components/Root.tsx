@@ -4,10 +4,11 @@ import {
   LayoutDashboard, Users, Calendar, Brain,
   ClipboardList, LogOut, Stethoscope, Shield,
   Clipboard, FileBarChart, UserCog, KeyRound,
-  ChevronLeft, ChevronRight, Menu, X, School, Archive
+  ChevronLeft, ChevronRight, Menu, X, School, Archive, Bell
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
+import { useNotifications, NOTIFIED_ROLES } from '../hooks/useNotifications';
 import { apiClient, ApiError } from '../api/client';
 import { useToast } from './Toast';
 import { Modal } from './Modal';
@@ -26,6 +27,7 @@ export const Root = () => {
   // Desktop-only manual collapse. Not persisted per-breakpoint: below md the
   // sidebar is an off-canvas drawer and `collapsed` is ignored entirely.
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('sidebarCollapsed') === 'true');
+  const [showNotifications, setShowNotifications] = useState(false);
   const toggleCollapsed = () => {
     setCollapsed((prev) => {
       localStorage.setItem('sidebarCollapsed', String(!prev));
@@ -88,6 +90,24 @@ export const Root = () => {
       .then((r) => setHighRiskCount(r.count))
       .catch(() => setHighRiskCount(0));
   }, [user?.role, selectedSchool]);
+
+  // Sidebar bell (Sprint 97). One server aggregate, same pattern as the badge
+  // above — the sidebar renders on every screen, so it must not mount the
+  // six-collection hooks these counts come from.
+  const {
+    counts: notifCounts,
+    error: notifError,
+  } = useNotifications(NOTIFIED_ROLES.includes(user?.role ?? ''), selectedSchool);
+
+  // ⚠ THE BADGE COUNTS ONLY THE ROWS THIS ROLE CAN SEE. Risk validation is
+  // dentist-only (nav tab 5), so for an aide or admin that row is hidden — and
+  // a badge saying "3" above a list showing two items is the kind of number
+  // nobody can reconcile. The hook's own `total` is deliberately not used here.
+  const canValidateRisk = user?.role === 'dentist';
+  const notifTotal =
+    notifCounts.overdueRpc +
+    notifCounts.appointmentsToday +
+    (canValidateRisk ? notifCounts.awaitingValidation : 0);
 
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -373,6 +393,63 @@ export const Root = () => {
             <TabLink key={tab.id} tab={tab} />
           ))}
         </nav>
+
+        {/* Notifications — ABOVE Logout, as the P2 doc asked ("notifications
+            above ng log out"). Hidden entirely for School Admin and BHO staff:
+            they view reports, never clinical records, so every count would be
+            both zero and none of their business. */}
+        {NOTIFIED_ROLES.includes(user.role) && (
+          <div className="border-t border-border px-4 pt-3">
+            <button
+              onClick={() => setShowNotifications((v) => !v)}
+              aria-expanded={showNotifications}
+              title={collapsed ? `Notifications${notifTotal ? ` (${notifTotal})` : ''}` : undefined}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-muted-foreground hover:bg-muted rounded-lg transition-colors justify-start ${collapsed ? 'md:justify-center' : 'md:justify-start'}`}
+            >
+              <span className="relative flex-shrink-0">
+                <Bell className="w-5 h-5" />
+                {notifTotal > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-1 rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center">
+                    {notifTotal > 99 ? '99+' : notifTotal}
+                  </span>
+                )}
+              </span>
+              <span className={`${labelCls} text-sm font-medium`}>Notifications</span>
+            </button>
+
+            {/* ⚠ COUNTS ONLY, EACH LINKING TO THE SCREEN THAT HOLDS THE DETAIL.
+                There is no NOTIFICATION model and no read/unread state — those
+                need a schema change and a decision about persistence. Anything
+                else here would be paraphrased or invented. */}
+            {showNotifications && !collapsed && (
+              <div className="mt-1 mb-2 rounded-lg bg-muted/60 p-2 space-y-1">
+                {notifTotal === 0 && (
+                  <p className="text-xs text-muted-foreground px-1 py-1">
+                    {notifError ? 'Counts unavailable right now.' : 'Nothing needs attention.'}
+                  </p>
+                )}
+                {notifCounts.overdueRpc > 0 && (
+                  <Link to="/rpc" onClick={() => setShowNotifications(false)}
+                    className="block text-xs px-2 py-1.5 rounded hover:bg-card text-foreground">
+                    <span className="font-semibold text-destructive">{notifCounts.overdueRpc}</span> overdue RPC visit{notifCounts.overdueRpc === 1 ? '' : 's'}
+                  </Link>
+                )}
+                {notifCounts.appointmentsToday > 0 && (
+                  <Link to="/appointments" onClick={() => setShowNotifications(false)}
+                    className="block text-xs px-2 py-1.5 rounded hover:bg-card text-foreground">
+                    <span className="font-semibold text-primary">{notifCounts.appointmentsToday}</span> appointment{notifCounts.appointmentsToday === 1 ? '' : 's'} today
+                  </Link>
+                )}
+                {notifCounts.awaitingValidation > 0 && canValidateRisk && (
+                  <Link to="/ai-analytics" onClick={() => setShowNotifications(false)}
+                    className="block text-xs px-2 py-1.5 rounded hover:bg-card text-foreground">
+                    <span className="font-semibold text-warning">{notifCounts.awaitingValidation}</span> risk assessment{notifCounts.awaitingValidation === 1 ? '' : 's'} awaiting validation
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* User info + logout */}
         <div className="border-t border-border p-4">
