@@ -16,7 +16,12 @@ const OUT = join(REPO, 'docs', 'figures', 'sprint33');
 if (!existsSync(OUT)) mkdirSync(OUT, { recursive: true });
 
 const env = {};
-for (const line of readFileSync(join(HERE, '.env'), 'utf8').split('\n')) {
+// ⚠ Split on /\r?\n/, not '\n'. The repo checks out with CRLF endings, so every
+// line kept a trailing \r — and \r is a LINE TERMINATOR in a JS regex, so the
+// `(.*)$` below never matched and this parser silently produced an EMPTY env.
+// It surfaced as `page.fill: expected string, got undefined`, which reads like
+// a selector problem rather than a parsing one.
+for (const line of readFileSync(join(HERE, '.env'), 'utf8').split(/\r?\n/)) {
   const m = line.match(/^([A-Z_]+)=(.*)$/);
   if (m) env[m[1]] = m[2].trim();
 }

@@ -327,6 +327,26 @@ export const Root = () => {
             screen already treats a null selection as "all", so nothing
             downstream had to change. Hidden for single-school accounts, where
             a one-option picker is noise. */}
+        {/* ⚠ COLLAPSED SIDEBAR USED TO LOSE THIS CONTROL ENTIRELY (fixed Sprint
+            95, reported by the user as "switching schools now missing").
+            The dropdown below is `hidden md:hidden` when collapsed — sensible,
+            since a <select> is unusable in a 60px rail — but nothing took its
+            place, unlike the footer's Change Password and Logout, which keep
+            their icons and a tooltip. And `sidebarCollapsed` PERSISTS in
+            localStorage, so one collapse hid the switcher for good: it reads as
+            a feature that vanished, not as a layout state.
+            The icon button expands the sidebar rather than hiding a menu behind
+            a 60px rail — one click, and the real control is there. */}
+        {(user.schools.length > 1) && collapsed && (
+          <button
+            onClick={() => setCollapsed(false)}
+            title={`Viewing ${selectedSchool ? getSchoolShortName(selectedSchool) : 'all schools'} — click to change school`}
+            aria-label={`Change school. Currently viewing ${selectedSchool ? getSchoolShortName(selectedSchool) : 'all schools'}`}
+            className="hidden md:flex mx-3 my-2 px-0 py-2 rounded-lg bg-primary-surface w-[calc(100%-24px)] items-center justify-center text-primary hover:bg-primary-surface/70 transition-colors"
+          >
+            <School className="w-5 h-5" />
+          </button>
+        )}
         {(user.schools.length > 1) && (
           <div className={`mx-3 my-2 px-3 py-2 rounded-lg bg-primary-surface w-[calc(100%-24px)] ${collapsed ? 'hidden md:hidden' : 'block'}`}>
             <label htmlFor="school-switcher" className="block text-[11px] font-medium text-blue-700 leading-none mb-1">
