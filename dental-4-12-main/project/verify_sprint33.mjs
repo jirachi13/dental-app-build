@@ -81,9 +81,29 @@ const browser = await chromium.launch();
   }
   check('all nav labels visible', missing.length === 0, missing.length ? `missing: ${missing.join(', ')}` : `${expected.length}/${expected.length}`);
 
-  // 5. school switcher reachable (was impossible on mobile)
-  const switcher = drawer.getByRole('button', { name: /switch/i }).first();
-  check('school switcher reachable', (await switcher.count()) > 0 && await switcher.isVisible());
+  // 5. The school in view is reachable on mobile (was impossible before).
+  //
+  // ⚠ REWRITTEN 2026-09-03. This asserted a "Switch School" BUTTON, which
+  // Sprint 67 deliberately replaced with a <select id="school-switcher"> that is
+  // HIDDEN for single-school accounts ("a one-option picker is noise"). The
+  // check had been failing against correct code ever since — it was testing a
+  // control the design had removed, not a regression.
+  //
+  // What must hold now is the durable requirement, which survives that change:
+  // a mobile user can always SEE which school they are in, and can CHANGE it
+  // whenever the account actually has more than one.
+  const switcher = drawer.locator('#school-switcher');
+  const schoolCount = await switcher.locator('option').count(); // 0 when absent
+  if (schoolCount > 0) {
+    check('school switcher reachable in the drawer (multi-school account)', await switcher.isVisible());
+  } else {
+    // Single-school account: the dropdown is correctly absent, so the top bar
+    // must still name the school.
+    const chip = page.locator('header span').last();
+    check('single-school account: the school is still named on screen',
+      (await chip.count()) > 0 && (await chip.innerText()).trim().length > 0,
+      'no school name visible in the mobile header');
+  }
 
   // 6. identity visible
   check('user name visible', await drawer.getByText(/Dr\. Maria Santos/i).first().isVisible().catch(() => false));

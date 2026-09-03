@@ -40,6 +40,16 @@ The printed Target Client List is **two physical sheets sharing one set of 25 nu
 
 **Still true and still user-gated:** the roster is on SY 2025-2026 while today is 2026-2027, so recording a visit dated today is blocked for 24 of 26 students (Sprint 81). Sprint 74's Promote/Assign fixes it but changes the demo data every Chapter 4 figure shows.
 
+## verify_sprint33.mjs repaired (2026-09-03) — 25/25
+Requested by the user after Sprint 98. Two INDEPENDENT faults, and the second is the interesting one.
+
+1. **Its hand-rolled `.env` parser produced an EMPTY env** (fixed during Sprint 95). It split on `'
+'`, and with the repo's CRLF checkout every line kept a trailing `` — **`` is a LINE TERMINATOR in a JS regex**, so `(.*)$` never matched. It surfaced as `page.fill: expected string, got undefined`, which reads like a selector problem.
+2. **⚠ A CHECK THAT HAD BEEN FAILING AGAINST CORRECT CODE.** It asserted a *"Switch School" BUTTON* in the mobile drawer — the Sprint 33-era control. **Sprint 67 deliberately replaced it** with a `<select id="school-switcher">` that is **hidden for single-school accounts** ("a one-option picker is noise"), and the demo dentist has one school. The verifier was testing a control the design had removed. **This is the failure mode to watch for in old verifiers: not a regression, a stale expectation.**
+   - Rewritten to the requirement that SURVIVES the redesign: a mobile user can always **see** which school they are in, and can **change** it whenever the account genuinely has more than one. It now branches on the option count rather than assuming a control.
+
+⚠ **My earlier diagnosis was wrong and is corrected here:** Sprint 95's note said the remaining failure was the login helper predating Sprint 67's school gate. It was not — login works fine (a single-school dentist never sees the gate). The real cause was the stale switcher assertion.
+
 ## Sprint 98 (demo treatments seeded — Services Rendered stops reading zero) — DONE 2026-09-03 (tsc + build clean; verify_sprint90 31/31)
 Sprint 90 wired Services Rendered to `TOOTH_RECORD.treatment_code` and every figure read **0** — correctly, because **not one tooth record carried a treatment code** and 21 of the 23 charts had no tooth records at all. The section was right; the data was empty. `npm run seed:treatments` fills it.
 
@@ -118,7 +128,7 @@ Closes the pre-existing contrast problem Sprint 94's sweep measured and delibera
 ` is a LINE TERMINATOR in a JS regex**, so `(.*)$` never matched and the parser produced an EMPTY env. It surfaced as `page.fill: expected string, got undefined`, which reads like a selector problem. Fixed to split on `/
 ?
 /`.
-- ⚠ **That verifier is still not passing, for a SECOND, unrelated reason: its login helper predates Sprint 67's school gate** and cannot get past the picker, so it never reaches the drawer. **Not fixed here, and not evidence of a mobile regression** — the drawer was opened directly at 390px during this sprint and carries the switcher correctly. Repairing that helper is its own small job.
+- ~~⚠ **That verifier is still not passing, for a SECOND, unrelated reason: its login helper predates Sprint 67's school gate**~~ **THAT DIAGNOSIS WAS WRONG — login works; a single-school dentist never sees the gate. The real cause was a STALE ASSERTION (a "Switch School" button Sprint 67 removed), repaired 2026-09-03 — see the section above. Now 25/25.** Not evidence of a mobile regression — the drawer was opened directly at 390px during this sprint and carries the switcher correctly. Repairing that helper is its own small job.
 
 ## Sprint 94 (hardcoded greys migrated to design tokens) — DONE 2026-09-03 (tsc + build clean; 16/16)
 The dark-mode prerequisite Sprint 93 identified. **150 `text-gray-*` occurrences across 17 files** now use tokens: `gray-900/800/700 → text-foreground`, `gray-600/500 → text-muted-foreground`. Biggest concentrations: AIAnalytics (38), Login (26), AuditTrail (23).
