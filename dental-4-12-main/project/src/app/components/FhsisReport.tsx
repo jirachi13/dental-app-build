@@ -20,12 +20,18 @@ import { SkeletonTable } from './Skeleton';
 // WHAT IS DELIBERATELY BLANK (CLAUDE.md, NOTHING COSMETIC — the form keeps all
 // its rows, and a blank cell on a DOH form is meaningful):
 //
-//  * The `a` (facility-based) and `b` (non-facility-based) sub-rows. The paper
-//    Target Client List records this per patient as "Facility Based 0/1", but
-//    Floral has NO such field anywhere — verified 2026-09-02. Splitting the
-//    total on an assumption ("school screening must be non-facility") would
-//    invent a number on a form filed with the City Health Office, so both
-//    sub-rows render "—" and the total carries the real figure.
+//  * The `a` (facility-based) and `b` (non-facility-based) sub-rows, WHERE THE
+//    FLAG IS UNRECORDED. Sprint 81 added PREVENTIVE_CARE_RECORD.facility_based
+//    and a way to set it when recording a visit, so these rows now carry real
+//    counts for visits recorded since. They default to NULL, though, so every
+//    visit created before that has no answer: a cell with nothing flagged still
+//    renders "—" rather than "0", because "0" claims nobody had facility-based
+//    care where "—" says it was not recorded. When a cell has SOME flagged
+//    visits and some not, the sub-rows show the real figures and the Remarks
+//    column states how many are unclassified — so `a + b` falling short of the
+//    total reads as missing data, not as an arithmetic error on a filed form.
+//    Splitting the total on an assumption ("school screening must be
+//    non-facility") would still be inventing a number, and is still not done.
 //  * The Pregnant Women block. No pregnancy is recorded anywhere in the
 //    schema, the same limitation the Oral Health Program Report hits.
 //
@@ -152,7 +158,7 @@ export const FhsisReport = ({ schoolName }: { schoolName: string }) => {
       —
     </td>
   );
-  const NO_FACILITY_FIELD = 'Not recorded by this system — the facility-based flag has no field in Floral.';
+  const NO_FACILITY_FIELD = 'Not recorded — no visit counted here has its facility-based flag set. The flag is optional when recording an RPC visit, and visits recorded before it existed have no value.';
   const NO_PREGNANCY = 'Not recorded by this system — no pregnancy field exists in the schema.';
 
   return (
@@ -254,7 +260,18 @@ export const FhsisReport = ({ schoolName }: { schoolName: string }) => {
                         <td className="border border-gray-300 px-2 py-1.5" />
                       </tr>
                       {hasSubRows &&
-                        (['a', 'b'] as const).map((suffix) => (
+                        (['a', 'b'] as const).map((suffix) => {
+                          const sub = suffix === 'a' ? c.facility : c.nonFacility;
+                          const unrecorded = c.unrecorded.male + c.unrecorded.female;
+                          // Only render figures once SOMETHING in this cell was
+                          // actually flagged. With every visit unflagged (all
+                          // pre-Sprint-81 data) a "0" would be a false claim —
+                          // "nobody had facility-based care" — where "—" is the
+                          // true one: not recorded. A true 0 and an unfillable
+                          // cell are different claims and the form shows them
+                          // differently.
+                          const anyFlagged = c.facility.male + c.facility.female + c.nonFacility.male + c.nonFacility.female > 0;
+                          return (
                           <tr key={`${measure.key}-${band.key}-${suffix}`} className="text-muted-foreground">
                             <td className="border border-gray-300 px-2 py-1.5 pl-6">
                               {n}
@@ -263,12 +280,22 @@ export const FhsisReport = ({ schoolName }: { schoolName: string }) => {
                               {suffix === 'a' ? 'facility-based' : 'non-facility-based'} oral health care professional
                               within a year
                             </td>
-                            {blank(NO_FACILITY_FIELD)}
-                            {blank(NO_FACILITY_FIELD)}
-                            {blank(NO_FACILITY_FIELD)}
-                            <td className="border border-gray-300 px-2 py-1.5 text-[11px]">not recorded</td>
+                            {anyFlagged ? cell(sub.male) : blank(NO_FACILITY_FIELD)}
+                            {anyFlagged ? cell(sub.female) : blank(NO_FACILITY_FIELD)}
+                            {anyFlagged ? cell(sub.male + sub.female) : blank(NO_FACILITY_FIELD)}
+                            <td className="border border-gray-300 px-2 py-1.5 text-[11px]">
+                              {!anyFlagged
+                                ? 'not recorded'
+                                : unrecorded > 0
+                                  // Says why a + b is short of the total, so the
+                                  // gap reads as missing data and not as an
+                                  // arithmetic error on a filed form.
+                                  ? `${unrecorded} visit${unrecorded === 1 ? '' : 's'} not classified`
+                                  : ''}
+                            </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                     </>
                   );
                 })}
@@ -300,9 +327,10 @@ export const FhsisReport = ({ schoolName }: { schoolName: string }) => {
         </table>
 
         <p className="mt-3 text-xs text-muted-foreground">
-          Counts come from recorded preventive-care visits for the selected month. Cells marked “—” are rows the
-          printed form carries but this system has no field for — the facility-based split and pregnancy status — and
-          are left blank rather than estimated.
+          Counts come from recorded preventive-care visits for the selected month. Cells marked “—” are left blank
+          rather than estimated: pregnancy status has no field in this system at all, and a facility-based sub-row is
+          blank when none of the visits counted in it were classified. Where some were, the sub-rows show real figures
+          and Remarks states how many visits are unclassified — so the two sub-rows may add up to less than the total.
         </p>
       </div>
     </div>

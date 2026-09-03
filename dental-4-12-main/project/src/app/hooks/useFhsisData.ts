@@ -48,11 +48,27 @@ export type Sex = 'male' | 'female';
  *  visit 1 inside the preceding year. */
 export type Measure = 'first' | 'completed';
 
-type Counts = Record<FhsisBandKey, Record<Measure, Record<Sex, number>>>;
+type Cell = Record<Sex, number>;
+/** `male`/`female` stay the BAND TOTAL, so existing callers are unchanged.
+ *  The three sub-tallies split that total by PREVENTIVE_CARE_RECORD
+ *  .facility_based for the form's `a`/`b` sub-rows. `unrecorded` is the
+ *  remainder — visits whose flag is null (everything created before Sprint 81)
+ *  — and it is carried explicitly rather than folded into either sub-row, so
+ *  a + b can be honestly less than the total instead of silently wrong. */
+export type MeasureCounts = Cell & { facility: Cell; nonFacility: Cell; unrecorded: Cell };
+type Counts = Record<FhsisBandKey, Record<Measure, MeasureCounts>>;
+
+const emptyCell = (): Cell => ({ male: 0, female: 0 });
+const emptyMeasure = (): MeasureCounts => ({
+  ...emptyCell(),
+  facility: emptyCell(),
+  nonFacility: emptyCell(),
+  unrecorded: emptyCell(),
+});
 
 const emptyCounts = (): Counts =>
   Object.fromEntries(
-    FHSIS_BANDS.map((b) => [b.key, { first: { male: 0, female: 0 }, completed: { male: 0, female: 0 } }]),
+    FHSIS_BANDS.map((b) => [b.key, { first: emptyMeasure(), completed: emptyMeasure() }]),
   ) as Counts;
 
 const sameMonth = (d: Date, month: string) =>
@@ -123,14 +139,23 @@ export function useFhsisData(month: string, schoolName: string) {
         const band = FHSIS_BANDS.find((b) => age >= b.min && age <= b.max);
         if (!band) continue;
 
+        // Adds one to the band total AND to whichever facility sub-tally the
+        // record's flag names. null (not recorded) lands in `unrecorded`, never
+        // in `a` or `b` — guessing it is exactly what this report refuses to do.
+        const tally = (m: MeasureCounts) => {
+          m[sex] += 1;
+          const bucket = p.facility_based === true ? m.facility : p.facility_based === false ? m.nonFacility : m.unrecorded;
+          bucket[sex] += 1;
+        };
+
         if (p.visit_number === 1) {
-          next[band.key].first[sex] += 1;
+          tally(next[band.key].first);
         } else if (p.visit_number === 2) {
           const v1 = firstVisitDate.get(p.iptr_id);
           if (!v1) continue; // a 2nd visit with no recorded 1st cannot be "completed 2"
           const aYearBefore = new Date(when);
           aYearBefore.setFullYear(aYearBefore.getFullYear() - 1);
-          if (v1 >= aYearBefore) next[band.key].completed[sex] += 1;
+          if (v1 >= aYearBefore) tally(next[band.key].completed);
         }
       }
 

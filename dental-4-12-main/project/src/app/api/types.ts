@@ -88,6 +88,11 @@ export interface ApiPreventiveCareRecord {
   iptr_id: string;
   visit_date: string;
   visit_number: 1 | 2;
+  /** Facility-based care (FHSIS Section D sub-row `a`) vs non-facility-based
+   *  (`b`). NULL means not recorded — every record created before Sprint 81 is
+   *  null, and those stay out of both sub-rows rather than being guessed into
+   *  one. See PreventiveCareRecord.ts for why the default is null, not false. */
+  facility_based: boolean | null;
 }
 
 export interface ApiRiskStratification {

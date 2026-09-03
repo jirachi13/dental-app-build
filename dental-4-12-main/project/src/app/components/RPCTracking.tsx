@@ -8,6 +8,11 @@ import { treatmentCodes, treatmentLabel } from './DentalChart';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { activatable } from '../utils/a11y';
 import { Pagination, usePagination } from './Pagination';
+import { apiClient } from '../api/client';
+import { useToast } from './Toast';
+import { Modal } from './Modal';
+import { schoolYearLabel } from '../utils/schoolYear';
+import type { RPCRow } from '../hooks/useRPCTracking';
 
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 
@@ -24,9 +29,68 @@ const ViewToggle = ({ mode, onChange }: { mode: 'school' | 'list'; onChange: (m:
 );
 
 export const RPCTracking = () => {
-  const { selectedSchool } = useAuth();
+  const { selectedSchool, user } = useAuth();
   const navigate = useNavigate();
-  const { records: rpcRecords, loading, error } = useRPCTracking();
+  const toast = useToast();
+  const { records: rpcRecords, loading, error, reload } = useRPCTracking();
+
+  // Recording a visit (Sprint 81). Until now PREVENTIVE_CARE_RECORD had NO
+  // write path anywhere in the app — the two-visit RPC module could be read
+  // and filtered, but a visit could only be created by a seed script.
+  const [recording, setRecording] = useState<RPCRow | null>(null);
+  const [visitDate, setVisitDate] = useState('');
+  // null = not answered. The field is optional on purpose: an encoder who does
+  // not know stores null, which reads as "not recorded" on FHSIS, rather than
+  // being pushed into a default that would invent the facility split.
+  const [facilityBased, setFacilityBased] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Same roles the server enforces on /preventive-care-records
+  // (CLINICAL_WRITE_ROLES in routes/index.ts). Checked here too so the button
+  // is absent rather than present-and-403 for a school admin or BHO viewer.
+  const canRecord = user?.role === 'dentist' || user?.role === 'dental_aide' || user?.role === 'system_admin';
+
+  const openRecord = (r: RPCRow) => {
+    setRecording(r);
+    // Defaults to today but stays editable — a visit is often encoded a day or
+    // two after it happened. Local date parts, never toISOString: that shifts
+    // the date backwards for UTC+8 (the Sprint 20 vanishing-appointments bug).
+    const now = new Date();
+    setVisitDate(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
+    setFacilityBased(null);
+    setSaveError(null);
+  };
+
+  // The IPTR the visit will attach to, resolved from the school year of THE
+  // VISIT DATE — a visit backdated to March belongs to the school year running
+  // in March, not to today's. Recomputes as the date changes, so the modal can
+  // say up front which record it is about to write to.
+  const targetIptrId = recording && visitDate
+    ? recording.iptrIdBySchoolYear[schoolYearLabel(new Date(`${visitDate}T00:00:00`))] ?? null
+    : null;
+  const targetSchoolYear = visitDate ? schoolYearLabel(new Date(`${visitDate}T00:00:00`)) : '';
+
+  const saveVisit = async () => {
+    if (!recording || !targetIptrId || !recording.nextVisitNumber) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await apiClient.post('/preventive-care-records', {
+        iptr_id: targetIptrId,
+        visit_date: visitDate,
+        visit_number: recording.nextVisitNumber,
+        facility_based: facilityBased,
+      });
+      toast.success(`Visit ${recording.nextVisitNumber} recorded for ${recording.studentName}.`);
+      setRecording(null);
+      await reload();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to record the visit');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const [drillSchool, setDrillSchool] = useState<string | null>(null);
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
@@ -155,11 +219,12 @@ export const RPCTracking = () => {
                 {['Student','School','Grade / Section','Visit 1','Visit 2','Status','Days Until Due'].map(h => (
                   <th key={h} className="text-left px-4 py-3 font-semibold text-foreground">{h}</th>
                 ))}
+                {canRecord && <th className="text-right px-4 py-3 font-semibold text-foreground">Record</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-12 text-muted-foreground">{hasActiveFilters ? <>No records match your filters. <button onClick={clearFilters} className="text-primary hover:underline font-medium">Clear filters</button></> : 'No RPC records for this school yet.'}</td></tr>
+                <tr><td colSpan={canRecord ? 8 : 7} className="text-center py-12 text-muted-foreground">{hasActiveFilters ? <>No records match your filters. <button onClick={clearFilters} className="text-primary hover:underline font-medium">Clear filters</button></> : 'No RPC records for this school yet.'}</td></tr>
               ) : pager.paged.map(r => {
                 const sc = statusConfig[r.status] || statusConfig['not-started'];
                 const gc = getGradeColor(r.grade);
@@ -183,6 +248,29 @@ export const RPCTracking = () => {
                     </span>}</td>
                     <td className="px-4 py-3"><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${sc.bg} ${sc.color}`}>{sc.label}</span></td>
                     <td className="px-4 py-3 text-sm">{r.status==='overdue'?<span className="text-red-600 font-semibold">{Math.abs(r.daysUntilDue)}d overdue</span>:r.daysUntilDue>0?<span className="text-blue-600">{r.daysUntilDue}d</span>:<span className="text-muted-foreground">—</span>}</td>
+                    {canRecord && (
+                      // stopPropagation: the whole row navigates to the dental
+                      // chart, so without it recording a visit would also leave
+                      // the page the moment the modal opened.
+                      <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
+                        {r.nextVisitNumber === null ? (
+                          <span className="text-xs text-muted-foreground">Both done</span>
+                        ) : Object.keys(r.iptrIdBySchoolYear).length === 0 ? (
+                          // No IPTR at all, so there is nothing to attach a
+                          // visit to. Saying so beats a button that 400s, and it
+                          // names the fix. (Which school YEAR is missing is
+                          // decided in the modal, once a date is chosen.)
+                          <span className="text-xs text-muted-foreground" title="This student has no IPTR yet — open their record and create one first.">No IPTR</span>
+                        ) : (
+                          <button
+                            onClick={() => openRecord(r)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium border border-border rounded-lg hover:bg-gray-50 whitespace-nowrap"
+                          >
+                            <Plus className="w-3 h-3" />Visit {r.nextVisitNumber}
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -200,6 +288,82 @@ export const RPCTracking = () => {
         </div>
       </div>
 
+      {recording && (
+        <Modal onClose={() => setRecording(null)} maxWidth="max-w-md" closeDisabled={saving}>
+          <div className="flex items-center justify-between p-6 border-b">
+            <h2 className="text-lg font-bold text-foreground">Record Visit {recording.nextVisitNumber}</h2>
+            <button onClick={() => setRecording(null)} disabled={saving} className="text-muted-foreground hover:text-foreground disabled:opacity-50"><X className="w-5 h-5" /></button>
+          </div>
+          <div className="p-6 space-y-4">
+            <div>
+              <p className="text-sm font-medium text-foreground">{recording.studentName}</p>
+              <p className="text-xs text-muted-foreground">{recording.grade} {recording.section} · {recording.school}</p>
+            </div>
+
+            {recording.nextVisitNumber === 2 && recording.visit1Date && (
+              <p className="text-xs text-muted-foreground bg-gray-50 border border-border rounded-lg px-3 py-2">
+                Visit 1 was {recording.visit1Date}. The DOH window is 4–6 months after it
+                {recording.syCutoff === 'tight' && recording.syDeadline && <> and this school year ends {recording.syDeadline}</>}.
+              </p>
+            )}
+
+            <div>
+              <label htmlFor="rpc-visit-date" className="block text-sm font-medium text-foreground mb-1">Visit date</label>
+              <input
+                id="rpc-visit-date"
+                type="date"
+                value={visitDate}
+                onChange={e => setVisitDate(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+
+            {/* Which record this lands on, stated before saving rather than
+                discovered afterwards. The year follows the DATE above, so
+                changing the date can change the answer. */}
+            {targetIptrId ? (
+              <p className="text-xs text-muted-foreground">
+                Will be filed under the <span className="font-medium text-foreground">{targetSchoolYear}</span> IPTR.
+              </p>
+            ) : (
+              <p className="text-xs text-destructive bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                This student has no IPTR for <span className="font-medium">{targetSchoolYear}</span>, the school year
+                that date falls in. Pick a date inside a school year they have a record for, or create the
+                {' '}{targetSchoolYear} IPTR first — a visit is not filed against another year&rsquo;s record.
+              </p>
+            )}
+
+            <fieldset>
+              <legend className="block text-sm font-medium text-foreground mb-1">Facility-based care?</legend>
+              {/* Three states, not a checkbox. FHSIS Section D splits each band
+                  into facility-based (a) and non-facility-based (b) sub-rows,
+                  and "not recorded" is a real third answer — a checkbox would
+                  force every visit into one of two, inventing the split. */}
+              <div className="flex flex-wrap gap-2">
+                {([[true, 'Facility-based'], [false, 'Non-facility-based'], [null, 'Not recorded']] as const).map(([val, label]) => (
+                  <button
+                    key={String(val)}
+                    type="button"
+                    onClick={() => setFacilityBased(val)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${facilityBased === val ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-gray-50'}`}
+                  >{label}</button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Leave as “Not recorded” if unsure — the FHSIS report shows those separately rather than counting them in either row.
+              </p>
+            </fieldset>
+
+            {saveError && <p className="text-sm text-destructive">{saveError}</p>}
+          </div>
+          <div className="flex justify-end gap-2 px-6 py-4 border-t">
+            <button onClick={() => setRecording(null)} disabled={saving} className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+            <button onClick={saveVisit} disabled={saving || !visitDate || !targetIptrId} className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50">
+              {saving ? 'Saving…' : 'Record visit'}
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

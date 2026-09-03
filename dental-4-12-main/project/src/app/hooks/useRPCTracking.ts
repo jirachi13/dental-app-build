@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
 import type {
   ApiStudent,
@@ -53,6 +53,22 @@ export interface RPCRow {
   // PREVENTIVE_CARE_RECORD stores no services at all (iptr_id, visit_date,
   // visit_number only), so per-visit treatment data does not exist to filter on.
   treatmentCodes: string[];
+  /** This student's IPTR id keyed by school year, e.g. { '2025-2026': '…' }.
+   *
+   *  A new visit attaches to the IPTR for the school year of THE VISIT DATE,
+   *  not of today: a visit backdated to March belongs to the school year that
+   *  was running in March. Resolving it at save time (rather than pinning the
+   *  current year here) is both more correct and the difference between the
+   *  control being usable and not — the demo database has 26 IPTRs on
+   *  2025-2026 and 2 on 2026-2027, so a "current year only" rule would refuse
+   *  24 of 26 students.
+   *
+   *  When no IPTR exists for the chosen date's school year, recording is
+   *  blocked rather than silently filed against another year — that is the bug
+   *  class Sprint 57a fixed for grades. */
+  iptrIdBySchoolYear: Record<string, string>;
+  /** Which visit the clinic would record next, or null when both are done. */
+  nextVisitNumber: 1 | 2 | null;
 }
 
 export function useRPCTracking() {
@@ -60,10 +76,9 @@ export function useRPCTracking() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
+  // Extracted from the effect so RPCTracking can refetch after recording a
+  // visit — without it the new visit would not appear until a full reload.
+  const load = useCallback(async (cancelled = { current: false }) => {
       try {
         const [students, schools, iptrs, preventives, charts, toothRecords] = await Promise.all([
           apiClient.get<ApiStudent[]>('/students'),
@@ -162,23 +177,28 @@ export function useRPCTracking() {
             syCutoff,
             syDeadline,
             treatmentCodes: [...new Set(studentIptrs.flatMap((iptr) => [...(codesByIptr.get(iptr._id) ?? [])]))],
+            iptrIdBySchoolYear: Object.fromEntries(studentIptrs.map((i) => [i.school_year, i._id])),
+            nextVisitNumber: !visit1 ? 1 : !visit2 ? 2 : null,
           };
         });
 
         // Alphabetical by surname, matching every other list (2026-09-02).
         rows.sort((a, b) => a.studentName.localeCompare(b.studentName));
-        if (!cancelled) setRecords(rows);
+        if (!cancelled.current) setRecords(rows);
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load RPC records');
+        if (!cancelled.current) setError(err instanceof Error ? err.message : 'Failed to load RPC records');
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled.current) setLoading(false);
       }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
-  return { records, loading, error };
+  useEffect(() => {
+    const cancelled = { current: false };
+    void load(cancelled);
+    return () => {
+      cancelled.current = true;
+    };
+  }, [load]);
+
+  return { records, loading, error, reload: () => load() };
 }
