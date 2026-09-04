@@ -20,6 +20,7 @@ import { Pagination, usePagination } from './Pagination';
 import { apiClient, ApiError } from '../api/client';
 import type { ApiSchool } from '../api/types';
 import { useSchools } from '../hooks/useSchools';
+import { calculateAge, getAgeGroup, AGE_GROUPS } from '../utils/age';
 import { schoolYearLabel } from '../utils/schoolYear';
 import { Notice } from './Notice';
 import { PromoteAssign } from './PromoteAssign';
@@ -347,23 +348,8 @@ export const PatientList = () => {
   // unqueue; otherwise (none or mixed) it queues them all
   const allTickedQueued = tickedIds.size > 0 && [...tickedIds].every(id => queuedStudentIds.includes(id));
 
-  const calculateAge = (birthdate: string) => {
-    const today = new Date(); const birth = new Date(birthdate);
-    if (isNaN(birth.getTime())) return null;
-    let age = today.getFullYear() - birth.getFullYear();
-    const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-    return age;
-  };
-
-  const getAgeGroup = (age: number | null) => {
-    if (age === null) return 'Unknown';
-    if (age <= 4) return '4 & below';
-    if (age <= 9) return '5-9';
-    if (age <= 14) return '10-14';
-    if (age <= 19) return '15-19';
-    return '20 & above';
-  };
+  // calculateAge / getAgeGroup moved to utils/age.ts (Sprint 106) so Risk
+  // Classification uses the SAME brackets rather than its own copy.
 
   const { students: allStudents, loading: studentsLoading, reload: reloadStudents } = useStudents();
   // School list comes from the DB now, not a hardcoded array (Sprint 60).
@@ -721,7 +707,7 @@ export const PatientList = () => {
               <FilterSelect value={genderFilter} onChange={setGenderFilter} label="All Genders"
                 options={[{ value:'Male', label:'Male' }, { value:'Female', label:'Female' }]} />
               <FilterSelect value={ageGroupFilter} onChange={setAgeGroupFilter} label="All Age Groups"
-                options={[{ value:'4 & below', label:'4 & below' }, { value:'5-9', label:'5-9' }, { value:'10-14', label:'10-14' }, { value:'15-19', label:'15-19' }, { value:'20 & above', label:'20 & above' }]} />
+                options={AGE_GROUPS.map(g => ({ value: g, label: g }))} />
               {hasActiveFilters && (
                 <button onClick={clearFilters} className="flex items-center gap-1 px-3 py-2 text-sm text-destructive border border-red-200 rounded-lg hover:bg-red-50">
                   <X className="w-3 h-3" /> Clear All

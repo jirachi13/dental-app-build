@@ -49,6 +49,11 @@ export interface RiskCandidate {
   school: string;
   grade: string;
   section: string;
+  /** Sprint 106: carried so Risk Classification can offer the same gender and
+   *  age-group filters every other student list has. NOT fed to the model —
+   *  `features` is the ML input and stays exactly as it was. */
+  gender: string;
+  birthdate: string;
   features: StudentMlFeatures;
   dmfIndex: 'DMF' | 'dmf';
   // risk assessments attach to an RPC visit per the ERD (preventive_id FK);
@@ -163,6 +168,8 @@ export function useRiskClassification() {
           school: schoolNameById.get(s.school_id) ?? 'Unknown School',
           grade: s.grade_level,
           section: s.section,
+          gender: s.sex,
+          birthdate: s.birthday,
           features: {
             dmf_score: decayed + missing + filled,
             decayed_count: decayed,

@@ -6,6 +6,7 @@ import {
 import { apiClient, ApiError } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useRiskClassification, type RiskCandidate } from '../hooks/useRiskClassification';
+import { calculateAge, getAgeGroup, AGE_GROUPS } from '../utils/age';
 import { SkeletonStatGrid, SkeletonTable } from './Skeleton';
 import { Notice } from './Notice';
 import { useToast } from './Toast';
@@ -88,6 +89,11 @@ export const AIAnalytics = () => {
   const [gradeFilter, setGradeFilter] = useState('all');
   const [sectionFilter, setSectionFilter] = useState('all');
   const [riskFilter, setRiskFilter] = useState('all');
+  // Sprint 106 (backlog #34): every other student list offers gender and age
+  // group; this screen had three filters where the others have five. Not an
+  // intentional difference — just where the screen stopped.
+  const [genderFilter, setGenderFilter] = useState('all');
+  const [ageGroupFilter, setAgeGroupFilter] = useState('all');
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [bulkResults, setBulkResults] = useState<Record<string, PredictionResult>>({});
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
@@ -149,6 +155,8 @@ export const AIAnalytics = () => {
       if (!c.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
       if (gradeFilter !== 'all' && c.grade !== gradeFilter) return false;
       if (sectionFilter !== 'all' && c.section !== sectionFilter) return false;
+      if (genderFilter !== 'all' && c.gender !== genderFilter) return false;
+      if (ageGroupFilter !== 'all' && getAgeGroup(calculateAge(c.birthdate)) !== ageGroupFilter) return false;
       if (riskFilter !== 'all') {
         const latest = c.history[c.history.length - 1];
         if (riskFilter === 'Unassessed' ? !!latest : latest?.riskLevel !== riskFilter) return false;
@@ -159,7 +167,7 @@ export const AIAnalytics = () => {
     return list.sort(
       (a, b) => priorityRank(a) - priorityRank(b) || b.features.dmf_score - a.features.dmf_score
     );
-  }, [candidates, searchTerm, sortMode, gradeFilter, sectionFilter, riskFilter]);
+  }, [candidates, searchTerm, sortMode, gradeFilter, sectionFilter, riskFilter, genderFilter, ageGroupFilter]);
 
   // Risk overview tiles — latest assessment per student + trend counts
   const overview = useMemo(() => {
@@ -423,6 +431,25 @@ export const AIAnalytics = () => {
                   <option>Medium</option>
                   <option>Low</option>
                   <option>Unassessed</option>
+                </select>
+                <select
+                  value={genderFilter}
+                  onChange={(e) => setGenderFilter(e.target.value)}
+                  className="text-xs border border-gray-300 rounded-lg px-2 py-1.5 text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  aria-label="Filter by gender"
+                >
+                  <option value="all">All Genders</option>
+                  <option>Male</option>
+                  <option>Female</option>
+                </select>
+                <select
+                  value={ageGroupFilter}
+                  onChange={(e) => setAgeGroupFilter(e.target.value)}
+                  className="text-xs border border-gray-300 rounded-lg px-2 py-1.5 text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  aria-label="Filter by age group"
+                >
+                  <option value="all">All Age Groups</option>
+                  {AGE_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
                 </select>
               </div>
               <div className="flex items-center justify-between gap-2">
