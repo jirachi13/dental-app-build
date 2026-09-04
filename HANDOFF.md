@@ -137,6 +137,18 @@ Three backlog items taken together. **One of them needed no work at all.**
 
 ⚠ **The verifier was wrong twice before it was right, both times about the DOM, not the app:** it counted `table tbody tr` on a screen whose candidate list is a **div list**, giving `0 rows -> 0` — which reads exactly like a broken filter. **Third session in a row where a "failure" was the test's own setup.** Check what the list is actually made of before asserting on it.
 
+## Sprint 110 (report numbers update themselves while you watch) — DONE 2026-09-04, tsc both + build clean, 9/9 verified
+The user asked again for live report numbers. Sprint 104 refreshes when you come back to the tab; **this is the other half — a change made by someone ELSE, noticed while you are already looking.**
+
+- **⚠ IT DOES NOT POLL THE REPORTS.** `GET /stats/last-change` is **one indexed `findOne` on AUDIT_TRAIL** — every write already goes through `logAudit`, so that collection is a complete change log, and Sprint 92 indexed it `{timestamp: -1}`. The report reloads **only when the token advances**. A tick costs one tiny request instead of ten collection reads. **This is what made polling affordable, and my earlier "polling is waste" judgement was arithmetic applied to the wrong scale.**
+- **Nothing re-renders on a timer.** The poll asks the DATABASE whether anything changed; "Updated HH:MM" is the time of a real fetch. `LiveUpdatedStamp` renders **nothing at all until the first genuine self-refresh** — before that there is nothing true to say, and "Updated \<page load time\>" would imply a freshness check that never happened.
+- **20 s interval, and the tooltip says so** rather than implying live-to-the-second. Truly instant needs a held socket, which request-scoped functions cannot do — a hosting change, not a feature.
+- Pauses while the tab is hidden; a failed poll is swallowed, with Sprint 104's focus-refresh as the backstop.
+- **`node verify_sprint110.mjs` — 9/9**, and checks 5–7 are the substance: an idle poll does **not** refetch (0 report fetches in 25 s), an outside write **does** trigger a real refetch (2), and only then does "Updated 01:58 PM" appear. Also asserts the stamp is absent beforehand. Probe data is archived afterwards.
+- ⚠ **The token is GLOBAL** — any change anywhere triggers a refetch. Correct for the question being asked ("did anything change"), and it leaks nothing: a timestamp, no ids, no content. It can be narrowed by `affected_model` if it ever churns, but narrowing it wrongly would make a report go stale **silently**, which is worse than refetching too eagerly.
+
+**Backlog #40 is now fully answered** — (a) was already true, (b) is built two ways (focus + poll), and (c) true push remains impossible on this hosting.
+
 ## Sprint 109 (a note on ONE appointment) — DONE 2026-09-04, tsc both + build clean, 7/7 verified. **Backlog #30 is now CLOSED.**
 Sprint B of the day-notes decision. `APPOINTMENT` gains an optional `notes` string — a remark on one pupil's slot ("bring guardian", "reschedule, absent"), distinct from Sprint 108's `DAY_NOTE` about the date itself. **No migration; it defaults empty.** ERD deviation recorded in `docs/DATA-MODEL.md`.
 
