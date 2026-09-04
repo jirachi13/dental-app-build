@@ -9,32 +9,37 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ▶ RESUME HERE — parked 2026-09-04 (7th session), everything pushed at `960db1d8`
-Tree clean apart from the two untracked root strays (`package.json`, `package-lock.json`). **Fourteen sprints shipped (111-124), every one verified.** Per-sprint detail moved to `docs/BUILD-LOG.md` by this session's hygiene pass — HANDOFF keeps live state only.
+## ▶ RESUME HERE — PARKED 2026-09-04 (7th session), everything pushed at `b735c11f`
+Tree clean apart from the two untracked root strays (`package.json`, `package-lock.json`). **Sixteen sprints shipped (111-126), every one verified.** Per-sprint detail is in `docs/BUILD-LOG.md` — HANDOFF keeps live state only.
 
 | # | Sprint | The bit worth remembering |
 |---|---|---|
-| 111-112 | Fresh-clone rehearsal | **#38 closed.** `MONGODB_URI` does NOT stop the server booting — it looks healthy and 500s on every call. |
-| 113-114 | Placeholder secrets | `seed:demo` created four accounts with `choose-a-password`. Startup guard WARNS, never throws. |
+| 111-112 | Fresh-clone rehearsal | **#38 closed.** A bad `MONGODB_URI` does NOT stop the server booting — it looks healthy and 500s on every call. |
+| 113-114 | Placeholder secrets | `seed:demo` created four accounts with `choose-a-password`. The startup guard WARNS, never throws. |
 | 115 | npm advisories 13 → 4 | `pdfjs-dist` was reachable via the OCR upload. **`npm audit fix` can update the lock and NOT the files.** |
 | 116-117 | purge:demo + `is_demo` | The purge was about to delete the three REAL schools. Real data is now real **by construction**. |
 | 118 | Chart stops pulling the roster | `.select()` on an encrypted model returns **ciphertext**, silently, with a 200. |
-| 119-123 | Promote/Assign: ticks, search, transfer | Built from a real read of the prototype's source. |
-| 120-121 | Input validation | Shared `shared/` module — the project's **first** cross-boundary module. The offline queue is why the server must enforce it. |
-| 124 | DATA-MODEL was 17 fields behind | And **"the ERD figure is 4 deviations behind" was wrong all session** — it is a redraw. |
+| 119-123 | Promote/Assign: ticks, search, transfer | Built from a real read of the prototype's source, after two wrong conclusions about it. |
+| 120-121 | Input validation | `shared/` is the project's **first** cross-boundary module. The offline queue is why the server must enforce it. |
+| 124 | DATA-MODEL was 17 fields behind | And **"the ERD is 4 deviations behind" was wrong all session** — it is a redraw. |
+| 125 | Audit finding #21 | What survives logout no longer identifies who was here. |
+| 126 | **Dev ≠ production** | The rehearsal cluster became the DEV database. 13 of 21 scripts wrote to a database without saying which. |
 
 ### ⚠ THE LESSON OF THIS SESSION — a check that measures nothing looks exactly like a check that passes
-Six verifier failures were the CHECK's fault, and **three were false PASSES**, which is the dangerous direction:
-- `vercel env pull` writes the literal `[SENSITIVE]` for secret vars, so a comparison "found no placeholders" having compared nothing;
-- an unscoped selector matched the patient list's checkboxes **through a modal overlay** and reported a 15-pupil roster from the wrong table;
-- two schema-audit scripts had a regex that matched nothing, so both compared an **empty field list** and reported no drift — hiding 17 undocumented fields.
-**Every check must state what it actually compared** (rows scanned, models parsed, precondition asserted). The working audit prints `models scanned: 18` for exactly this reason.
+**Four false PASSES**, which is the dangerous direction: `vercel env pull` writes the literal `[SENSITIVE]` for secret vars, so a comparison found no placeholders having compared nothing · an unscoped selector matched the patient list's checkboxes **through a modal overlay** and reported a roster from the wrong table · two schema audits had a regex that matched nothing, so both compared an **empty field list** and hid 17 undocumented fields · a localStorage check compared the stored value against `null`. **Every check must state what it compared** — rows scanned, models parsed, precondition asserted — and throw when the thing it needs is missing.
+
+### ⚠ READ BEFORE TOUCHING THE DATABASE
+- **`.env` now points at DEV** (`cluster0.o7e3c5o`). Production is `floral-cluster.edqpjtu` and lives **only in Vercel**.
+- **`.env.production.bak-20260904-222928`** holds the old config. **Restore the WHOLE FILE, never one line** — the two databases have different `FIELD_ENCRYPTION_SECRET`s.
+- Every script prints its target first (`announceTarget.ts`) and shouts on production.
+- **Production still holds the user's test input, untouched**, and `purge:demo` will not clear person-typed records. See the test-input section.
 
 ### Next — nothing is scoped and ready
-1. **The Chapter 3 ERD figure (USER-ONLY).** `docs/DATA-MODEL.md` is now accurate and complete, so it is finally a clean source. **It is a redraw, not a patch.**
-2. **#50 rotate the production JWT secrets (USER-ONLY, ~2 min).** Nothing can read them, so rotation is the only way to settle it.
-3. **Clearing test input** — on the user's word only. `purge:demo` will NOT do it; see the test-input section.
-4. **Within-year placement history** — ask the dentist whether a mid-year section move needs to be recoverable (see Sprint 124 in BUILD-LOG).
+1. **The Chapter 3 ERD figure (USER-ONLY).** `docs/DATA-MODEL.md` is accurate for the first time, so it is finally a clean source. **A redraw, not a patch.**
+2. **Clearing test input** — on the user's word only.
+3. **`SEED_BHO_PASSWORD` is 7 chars in the production backup** — a re-seed there would be refused by the Sprint 120 guard until it is lengthened.
+4. **Ask the dentist:** does a mid-year section move need to be recoverable? (Sprint 123 overwrites the current year's placement.) That is the last real gap against the prototype.
+5. **#50 JWT rotation — DE-PRIORITISED.** Raised too often for what it is: no evidence of a problem, the values were set 66 days ago by someone following the README. If it is ever wanted, search the Vercel logs for `secret-guard` first — that answers it for free.
 
 ## ✅ SCHOOL SWITCHER — BOTH FINDINGS FIXED (was 'NOT FIXED', corrected by the 2026-09-04 hygiene pass)
 Kept as one line because the heading claimed open work that has since shipped, and a stale blocker is worse than no note.
