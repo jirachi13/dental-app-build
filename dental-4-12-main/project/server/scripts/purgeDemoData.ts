@@ -22,9 +22,12 @@ import mongoose from "mongoose";
  * SAFETY, in order of importance:
  *  - The system-admin account (SEED_ADMIN_EMAIL) is NEVER deleted. Removing it
  *    would lock the operator out of the deployed app.
- *  - Students are matched against the exact name list seedStudents.ts creates.
- *    A student encoded by hand is not on that list and is therefore untouchable
- *    by this script, even if it is run by accident against real data.
+ *  - Students are matched on STUDENT.is_demo, which only a seeder ever sets.
+ *    A record encoded by a person — Add Student, CSV import, OCR — defaults to
+ *    false and is therefore untouchable by this script, whatever it is named,
+ *    even if this is run by accident against real data. (Before Sprint 117 the
+ *    match was a hardcoded name list; that list had already drifted once, and a
+ *    real record sharing a seeded name would have been deleted.)
  *  - Everything else is deleted by FOREIGN KEY from those students / demo users,
  *    never by a blanket query.
  *  - Dry run by default. Pass --confirm to delete.
@@ -86,13 +89,29 @@ async function main() {
   console.log(`Protected admin account: ${adminEmail}\n`);
 
   // --- students, by exact seeded name -------------------------------------
+  // is_demo is AUTHORITATIVE (Sprint 117). Only records a seeder created carry
+  // it; anything a person encoded — Add Student, CSV import, OCR — defaults to
+  // false and is therefore unreachable by this script no matter what it is
+  // named. The name list survives only as a SAFETY CHECK: if it disagrees with
+  // the flag, the migration was not run and the script refuses rather than
+  // guessing, because guessing wrong here deletes a patient record.
   const allStudents = await (Student as any).find({});
-  const seeded = allStudents.filter((s: any) => DEMO_STUDENT_NAMES.has(s.full_name));
-  const testJunk = allStudents.filter(
-    (s: any) => !DEMO_STUDENT_NAMES.has(s.full_name) && TEST_STUDENT_NAME_RE.test(String(s.full_name ?? ""))
-  );
-  const demoStudents = [...seeded, ...testJunk];
+  const demoStudents = allStudents.filter((s: any) => s.is_demo === true);
   const foreign = allStudents.length - demoStudents.length;
+
+  const nameSaysDemo = allStudents.filter(
+    (s: any) => DEMO_STUDENT_NAMES.has(s.full_name) || TEST_STUDENT_NAME_RE.test(String(s.full_name ?? ""))
+  );
+  const unflagged = nameSaysDemo.filter((s: any) => s.is_demo !== true);
+  if (unflagged.length > 0) {
+    console.error(
+      `${unflagged.length} student(s) look like demo data by name but do NOT have is_demo=true.\n` +
+        `Run \`npm run backfill:is-demo -- --confirm\` first. Refusing to run: deleting by name\n` +
+        `instead would risk a hand-encoded record that happens to share a seeded name.`
+    );
+    await mongoose.disconnect();
+    process.exit(1);
+  }
   const studentIds = demoStudents.map((s: any) => s._id);
 
   const iptrs = await (StudentIptr as any).find({ student_id: { $in: studentIds } }).lean();
@@ -117,7 +136,7 @@ async function main() {
   ];
 
   console.log(
-    `Students: ${seeded.length} seeded + ${testJunk.length} test junk = ${demoStudents.length} to delete, ` +
+    `Students: ${demoStudents.length} flagged is_demo=true to delete, ` +
       `${foreign} NOT matched (left alone)\n`
   );
 

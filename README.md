@@ -159,8 +159,13 @@ npm run apply:seed-passwords # push changed SEED_* passwords onto EXISTING accou
                              # editing .env alone never reaches them)
 npm run restore:admin        # un-archive / re-enable the admin account
 npm run backup:raw           # dump every collection to backups/<timestamp>/
+npm run backfill:is-demo     # one-off: set STUDENT.is_demo on records that
+                             # predate the flag. purge:demo REFUSES to run
+                             # until this has been done. Dry run by default.
 npm run purge:demo           # remove the demo data set before real deployment.
                              # DRY RUN by default; pass -- --confirm to delete.
+                             # Deletes on STUDENT.is_demo, which only seeders
+                             # set — anything a person encoded is untouchable.
                              # Never deletes the three real schools (reference
                              # data), never an unarchived account, and skips any
                              # school a surviving student still points at.

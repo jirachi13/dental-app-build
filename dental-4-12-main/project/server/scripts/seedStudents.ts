@@ -58,6 +58,9 @@ async function main() {
       address: "Barangay Tanyag, Taguig City",
       grade_level: s.grade_level,
       section: s.section,
+      // Marks this as seeded, not encoded by a person. purgeDemoData.ts deletes
+      // on this flag alone — see Student.ts.
+      is_demo: true,
     });
 
     const iptr = await StudentIptr.create({ student_id: student._id, school_year: "2025-2026" });

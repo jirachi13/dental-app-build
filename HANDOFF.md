@@ -48,7 +48,7 @@ Sprint 110's numbers refresh on their own within a few seconds of any change, wi
 
 ### Next sprint — nothing is scoped and ready
 1. **#50 — rotate the two production JWT secrets (USER-ONLY, ~2 min).** The only way to settle whether they are placeholders, because Vercel will not show a Sensitive value back. Then Sprint 114's warning can become a refusal.
-2. **⚠ REAL PATIENT DATA now shares the database with the demo set** — one unarchived, hand-encoded student created 2026-09-04, id `6a9aa0b2…` (name deliberately not recorded here: it is encrypted in the database and this file is committed). The only thing separating real from demo is a hardcoded list of 26 names in `demoStudents.ts`. **Decide how real records stay distinguishable before more are encoded** (a flag on STUDENT? a separate school year? nothing, and rely on the name list?). This gets harder with every record added, and Phase 3 wants 50.
+2. **⚠ THE ERD FIGURE IS NOW FOUR DEVIATIONS BEHIND** — `school_ids[]` (S100), `DAY_NOTE` (S108), `APPOINTMENT.notes` (S109), `STUDENT.is_demo` (S117). All four are in `docs/DATA-MODEL.md`; **only the user can edit the figure.** ~~Decide how real records stay distinguishable~~ — **RESOLVED 2026-09-04 as Sprint 117**: `STUDENT.is_demo`, backfilled, purge now keys on it.
 3. **0f(1) — the dental chart save has no toast.** The largest write in the app confirms itself by changing a button label for 2 s, at the top of a long scrolling form.
 4. **#41's remainder** — grade history as a first-class model. Needs the user's word.
 3. **school_admin clinical access** — CLAUDE.md says reports and dashboards only; they still reach clinical records (now scoped to their own school). A role decision.
@@ -96,6 +96,17 @@ Report was terse: *"the school switcher in dentist and aide and maybe other user
 - **Sprint 101 — server-side school enforcement (Finding 2).** Needs `/grill-me` first per the CLAUDE.md rule for complex sprints: it changes every read path, and the failure mode if done carelessly is a dentist who cannot see their own patients. Must decide separately what `school_admin` may reach at all, since CLAUDE.md says reports and dashboards only, no clinical records — today they get the full student roster.
 
 **Superseded decision prompt, kept for the reasoning:** (a) does the dentist get all three schools (recommended — matches the rotation model), and (b) is server-side school scoping in scope now, given it touches every read path and would need the same treatment as Sprint 56's bounding. Reproduce with the throwaway probe pattern in this section; nothing is committed for it.
+
+## Sprint 117 (`STUDENT.is_demo` — real data is real by construction) — DONE 2026-09-04, backend tsc clean, 4/4 verified, **migration RUN against production**.
+Answers the question Sprint 116 raised. **User's call: "add a flag on STUDENT."**
+
+- **`is_demo: Boolean, default false` on STUDENT.** Only the seeders set it true; the Add Student form, the CSV/xlsx import and OCR all take the default, so **anything a person encodes is real by construction, not by being absent from a list**. `purgeDemoData.ts` now deletes on this flag ALONE — a hand-encoded record is unreachable by the purge whatever it is named.
+- **⚠ FOURTH ERD DEVIATION** after `school_ids[]` (S100), `DAY_NOTE` (S108) and `APPOINTMENT.notes` (S109). Recorded in `docs/DATA-MODEL.md`; **the ERD figure is hand-edited and only the user can update it.** Four is well past the point where a panelist notices.
+- **The name list is now only a TRIPWIRE, not the rule.** If any student looks like demo data by name but lacks the flag, the purge **refuses and exits 1** telling you to run the backfill — it does not silently fall back to name matching, because guessing wrong there deletes a patient record.
+- **`backfillIsDemo.ts` + `npm run backfill:is-demo`** (dry-run by default, `--confirm` to write). **RUN against production 2026-09-04: 26 seeded + 4 test junk marked, 1 record left false.** It prints ids only, never names — they are encrypted patient data.
+- **4/4 verified:** purge before the backfill → refuses, exit 1, names the fix · backfill dry run → 26/4/1 split, the real record listed by id only · after `--confirm`, purge dry run reports **30 to delete, 1 left alone — identical to the old name-based numbers**, which is the cross-check that the migration changed the *basis* of the decision without changing the decision · **a student created without `is_demo` comes back `false`** (tested on the throwaway cluster, then deleted) — that is the safety property, proven rather than assumed.
+- **Production still has NOT been purged.** `--confirm` on the purge remains untouched against real data; deployment is the trigger, `npm run backup:raw` first.
+- ⚠ **`is_demo` is deliberately NOT encrypted** — it is not PII and the purge queries on it, which the Sprint 26 random-IV rule would make impossible.
 
 ## Sprint 116 (purge:demo — dry-run, then made safe) — DONE 2026-09-04, backend tsc clean, **`--confirm` exercised END-TO-END on the throwaway cluster**. Backlog #17's script half is closed.
 The first dry run since the script was written **found a real student in the way**, which overturned the plan mid-sprint.

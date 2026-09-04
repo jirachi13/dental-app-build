@@ -32,6 +32,20 @@ const studentSchema = new mongoose.Schema(
     is_4ps: { type: Boolean, default: false },
     fourps_id: { type: String, default: "" },
     consent_status: { type: String, enum: ["pending", "complete"], default: "pending" },
+    // Marks a record created by a seeder rather than by a real encoding
+    // session. Defaults to false, so anything a person creates — the Add
+    // Student form, the CSV import, OCR — is real by default and can never be
+    // caught by a purge. Only the seeders set it true.
+    //
+    // Added Sprint 117 because the ONLY thing separating demo from real data
+    // was a hardcoded list of 26 names in demoStudents.ts, and the first real
+    // hand-encoded record had just landed in the same database. That list had
+    // already drifted once (Sprint 45 added eight pupils the purge's copy never
+    // learned about), and Phase 3 adds 50 more real records.
+    //
+    // ⚠ DEVIATES from the Chapter 3 ERD — recorded in docs/DATA-MODEL.md; the
+    // ERD figure itself is hand-edited and only the user can update it.
+    is_demo: { type: Boolean, default: false },
     ...softDeleteFields,
   },
   { timestamps: { createdAt: "created_at", updatedAt: false } },
