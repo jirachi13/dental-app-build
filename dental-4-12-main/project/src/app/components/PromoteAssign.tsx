@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, GraduationCap } from 'lucide-react';
+import { ArrowRight, GraduationCap, Search, X } from 'lucide-react';
 import { apiClient, ApiError } from '../api/client';
 import type { ApiStudent, ApiStudentIptr } from '../api/types';
 import { Notice } from './Notice';
@@ -169,6 +169,22 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
   // leaves the original flow untouched.
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkSection, setBulkSection] = useState('');
+  // Narrowing by grade + section alone stops being enough once a section is a
+  // real class list; the Base44 prototype's equivalent screen has a name/ID
+  // search and ours did not. Purely a VIEW filter -- it never changes which
+  // pupils the run touches, only which ones are on screen.
+  const [search, setSearch] = useState('');
+
+  const visibleRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => {
+      const st: any = r.student;
+      return [surnameFirst(st), st.last_name, st.first_name, st.middle_name, st.section, st.grade_level]
+        .some((v) => String(v ?? '').toLowerCase().includes(q));
+    });
+  }, [rows, search]);
+  const visibleIds = useMemo(() => new Set(visibleRows.map((r) => r.student._id)), [visibleRows]);
 
   // Drop ids no longer on screen (grade/section changed). A selection the
   // operator cannot see would make the next bulk action touch pupils they are
@@ -189,9 +205,19 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
       return next;
     });
 
-  const allSelected = rows.length > 0 && selected.size === rows.length;
+  // "All" means all VISIBLE. With a search active, a header tick that silently
+  // selected filtered-out pupils would be the same trap the selection-pruning
+  // effect above exists to avoid.
+  const allSelected = visibleRows.length > 0 && visibleRows.every((r) => selected.has(r.student._id));
   const toggleAll = () =>
-    setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.student._id)));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allSelected) for (const r of visibleRows) next.delete(r.student._id);
+      else for (const r of visibleRows) next.add(r.student._id);
+      return next;
+    });
+  /** Selected but filtered out of view — the bulk bar must not act on these. */
+  const hiddenSelected = [...selected].filter((id) => !visibleIds.has(id)).length;
 
   // Which actions a row can legally take. A pupil who already has a toYear
   // record can only be corrected or skipped -- promoting them would POST a
@@ -204,7 +230,9 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
       : a === 'retain';
 
   const applyBulkAction = (action: Action) => {
-    const picked = rows.filter((r) => selected.has(r.student._id));
+    // selected AND visible. Acting on a pupil the search has hidden is exactly
+    // the "touching rows you are not looking at" hazard this screen guards.
+    const picked = visibleRows.filter((r) => selected.has(r.student._id));
     const eligible = new Set(picked.filter((r) => canTake(r, action)).map((r) => r.student._id));
     if (eligible.size === 0) {
       toast.error(`None of the ${picked.length} selected can take that action.`);
@@ -223,7 +251,7 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
   const applyBulkSection = () => {
     const value = bulkSection.trim();
     if (!value) return;
-    const picked = rows.filter((r) => selected.has(r.student._id) && r.action !== 'skip');
+    const picked = visibleRows.filter((r) => selected.has(r.student._id) && r.action !== 'skip');
     if (picked.length === 0) {
       toast.error('No selected pupil has an action set — a skipped pupil gets no section.');
       return;
@@ -336,6 +364,30 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
 
       {rows.length > 0 && (
         <>
+          {/* Name / section search. A VIEW filter only -- it never changes which
+              pupils the run touches, which is why the footer count below still
+              reads from every row rather than the visible ones. */}
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search this list by name or section…"
+              aria-label="Search the roster by name or section"
+              className="w-full border border-border rounded-lg pl-9 pr-9 py-2 text-sm bg-card focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                aria-label="Clear the search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
           {/* Tick-and-apply bar. Appears only with a selection, so the screen
               is unchanged for anyone who never ticks anything. Wraps rather
               than scrolling sideways: this is used on a phone in the field. */}
@@ -344,6 +396,13 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
               <span className="text-xs font-semibold text-foreground">
                 {selected.size} selected
               </span>
+              {/* Never let a bulk action look like it covered pupils it did
+                  not. The buttons act on the visible ones only. */}
+              {hiddenSelected > 0 && (
+                <span className="text-xs text-amber-700">
+                  {hiddenSelected} hidden by the search — actions apply to the {selected.size - hiddenSelected} shown
+                </span>
+              )}
               <span className="hidden sm:inline text-xs text-muted-foreground">Set action:</span>
               {!graduating && (
                 <button type="button" onClick={() => applyBulkAction('promote')}
@@ -386,6 +445,13 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
               fourth column, and on a ~390px phone the table would otherwise
               be CLIPPED rather than scrollable. CLAUDE.md: wide tables scroll
               inside their own container, and the body never scrolls sideways. */}
+          {visibleRows.length === 0 && (
+            <Notice variant="warning">
+              No pupil in {grade}{section ? ` · ${section}` : ''} matches “{search}”. The {rows.length} in this
+              list are still counted below — the search only changes what is shown.
+            </Notice>
+          )}
+
           <div className="border border-border rounded-xl max-h-80 overflow-y-auto overflow-x-auto">
             <table className="w-full border-collapse text-sm">
               <thead className="bg-gray-50 sticky top-0">
@@ -405,7 +471,7 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {rows.map((r) => (
+                {visibleRows.map((r) => (
                   <tr key={r.student._id} className={r.action === 'skip' ? 'opacity-50' : ''}>
                     <td className="px-3 py-2">
                       <input
