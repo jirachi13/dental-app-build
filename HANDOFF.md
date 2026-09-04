@@ -135,6 +135,21 @@ Three backlog items taken together. **One of them needed no work at all.**
 
 ⚠ **The verifier was wrong twice before it was right, both times about the DOM, not the app:** it counted `table tbody tr` on a screen whose candidate list is a **div list**, giving `0 rows -> 0` — which reads exactly like a broken filter. **Third session in a row where a "failure" was the test's own setup.** Check what the list is actually made of before asserting on it.
 
+## Sprint 108 (day notes on the appointments calendar) — DONE 2026-09-04, tsc both + build clean, 7/7 verified
+Backlog #30, the half the user picked first. Day tiles are now clickable and open a panel showing that date's appointments beside its notes — a note about a day is usually written with the day's schedule in view.
+
+- **New `DAY_NOTE` model** (`date`, nullable `school_id`, `note` ≤500, `created_by`, soft-delete). **ERD deviation**, recorded in `docs/DATA-MODEL.md`; ⚠ the Chapter 3 figure still needs updating.
+- **⚠ `school_id` IS NULLABLE ON PURPOSE — null means EVERY school**, the barangay-wide holiday case. That forced a new `school_id_or_global` rule in `schoolScope.ts`: **the ordinary clause `{school_id: {$in: […]}}` EXCLUDES null**, so a plain rule would have hidden every holiday from scoped users while looking perfectly correct to an admin. `isInScope` had to learn the `$or` shape too.
+- **Bounded by month** via `dateField: "date"` — the Sprint 56 treatment, so a year of holidays never becomes another unbounded read (#24).
+- **Not overloaded onto `DENTIST_ROTATION.notes`**, which exists but is scoped to school + dentist + WEEK. A week is not a day and a holiday has no dentist.
+- **`node verify_sprint108.mjs` — 7/7**, and the checks that matter are 2–4: the scoped school_admin **sees** the barangay-wide note, does **not** see another school's note, and the unscoped dentist sees both. Uses a throwaway date (2097-12-25) and archives everything afterwards.
+
+**⚠ THE VERIFIER'S CLEANUP STEP CAUGHT A REAL BUG — the first time this session a failure was the app's fault, not the test's.** All six substantive checks passed; only "nothing left in live data" failed, with 2 notes remaining. Cause: **`crudFactory`'s `archiveRoles` defaults to `ADMIN_ONLY`**, so the dentist and aide could CREATE a day note but not remove one — and the panel shows them a remove button, which 403'd. **A control that appears to work must work.** Fixed with `archiveRoles: CLINICAL_WRITE_ROLES`; restore stays admin-only per the soft-delete rule. **Without a cleanup step that actually asserts its own success, this ships unnoticed** — every user-facing check was green.
+
+**Still to come — Sprint B of #30: `APPOINTMENT.notes`**, a remark on one appointment. One optional String, no migration.
+
+**Deploy pipeline is healthy again**: this sprint's deploys landed in ~30 s and ~45 s. The 2026-09-04 stall on `228174c9` was a one-off and needs no further action.
+
 ## Sprint 107 (patient list Actions column) — BUILT, THEN REVERTED THE SAME DAY 2026-09-04. **Decision: KEEP BOTH CONTROLS.**
 Built as backlog #46's option (b) — drop the per-row queue button, move the queued state to a chip beside the name — then reverted before it ever reached production. `228174c9` built it, `d9c7bd59` reverts it; `tsc` + `build` clean after the revert. **The stuck deploy meant production NEVER changed, so no user saw either state.**
 
