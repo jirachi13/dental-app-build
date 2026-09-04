@@ -161,6 +161,77 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
 
   const graduating = grade === GRADES[GRADES.length - 1];
   const target = nextGrade(grade);
+
+  // --- Tick-and-apply selection -------------------------------------------
+  // Layered ON TOP of the per-row dropdowns, never replacing them: tick a set,
+  // apply one action to all of it, then adjust exceptions row by row. The
+  // dropdowns stay the source of truth, so ignoring the tickboxes entirely
+  // leaves the original flow untouched.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkSection, setBulkSection] = useState('');
+
+  // Drop ids no longer on screen (grade/section changed). A selection the
+  // operator cannot see would make the next bulk action touch pupils they are
+  // not looking at.
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const onScreen = new Set(rows.map((r) => r.student._id));
+      const next = new Set([...prev].filter((id) => onScreen.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [rows]);
+
+  const toggleOne = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+
+  const allSelected = rows.length > 0 && selected.size === rows.length;
+  const toggleAll = () =>
+    setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.student._id)));
+
+  // Which actions a row can legally take. A pupil who already has a toYear
+  // record can only be corrected or skipped -- promoting them would POST a
+  // duplicate and 409 on uniqueBy (Sprint 102). The bulk bar must respect this
+  // or it would appear to act on rows it silently cannot change.
+  const canTake = (r: RowState, a: Action) =>
+    a === 'skip' ? true
+      : r.alreadyHasYear ? a === 'update'
+      : a === 'promote' ? !graduating
+      : a === 'retain';
+
+  const applyBulkAction = (action: Action) => {
+    const picked = rows.filter((r) => selected.has(r.student._id));
+    const eligible = new Set(picked.filter((r) => canTake(r, action)).map((r) => r.student._id));
+    if (eligible.size === 0) {
+      toast.error(`None of the ${picked.length} selected can take that action.`);
+      return;
+    }
+    setRows((prev) => prev.map((r) => (eligible.has(r.student._id) ? { ...r, action } : r)));
+    // Say what was NOT changed. A bulk action that quietly skips rows is the
+    // same class of lie as a filter that changes a label but not the data.
+    const skipped = picked.length - eligible.size;
+    toast.success(
+      `Applied to ${eligible.size} pupil${eligible.size === 1 ? '' : 's'}` +
+      (skipped > 0 ? ` — ${skipped} left unchanged (already has a ${toYear} record).` : '.'),
+    );
+  };
+
+  const applyBulkSection = () => {
+    const value = bulkSection.trim();
+    if (!value) return;
+    const picked = rows.filter((r) => selected.has(r.student._id) && r.action !== 'skip');
+    if (picked.length === 0) {
+      toast.error('No selected pupil has an action set — a skipped pupil gets no section.');
+      return;
+    }
+    const ids = new Set(picked.map((r) => r.student._id));
+    setRows((prev) => prev.map((r) => (ids.has(r.student._id) ? { ...r, section: value } : r)));
+    toast.success(`Section set to "${value}" for ${picked.length} pupil${picked.length === 1 ? '' : 's'}.`);
+  };
   const toApply = rows.filter((r) => r.action !== 'skip');
   const toCreate = toApply.filter((r) => r.action !== 'update');
   const toCorrect = toApply.filter((r) => r.action === 'update');
@@ -265,10 +336,69 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
 
       {rows.length > 0 && (
         <>
-          <div className="border border-border rounded-xl overflow-hidden max-h-80 overflow-y-auto">
+          {/* Tick-and-apply bar. Appears only with a selection, so the screen
+              is unchanged for anyone who never ticks anything. Wraps rather
+              than scrolling sideways: this is used on a phone in the field. */}
+          {selected.size > 0 && (
+            <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl border border-primary/30 bg-primary/5">
+              <span className="text-xs font-semibold text-foreground">
+                {selected.size} selected
+              </span>
+              <span className="hidden sm:inline text-xs text-muted-foreground">Set action:</span>
+              {!graduating && (
+                <button type="button" onClick={() => applyBulkAction('promote')}
+                  className="text-xs px-2.5 py-1 rounded-md border border-border bg-card hover:bg-gray-50">
+                  Promote to {target}
+                </button>
+              )}
+              <button type="button" onClick={() => applyBulkAction('retain')}
+                className="text-xs px-2.5 py-1 rounded-md border border-border bg-card hover:bg-gray-50">
+                Retain
+              </button>
+              <button type="button" onClick={() => applyBulkAction('update')}
+                className="text-xs px-2.5 py-1 rounded-md border border-border bg-card hover:bg-gray-50">
+                Correct {toYear}
+              </button>
+              <button type="button" onClick={() => applyBulkAction('skip')}
+                className="text-xs px-2.5 py-1 rounded-md border border-border bg-card hover:bg-gray-50">
+                Skip
+              </button>
+              <span className="w-px h-5 bg-border hidden sm:block" />
+              <input
+                value={bulkSection}
+                onChange={(e) => setBulkSection(e.target.value)}
+                placeholder="Section for all"
+                aria-label="Section to apply to the selected pupils"
+                className="text-xs border border-border rounded-md px-2 py-1 w-32 bg-card"
+              />
+              <button type="button" onClick={applyBulkSection} disabled={!bulkSection.trim()}
+                className="text-xs px-2.5 py-1 rounded-md border border-border bg-card hover:bg-gray-50 disabled:opacity-40">
+                Apply section
+              </button>
+              <button type="button" onClick={() => setSelected(new Set())}
+                className="text-xs px-2.5 py-1 rounded-md text-muted-foreground hover:text-foreground ml-auto">
+                Clear
+              </button>
+            </div>
+          )}
+
+          {/* overflow-x-auto, not overflow-hidden: the tickbox column added a
+              fourth column, and on a ~390px phone the table would otherwise
+              be CLIPPED rather than scrollable. CLAUDE.md: wide tables scroll
+              inside their own container, and the body never scrolls sideways. */}
+          <div className="border border-border rounded-xl max-h-80 overflow-y-auto overflow-x-auto">
             <table className="w-full border-collapse text-sm">
               <thead className="bg-gray-50 sticky top-0">
                 <tr>
+                  <th className="px-3 py-2 w-9">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleAll}
+                      aria-label={allSelected ? 'Deselect all pupils' : 'Select all pupils'}
+                      className="w-4 h-4 align-middle accent-primary cursor-pointer"
+                    />
+                  </th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Pupil</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Action</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Section in {toYear}</th>
@@ -277,6 +407,15 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
               <tbody className="divide-y divide-gray-100">
                 {rows.map((r) => (
                   <tr key={r.student._id} className={r.action === 'skip' ? 'opacity-50' : ''}>
+                    <td className="px-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(r.student._id)}
+                        onChange={() => toggleOne(r.student._id)}
+                        aria-label={`Select ${surnameFirst(r.student)}`}
+                        className="w-4 h-4 align-middle accent-primary cursor-pointer"
+                      />
+                    </td>
                     <td className="px-3 py-2">
                       {surnameFirst(r.student)}
                       {r.alreadyHasYear && (
