@@ -297,6 +297,26 @@ export const Appointments = () => {
     }
   };
 
+  // Sprint 109 — a remark on ONE pupil's slot, distinct from the day note.
+  const [apptNoteId, setApptNoteId] = useState<string | null>(null);
+  const [apptNoteDraft, setApptNoteDraft] = useState('');
+  const [apptNoteSaving, setApptNoteSaving] = useState(false);
+
+  const saveApptNote = async (appointmentId: string) => {
+    setApptNoteSaving(true);
+    try {
+      await apiClient.put(`/appointments/${appointmentId}`, { notes: apptNoteDraft.trim() });
+      setApptNoteId(null);
+      setApptNoteDraft('');
+      await reloadAppointments();
+      toast.success('Note saved.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not save the note');
+    } finally {
+      setApptNoteSaving(false);
+    }
+  };
+
   const archiveDayNote = async (id: string) => {
     try {
       await apiClient.patch(`/day-notes/${id}/archive`);
@@ -671,9 +691,50 @@ export const Appointments = () => {
               {getAppointmentsForDay(noteDay).length === 0 ? (
                 <p className="text-sm text-muted-foreground">None scheduled.</p>
               ) : (
-                <ul className="space-y-1">
+                <ul className="space-y-2">
                   {getAppointmentsForDay(noteDay).map((a) => (
-                    <li key={a.id} className="text-sm text-foreground">{a.time} · {a.grade} {a.section}</li>
+                    <li key={a.id} className="text-sm">
+                      <span className="text-foreground">{a.time} · {a.grade} {a.section}</span>
+                      <ul className="mt-1 space-y-1 pl-3 border-l-2 border-gray-100">
+                        {a.students.map((st) => (
+                          <li key={st.appointmentId} className="text-xs">
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="text-foreground">{st.name}</span>
+                              {canWriteNotes && apptNoteId !== st.appointmentId && (
+                                <button
+                                  onClick={() => { setApptNoteId(st.appointmentId); setApptNoteDraft(st.notes); }}
+                                  className="text-primary hover:underline shrink-0"
+                                >
+                                  {st.notes ? 'Edit note' : 'Add note'}
+                                </button>
+                              )}
+                            </div>
+                            {apptNoteId === st.appointmentId ? (
+                              <div className="mt-1 space-y-1">
+                                <input
+                                  value={apptNoteDraft}
+                                  onChange={(e) => setApptNoteDraft(e.target.value)}
+                                  maxLength={500}
+                                  placeholder="e.g. bring guardian"
+                                  aria-label={`Note for ${st.name}`}
+                                  className="w-full px-2 py-1 text-xs border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                                />
+                                <div className="flex gap-1.5">
+                                  <button onClick={() => saveApptNote(st.appointmentId)} disabled={apptNoteSaving}
+                                    className="px-2 py-0.5 text-xs bg-primary text-white rounded disabled:opacity-50">
+                                    {apptNoteSaving ? 'Saving…' : 'Save'}
+                                  </button>
+                                  <button onClick={() => { setApptNoteId(null); setApptNoteDraft(''); }} disabled={apptNoteSaving}
+                                    className="px-2 py-0.5 text-xs border border-border rounded">Cancel</button>
+                                </div>
+                              </div>
+                            ) : st.notes ? (
+                              <p className="text-[11px] text-blue-800 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 mt-0.5">{st.notes}</p>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
                   ))}
                 </ul>
               )}

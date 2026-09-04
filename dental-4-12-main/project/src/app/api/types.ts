@@ -178,6 +178,8 @@ export interface ApiAppointment {
   appointment_type: string;
   requires_followup: boolean;
   parental_supervision_required: boolean;
+  /** Per-appointment remark (Sprint 109). Empty string when unset. */
+  notes?: string;
   isArchived: boolean;
 }
 

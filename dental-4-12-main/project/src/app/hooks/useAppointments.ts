@@ -12,6 +12,14 @@ export interface SessionStudent {
   gender: string;
   age: number;
   riskLevel: string | null;
+  /** The underlying APPOINTMENT this pupil holds in the session (Sprint 109).
+   *  Carried explicitly rather than read positionally out of
+   *  `appointmentIds` — the arrays happen to be built in step today, and a
+   *  note written against the wrong pupil is exactly the class of bug that
+   *  kind of coupling produces. */
+  appointmentId: string;
+  /** Remark on that appointment; '' when unset. */
+  notes: string;
 }
 
 export interface AppointmentSession {
@@ -84,6 +92,8 @@ function buildSessions(
       gender: student.sex,
       age: calculateAge(student.birthday),
       riskLevel: null,
+      appointmentId: appt._id,
+      notes: appt.notes ?? '',
     });
   }
   return Array.from(groups.values());
