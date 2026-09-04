@@ -9,8 +9,8 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ▶ RESUME HERE — parked 2026-09-04 (6th session), everything pushed at `cc5e1c25`
-Tree clean apart from three untracked strays (below). **Nine sprints shipped, all verified against production; one built and reverted the same day.**
+## ▶ RESUME HERE — parked 2026-09-04 (6th session), everything pushed at `eaff9c6d`
+Tree clean apart from two untracked strays (below). **Ten sprints shipped, all verified against production; one built and reverted the same day.**
 
 | # | Sprint | The bit worth remembering |
 |---|---|---|
@@ -24,6 +24,7 @@ Tree clean apart from three untracked strays (below). **Nine sprints shipped, al
 | ~~107~~ | ~~Patient list Actions column~~ | **Built, then REVERTED.** Kept both controls. Production never changed. |
 | 108 | Day notes (`DAY_NOTE`) | Nullable `school_id` = all schools. **ERD deviation.** |
 | 109 | Appointment notes | Closes #30. **ERD deviation.** |
+| 110 | Reports update themselves | Polls a change TOKEN, not the reports. **Measured ~0.9-5.2 s, so "self-updating", NOT "real time".** |
 
 Plus the **HANDOFF hygiene pass**: 1817 → 461 lines, 102 finished sections moved verbatim to `docs/BUILD-LOG.md`, nothing lost (all 110 headings + a 60-line sample re-verified).
 
@@ -41,6 +42,9 @@ Across 99–109 a verifier reported failure **six times**; **five were the test'
 
 ### Untracked strays, left deliberately
 `package.json`, `package-lock.json` and a 490 KB `node_modules/` at the **repo root**, from a `@vercel/speed-insights` install that landed in the wrong directory. The snippet is parked — the required `beforeSend` mask and why it is mandatory are in the Sprint 99 section.
+
+### ⚠ Say "self-updating", not "real time"
+Sprint 110's numbers refresh on their own within a few seconds of any change, with nobody touching the screen — **measured 0.9 s / 5.2 s / 3.9 s at the 5 s poll**. It is NOT pushed and NOT sub-second; that needs a held socket, which request-scoped functions cannot do. **If a panelist asks, the accurate sentence is "the figures refresh themselves within a few seconds of any change."**
 
 ### Next sprint — nothing is scoped and ready
 1. **#38 — the fresh-clone README rehearsal.** Still never run since the outage; the only buildable item with real consequence, and nobody can currently be sure a collaborator can run this project.
