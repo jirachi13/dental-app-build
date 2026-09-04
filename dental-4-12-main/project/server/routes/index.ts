@@ -238,6 +238,51 @@ router.get("/stats/notifications", requireAuth, asyncHandler(async (req, res) =>
 // fields are encrypted, and mongoose-field-encryption decrypts in post('init'),
 // which only runs for real documents — a lean() or aggregate() read would
 // return ciphertext. Everything else is lean because none of it is encrypted.
+// The prev/next patient nav on the dental chart needs three fields per student
+// — id, display name, school — and nothing else. It used to get them from
+// /stats/student-rows via useStudents(), which returns ~13 fields per row and
+// joins SIX collections to compute a last-visit date and a risk badge the nav
+// never looks at (backlog #39). This reads two collections and projects three
+// fields, so it does not grow with the chart/risk data the way the full row
+// endpoint does.
+//
+// Same `scopeFilter` gate as /stats/student-rows — Sprint 101 caught that
+// endpoint handing every school's students to a school_admin pinned to one, and
+// a new endpoint must not reopen it. `students` cannot use .lean(): the name
+// fields are encrypted and mongoose-field-encryption decrypts in post('init'),
+// which a lean read never triggers.
+router.get("/stats/student-nav", requireAuth, asyncHandler(async (req, res) => {
+  const scope = await scopeFilter("Student", req);
+  const studentFilter = scope ? { isArchived: false, ...scope } : { isArchived: false };
+  const [students, schools] = await Promise.all([
+    // ⚠ NO .select() on Student, and no .lean(). mongoose-field-encryption
+    // decrypts in post('init') and decides what to decrypt from the `__enc_*`
+    // marker fields it stores alongside each encrypted value. A projection that
+    // lists only the name fields drops those markers, the plugin sees nothing to
+    // decrypt, and the endpoint returns `<iv>:<ciphertext>` instead of a name —
+    // silently, with a 200. Caught here by diffing this endpoint against
+    // /stats/student-rows; every row differed. Project in JS below instead.
+    Student.find(studentFilter),
+    School.find({ isArchived: false }).select("_id school_name").lean(),
+  ]);
+  const schoolNameById = new Map(schools.map((s: any) => [String(s._id), String(s.school_name)]));
+
+  const rows = (students as any[]).map((s) => {
+    const last = (s.last_name ?? "").trim();
+    const first = (s.first_name ?? "").trim();
+    return {
+      id: String(s._id),
+      // Identical to /stats/student-rows' surnameFirst() fallbacks — the nav
+      // sorts on this string, so any drift here reorders prev/next.
+      name: !last && !first ? (s.full_name ?? "").trim() : !last ? first : !first ? last : `${last}, ${first}`,
+      // The prev/next buttons show the surname alone, matching the sort order.
+      lastName: s.last_name ?? "",
+      school: schoolNameById.get(String(s.school_id)) ?? "Unknown School",
+    };
+  });
+  res.json(rows);
+}));
+
 router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => {
   // This is the endpoint the Sprint 101 probe caught handing all three
   // schools' students to a school_admin pinned to one.

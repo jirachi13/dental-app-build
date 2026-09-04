@@ -7,7 +7,7 @@ import { computeBmi, BMI_NOTE } from '../utils/bmi';
 import { useAuth } from '../context/AuthContext';
 import { GradePill } from './GradePill';
 import { useToast } from './Toast';
-import { useStudents } from '../hooks/useStudents';
+import { useStudentNav } from '../hooks/useStudentNav';
 import { useAppointments } from '../hooks/useAppointments';
 import { useDentalChartData } from '../hooks/useDentalChartData';
 import { apiClient, ApiError } from '../api/client';
@@ -153,7 +153,10 @@ export const DentalChart = () => {
   const canEditInfo = canEditHistory;
   const staffNameLabel = user?.role === 'dental_aide' ? 'Dental Aide' : 'Dentist';
 
-  const { students: allStudents } = useStudents();
+  // Was useStudents() — the whole roster via /stats/student-rows — used ONLY to
+  // build the prev/next nav below (backlog #39). The slim endpoint returns the
+  // three fields the nav reads instead of ~13 joined across six collections.
+  const { entries: allStudents } = useStudentNav();
   // School list comes from the DB now, not a hardcoded array (Sprint 60).
   const { schoolNames } = useSchools();
   // Only the Consent tab's "upcoming appointments" list reads this, and it
