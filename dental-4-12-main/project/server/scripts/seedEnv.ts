@@ -11,20 +11,7 @@
 // Refuses the same way purgeDemoData.ts does: a plain message naming the
 // variable, then a non-zero exit — no stack trace.
 
-const PLACEHOLDERS = new Set([
-  // the literal values in .env.example
-  "choose-a-password",
-  "replace-with-a-long-random-string",
-  "replace-with-a-different-long-random-string",
-  "must-match-the-key-existing-records-were-encrypted-with",
-  // the usual suspects, in case someone types their own placeholder
-  "changeme",
-  "change-me",
-  "password",
-  "secret",
-  "test",
-  "admin",
-]);
+import { isPlaceholderSecret } from "../utils/secretGuard.js";
 
 const MIN_LENGTH = 8;
 
@@ -45,7 +32,7 @@ export function requireSecretEnv(name: string): string {
   }
 
   const value = raw.trim();
-  if (PLACEHOLDERS.has(value.toLowerCase())) {
+  if (isPlaceholderSecret(value)) {
     refuse(
       `${name} is still the .env.example placeholder ("${value}") — refusing to seed.\n` +
         `That value is a public string in a committed file, so any account created with it\n` +
