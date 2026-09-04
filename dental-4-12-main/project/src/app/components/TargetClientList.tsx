@@ -131,7 +131,11 @@ const NO_SOURCE = '—';
  *  (PREVENTIVE_CARE_RECORD stores only iptr_id, visit_date and visit_number, so
  *  no per-visit service is recorded anywhere) and renders "—".
  *
- *  ⚠ `unverified` marks a caption that is still a GUESS. Most were resolved on
+ *  ⚠ `unverified` NOW FLAGS NOTHING — every caption in this list is verified
+ *  (Sprint 103). The mechanism is kept because the next form transcribed from a
+ *  scan will need it, and both the dotted underline and the note above the table
+ *  self-hide at zero. Do NOT re-add a flag without saying which source settled
+ *  it. History: most were resolved on
  *  2026-09-02 against the machine-readable DOH workbook the user supplied
  *  (TCLForm2andFHSISReport.xlsx, sheet "6-9 Y.O (M)" row 4) -- the authoritative
  *  source that replaced the low-resolution Appendix E scan. Corrections made:
@@ -151,7 +155,14 @@ const NO_SOURCE = '—';
  *  Original note follows.
  *  ⚠ `unverified` marks a caption read off the low-resolution Appendix E scan
  *  that could not be made out with confidence. Shown with a dotted underline
- *  and counted in the note above the table. CHECK AGAINST THE PAPER FORM. */
+ *  and counted in the note above the table. CHECK AGAINST THE PAPER FORM.
+ *
+ *  ⚠ STILL UNCHECKED, and NOT checkable on this machine: the 1st-visit caption
+ *  says "Routine Preventative Care" while the 2nd says "Routine Preventive
+ *  Care". One of those spellings is likely wrong, but settling it needs
+ *  TCLForm2andFHSISReport.xlsx, which lives in the gitignored per-device
+ *  `data/` folder and is on the OTHER laptop. Left exactly as transcribed
+ *  rather than "corrected" by guess. */
 type Row = {
   id: string;
   name: string;
@@ -206,7 +217,12 @@ const PREVENTIVE_SET = (visitDone: (r: Row) => boolean, isSecond: boolean): Omit
   { label: 'Counseling' },
   { label: 'Oral Prophylaxis', value: (r) => (!isSecond && r.treatments.includes('OP') ? '✓' : '') },
   { label: 'Fluoride Varnish App', value: (r) => (r.treatments.includes('FV') ? '✓' : '') },
-  { label: isSecond ? 'Complete RPC for 2nd Visit Routine Preventive Care' : 'Complete RPC for 1st Visit Routine Preventative Care', unverified: isSecond },
+  // Sprint 103: the `unverified` flag on the 2nd-visit caption is REMOVED. The
+  // FILLED PAPER SCAN settles it — "Complete RPC for 2nd Visit" is correct, and
+  // the duplicated "1st" is a typo in the WORKBOOK (sheet "0-8 Months (M)" is
+  // the only one of 27 carrying the right text). The workbook stays
+  // authoritative on the column SET, but not on this one label.
+  { label: isSecond ? 'Complete RPC for 2nd Visit Routine Preventive Care' : 'Complete RPC for 1st Visit Routine Preventative Care' },
 ];
 
 /** The left-hand identity columns. Data-driven so they can be hidden like the
