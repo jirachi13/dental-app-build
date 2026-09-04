@@ -35,6 +35,8 @@ Exact from ERD Chapter 3. **Read this before touching any schema, model, or migr
 
 **APPOINTMENT** — appointment_id, student_id (FK), dentist_id (FK), appointment_datetime (DATETIME), status (VARCHAR 50), appointment_type (added Sprint 11, not in original ERD), requires_followup (BOOLEAN, added Sprint 11), parental_supervision_required (BOOLEAN, added Sprint 11), isArchived, archivedAt, archivedBy. One Appointment record per student — a UI "session" (whole class section scheduled at once) is multiple Appointment records sharing date/time/dentist/type, grouped client-side.
 
+**DAY_NOTE** (NEW — ERD DEVIATION, added Sprint 108) — day_note_id, date (DATETIME, midnight local — one calendar square = one date), **school_id (FK, NULLABLE — ⚠ null means EVERY school, which is the barangay-wide holiday case and the reason the field is not required)**, note (VARCHAR 500), created_by (FK USER), created_at, updated_at, isArchived, archivedAt, archivedBy. A note written against a DATE rather than a patient ("no clinic, barangay fiesta", "compressor down"). ⚠ Because `school_id` may be null it needs the `school_id_or_global` rule in `schoolScope.ts` — a plain `{school_id: {$in: […]}}` excludes null and would hide every barangay-wide note from scoped users. Not overloaded onto DENTIST_ROTATION.notes, which is scoped to school + dentist + WEEK. ⚠ Chapter 3's ERD figure must be updated.
+
 **DENTIST_ROTATION** (NEW — not in original ERD, added Sprint 11) — rotation_id, school_id (FK), dentist_id (FK), week_start (DATE), week_end (DATE), notes (TEXT), isArchived, archivedAt, archivedBy
 
 **AUDIT_TRAIL** — audit_id, user_id (FK), action (VARCHAR 100), timestamp (DATETIME), affected_record_id, affected_model (VARCHAR 50)

@@ -47,7 +47,9 @@ type ScopeRule =
   | { via: "student_id" }
   | { via: "iptr_id" }
   | { via: "chart_id" }
-  | { via: "preventive_id" };
+  | { via: "preventive_id" }
+  // A school_id that may be NULL, where null means "every school".
+  | { via: "school_id_or_global" };
 
 const RULES: Record<string, ScopeRule> = {
   Student: { via: "school_id" },
@@ -64,6 +66,10 @@ const RULES: Record<string, ScopeRule> = {
   PreventiveCareRecord: { via: "iptr_id" },
   ToothRecord: { via: "chart_id" },
   RiskStratification: { via: "preventive_id" },
+  // ⚠ NOT plain "school_id". A DAY_NOTE with school_id null is a barangay-wide
+  // note that EVERY user must see; `{school_id: {$in: [...]}}` excludes null,
+  // so a plain rule would silently hide every holiday from scoped users.
+  DayNote: { via: "school_id_or_global" },
 
   // Deliberately unscoped, each for a reason:
   //  School  — every user needs school NAMES to render anything, and the list
@@ -157,6 +163,8 @@ export async function scopeFilter(
   switch (rule.via) {
     case "school_id":
       return { school_id: { $in: schools } };
+    case "school_id_or_global":
+      return { $or: [{ school_id: { $in: schools } }, { school_id: null }] };
     case "student_id":
       return { student_id: { $in: await studentIds(req, schools) } };
     case "iptr_id":
@@ -173,6 +181,19 @@ export async function scopeFilter(
 export async function isInScope(modelName: string, req: Request, doc: any): Promise<boolean> {
   const clause = await scopeFilter(modelName, req);
   if (!clause) return true;
+
+  // The $or shape (school_id_or_global) has to be read differently: a null
+  // school_id is IN scope there, whereas for every other rule a missing key
+  // means out of scope.
+  if ('$or' in clause) {
+    const branches = clause.$or as Array<Record<string, unknown>>;
+    return branches.some((b) => {
+      const [f, cond] = Object.entries(b)[0] as [string, { $in?: unknown[] } | null];
+      const v = doc?.[f];
+      if (cond === null) return v === null || v === undefined;
+      return v !== undefined && v !== null && (cond.$in ?? []).some((a) => String(a) === String(v));
+    });
+  }
 
   const [field, condition] = Object.entries(clause)[0] as [string, { $in: unknown[] }];
   const value = doc?.[field];

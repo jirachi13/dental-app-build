@@ -27,6 +27,7 @@ import {
   Appointment,
   AuditTrail,
   DentistRotation,
+  DayNote,
 } from "../models/index.js";
 
 const router = Router();
@@ -352,6 +353,12 @@ router.use("/risk-stratifications", createCrudRouter(RiskStratification, {
 // date the way Today and Upcoming do, so without a bound they grow forever.
 router.use("/appointments", createCrudRouter(Appointment, { writeRoles: CLINICAL_WRITE_ROLES, dateField: "appointment_datetime" }));
 router.use("/dentist-rotations", createCrudRouter(DentistRotation, { writeRoles: CLINICAL_WRITE_ROLES }));
+
+// Sprint 108 — notes written against a DATE rather than a patient. `dateField`
+// bounds the read to the month the calendar is showing, the same treatment
+// Sprint 56 gave appointments; without it this becomes another unbounded
+// collection read the moment a year of holidays exists.
+router.use("/day-notes", createCrudRouter(DayNote, { writeRoles: CLINICAL_WRITE_ROLES, dateField: "date" }));
 
 // Audit trail — System Admin only, both to read and (already, since Sprint 6)
 // impossible to write directly; entries are created internally via logAudit().

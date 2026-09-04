@@ -11,6 +11,7 @@ import { useDentistRotations } from '../hooks/useDentistRotations';
 import { apiClient } from '../api/client';
 import { Notice } from './Notice';
 import { toLocalDateString, formatDateWithWeekday } from '../utils/localDate';
+import { useDayNotes } from '../hooks/useDayNotes';
 import { schoolYearStart, schoolYearEnd } from '../utils/schoolYear';
 import type { ApiSchool } from '../api/types';
 import { SkeletonPageHeader, SkeletonStatGrid, SkeletonTable } from './Skeleton';
@@ -256,6 +257,56 @@ export const Appointments = () => {
     return true;
   });
 
+  // Sprint 108 — notes written against a DATE (holiday, no-clinic day,
+  // equipment down), distinct from a per-patient remark. Bounded to the month
+  // on screen; see useDayNotes.
+  const { notesFor, reload: reloadDayNotes } = useDayNotes(currentDate);
+  const [noteDay, setNoteDay] = useState<Date | null>(null);
+  const [noteDraft, setNoteDraft] = useState('');
+  const [noteSaving, setNoteSaving] = useState(false);
+
+  const canWriteNotes = !!user && ['system_admin', 'dentist', 'dental_aide'].includes(user.role);
+
+  const openDay = (day: Date | null) => {
+    if (!day) return;
+    setNoteDay(day);
+    setNoteDraft('');
+  };
+
+  const saveDayNote = async () => {
+    if (!noteDay || !noteDraft.trim()) return;
+    setNoteSaving(true);
+    try {
+      await apiClient.post('/day-notes', {
+        // Midnight local, so one calendar square is one date.
+        date: toLocalDateString(noteDay),
+        // ⚠ null means EVERY school — that is the barangay-wide holiday case,
+        // and it is what "All Schools" in the switcher should produce. When a
+        // specific school is selected the note is scoped to it. `selectedSchool`
+        // is a NAME, so it has to be mapped back to an id here.
+        school_id: schools.find((sc) => sc.school_name === selectedSchool)?._id ?? null,
+        note: noteDraft.trim(),
+      });
+      setNoteDraft('');
+      await reloadDayNotes();
+      toast.success('Note added.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not save the note');
+    } finally {
+      setNoteSaving(false);
+    }
+  };
+
+  const archiveDayNote = async (id: string) => {
+    try {
+      await apiClient.patch(`/day-notes/${id}/archive`);
+      await reloadDayNotes();
+      toast.success('Note removed.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not remove the note');
+    }
+  };
+
   // Calendar helpers
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -418,14 +469,36 @@ export const Appointments = () => {
         <div className="grid grid-cols-7">
           {days.map((day, idx) => {
             const dayAppts = getAppointmentsForDay(day);
+            const dayNotes = notesFor(day);
             const isToday = day && toLocalDateString(day) === TODAY;
             return (
-              <div key={idx} className={`min-h-[80px] p-1.5 border-r border-b border-gray-100 last:border-b-0 ${!day ? 'bg-gray-50/60' : ''} ${isToday ? 'bg-teal-50' : ''}`}>
+              <div
+                key={idx}
+                onClick={() => openDay(day)}
+                role={day ? 'button' : undefined}
+                tabIndex={day ? 0 : undefined}
+                onKeyDown={(e) => { if (day && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openDay(day); } }}
+                aria-label={day ? `${day.getDate()} — open day notes` : undefined}
+                className={`min-h-[80px] p-1.5 border-r border-b border-gray-100 last:border-b-0 ${!day ? 'bg-gray-50/60' : 'cursor-pointer hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary'} ${isToday ? 'bg-teal-50' : ''}`}
+              >
                 {day && (
                   <>
-                    <div className={`text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-teal-600 text-white' : 'text-muted-foreground'}`}>
-                      {day.getDate()}
+                    <div className="flex items-center gap-1 mb-1">
+                      <div className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-teal-600 text-white' : 'text-muted-foreground'}`}>
+                        {day.getDate()}
+                      </div>
+                      {/* A day with a note is marked, so the note is discoverable
+                          without clicking every square. */}
+                      {dayNotes.length > 0 && (
+                        <FileText className="w-3 h-3 text-amber-600" aria-label={`${dayNotes.length} note(s)`} />
+                      )}
                     </div>
+                    {dayNotes.map((n) => (
+                      <div key={n._id} title={n.note}
+                        className="text-[10px] font-medium px-1.5 py-0.5 rounded mb-0.5 truncate bg-amber-50 text-amber-800 border border-amber-200">
+                        {n.note}
+                      </div>
+                    ))}
                     {dayAppts.map(a => {
                       const gc = getGradeColor(a.grade);
                       return (
@@ -582,6 +655,82 @@ export const Appointments = () => {
       )}
 
       </div>{/* end tab content box */}
+
+      {/* Sprint 108 — the day panel. Shows what is ALREADY on that date
+          (appointments, read-only here) alongside its notes, because a note
+          about a day is usually written with the day's schedule in view. */}
+      {noteDay && (
+        <Modal onClose={() => setNoteDay(null)} maxWidth="max-w-md" closeDisabled={noteSaving}>
+          <div className="flex items-center justify-between p-5 border-b border-gray-100">
+            <h2 className="text-lg font-bold text-foreground">{formatDateWithWeekday(toLocalDateString(noteDay))}</h2>
+            <button onClick={() => setNoteDay(null)} className="p-2 hover:bg-gray-100 rounded-lg" aria-label="Close"><X className="w-4 h-4"/></button>
+          </div>
+          <div className="p-5 space-y-4">
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Appointments</p>
+              {getAppointmentsForDay(noteDay).length === 0 ? (
+                <p className="text-sm text-muted-foreground">None scheduled.</p>
+              ) : (
+                <ul className="space-y-1">
+                  {getAppointmentsForDay(noteDay).map((a) => (
+                    <li key={a.id} className="text-sm text-foreground">{a.time} · {a.grade} {a.section}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Notes</p>
+              {notesFor(noteDay).length === 0 ? (
+                <p className="text-sm text-muted-foreground">No notes on this date.</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {notesFor(noteDay).map((n) => (
+                    <li key={n._id} className="flex items-start justify-between gap-2 text-sm bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                      <span className="text-amber-900">
+                        {n.note}
+                        {/* A note with no school applies everywhere — say so,
+                            rather than leaving the reader to infer it. */}
+                        <span className="block text-[11px] text-amber-700/80">
+                          {n.school_id ? (schools.find((sc) => sc._id === n.school_id)?.school_name ?? 'One school') : 'All schools'}
+                        </span>
+                      </span>
+                      {canWriteNotes && (
+                        <button onClick={() => archiveDayNote(n._id)} className="text-amber-700 hover:text-destructive shrink-0" aria-label="Remove note">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {canWriteNotes ? (
+              <div className="space-y-2">
+                <textarea
+                  value={noteDraft}
+                  onChange={(e) => setNoteDraft(e.target.value)}
+                  maxLength={500}
+                  rows={2}
+                  placeholder="e.g. No clinic — barangay fiesta"
+                  aria-label="New note for this date"
+                  className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <button
+                  onClick={saveDayNote}
+                  disabled={noteSaving || !noteDraft.trim()}
+                  className="w-full px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50"
+                >
+                  {noteSaving ? 'Saving…' : 'Add note'}
+                </button>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">Your role can read day notes but not write them.</p>
+            )}
+          </div>
+        </Modal>
+      )}
 
       {/* ── CREATE APPOINTMENT MODAL ── */}
       {showCreateModal && (
