@@ -17,7 +17,7 @@ export const LiveUpdatedStamp = ({ at }: { at: Date | null }) => {
     <span
       className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
       // Says the quiet part: this is near-live, not live-to-the-second.
-      title="These figures refresh on their own within about 20 seconds of a change being saved by anyone."
+      title="These figures refresh on their own, usually within a few seconds of a change being saved by anyone."
     >
       <span className="w-1.5 h-1.5 rounded-full bg-green-500" aria-hidden="true" />
       Updated {at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

@@ -67,6 +67,15 @@ export function useLiveNumbers(load: () => void | Promise<unknown>, enabled = tr
   return { lastUpdated };
 }
 
-/** 20s. Short enough that a number changing under you feels live, long enough
- *  that an open tab costs three tiny requests a minute and nothing else. */
-export const POLL_MS = 20 * 1000;
+/** 5s.
+ *
+ *  Started at 20s, then MEASURED: write -> report refetch came out at 9.8s,
+ *  8.4s and 4.2s, i.e. roughly half the interval on average. That is
+ *  self-updating, but it is not "instant" to a person watching. At 5s the
+ *  average lag is ~2.5s, which reads as immediate.
+ *
+ *  ⚠ The cost is small ONLY because the poll is not a report rebuild: it is one
+ *  indexed findOne on AUDIT_TRAIL. This is 12 tiny requests a minute per open
+ *  report tab, against 3 before. If this endpoint ever stops being a single
+ *  indexed lookup, revisit this number FIRST. */
+export const POLL_MS = 5 * 1000;
