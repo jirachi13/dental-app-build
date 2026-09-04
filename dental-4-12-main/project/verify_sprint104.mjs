@@ -30,8 +30,39 @@ await page.fill('input[type="password"]', env.SEED_DENTIST_PASSWORD);
 await page.click('button[type="submit"]');
 await page.waitForURL((u) => !u.pathname.endsWith('/login'), { timeout: 30000 });
 
+// ⚠ SINCE SPRINT 100 THE DENTIST HOLDS ALL THREE SCHOOLS, so login lands on
+// /select-school instead of going straight through — with one school it used to
+// auto-select. Skipping this step silently lands every later assertion on the
+// school picker, where nothing fetches and every count is 0. That is exactly
+// how the first run of this file "failed": it was measuring an empty screen.
+if (page.url().includes('/select-school')) {
+  await page.click('main button, [role="main"] button, button:has-text("School")').catch(() => {});
+  await page.waitForTimeout(1500);
+}
 await page.goto(`${BASE}/reports`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(2000);
+await page.waitForTimeout(2500);
+if (page.url().includes('/select-school')) {
+  const picked = await page.evaluate(() => {
+    const b = [...document.querySelectorAll('button')].find((x) => /School/i.test(x.textContent || ''));
+    if (b) { b.click(); return b.textContent.trim().slice(0, 40); }
+    return null;
+  });
+  console.log('picked school:', picked);
+  await page.waitForTimeout(1500);
+  await page.goto(`${BASE}/reports`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(2500);
+}
+check('the reports screen actually loaded (not the school gate)',
+  !page.url().includes('/select-school'), page.url().replace(BASE, ''));
+
+// ⚠ THE THROTTLE CLOCK STARTS AT MOUNT, not at the first refocus — `lastRefresh`
+// is initialised to Date.now() inside the effect. That is correct behaviour (the
+// data was just fetched on mount, so a refresh five seconds later is waste), but
+// it means a test that refocuses immediately measures the throttle, not the
+// refresh. The first version of this file did exactly that and reported a
+// failure that was entirely its own. Wait the window out.
+console.log('waiting out the 30s throttle window before the first refocus...');
+await page.waitForTimeout(31000);
 
 // --- refocus must trigger a refetch
 apiCalls = 0;
