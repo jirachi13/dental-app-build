@@ -1,6 +1,7 @@
 import "dotenv/config";
 import "../dnsFix.js"; // this machine's Node 24 + Atlas SRV workaround
 import { connectDB } from "../config/db.js";
+import { announceTarget } from "./announceTarget.js";
 import { School, User, Dentist, DentalAide } from "../models/index.js";
 import { hashPassword } from "../utils/password.js";
 import { requireSecretEnv, requireSecretEnvAll } from "./seedEnv.js";
@@ -73,6 +74,7 @@ async function main() {
   requireSecretEnvAll(SEED_PASSWORD_VARS);
 
   await connectDB();
+  announceTarget("seedDemo");
 
   const schools = await ensureSchools();
   const integrated = schools["Bagong Tanyag Integrated School"];

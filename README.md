@@ -41,7 +41,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 Three things decide whether the app will actually start and stay correct:
 
-- **`MONGODB_URI`** — ask a teammate for the shared cluster string, or point at your own free Atlas cluster.
+- **`MONGODB_URI`** — your own free Atlas cluster, seeded (below). **Do NOT point a dev machine at production**; they are separate databases since Sprint 126, and Atlas's one-free-cluster limit is per PROJECT, so a new project gets you another free tier.
 - **⚠ `FIELD_ENCRYPTION_SECRET` — if the database already has records, this MUST be the key they were encrypted with.** A wrong value does not fail at startup; it surfaces later as garbled names or decrypt errors when reading students, and the data cannot be recovered afterwards. Only generate a fresh one for an empty database. This is the single most destructive value in the project.
 - **`ALLOWED_ORIGINS`** — keep `http://localhost:5173` for local dev, or every login returns `403 "Origin not allowed"`.
 
@@ -53,7 +53,8 @@ Full reference:
 
 | Var | Purpose |
 |---|---|
-| `MONGODB_URI` | Atlas connection string |
+| `MONGODB_URI` | Atlas connection string — the DEV cluster locally; production's lives only in Vercel |
+| `PRODUCTION_DB_HOST` | the host maintenance scripts treat as production, so they can shout before touching it |
 | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` | token signing (15 min access / 7 day refresh) |
 | `FIELD_ENCRYPTION_SECRET` | AES key for encrypted patient fields — **must match the key existing records were encrypted with**, a wrong value only surfaces as decrypt errors on read |
 | `ALLOWED_ORIGINS` | CORS allowlist for production origins (login 403s without it) |
@@ -93,6 +94,25 @@ Then create your `.env` as described above.
 > and then **every** API call returns `500 {"error":"Internal server error"}`, with the real cause visible only in the server console (`querySrv ENOTFOUND _mongodb._tcp.CLUSTER.mongodb.net` if you left the `.env.example` placeholder in). If the app loads but nothing works and login 500s, check `MONGODB_URI` first — a successful "Server running" line proves nothing about the database.
 >
 > **The one-command check** — `curl -s http://localhost:4000/api/health` — answers this directly: `{"status":"ok","db":"connected"}` when the database is reachable, `500 {"error":"Internal server error"}` when it is not. Run it before debugging anything else.
+
+### Dev and production are SEPARATE databases (Sprint 126)
+
+**Local `.env` points at a DEV Atlas cluster. Production's `MONGODB_URI` lives only in Vercel.** Before this, one cluster served both, so every maintenance script run from a laptop hit live patient records — and on 2026-09-04 three did, all recoverable, none of which should have been possible inattentively.
+
+- **Each database has its OWN `FIELD_ENCRYPTION_SECRET`, and they are not interchangeable.** Pointing `.env` back at production while holding the dev key makes every patient record read as garbage. **Restore the whole `.env` from its dated backup — never swap one line.** The previous config is saved as `.env.production.bak-<timestamp>` (gitignored).
+- **`PRODUCTION_DB_HOST`** in `.env` names the host that counts as production. Every maintenance script prints its target before doing anything, and shouts when that target is production:
+
+  ```
+  ----------------------------------------------------------------
+    script   : purgeDemoData
+    cluster  : ac-gpvngtp-shard-00-00.o7e3c5o.mongodb.net
+    database : floral
+  ----------------------------------------------------------------
+  ```
+
+  Leave `PRODUCTION_DB_HOST` unset and the target is still printed — it just cannot tell you which cluster it is.
+- **Seed the dev database after switching:** `seed:admin` → `seed:demo` → `seed:students` → `seed:rpc-visit2` → `seed:iptr-details` → `seed:treatments`, then **`apply:seed-passwords -- --confirm`** if the accounts predate your `.env` (`seed:admin`/`seed:demo` skip accounts that already exist, so their passwords stay whatever created them — this is exactly what a 401 on a freshly seeded database means).
+- ⚠ **Dev data is seeded, never a copy of real records.** Copying production into dev would put patient PII on a laptop, which is the thing this separation exists to stop.
 
 ### What a new collaborator cannot get from this repo
 

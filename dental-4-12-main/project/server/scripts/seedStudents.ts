@@ -1,6 +1,7 @@
 import "dotenv/config";
 import "../dnsFix.js"; // this machine's Node 24 + Atlas SRV workaround
 import { connectDB } from "../config/db.js";
+import { announceTarget } from "./announceTarget.js";
 import { splitFullName } from "./splitStudentNames.js";
 import { School, Student, StudentIptr, DentalChart, Dentist, PreventiveCareRecord, RiskStratification } from "../models/index.js";
 import mongoose from "mongoose";
@@ -9,6 +10,7 @@ import { DEMO_STUDENTS as STUDENTS } from "./demoStudents.js";
 
 async function main() {
   await connectDB();
+  announceTarget("seedStudents");
 
   const schools: Record<string, any> = {};
   for (const s of await School.find({})) schools[s.school_name] = s;

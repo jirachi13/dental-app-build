@@ -2,6 +2,7 @@ import "dotenv/config";
 import "../dnsFix.js"; // this machine's Node 24 + Atlas SRV workaround
 import mongoose from "mongoose";
 import { connectDB } from "../config/db.js";
+import { announceTarget } from "./announceTarget.js";
 import { User } from "../models/index.js";
 
 // Sprint 100 follow-up. `migrateUserSchools.ts` is deliberately LITERAL — it
@@ -26,6 +27,7 @@ const ASSIGNMENTS: Record<string, string[]> = {
 
 async function run() {
   await connectDB();
+  announceTarget("assignDemoSchools");
 
   for (const [email, school_ids] of Object.entries(ASSIGNMENTS)) {
     const user = await User.findOne({ email });

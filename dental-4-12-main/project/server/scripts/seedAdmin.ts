@@ -1,6 +1,7 @@
 import "dotenv/config";
 import "../dnsFix.js"; // this machine's Node 24 + Atlas SRV workaround
 import { connectDB } from "../config/db.js";
+import { announceTarget } from "./announceTarget.js";
 import { User } from "../models/index.js";
 import { hashPassword } from "../utils/password.js";
 import { requireSecretEnv } from "./seedEnv.js";
@@ -17,6 +18,7 @@ async function main() {
   const password = requireSecretEnv("SEED_ADMIN_PASSWORD");
 
   await connectDB();
+  announceTarget("seedAdmin");
 
   const existing = await User.findOne({ email: email.toLowerCase().trim() });
   if (existing) {

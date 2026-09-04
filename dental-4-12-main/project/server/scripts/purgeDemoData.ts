@@ -3,6 +3,7 @@
 import "../dnsFix.js";
 import "dotenv/config";
 import { connectDB } from "../config/db.js";
+import { announceTarget } from "./announceTarget.js";
 import {
   School, User, Dentist, DentalAide, Student, StudentIptr, MedicalHistory,
   DietarySocialHabits, OralHealthCondition, DentalChart, ToothRecord, Treatment,
@@ -77,6 +78,7 @@ const TEST_USER_EMAIL_RE = /@floral\.local$/i;
 
 async function main() {
   await connectDB();
+  announceTarget("purgeDemoData");
   console.log(`db: ${mongoose.connection.name}`);
   console.log(CONFIRM ? "MODE: DELETING\n" : "MODE: dry run (pass --confirm to delete)\n");
 

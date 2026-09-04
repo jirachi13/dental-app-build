@@ -2,6 +2,7 @@ import "dotenv/config";
 import "../dnsFix.js"; // this machine's Node 24 + Atlas SRV workaround
 import mongoose from "mongoose";
 import { connectDB } from "../config/db.js";
+import { announceTarget } from "./announceTarget.js";
 
 // One-off migration: USER.school_id (single FK) -> USER.school_ids (array).
 // Sprint 100.
@@ -27,6 +28,7 @@ const CONFIRM = process.argv.includes("--confirm");
 
 async function run() {
   await connectDB();
+  announceTarget("migrateUserSchools");
   const users = mongoose.connection.collection("users");
   const schools = mongoose.connection.collection("schools");
 

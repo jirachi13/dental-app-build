@@ -17,6 +17,7 @@
 import "dotenv/config";
 import "../dnsFix.js";
 import { connectDB } from "../config/db.js";
+import { announceTarget } from "./announceTarget.js";
 import { Student } from "../models/index.js";
 import mongoose from "mongoose";
 import { DEMO_STUDENT_NAMES } from "./demoStudents.js";
@@ -28,6 +29,7 @@ const TEST_STUDENT_NAME_RE = /^(ZZTest|Test NoDate|Intake ZZTest)/i;
 
 async function main() {
   await connectDB();
+  announceTarget("backfillIsDemo");
   console.log(`db: ${mongoose.connection.name}`);
   console.log(CONFIRM ? "MODE: WRITING\n" : "MODE: dry run (pass --confirm to write)\n");
 
