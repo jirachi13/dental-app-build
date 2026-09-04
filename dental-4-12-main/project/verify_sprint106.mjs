@@ -51,7 +51,15 @@ const expected = ['All Age Groups', '4 & below', '5-9', '10-14', '15-19', '20 & 
 check('age brackets match the shared list', JSON.stringify(ageOpts) === JSON.stringify(expected), ageOpts.join(', '));
 
 // Selecting a gender must actually narrow the rows, not just change a label.
-const countRows = () => page.evaluate(() => document.querySelectorAll('table tbody tr').length);
+// ⚠ The candidate list is a DIV list, not a table — `table tbody tr` counts
+// zero and reads exactly like "the filter broke". Count the rows in the
+// divide-y scroll container instead, and treat the empty-state card as zero.
+const countRows = () => page.evaluate(() => {
+  const el = document.querySelector('div.overflow-y-auto.divide-y');
+  if (!el) return -1;
+  if (el.textContent.includes('No students found')) return 0;
+  return el.children.length;
+});
 const before = await countRows();
 await page.selectOption('select[aria-label="Filter by gender"]', 'Female');
 await page.waitForTimeout(1200);
