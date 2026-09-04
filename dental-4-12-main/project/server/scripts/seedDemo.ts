@@ -3,6 +3,7 @@ import "../dnsFix.js"; // this machine's Node 24 + Atlas SRV workaround
 import { connectDB } from "../config/db.js";
 import { School, User, Dentist, DentalAide } from "../models/index.js";
 import { hashPassword } from "../utils/password.js";
+import { requireSecretEnv, requireSecretEnvAll } from "./seedEnv.js";
 import mongoose from "mongoose";
 
 const SCHOOLS = [
@@ -57,13 +58,20 @@ async function ensureUser(email: string, role: string, full_name: string, passwo
   return user;
 }
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} must be set in .env — no hardcoded fallback (see Sprint 15.5 security fix)`);
-  return value;
-}
+const SEED_PASSWORD_VARS = [
+  "SEED_DENTIST_PASSWORD",
+  "SEED_AIDE_PASSWORD",
+  "SEED_SCHOOLADMIN_PASSWORD",
+  "SEED_BHO_PASSWORD",
+];
+
+const requireEnv = requireSecretEnv;
 
 async function main() {
+  // Check every password BEFORE connecting: these used to be read after
+  // ensureSchools(), so a bad value left a half-seeded database behind.
+  requireSecretEnvAll(SEED_PASSWORD_VARS);
+
   await connectDB();
 
   const schools = await ensureSchools();

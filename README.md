@@ -130,7 +130,13 @@ Notes:
 
 ### Seeding
 
-> ⚠⚠ **Set the four `SEED_*_PASSWORD` values in `.env` BEFORE running `seed:demo`.** `.env.example` ships them as the literal string `choose-a-password`, and **`seed:demo` does not check** — verified by fresh-clone rehearsal 2026-09-04, it created `dentist@`, `aide@`, `schooladmin@` and `bho@floral.com` with that exact password and printed `Created … user` for each with no warning. All four then log in with `choose-a-password` (HTTP 200, confirmed). Anyone who follows this file literally ends up with four working accounts whose password is a public string in a committed template. If you have already done it, fix it with `npm run apply:seed-passwords` (below) — `seed:demo` skips accounts that already exist, so editing `.env` alone will not reach them.
+> ⚠ **Set the five `SEED_*_PASSWORD` values in `.env` before seeding — the seeders now refuse to run without them.** `.env.example` ships them as the literal `choose-a-password`, and until Sprint 113 `seed:demo` hashed that string and created four working accounts with it, silently. It now refuses, naming the variable and exiting non-zero:
+>
+> ```
+> SEED_DENTIST_PASSWORD is still the .env.example placeholder ("choose-a-password") — refusing to seed.
+> ```
+>
+> The check runs **before** the database connection, so a bad value can no longer leave a half-seeded database. It rejects a missing value, any `.env.example` placeholder, and anything under 8 characters. `seed:admin` is guarded the same way. **If you seeded before this existed**, fix it with `npm run apply:seed-passwords` (below) — `seed:demo` skips accounts that already exist, so editing `.env` alone will not reach them.
 
 Run in this order on an empty database:
 
