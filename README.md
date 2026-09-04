@@ -72,6 +72,8 @@ npm install
 
 Everything (frontend, Express backend, seed and verification scripts) lives in that **one** `package.json` — there is no separate install for the server.
 
+**Rehearsed from a genuine fresh clone on 2026-09-04** (Windows, Node 24.18, npm 11.11) so the numbers below are measured, not estimated: clone ≈ 40 s / 130 MB, `npm install` **≈ 5 min for 819 packages** (many `npm warn deprecated` lines — all benign, none are failures), `npx tsc --noEmit` and `npx tsc -p tsconfig.server.json --noEmit` both exit 0, `npm run build` ≈ 70 s ending in `precache 16 entries`. If `npm install` looks stalled at four minutes, it is not — wait it out.
+
 Optional, depending on what you are doing:
 
 ```bash
@@ -80,7 +82,15 @@ npx playwright install chromium              # only for the verification scripts
 cd ../../ml-service && pip install -r requirements.txt   # only for Risk Classification
 ```
 
-Then create your `.env` as described above — the app will not start without `MONGODB_URI`.
+Then create your `.env` as described above.
+
+> ⚠ **A wrong or placeholder `MONGODB_URI` does NOT stop the server from starting** — verified by fresh-clone rehearsal 2026-09-04. `server/local.ts` calls `app.listen()` without connecting to Mongo first; the connection is lazy, on the first request. So the boot looks completely healthy:
+>
+> ```
+> Server running on http://localhost:4000
+> ```
+>
+> and then **every** API call returns `500 {"error":"Internal server error"}`, with the real cause visible only in the server console (`querySrv ENOTFOUND _mongodb._tcp.CLUSTER.mongodb.net` if you left the `.env.example` placeholder in). If the app loads but nothing works and login 500s, check `MONGODB_URI` first — a successful "Server running" line proves nothing about the database.
 
 ### What a new collaborator cannot get from this repo
 
@@ -158,14 +168,19 @@ No unit-test suite; the project standard is **end-to-end verification against re
 npx tsc --noEmit                            # frontend typecheck
 npx tsc -p tsconfig.server.json --noEmit    # backend typecheck
 npm run build                               # production build (+ SW precache report)
-npm audit                                   # must stay at 0 vulnerabilities
+npm audit                                   # see the note below — NOT currently 0
 
-# Playwright verification scripts (project root; read SEED_* passwords from .env):
+# Playwright verification scripts — all live in dental-4-12-main/project/, NOT the
+# repo root (there are no .mjs files there); they read SEED_* passwords from .env:
 node verify_risk_ui.mjs                # risk classification E2E (needs all 3 local servers)
 node verify_decision_support_ui.mjs    # dentist decision support E2E (BASE_URL env to target prod)
 node verify_pwa_toast.mjs              # SW update-toast flow + offline queue regression (needs :4000 + vite preview :4173)
 node panel_tour.mjs / probe_strict.mjs # read-only production tours/probes (screenshots via SHOTS_DIR env)
 ```
+
+> ⚠ **`npm audit` is NOT at 0 — a fresh clone + install on 2026-09-04 reported 13 (9 high, 4 moderate).** This file previously asserted 0 as a standing invariant; that was true when written and drifts on its own, because advisories are published against versions already pinned in `package-lock.json`. Two are worth knowing by name: **`pdfjs-dist`** (arbitrary JS execution on opening a malicious PDF — and the OCR upload accepts PDFs) and **`dompurify`** (sanitizer bypass). Also `react-router`, `tar`, `postcss`, `nanoid`, `brace-expansion`, `browserslist`, `fast-uri`, `ip-address`, `body-parser`, `qs`/`express`. Re-run it and record the number before defense rather than quoting this one; CLAUDE.md promises OWASP Top 10 compliance, so the gap needs a decision, not a stale claim.
+>
+> `npm audit` also hit `audit endpoint returned an error` (registry network timeout) on the first attempt and succeeded on retry — if it hangs, retry before believing it.
 
 Verification lessons that keep paying off: wait on real selectors, not fixed sleeps (cold start >5s); full-page screenshots restart recharts animations — count SVG marks in the DOM instead; after changing Vercel env vars, smoke-test an encrypted-model read (`/api/students`), not just login.
 
