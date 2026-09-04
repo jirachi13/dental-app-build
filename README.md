@@ -91,6 +91,8 @@ Then create your `.env` as described above.
 > ```
 >
 > and then **every** API call returns `500 {"error":"Internal server error"}`, with the real cause visible only in the server console (`querySrv ENOTFOUND _mongodb._tcp.CLUSTER.mongodb.net` if you left the `.env.example` placeholder in). If the app loads but nothing works and login 500s, check `MONGODB_URI` first — a successful "Server running" line proves nothing about the database.
+>
+> **The one-command check** — `curl -s http://localhost:4000/api/health` — answers this directly: `{"status":"ok","db":"connected"}` when the database is reachable, `500 {"error":"Internal server error"}` when it is not. Run it before debugging anything else.
 
 ### What a new collaborator cannot get from this repo
 
@@ -128,6 +130,8 @@ Notes:
 
 ### Seeding
 
+> ⚠⚠ **Set the four `SEED_*_PASSWORD` values in `.env` BEFORE running `seed:demo`.** `.env.example` ships them as the literal string `choose-a-password`, and **`seed:demo` does not check** — verified by fresh-clone rehearsal 2026-09-04, it created `dentist@`, `aide@`, `schooladmin@` and `bho@floral.com` with that exact password and printed `Created … user` for each with no warning. All four then log in with `choose-a-password` (HTTP 200, confirmed). Anyone who follows this file literally ends up with four working accounts whose password is a public string in a committed template. If you have already done it, fix it with `npm run apply:seed-passwords` (below) — `seed:demo` skips accounts that already exist, so editing `.env` alone will not reach them.
+
 Run in this order on an empty database:
 
 ```bash
@@ -157,6 +161,8 @@ npm run backfill:soft-delete # one-off: add soft-delete fields to old records
 ```
 
 ⚠ **Every seeder writes to whatever `MONGODB_URI` points at, and there is currently only ONE database** — no separate dev instance. Take `npm run backup:raw` before seeding anything you cannot recreate.
+
+**Rehearsed end-to-end on a genuinely empty Atlas cluster, 2026-09-04** — all six seeders in the order above, no failures, no manual fixes needed between steps: `seed:admin` 1 account · `seed:demo` 3 schools + 4 accounts · `seed:students` **26 students** · `seed:rpc-visit2` backdates Visit 1 and adds Visit 2 · `seed:iptr-details` 26 each of MedicalHistory / DietarySocialHabits / OralHealthCondition · `seed:treatments` 31 charts, 148 tooth records. Then `/api/health` → `{"status":"ok","db":"connected"}`, login 200, and `/api/students` returned all 26 with names and addresses **decrypting correctly against a freshly generated `FIELD_ENCRYPTION_SECRET`** — so the empty-cluster path needs no secrets from anyone, as claimed. Tip: if you want an empty cluster without disturbing an existing one, Atlas's one-free-M0 limit is **per project** — make a new project and you get another free tier.
 
 Gotcha: encrypted fields (`full_name`, `address`, `contact_number`, `allergies`, `others`, `diagnosis`, `treatment_done`, guardian/PhilHealth fields) **cannot be queried by value** — fetch and filter in JS after Mongoose decrypts on read.
 
