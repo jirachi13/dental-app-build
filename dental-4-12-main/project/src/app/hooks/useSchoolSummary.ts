@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from '../api/client';
 import { useRefreshOnFocus } from './useRefreshOnFocus';
+import { useLiveNumbers } from './useLiveNumbers';
 import type {
   ApiSchool,
   ApiStudent,
@@ -220,8 +221,11 @@ export function useSchoolSummary(schoolName: string | null, schoolYear: string |
 
   // Sprint 104 — read-only report, same freshness rule as the other two.
   useRefreshOnFocus(load);
+  const { lastUpdated } = useLiveNumbers(load);
 
   return {
+    /** When the numbers were last actually re-read (Sprint 110). */
+    lastUpdated,
     tally,
     /** School years present in the data, newest first. */
     years,

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { FileSpreadsheet, FileText, Printer, Download, AlertTriangle, AlertCircle, CheckCircle, Users, Calendar, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ChartTooltip } from './ChartTooltip';
+import { LiveUpdatedStamp } from './LiveUpdatedStamp';
 import { useAuth } from '../context/AuthContext';
 import { getSchoolShortName } from '../utils/schoolColors';
 import { CHART } from '../utils/chartColors';
@@ -197,7 +198,7 @@ export const Reports = () => {
   // School list comes from the DB now, not a hardcoded array (Sprint 60).
   const { schoolNames } = useSchools();
   const [dohSchoolYear, setDohSchoolYear] = useState<string | null>(() => schoolYearLabel());
-  const { getRealCount, years: dohYears, unplacedCount, loading: dohLoading } = useDohReportData(dohSchoolYear, reportSchool);
+  const { getRealCount, years: dohYears, unplacedCount, loading: dohLoading, lastUpdated: dohLastUpdated } = useDohReportData(dohSchoolYear, reportSchool);
   // Fields with no real backing data source yet show 0, never a fabricated
   // fallback number -- see useDohReportData.ts for exactly which fields are
   // real vs. not yet wireable.
@@ -552,6 +553,10 @@ export const Reports = () => {
               <option value="">All years to date</option>
               {dohYears.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
+
+            {/* Sprint 110. Appears only after a real self-refresh — see
+                LiveUpdatedStamp for why it must never show a page-load time. */}
+            <LiveUpdatedStamp at={dohLastUpdated} />
 
             <button
               onClick={() => setShowDohPicker((v) => !v)}

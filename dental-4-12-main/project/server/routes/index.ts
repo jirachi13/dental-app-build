@@ -66,6 +66,28 @@ router.use("/dental-aides", createCrudRouter(DentalAide, { writeRoles: ADMIN_ONL
 // stratification, first hit wins) so the badge count always matches the
 // dashboard, without the client re-fetching 6 collections on every page.
 // Read-only; requireAuth matches the underlying models' read policy.
+// Sprint 110 — "has anything changed?" as ONE indexed lookup.
+//
+// Every write in the app goes through logAudit (crudFactory's create, update,
+// archive and restore), so AUDIT_TRAIL is already a complete change log, and
+// Sprint 92 indexed it { timestamp: -1 }. That makes this a single indexed
+// findOne — cheap enough to poll, where re-running a report costs ten
+// collection reads.
+//
+// The client polls this and only refetches when `at` ADVANCES. So a tick costs
+// one tiny request instead of ten heavy ones, and the numbers on screen still
+// move within the poll interval of someone else saving.
+//
+// ⚠ Deliberately NOT scoped by school or model. It answers "did anything
+// change", not "what changed" — a global token is correct for that question and
+// leaks nothing (a timestamp, no ids, no content). If it ever churns too often
+// it can be narrowed by `affected_model`, but narrowing it wrongly would make a
+// report go stale silently, which is worse than refetching too eagerly.
+router.get("/stats/last-change", requireAuth, asyncHandler(async (_req, res) => {
+  const latest = await AuditTrail.findOne({}).sort({ timestamp: -1 }).select("timestamp").lean<{ timestamp: Date } | null>();
+  res.json({ at: latest?.timestamp ?? null });
+}));
+
 router.get("/stats/high-risk-count", requireAuth, asyncHandler(async (req, res) => {
   const schoolName = typeof req.query.school === "string" ? req.query.school : null;
   let studentFilter: Record<string, unknown> = { isArchived: false };

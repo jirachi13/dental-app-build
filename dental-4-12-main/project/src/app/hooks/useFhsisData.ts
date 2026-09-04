@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
 import { useRefreshOnFocus } from './useRefreshOnFocus';
+import { useLiveNumbers } from './useLiveNumbers';
 import type { ApiSchool, ApiStudent, ApiStudentIptr, ApiPreventiveCareRecord } from '../api/types';
 
 // ─── FHSIS Section D — Oral Health Care Services ─────────────────────────────
@@ -177,6 +178,7 @@ export function useFhsisData(month: string, schoolName: string) {
   // Consolidated report does, so the same freshness argument applies. It had
   // no refresh only because Sprint 44 stopped at one hook.
   useRefreshOnFocus(load);
+  const { lastUpdated } = useLiveNumbers(load);
 
-  return { counts, schools, monthsWithData, loading, error, reload: load };
+  return { counts, schools, monthsWithData, loading, error, reload: load, lastUpdated };
 }

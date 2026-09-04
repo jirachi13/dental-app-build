@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from '../api/client';
 import { useRefreshOnFocus } from './useRefreshOnFocus';
+import { useLiveNumbers } from './useLiveNumbers';
 import { useLoadPhase } from './useLoadPhase';
 import type {
   ApiSchool,
@@ -427,6 +428,9 @@ export function useDohReportData(schoolYear: string | null = null, schoolName: s
   // Sprint 104 extracted this; it used to be inlined here and existed on no
   // other hook. See useRefreshOnFocus for why an interval is the wrong shape.
   useRefreshOnFocus(load);
+  // Sprint 110 — and while the tab IS open, poll the change token so someone
+  // else's save shows up here without the user doing anything.
+  const { lastUpdated } = useLiveNumbers(load);
 
   const REAL_FIELDS = new Set([
     'attended',
@@ -468,6 +472,8 @@ export function useDohReportData(schoolYear: string | null = null, schoolName: s
   }
 
   return {
+    /** When the numbers were last actually re-read (Sprint 110). */
+    lastUpdated,
     getRealCount,
     getRealTotal,
     /** School years present in the data, newest first — for the year picker. */
