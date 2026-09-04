@@ -180,7 +180,7 @@ No unit-test suite; the project standard is **end-to-end verification against re
 npx tsc --noEmit                            # frontend typecheck
 npx tsc -p tsconfig.server.json --noEmit    # backend typecheck
 npm run build                               # production build (+ SW precache report)
-npm audit                                   # see the note below — NOT currently 0
+npm audit                                   # 4 remaining, all express@4 — see the note below
 
 # Playwright verification scripts — all live in dental-4-12-main/project/, NOT the
 # repo root (there are no .mjs files there); they read SEED_* passwords from .env:
@@ -190,9 +190,17 @@ node verify_pwa_toast.mjs              # SW update-toast flow + offline queue re
 node panel_tour.mjs / probe_strict.mjs # read-only production tours/probes (screenshots via SHOTS_DIR env)
 ```
 
-> ⚠ **`npm audit` is NOT at 0 — a fresh clone + install on 2026-09-04 reported 13 (9 high, 4 moderate).** This file previously asserted 0 as a standing invariant; that was true when written and drifts on its own, because advisories are published against versions already pinned in `package-lock.json`. Two are worth knowing by name: **`pdfjs-dist`** (arbitrary JS execution on opening a malicious PDF — and the OCR upload accepts PDFs) and **`dompurify`** (sanitizer bypass). Also `react-router`, `tar`, `postcss`, `nanoid`, `brace-expansion`, `browserslist`, `fast-uri`, `ip-address`, `body-parser`, `qs`/`express`. Re-run it and record the number before defense rather than quoting this one; CLAUDE.md promises OWASP Top 10 compliance, so the gap needs a decision, not a stale claim.
+> **`npm audit` stands at 4 (3 moderate, 1 high) as of 2026-09-04** — down from 13 (9 high) after `npm audit fix`. Do not treat 0 as the invariant this file once claimed: advisories are published against versions already pinned in `package-lock.json`, so the count rises on its own with nobody touching the repo. **Re-run it and record the current number before defense rather than quoting this one.**
 >
-> `npm audit` also hit `audit endpoint returned an error` (registry network timeout) on the first attempt and succeeded on retry — if it hangs, retry before believing it.
+> The 4 that remain are deliberate:
+> - **3 are one chain** — `express@4` → `body-parser` → `qs`. The only fix is **express@5, a breaking major**, on a deployed and working build. Not taken.
+> - **1 is `brace-expansion`**, pinned deep under `exceljs → archiver → glob@7 → minimatch@3`. npm reports it fixable but cannot reach it without breaking exceljs's tree. It is a DoS via glob-pattern expansion, and the patterns come from library internals, not user input.
+>
+> **The one with a real attack path in this app is fixed:** `pdfjs-dist` (arbitrary JS execution on opening a malicious PDF — and the OCR upload accepts PDFs) went 6.1.200 → 6.3.289. `dompurify`, `react-router`, `tar`, `postcss`, `nanoid`, `browserslist`, `fast-uri` and `ip-address` were patched in the same pass. `package.json` did not change — every fix fell inside the declared semver ranges, so only `package-lock.json` moved.
+>
+> Two traps worth knowing:
+> - `npm audit` can hit `audit endpoint returned an error` (registry network timeout) and succeed on retry — if it hangs, retry before believing it.
+> - ⚠ **`npm audit fix` can update `package-lock.json` AND npm's hidden `node_modules/.package-lock.json` without actually writing the package files.** Every tool then reports the new version while the build still uses the old one — `npm ls` included. If you fix advisories, confirm with `cat node_modules/<pkg>/package.json` and run **`npm ci`** to force the tree to match the lock.
 
 Verification lessons that keep paying off: wait on real selectors, not fixed sleeps (cold start >5s); full-page screenshots restart recharts animations — count SVG marks in the DOM instead; after changing Vercel env vars, smoke-test an encrypted-model read (`/api/students`), not just login.
 
