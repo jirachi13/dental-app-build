@@ -159,7 +159,12 @@ npm run apply:seed-passwords # push changed SEED_* passwords onto EXISTING accou
                              # editing .env alone never reaches them)
 npm run restore:admin        # un-archive / re-enable the admin account
 npm run backup:raw           # dump every collection to backups/<timestamp>/
-npm run purge:demo           # remove the demo data set before real deployment
+npm run purge:demo           # remove the demo data set before real deployment.
+                             # DRY RUN by default; pass -- --confirm to delete.
+                             # Never deletes the three real schools (reference
+                             # data), never an unarchived account, and skips any
+                             # school a surviving student still points at.
+                             # Take `npm run backup:raw` first.
 npm run verify:indexes       # assert the DB indexes exist AND the planner uses them
 npm run migrate:iptr-grades  # one-off: backfill grade/section onto IPTRs
 npm run fix:duplicate-iptr   # one-off: remove empty duplicate (student, year) IPTRs

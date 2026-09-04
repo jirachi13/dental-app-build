@@ -46,11 +46,31 @@ const DEMO_USER_EMAILS = [
   "dentist@floral.com", "aide@floral.com", "schooladmin@floral.com", "bho@floral.com",
 ];
 
+// ⚠ These are NOT deleted. They are the three REAL schools this system serves
+// (CLAUDE.md, APP CONTEXT) — seeded for convenience, but reference data, not
+// demo data. The first hand-encoded student already points at Bagong Tanyag
+// Integrated School (found by the Sprint 116 dry run), and deleting + manually
+// recreating a school produces an identical row with a NEW _id, orphaning every
+// record that referenced the old one. The list is kept because the staff-account
+// scoping below still needs to know which schools are the demo ones.
 const DEMO_SCHOOLS = [
   "Bagong Tanyag Integrated School",
   "Bagong Tanyag Elementary School Annex A",
   "South Daang Hari Elementary School Main",
 ];
+
+// Leftovers from earlier test runs. No seeder creates these, but a purge that
+// leaves them behind is not clean — after a purge they would be the ONLY rows
+// in the schools dropdown. Matched by pattern because the names carry
+// timestamps (e.g. "ZZ Test School 1788345859589").
+const TEST_STUDENT_NAME_RE = /^(ZZTest|Test NoDate|Intake ZZTest)/i;
+const TEST_SCHOOL_NAME_RE = /^ZZ /i;
+// Only ARCHIVED @floral.local accounts, from a superseded seeding convention.
+// ⚠ admin@floral.local is still ACTIVE and is deliberately NOT matched here —
+// deleting a live system_admin could lock the operator out, the same reasoning
+// that protects SEED_ADMIN_EMAIL. The user's own account is not @floral.local
+// and is never in scope.
+const TEST_USER_EMAIL_RE = /@floral\.local$/i;
 
 async function main() {
   await connectDB();
@@ -67,7 +87,11 @@ async function main() {
 
   // --- students, by exact seeded name -------------------------------------
   const allStudents = await (Student as any).find({});
-  const demoStudents = allStudents.filter((s: any) => DEMO_STUDENT_NAMES.has(s.full_name));
+  const seeded = allStudents.filter((s: any) => DEMO_STUDENT_NAMES.has(s.full_name));
+  const testJunk = allStudents.filter(
+    (s: any) => !DEMO_STUDENT_NAMES.has(s.full_name) && TEST_STUDENT_NAME_RE.test(String(s.full_name ?? ""))
+  );
+  const demoStudents = [...seeded, ...testJunk];
   const foreign = allStudents.length - demoStudents.length;
   const studentIds = demoStudents.map((s: any) => s._id);
 
@@ -92,7 +116,10 @@ async function main() {
     ["Student",             Student,             { _id: { $in: studentIds } }],
   ];
 
-  console.log(`Students: ${demoStudents.length} demo, ${foreign} NOT on the seed list (left alone)\n`);
+  console.log(
+    `Students: ${seeded.length} seeded + ${testJunk.length} test junk = ${demoStudents.length} to delete, ` +
+      `${foreign} NOT matched (left alone)\n`
+  );
 
   // Collect the ids BEFORE anything is deleted, so the audit clear below can be
   // scoped by foreign key instead of wiping the collection. Must happen here:
@@ -137,13 +164,66 @@ async function main() {
     ["DentistRotation",  DentistRotation,  { $or: [{ dentist_id: { $in: demoDentistIds } }, { school_id: { $in: demoSchoolIds } }] }],
     ["AuditTrail",       AuditTrail,       { $or: [{ affected_record_id: { $in: auditTargetIds } }, { user_id: { $in: demoUserIds } }] }],
     ["User (demo staff)", User,            { _id: { $in: demoUserIds } }],
-    ["School",           School,           { school_name: { $in: DEMO_SCHOOLS } }],
+    ["User (archived @floral.local)", User, { email: { $regex: TEST_USER_EMAIL_RE }, isArchived: true }],
   ];
   console.log("");
   for (const [name, model, filter] of staffPlan) {
     const n = await model.countDocuments(filter);
     console.log(`  ${CONFIRM ? "delete" : "would delete"} ${String(n).padStart(4)}  ${name}`);
     if (CONFIRM && n > 0) await model.deleteMany(filter);
+  }
+
+  // Dentist/DentalAide are scoped by user_id above, so a User deleted by any
+  // OTHER route leaves its role record permanently unreachable — this script
+  // could never match it again. Found during the Sprint 116 rehearsal, where an
+  // earlier test deleted the demo users directly and left exactly that pair
+  // behind. Sweep them by broken reference rather than by name.
+  {
+    const liveUserIds = new Set(
+      (await (User as any).find({}).select("_id").lean()).map((u: any) => String(u._id))
+    );
+    for (const [label, model] of [["Dentist", Dentist], ["DentalAide", DentalAide]] as [string, any][]) {
+      const stale = (await model.find({}).select("_id user_id").lean()).filter(
+        (r: any) => !liveUserIds.has(String(r.user_id))
+      );
+      if (stale.length === 0) continue;
+      console.log(`  ${CONFIRM ? "delete" : "would delete"} ${String(stale.length).padStart(4)}  ${label} (orphaned — user already gone)`);
+      if (CONFIRM) await model.deleteMany({ _id: { $in: stale.map((r: any) => r._id) } });
+    }
+  }
+
+  // --- schools -------------------------------------------------------------
+  // The three real schools are never deleted (see DEMO_SCHOOLS above). Test
+  // schools are, but only when nothing still points at them — a school with a
+  // surviving student is a referential break, not a cleanup.
+  console.log("");
+  const testSchools = (await (School as any).find({}).lean()).filter((s: any) =>
+    TEST_SCHOOL_NAME_RE.test(String(s.school_name ?? ""))
+  );
+  if (testSchools.length === 0) {
+    console.log("  no test schools to remove");
+  }
+  for (const s of testSchools) {
+    const stillReferenced = await (Student as any).countDocuments({ school_id: s._id });
+    if (stillReferenced > 0) {
+      console.log(`  SKIP  ${s.school_name} — ${stillReferenced} student(s) still reference it`);
+      continue;
+    }
+    console.log(`  ${CONFIRM ? "delete" : "would delete"}     1  School "${s.school_name}"`);
+    if (CONFIRM) await (School as any).deleteOne({ _id: s._id });
+  }
+  console.log(`  KEPT ${DEMO_SCHOOLS.length} real schools (reference data, never purged)`);
+
+  // Safety net: nothing surviving may point at a school that is gone.
+  const remainingSchoolIds = new Set(
+    (await (School as any).find({}).select("_id").lean()).map((s: any) => String(s._id))
+  );
+  const survivors = await (Student as any).find({}).select("_id school_id").lean();
+  const orphans = survivors.filter(
+    (s: any) => !demoStudents.some((d: any) => String(d._id) === String(s._id)) && !remainingSchoolIds.has(String(s.school_id))
+  );
+  if (orphans.length > 0) {
+    console.log(`\n  ⚠ ${orphans.length} surviving student(s) would point at a DELETED school — investigate before --confirm.`);
   }
 
   const adminStillThere = await (User as any).countDocuments({ email: adminEmail });
