@@ -358,7 +358,16 @@ router.use("/dentist-rotations", createCrudRouter(DentistRotation, { writeRoles:
 // bounds the read to the month the calendar is showing, the same treatment
 // Sprint 56 gave appointments; without it this becomes another unbounded
 // collection read the moment a year of holidays exists.
-router.use("/day-notes", createCrudRouter(DayNote, { writeRoles: CLINICAL_WRITE_ROLES, dateField: "date" }));
+// ⚠ `archiveRoles` MUST be set. It defaults to ADMIN_ONLY, so the dentist and
+// aide could CREATE a day note but not remove one — and the panel shows them a
+// remove button, which 403'd. A control that appears to work must work. Restore
+// stays admin-only per CLAUDE.md's soft-delete rule; this only governs archiving
+// a note you just wrote, which is the "typed it on the wrong day" case.
+router.use("/day-notes", createCrudRouter(DayNote, {
+  writeRoles: CLINICAL_WRITE_ROLES,
+  archiveRoles: CLINICAL_WRITE_ROLES,
+  dateField: "date",
+}));
 
 // Audit trail — System Admin only, both to read and (already, since Sprint 6)
 // impossible to write directly; entries are created internally via logAudit().
