@@ -135,6 +135,15 @@ Three backlog items taken together. **One of them needed no work at all.**
 
 ⚠ **The verifier was wrong twice before it was right, both times about the DOM, not the app:** it counted `table tbody tr` on a screen whose candidate list is a **div list**, giving `0 rows -> 0` — which reads exactly like a broken filter. **Third session in a row where a "failure" was the test's own setup.** Check what the list is actually made of before asserting on it.
 
+## Sprint 109 (a note on ONE appointment) — DONE 2026-09-04, tsc both + build clean, 7/7 verified. **Backlog #30 is now CLOSED.**
+Sprint B of the day-notes decision. `APPOINTMENT` gains an optional `notes` string — a remark on one pupil's slot ("bring guardian", "reschedule, absent"), distinct from Sprint 108's `DAY_NOTE` about the date itself. **No migration; it defaults empty.** ERD deviation recorded in `docs/DATA-MODEL.md`.
+
+- **⚠ Appointments are GROUPED into sessions**, so "one appointment" is one pupil's slot inside a session. `SessionStudent` now carries its own `appointmentId` **explicitly**, rather than being matched positionally against the session's parallel `appointmentIds` array. They are built in step today — but **a note saved against the wrong pupil is exactly the bug that coupling produces**, and it would be silent.
+- Written from the day panel Sprint 108 added, so both kinds of note are entered where the day's schedule is already on screen.
+- **`node verify_sprint109.mjs` — 7/7.** The checks that matter are 2 and 3: the note lands on **the appointment it was written for**, and **the neighbouring appointment is untouched**. Also asserts the rest of the record (status, type, student) is undisturbed, that a note can be **cleared** (an empty remark is a real state, not a missing one), and restores the original value afterwards.
+
+**Both halves of #30 are now built.** Day note = about the date; appointment note = about the pupil. The user's answer that these are different things is what kept them as two fields rather than one overloaded one.
+
 ## Sprint 108 (day notes on the appointments calendar) — DONE 2026-09-04, tsc both + build clean, 7/7 verified
 Backlog #30, the half the user picked first. Day tiles are now clickable and open a panel showing that date's appointments beside its notes — a note about a day is usually written with the day's schedule in view.
 
@@ -356,7 +365,7 @@ Built as backlog #46's option (b) — drop the per-row queue button, move the qu
     - **Supports the honest SVM framing** in `docs/ch2-additions-draft.md`: SVM does NOT appear among the most-used methods, which is consistent with defending it as a comparison baseline rather than an expected winner.
     - ⚠ **One discrepancy worth confronting rather than hiding**: the review's most frequent predictors are **socio-demographic factors, oral hygiene habits and dietary habits** — it does not foreground DMF/dmf, which CLAUDE.md makes Floral's PRIMARY feature. Floral does use dietary habits and oral-health conditions too, so this is a Chapter 4 discussion point, not a contradiction.
     - Manuscript work is paused, so this is logged as a source, not drafted into Chapter 2.
-30. **Calendar date notes — DECIDED 2026-09-04: BOTH kinds, split into two sprints, day note first.** The open question was what a note is ABOUT; the user answered *both, they're different things* — a holiday is not a patient remark.
+30. **~~Calendar date notes~~ DONE 2026-09-04 — BOTH halves built: Sprint 108 (`DAY_NOTE`, about the date) and Sprint 109 (`APPOINTMENT.notes`, about the pupil).** ⚠ Two ERD deviations came out of it; **Chapter 3's figure still needs updating by hand.** Original decision and its reasoning follow. The open question was what a note is ABOUT; the user answered *both, they're different things* — a holiday is not a patient remark.
     - **Sprint A (108) — `DAY_NOTE`, a clinic-wide note on a date.** New small model: `date`, `school_id` (**nullable — null means every school**, for a barangay-wide holiday), `note`, `created_by`, plus soft-delete fields. Day tiles become clickable. ⚠ **ERD deviation** — update `docs/DATA-MODEL.md` and the Chapter 3 figure, same as Sprint 100.
     - **Sprint B — `APPOINTMENT.notes`.** A remark on one appointment ("bring guardian", "reschedule, absent"). ⚠ **`APPOINTMENT` has NO notes field today** — verified. One new optional String, no migration needed since it defaults empty.
     - ⚠ **Sprint 101 interaction, easy to get wrong:** `DAY_NOTE` carries a school_id that may be NULL, and the school-scope clause is `{school_id: {$in: [...]}}`, which **excludes null** — a barangay-wide note would vanish for every scoped user. Needs its own rule shape, and the model MUST be added to `schoolScope.ts`'s table or it fails closed and returns nothing at all.
