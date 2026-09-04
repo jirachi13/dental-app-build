@@ -372,11 +372,20 @@ Backlog #40 asked for "realtime numbers". The check that preceded the build chan
     - ⚠ **Not the same problem as backlog #6.** Bundle/route splitting is a FIRST-VISIT-per-device cost; this is felt on every student open, after login. Do not conflate them.
     - **`probe_iptr_timing.mjs` is committed and reproduces all of this.** ⚠ Numbers above are the PRE-Sprint-99 baseline; after the `sin1` move the same screen is ~390 ms and the per-request floor is ~70-150 ms, so **re-measure before acting on the ranked fixes** — consolidation now saves ~200 ms, not ~1000 ms.
 
-44. **⚠ SPRINT 100 GAVE THE DENTIST AND AIDE A SCHOOL-PICKER STEP AT LOGIN THAT THEY NEVER HAD (found 2026-09-04 by Sprint 104's verifier, NOT scoped, NOBODY HAS SEEN IT YET).** `AuthContext.resolveSchool` auto-selects when a user holds exactly ONE school. Before Sprint 100 the dentist was pinned to Bagong Tanyag Integrated, so login went straight to the dashboard. **Now she holds all three, so `schoolChoiceMade` is false and every route bounces to `/select-school` until she picks one.** Same for the aide.
-    - **It is not a bug** — it is the designed gate doing its job, and it matches the base44 prototype's per-screen "which school's records do you want to manage?". **But it is a real change in the daily flow of the app's two busiest users, introduced as a side-effect rather than as a decision.**
-    - **Options, none of them started:** (a) leave it — one extra click per session, and it makes the active school explicit, which the rotation arguably wants; (b) remember the last choice per user so it is one click on the FIRST login only (`storeSchool` already persists, so this may already be the behaviour after the first pick — **verify before building anything**); (c) default multi-school clinical staff to "All Schools" and let them narrow with the inline switcher (Sprint 67/95).
-    - ⚠ **Check (b) first.** `resolveSchool` reads `loadStoredSchool(user.id, user.schools)` before the auto-select branch, so a returning user on the same device probably never sees the picker twice. If that holds, this is a one-time prompt and (a) is the right answer.
-    - **Ask the dentist before changing anything** — she is the one who now sees an extra screen.
+44. **~~Sprint 100 gave the dentist a school-picker step at login~~ MEASURED 2026-09-04 — IT IS A ONE-TIME-PER-DEVICE PROMPT. No action needed; just tell the dentist.** Found by Sprint 104's verifier, which kept landing on `/select-school` and reading every count as 0.
+    - **What changed:** `AuthContext.initialSchoolFor` auto-selects only when a user holds exactly ONE school. The dentist was pinned to Bagong Tanyag Integrated, so login went straight through; Sprint 100 gave her all three, so the gate now fires.
+    - **Measured in a real browser, four cases — the picker appears ONCE per device:**
+
+      | | picker? |
+      |---|---|
+      | first login on a fresh profile | **yes** |
+      | reload, same session | no |
+      | log out and log back in, same device | **no** |
+      | a different device, same account | **yes** (once) |
+
+      `loadStoredSchool` is read BEFORE the auto-select branch and the choice persists in `localStorage` as `selected-school={"userId":…,"school":…}`, keyed to the user — so it survives logout and is not shared between accounts on a shared machine.
+    - **Conclusion: leave it as it is.** One click on first use per device, after which it never appears again, and it makes the active school explicit for a dentist who genuinely rotates between three. She can change it any time with the inline switcher (Sprints 67/95).
+    - ⚠ **It WILL re-appear if `localStorage` is cleared** — private window, cleared site data, a new browser, or a different machine. Worth one sentence to the dentist so an occasional extra screen is expected rather than alarming.
 
 43. **~~The last 16 `unverified` DOH captions~~ MISCOUNTED — DONE as Sprint 103, 2026-09-04.** ⚠ **The "16" was wrong, and the cause is worth remembering: I ran `grep -c unverified`, which counts every occurrence of the WORD** — the type field, the count expression, the component prop, the tooltip string, the file comments — **not flagged captions.** The real figure was **ONE**. `OralHealthProgramReport.tsx` had **zero** and says so in its own line 56; all six of its hits are machinery. **Count the thing itself (`unverified: true`), never the word — the same class of error as trusting a `$ne: ""` count on an encrypted field (Sprint 99 notes).**
 
