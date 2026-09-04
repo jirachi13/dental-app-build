@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
+import { useRefreshOnFocus } from './useRefreshOnFocus';
 import type { ApiSchool, ApiStudent, ApiStudentIptr, ApiPreventiveCareRecord } from '../api/types';
 
 // ─── FHSIS Section D — Oral Health Care Services ─────────────────────────────
@@ -171,6 +172,11 @@ export function useFhsisData(month: string, schoolName: string) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Sprint 104: the FHSIS return goes to the City Health Office like the DOH
+  // Consolidated report does, so the same freshness argument applies. It had
+  // no refresh only because Sprint 44 stopped at one hook.
+  useRefreshOnFocus(load);
 
   return { counts, schools, monthsWithData, loading, error, reload: load };
 }

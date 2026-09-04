@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from '../api/client';
+import { useRefreshOnFocus } from './useRefreshOnFocus';
 import type {
   ApiSchool,
   ApiStudent,
@@ -216,6 +217,9 @@ export function useSchoolSummary(schoolName: string | null, schoolYear: string |
   }, [schoolName, schoolYear]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // Sprint 104 — read-only report, same freshness rule as the other two.
+  useRefreshOnFocus(load);
 
   return {
     tally,

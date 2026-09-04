@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from '../api/client';
+import { useRefreshOnFocus } from './useRefreshOnFocus';
 import { useLoadPhase } from './useLoadPhase';
 import type {
   ApiSchool,
@@ -167,10 +168,7 @@ export const GRADE_NOT_RECORDED = '__not_recorded__';
 export const GRADE_ALL = '__all__';
 
 // A DOH report is submitted to the City Health Office, so a stale number is
-// worse than a slow one. Refreshing when the tab is refocused costs one fetch
-// round and keeps the table honest without the user thinking about it.
-// Throttled so alt-tabbing doesn't re-run seven collection reads repeatedly.
-const REFRESH_THROTTLE_MS = 30 * 1000;
+// worse than a slow one — which is why the refresh below exists at all.
 
 /** @param schoolYear "YYYY-YYYY" to scope the report to one school year, or
  *  null for every record ever. A DOH report covers a period — this year's
@@ -426,26 +424,9 @@ export function useDohReportData(schoolYear: string | null = null, schoolName: s
     return () => { runIdRef.current++; };
   }, [load]);
 
-  // Refresh when the user comes back to the tab. Mirrors UpdateToast's
-  // approach (Sprint 42): an interval is the wrong shape here — what matters
-  // is that the numbers are current at the moment someone looks at them.
-  useEffect(() => {
-    let lastRefresh = Date.now();
-    const refresh = () => {
-      if (document.visibilityState !== 'visible') return;
-      if (Date.now() - lastRefresh < REFRESH_THROTTLE_MS) return;
-      lastRefresh = Date.now();
-      void load();
-    };
-    document.addEventListener('visibilitychange', refresh);
-    window.addEventListener('focus', refresh);
-    window.addEventListener('online', refresh);
-    return () => {
-      document.removeEventListener('visibilitychange', refresh);
-      window.removeEventListener('focus', refresh);
-      window.removeEventListener('online', refresh);
-    };
-  }, [load]);
+  // Sprint 104 extracted this; it used to be inlined here and existed on no
+  // other hook. See useRefreshOnFocus for why an interval is the wrong shape.
+  useRefreshOnFocus(load);
 
   const REAL_FIELDS = new Set([
     'attended',
