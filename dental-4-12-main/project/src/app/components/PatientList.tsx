@@ -24,7 +24,7 @@ import { calculateAge, getAgeGroup, AGE_GROUPS } from '../utils/age';
 import { schoolYearLabel } from '../utils/schoolYear';
 import { Notice } from './Notice';
 import { PromoteAssign } from './PromoteAssign';
-import { validateStudentValues, validateBirthdate, validatePhone, validateName, MAX_NAME_LENGTH, MIN_AGE_YEARS, MAX_AGE_YEARS } from '../utils/studentValidation';
+import { validateStudentValues, validateBirthdate, validatePhone, validateName, MAX_NAME_LENGTH, MIN_AGE_YEARS, MAX_AGE_YEARS } from '../../../shared/studentValidation';
 
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 

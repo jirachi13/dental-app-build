@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { getHealth } from "../controllers/healthController.js";
+import { validateStudentValues } from "../../shared/studentValidation.js";
 import { createUser, resetPassword, sendResetLink, initiateTwofa, confirmTwofa, disableTwofa } from "../controllers/userController.js";
 import { createCrudRouter } from "./crudFactory.js";
 import authRoutes from "./authRoutes.js";
@@ -386,6 +387,27 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
 router.use("/students", createCrudRouter(Student, {
   writeRoles: CLINICAL_WRITE_ROLES,
   duplicateCheck: findDuplicateStudents,
+  // The SAME rules the forms run (shared/studentValidation.ts), enforced where
+  // no client can skip them. Sprint 120 put these on the Add form, the bulk
+  // import and the chart's edit panel; the offline queue replays POSTs straight
+  // to this API and passes through none of them.
+  //
+  // Only fields PRESENT in the body are checked -- a PUT is partial, and
+  // validating absent fields would block an unrelated edit on a legacy value.
+  validateBody: (body) => {
+    const pick = (k: string) => (typeof body[k] === "string" ? (body[k] as string) : undefined);
+    const birthdayRaw = body.birthday;
+    return validateStudentValues({
+      lastName: pick("last_name"),
+      firstName: pick("first_name"),
+      middleName: pick("middle_name"),
+      birthdate: birthdayRaw === undefined || birthdayRaw === null
+        ? undefined
+        : String(birthdayRaw).slice(0, 10),
+      contactNumber: pick("contact_number"),
+      guardianContact: pick("guardian_contact"),
+    });
+  },
   filterable: ["_id", "school_id"],
   filterableText: ["grade_level", "section"],
 }));

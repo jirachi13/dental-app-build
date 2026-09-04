@@ -45,6 +45,21 @@ interface CrudOptions {
    *  StudentIptr rows for one school year a second apart, which surfaced as a
    *  repeated year in the DMFT History table and an inflated "Years tracked".
    *  Guards every client, not just the button that caused it. */
+  /** Reject a write whose VALUES are invalid, as opposed to missing or
+   *  duplicated. Returns human messages; an empty array means fine.
+   *
+   *  Lives here rather than in a form so EVERY entry path is covered by one
+   *  rule -- and specifically the OFFLINE QUEUE, which replays POSTs straight
+   *  to the API and passes through no form at all. Sprint 120 put these checks
+   *  on the three client paths; this is the gate that cannot be walked around.
+   *
+   *  ⚠ Runs on the RAW body, before mongoose encrypts anything: contact
+   *  numbers and names are encrypted with random IVs (Sprint 26), so there is
+   *  no later point at which a value can still be read to check it.
+   *
+   *  On PUT the body is partial, so a validator must skip fields that are
+   *  absent rather than treating them as empty. */
+  validateBody?: (body: Record<string, unknown>) => string[];
   uniqueBy?: string[];
   /** Soft duplicate guard — the "doctor can choose" case (Sprint 47). Unlike
    *  `uniqueBy`, which is a hard 409 the client cannot override, this returns
@@ -234,6 +249,13 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
         res.status(403).json({ error: "That school is not assigned to your account" });
         return;
       }
+      if (options.validateBody) {
+        const problems = options.validateBody(body);
+        if (problems.length) {
+          res.status(400).json({ error: problems.join(" ") });
+          return;
+        }
+      }
       if (options.uniqueBy && options.uniqueBy.every((f) => body[f] !== undefined)) {
         const filter: Record<string, unknown> = {};
         for (const f of options.uniqueBy) filter[f] = body[f];
@@ -289,7 +311,19 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
         res.status(404).json({ error: "Not found" });
         return;
       }
-      Object.assign(doc, sanitizeBody(req.body));
+      const updates = sanitizeBody(req.body);
+      if (options.validateBody) {
+        // The PUT body is PARTIAL -- only the fields being changed are present,
+        // so the validator must skip anything absent. Validating the merged
+        // document instead would block an unrelated edit on a legacy value the
+        // encoder is not even looking at.
+        const problems = options.validateBody(updates);
+        if (problems.length) {
+          res.status(400).json({ error: problems.join(" ") });
+          return;
+        }
+      }
+      Object.assign(doc, updates);
       await doc.save();
       await logAudit(req.user!.id, `Updated ${modelName}`, (doc._id as any).toString(), modelName);
       res.json(decryptForResponse(doc));

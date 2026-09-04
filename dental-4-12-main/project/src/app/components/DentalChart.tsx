@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { GradePill } from './GradePill';
 import { useToast } from './Toast';
 import { useStudentNav } from '../hooks/useStudentNav';
-import { validateStudentValues } from '../utils/studentValidation';
+import { validateStudentValues } from '../../../shared/studentValidation';
 import { useAppointments } from '../hooks/useAppointments';
 import { useDentalChartData } from '../hooks/useDentalChartData';
 import { apiClient, ApiError } from '../api/client';

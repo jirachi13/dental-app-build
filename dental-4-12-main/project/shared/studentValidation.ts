@@ -1,6 +1,16 @@
-// Value-level validation for student fields -- ONE source, shared by the Add
-// Student form, the CSV/XLSX bulk import, and the OCR-prefilled form (OCR feeds
-// the same form, so it inherits these checks for free).
+// Value-level validation for student fields -- ONE source for BOTH SIDES.
+//
+// Lives in shared/ (included by tsconfig.json and tsconfig.server.json) so the
+// client forms and the API enforce the SAME rules from the SAME file. The
+// alternative -- a copy under server/ -- re-creates exactly the drift this
+// module exists to prevent; demoStudents.ts is the standing example of how
+// that goes.
+//
+// Client callers: the Add Student form, the CSV/XLSX bulk import, and the
+// student-info edit on the chart (OCR feeds the same form, so it inherits
+// these checks for free). Server caller: the Student CRUD router's
+// validateBody, which is the only gate the OFFLINE QUEUE passes through -- it
+// replays POSTs straight to the API, bypassing every form.
 //
 // Sprint 62 made the REQUIRED fields impossible to drift by deriving both the
 // asterisks and the check from one list. This is the same idea for VALUES:
