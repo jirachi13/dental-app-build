@@ -23,14 +23,9 @@ export const setQueuedStudentIds = (ids: string[]) => {
   window.localStorage.setItem(QUEUED_STUDENT_IDS_KEY, JSON.stringify(normalizeIds(ids)));
 };
 
-export const addQueuedStudentId = (id: string) => {
-  const next = normalizeIds([...getQueuedStudentIds(), String(id)]);
-  setQueuedStudentIds(next);
-  return next;
-};
-
-export const removeQueuedStudentId = (id: string) => {
-  const next = getQueuedStudentIds().filter(existingId => existingId !== String(id));
-  setQueuedStudentIds(next);
-  return next;
-};
+// addQueuedStudentId / removeQueuedStudentId were deleted in Sprint 107 with
+// the patient list's Actions column, their only caller. They were a SECOND
+// write path to the same stored queue alongside the bulk queueTicked /
+// unqueueTicked — the drift risk backlog #46 flagged. Keeping them unused
+// would have left that risk dormant rather than removed; re-add only if a
+// screen genuinely needs single-id queueing again.

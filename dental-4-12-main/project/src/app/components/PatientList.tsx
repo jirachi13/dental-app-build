@@ -14,7 +14,7 @@ import { activatable } from '../utils/a11y';
 import { GradeTableCell } from './GradeTableCell';
 import { ListSearchInput } from './ListSearchInput';
 import { studentListTableStyles } from './StudentListTableStyles';
-import { addQueuedStudentId, getQueuedStudentIds, removeQueuedStudentId, setQueuedStudentIds as persistQueuedStudentIds } from '../utils/queueStorage';
+import { getQueuedStudentIds, setQueuedStudentIds as persistQueuedStudentIds } from '../utils/queueStorage';
 import { useStudents } from '../hooks/useStudents';
 import { Pagination, usePagination } from './Pagination';
 import { apiClient, ApiError } from '../api/client';
@@ -750,7 +750,6 @@ export const PatientList = () => {
                     <th className={studentListTableStyles.headerCell}>Section</th>
                     <th className={studentListTableStyles.headerCell}>Gender</th>
                     <th className={studentListTableStyles.headerCell}>Age</th>
-                    <th className={studentListTableStyles.headerCell}>Actions</th>
                   </tr>
                 </thead>
                 <tbody className={studentListTableStyles.body}>
@@ -777,31 +776,22 @@ export const PatientList = () => {
                           {student.pending && (
                             <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200">Pending sync</span>
                           )}
+                          {/* Sprint 107: the Actions column held ONE control, a
+                              per-row queue button that duplicated tick-box +
+                              "Queue Selected". The column is gone, but that
+                              button was also the only thing showing a pupil was
+                              queued — so the STATE moves here as a chip, beside
+                              the Pending-sync chip it mirrors. Dropping the
+                              column without this would have removed information,
+                              not just a duplicate control. */}
+                          {isQueued && !student.pending && (
+                            <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700 border border-green-200">Queued</span>
+                          )}
                         </td>
                         <GradeTableCell grade={student.grade} />
                         <td className={studentListTableStyles.secondaryCell}>{student.section}</td>
                         <td className={studentListTableStyles.secondaryCell}>{student.gender}</td>
                         <td className={studentListTableStyles.secondaryCell}>{age ?? '—'}</td>
-                        <td className={studentListTableStyles.secondaryCell}>
-                          {!student.pending && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setQueuedStudentIds(
-                                  isQueued ? removeQueuedStudentId(student.id) : addQueuedStudentId(student.id)
-                                );
-                              }}
-                              title={isQueued ? 'Remove from charting queue' : 'Add to charting queue'}
-                              className={`px-2.5 py-1 rounded text-xs font-semibold border transition-colors ${
-                                isQueued
-                                  ? 'bg-green-100 text-green-700 border-green-200 hover:bg-red-50 hover:text-red-700 hover:border-red-200'
-                                  : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-                              }`}
-                            >
-                              {isQueued ? 'Queued ✓' : 'Queue for Charting'}
-                            </button>
-                          )}
-                        </td>
                       </tr>
                     );
                   })}
