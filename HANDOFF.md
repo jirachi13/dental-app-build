@@ -9,44 +9,46 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ▶ RESUME HERE — parked 2026-09-04 (6th session), everything pushed at `0414c574`
-Tree clean apart from three untracked strays noted below. **Four sprints shipped, all verified against production, all deployed.**
+## ▶ RESUME HERE — parked 2026-09-04 (6th session), everything pushed at `cc5e1c25`
+Tree clean apart from three untracked strays (below). **Nine sprints shipped, all verified against production; one built and reverted the same day.**
 
 | # | Sprint | The bit worth remembering |
 |---|---|---|
-| 99 | API runs in `sin1` | The ~500 ms per request was **geography**. One line of config, ~4.2x. |
-| 100 | Users hold multiple schools | `school_id` → `school_ids[]`, empty = all schools. ERD deviation. |
+| 99 | API runs in `sin1` | The ~500 ms per request was **geography**. One line, ~4.2x. |
+| 100 | Users hold multiple schools | `school_id` → `school_ids[]`, empty = all. **ERD deviation.** |
 | 101 | School gate enforced server-side | `school_ids` was in the JWT and **nothing read it**. |
 | 102 | Promote/Assign re-runnable | The screen that made a mistake could not fix it. |
+| 103 | The last DOH caption | Scoped as "16", it was **one** — `grep -c` counts the word. |
+| 105 | "none yet" vs "not built" | Three screens claimed a feature worked; one promised a chart that would never populate. |
+| 106 | Risk Classification filters | +gender/age; age brackets shared, not copied. Deleted a dead file. |
+| ~~107~~ | ~~Patient list Actions column~~ | **Built, then REVERTED.** Kept both controls. Production never changed. |
+| 108 | Day notes (`DAY_NOTE`) | Nullable `school_id` = all schools. **ERD deviation.** |
+| 109 | Appointment notes | Closes #30. **ERD deviation.** |
 
-**The through-line:** the app was measured (99), then users were given real multi-school identities (100), then those identities were made to actually restrict data (101), and a bulk operation was made correctable (102).
+Plus the **HANDOFF hygiene pass**: 1817 → 461 lines, 102 finished sections moved verbatim to `docs/BUILD-LOG.md`, nothing lost (all 110 headings + a 60-line sample re-verified).
 
-### ⚠ THE RECURRING LESSON OF THIS SESSION — verification kept passing against the WRONG BUILD
-Three times, a "wait for deploy" check returned instantly because **its condition was already true**, and the verification that followed produced plausible, wrong results:
-- Sprint 100's wait polled for `x-vercel-id: sin1` — already true since Sprint 99. It still printed sensible `school_ids` because **Mongoose hydration does not strip fields absent from the schema**, so migrated data leaked through the old model while `default: null` supplied a phantom `school_id`. One contradictory column was the only tell.
-- Sprint 101's wait polled "schooladmin sees 1 school" — already true from the previous deploy.
-**Wait on a predicate the NEW build makes true, and ASSERT it is false at t=0.** A waiter that cannot fail is not a waiter. This is the same family as the 5th session's "suspect the verifier first".
+### ⚠ THE LESSON OF THIS SESSION — a failing check was almost always the CHECK
+Across 99–109 a verifier reported failure **six times**; **five were the test's own fault**:
+- refocusing inside a throttle window whose clock starts at MOUNT;
+- running before the deploy landed — **twice**, because the wait polled a condition that was ALREADY TRUE;
+- counting `table tbody tr` on a screen whose list is a **div list** (`0 rows`, indistinguishable from a broken filter);
+- landing on `/select-school` instead of the screen under test, so every count was 0.
+**Assert the precondition before the behaviour**, and **a waiter whose predicate is already true at t=0 must abort** — that is now built into the wait scripts.
+**The one real failure was Sprint 108's cleanup step**: every user-facing check was green, and only "nothing left in live data" caught that `archiveRoles` defaults to ADMIN_ONLY, so the dentist saw a remove button that 403'd. **A cleanup step that asserts its own success is worth writing.**
 
-### ⚠ THE OTHER LESSON — my own wrong claim cost the most time
-I asserted Vercel Hobby cannot change the function region and built an entire Atlas migration around it (new project, cluster, 729 documents copied and verified) before reading the vendor's reference: *"Hobby plans can select any single region."* The migration was deleted in full. **Check the vendor's own reference before designing around a platform limitation.**
-
-### ⚠ STILL OWED BY THE USER — the last open security item
-**ROTATE the Atlas Admin API key pair (public `oiifrvkq`).** It was pasted into a chat transcript, is removed from disk, and is still live on the account until revoked. It can create projects. *(The Voyage AI key created by mistake at `ai.mongodb.com` was already deleted.)*
+### ⚠ OWED TO THE USER — Chapter 3's ERD figure is now THREE deviations behind
+`school_ids[]` on USER (100), the new `DAY_NOTE` model (108), and `notes` on APPOINTMENT (109). All three are in `docs/DATA-MODEL.md`; **the figure itself is hand-edited and only the user can do it.** Three is the point where a panelist notices the diagram and the database disagree.
 
 ### Untracked strays, left deliberately
-`package.json`, `package-lock.json` and a 490 KB `node_modules/` at the **repo root**, from a `@vercel/speed-insights` install that landed in the wrong directory (the app builds from `dental-4-12-main/project`, so Vercel never sees them). The snippet is parked — see the Speed Insights note in the Sprint 99 section, which keeps the required `beforeSend` mask and why it is mandatory. Remove them if the idea is dropped for good.
+`package.json`, `package-lock.json` and a 490 KB `node_modules/` at the **repo root**, from a `@vercel/speed-insights` install that landed in the wrong directory. The snippet is parked — the required `beforeSend` mask and why it is mandatory are in the Sprint 99 section.
 
 ### Next sprint — nothing is scoped and ready
-Candidates, in order:
-1. **Backlog #41's remainder** — grade history as a first-class `GRADE_ASSIGNMENT` model. The user chose the upsert half (done as 102) and did NOT choose this; it needs their word before any work.
-2. **Backlog #40** — live-updating report numbers. Confirm reading (a) is not already true before building (b); true push is not viable on serverless.
-3. **Backlog #38** — the fresh-clone README rehearsal, killed by the 2026-09-03 outage and still never run.
-4. **school_admin clinical access** — CLAUDE.md says reports and dashboards only, but they still reach clinical records (now scoped to their own school). A role-permission decision, not a scoping one; a blunt block breaks the dashboards they are entitled to.
+1. **#38 — the fresh-clone README rehearsal.** Still never run since the outage; the only buildable item with real consequence, and nobody can currently be sure a collaborator can run this project.
+2. **#41's remainder** — grade history as a first-class model. Needs the user's word.
+3. **school_admin clinical access** — CLAUDE.md says reports and dashboards only; they still reach clinical records (now scoped to their own school). A role decision.
+4. **#45 `REFERRAL` model** — blocked on the dentist.
 
-### ~~Housekeeping due~~ HYGIENE PASS DONE 2026-09-04
-**HANDOFF went 1817 → 457 lines.** 102 finished-work sections (Sprints 28–102 plus session notes) moved verbatim into `docs/BUILD-LOG.md`, which went 69 → 1440. Verified: all 110 original headings and a 60-line random content sample still resolve in one file or the other — **nothing was deleted, only relocated.** Backup of the pre-pass file was taken first.
-- **Two stale claims were corrected rather than carried over.** (1) Six Sprint A–J headings said *"ON BRANCH `dashboard-top-row`, NOT MERGED"* — `git branch --contains 36eefb8b` shows that branch IS on `main`, so backlog #12 was right and the headings were wrong. (2) The DOH-captions section claimed to be a resolved blocker; a `grep` shows **16 unverified captions still in the code**, so it stayed in HANDOFF as live work.
-- **What HANDOFF keeps now:** current status, this resume note, the open school-switcher finding, the DOH captions, Open work, User-only items, Live warnings, Durable gotchas. Nothing else. **Finished sprints go straight to BUILD-LOG from here — do not re-accumulate them.**
+**Deploy pipeline is healthy** (~15-45 s). The one stall on `228174c9` was a one-off.
 
 ## ⚠ SCHOOL SWITCHER — user-reported 2026-09-04, INVESTIGATED, NOT FIXED (needs a sprint)
 Report was terse: *"the school switcher in dentist and aide and maybe other users"*. Two separate problems, and the second is much worse than the first.
@@ -504,6 +506,7 @@ Built as backlog #46's option (b) — drop the per-row queue button, move the qu
   - Kept as a note because the assessment is worth reusing: the key was **Organization Project Creator only** (it listed zero projects, so it could never reach the `floral` cluster), and Atlas enforces a **per-key IP access list**. Neither the earlier "urgent security item" framing nor a patient-data risk was warranted — the honest reason to remove it was that nothing needed it once the `us-east-1` migration was torn down.
   - ⚠ **Nothing in the repo depended on it** — `ATLAS_*` was already out of `.env` and no code reads it, so the deletion breaks no script. If Atlas API access is ever wanted again, make a fresh key then.
 
+- **⚠ UPDATE CHAPTER 3's ERD FIGURE — now THREE deviations behind (2026-09-04).** `USER.school_ids[]` (Sprint 100), the new **`DAY_NOTE`** model (108), and **`APPOINTMENT.notes`** (109). All three are documented in `docs/DATA-MODEL.md`; the figure is hand-edited and cannot be changed from here. Three deviations is the point where a panelist notices the diagram and the database disagree.
 - **Two things to raise with the DENTIST (both from 2026-09-04, neither is a bug):**
   - **She now sees a school picker on first login on each device.** Sprint 100 gave her all three schools, so the gate no longer auto-selects. **Measured: it appears ONCE per device** and never again unless `localStorage` is cleared (private window, cleared site data, new browser/machine). One sentence to her so an occasional extra screen reads as normal. Full measurements in Open work #44.
   - **How does she record a referral today, and are they frequent enough to track?** The DOH Program Report has four referral rows that print "—" because no `REFERRAL` model exists (Open work #45). Her answer decides whether that is a real sprint or a documented gap.
