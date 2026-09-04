@@ -71,6 +71,13 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
   const fromYear = schoolYearLabel();
   const toYear = nextSchoolYear(fromYear);
 
+  // Two jobs on one screen, deliberately separate:
+  //  · promote  — opens NEXT year's record (the Sprint 74 flow)
+  //  · transfer — moves pupils between grade/section WITHIN the current year,
+  //    creating no year record at all. Requested 2026-09-04: "sections can
+  //    change mid year", so a reshuffle of 30 pupils was 30 separate edits.
+  const [mode, setMode] = useState<'promote' | 'transfer'>('promote');
+  const [transferGrade, setTransferGrade] = useState('');
   const [grade, setGrade] = useState('');
   const [section, setSection] = useState('');
   const [students, setStudents] = useState<ApiStudent[]>([]);
@@ -260,9 +267,57 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
     setRows((prev) => prev.map((r) => (ids.has(r.student._id) ? { ...r, section: value } : r)));
     toast.success(`Section set to "${value}" for ${picked.length} pupil${picked.length === 1 ? '' : 's'}.`);
   };
+  // Promote is driven by the per-row ACTION; transfer is driven by the
+  // SELECTION. Keeping them on different inputs means neither can silently
+  // inherit the other's intent when the mode is switched.
+  const transferPicked = rows.filter((r) => selected.has(r.student._id));
   const toApply = rows.filter((r) => r.action !== 'skip');
   const toCreate = toApply.filter((r) => r.action !== 'update');
   const toCorrect = toApply.filter((r) => r.action === 'update');
+
+  const runTransfer = async () => {
+    setRunning(true);
+    setError(null);
+    let moved = 0;
+    let studentOnly = 0;
+    const failed: string[] = [];
+    for (const r of transferPicked) {
+      const newGrade = transferGrade || r.student.grade_level || '';
+      const newSection = r.section || null;
+      try {
+        // The CURRENT year's record, not next year's. A transfer corrects where
+        // the pupil already is; creating a year record here would silently
+        // promote them, which is the other tab's job.
+        const current = iptrs.find(
+          (i) => i.student_id === r.student._id && i.school_year === fromYear,
+        );
+        if (current) {
+          await apiClient.put(`/student-iptrs/${current._id}`, {
+            grade_level: newGrade,
+            section: newSection,
+          });
+          moved += 1;
+        } else {
+          // No record for this year yet. Deliberately does NOT create one --
+          // that is Promote's job and would put the pupil in a year they have
+          // not been examined in. The enrolment still moves, and the summary
+          // reports these separately so it is visible rather than silent.
+          studentOnly += 1;
+        }
+        await apiClient.put(`/students/${r.student._id}`, {
+          grade_level: newGrade,
+          section: r.section,
+        });
+      } catch (err) {
+        failed.push(`${surnameFirst(r.student)} — ${err instanceof ApiError ? err.message : 'failed'}`);
+      }
+    }
+    setResult({ created: moved, corrected: studentOnly, skipped: rows.length - transferPicked.length, failed });
+    setRunning(false);
+    if (moved > 0) toast.success(`${moved} pupil${moved === 1 ? '' : 's'} moved within ${fromYear}.`);
+    if (studentOnly > 0) toast.success(`${studentOnly} had no ${fromYear} record — enrolment updated only.`);
+    if (failed.length > 0) toast.error(`${failed.length} could not be moved — see the summary.`);
+  };
 
   const run = async () => {
     setRunning(true);
@@ -323,12 +378,40 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
           <GraduationCap className="w-5 h-5" /> Promote / Assign
         </h2>
         <p className="text-xs text-muted-foreground mt-1">
-          Opens next year's record for a whole section at once.
-          <span className="font-medium text-foreground"> {fromYear} </span>
-          <ArrowRight className="w-3 h-3 inline mx-0.5" />
-          <span className="font-medium text-foreground"> {toYear} </span>
-          · {schoolName}
+          {mode === 'promote' ? (
+            <>
+              Opens next year's record for a whole section at once.
+              <span className="font-medium text-foreground"> {fromYear} </span>
+              <ArrowRight className="w-3 h-3 inline mx-0.5" />
+              <span className="font-medium text-foreground"> {toYear} </span>
+            </>
+          ) : (
+            <>
+              Moves pupils between grade or section <span className="font-medium text-foreground">within {fromYear}</span>.
+              Sections are declared at the start of the year and can change at any time; this opens no new year record.
+            </>
+          )}
+          {' · '}{schoolName}
         </p>
+      </div>
+
+      {/* Two jobs, two modes. Switching resets the selection: a tick made while
+          promoting means "promote this pupil", and carrying it into a transfer
+          would apply an intent the operator never expressed. */}
+      <div className="flex rounded-lg border border-border overflow-hidden w-full sm:w-auto">
+        {(['promote', 'transfer'] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => { setMode(m); setSelected(new Set()); setResult(null); }}
+            aria-pressed={mode === m}
+            className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium ${
+              mode === m ? 'bg-primary text-white' : 'bg-card text-foreground hover:bg-gray-50'
+            }`}
+          >
+            {m === 'promote' ? `Promote to ${toYear}` : `Transfer within ${fromYear}`}
+          </button>
+        ))}
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -340,10 +423,21 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
           <option value="">All sections</option>
           {sections.map((s) => <option key={s}>{s}</option>)}
         </select>
-        {grade && target && (
+        {mode === 'promote' && grade && target && (
           <span className="text-xs text-muted-foreground">
             {grade} <ArrowRight className="w-3 h-3 inline" /> <span className="font-medium text-foreground">{target}</span>
           </span>
+        )}
+        {mode === 'transfer' && (
+          <select
+            value={transferGrade}
+            onChange={(e) => setTransferGrade(e.target.value)}
+            className={field}
+            aria-label="Move to grade"
+          >
+            <option value="">Keep current grade</option>
+            {GRADES.map((g) => <option key={g}>{g}</option>)}
+          </select>
         )}
       </div>
 
@@ -403,25 +497,35 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
                   {hiddenSelected} hidden by the search — actions apply to the {selected.size - hiddenSelected} shown
                 </span>
               )}
-              <span className="hidden sm:inline text-xs text-muted-foreground">Set action:</span>
-              {!graduating && (
+              {/* Actions belong to promotion. In transfer mode the only bulk
+                  operation that means anything is the section. */}
+              {mode === 'promote' && (
+                <span className="hidden sm:inline text-xs text-muted-foreground">Set action:</span>
+              )}
+              {mode === 'promote' && !graduating && (
                 <button type="button" onClick={() => applyBulkAction('promote')}
                   className="text-xs px-2.5 py-1 rounded-md border border-border bg-card hover:bg-gray-50">
                   Promote to {target}
                 </button>
               )}
+              {mode === 'promote' && (
               <button type="button" onClick={() => applyBulkAction('retain')}
                 className="text-xs px-2.5 py-1 rounded-md border border-border bg-card hover:bg-gray-50">
                 Retain
               </button>
+              )}
+              {mode === 'promote' && (
               <button type="button" onClick={() => applyBulkAction('update')}
                 className="text-xs px-2.5 py-1 rounded-md border border-border bg-card hover:bg-gray-50">
                 Correct {toYear}
               </button>
+              )}
+              {mode === 'promote' && (
               <button type="button" onClick={() => applyBulkAction('skip')}
                 className="text-xs px-2.5 py-1 rounded-md border border-border bg-card hover:bg-gray-50">
                 Skip
               </button>
+              )}
               <span className="w-px h-5 bg-border hidden sm:block" />
               <input
                 value={bulkSection}
@@ -466,13 +570,27 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
                     />
                   </th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Pupil</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Action</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Section in {toYear}</th>
+                  {mode === 'promote' && (
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Action</th>
+                  )}
+                  {mode === 'transfer' && (
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Now</th>
+                  )}
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">
+                    Section in {mode === 'promote' ? toYear : fromYear}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {visibleRows.map((r) => (
-                  <tr key={r.student._id} className={r.action === 'skip' ? 'opacity-50' : ''}>
+                  <tr
+                    key={r.student._id}
+                    className={
+                      (mode === 'promote' ? r.action === 'skip' : !selected.has(r.student._id))
+                        ? 'opacity-50'
+                        : ''
+                    }
+                  >
                     <td className="px-3 py-2">
                       <input
                         type="checkbox"
@@ -484,7 +602,7 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
                     </td>
                     <td className="px-3 py-2">
                       {surnameFirst(r.student)}
-                      {r.alreadyHasYear && (
+                      {mode === 'promote' && r.alreadyHasYear && (
                         // The operator cannot opt into a correction blind — the
                         // row states what the {toYear} record says NOW, so an
                         // overwrite is a seen decision (Sprint 102).
@@ -497,6 +615,19 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
                         </span>
                       )}
                     </td>
+                    {mode === 'transfer' && (
+                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                        {r.student.grade_level || 'no grade'}
+                        {r.student.section ? ` · ${r.student.section}` : ''}
+                        {selected.has(r.student._id) && (
+                          <span className="text-amber-700">
+                            {' → '}{transferGrade || r.student.grade_level || 'no grade'}
+                            {r.section ? ` · ${r.section}` : ''}
+                          </span>
+                        )}
+                      </td>
+                    )}
+                    {mode === 'promote' && (
                     <td className="px-3 py-2">
                       <select
                         value={r.action}
@@ -515,11 +646,12 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
                         <option value="skip">Skip</option>
                       </select>
                     </td>
+                    )}
                     <td className="px-3 py-2">
                       <input
                         value={r.section}
                         onChange={(e) => setRow(r.student._id, { section: e.target.value })}
-                        disabled={r.action === 'skip'}
+                        disabled={mode === 'promote' ? r.action === 'skip' : !selected.has(r.student._id)}
                         className="text-xs border border-border rounded-md px-2 py-1 w-32 disabled:opacity-50"
                         aria-label={`Section for ${surnameFirst(r.student)}`}
                       />
@@ -530,6 +662,17 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
             </table>
           </div>
 
+          {mode === 'transfer' && (
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">{transferPicked.length}</span> of {rows.length} ticked will move to
+              <span className="font-medium text-foreground"> {transferGrade || 'their current grade'}</span>
+              {' '}with the section set per row. This edits the {fromYear} record and the pupil's current
+              enrolment. <span className="font-medium text-foreground">No new school year is created</span> — use
+              “Promote to {toYear}” for that.
+            </p>
+          )}
+
+          {mode === 'promote' && (
           <p className="text-xs text-muted-foreground">
             <span className="font-medium text-foreground">{toCreate.length}</span> of {rows.length} will get a new {toYear} record
             {toCorrect.length > 0 && (
@@ -538,13 +681,15 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
             Each also has their current grade and section updated — that is what promotion means.
             {toCorrect.length === 0 && ' Existing years are left untouched.'}
           </p>
+          )}
         </>
       )}
 
       {result && (
         <Notice variant={result.failed.length ? 'error' : 'success'}>
-          {result.created} moved into {toYear}
-          {result.corrected > 0 && `, ${result.corrected} corrected`}, {result.skipped} skipped.
+          {mode === 'transfer'
+            ? <>{result.created} moved within {fromYear}{result.corrected > 0 && `, ${result.corrected} had no ${fromYear} record so only enrolment changed`}, {result.skipped} not ticked.</>
+            : <>{result.created} moved into {toYear}{result.corrected > 0 && `, ${result.corrected} corrected`}, {result.skipped} skipped.</>}
           {result.failed.length > 0 && (
             <ul className="mt-1 list-disc list-inside">{result.failed.map((f) => <li key={f}>{f}</li>)}</ul>
           )}
@@ -556,11 +701,16 @@ export const PromoteAssign = ({ onClose, schoolId, schoolName }: {
           className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-gray-50 text-sm font-medium disabled:opacity-50">
           {result ? 'Close' : 'Cancel'}
         </button>
-        <button onClick={run} disabled={running || toApply.length === 0}
+        <button
+          onClick={mode === 'transfer' ? runTransfer : run}
+          disabled={running || (mode === 'transfer' ? transferPicked.length === 0 : toApply.length === 0)}
           className="flex-1 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50">
-          {running ? 'Working…' : toCorrect.length && !toCreate.length
-            ? `Correct ${toCorrect.length} ${toYear} record${toCorrect.length === 1 ? '' : 's'}`
-            : `Open ${toYear} for ${toApply.length}`}
+          {running ? 'Working…'
+            : mode === 'transfer'
+              ? `Move ${transferPicked.length} pupil${transferPicked.length === 1 ? '' : 's'}`
+              : toCorrect.length && !toCreate.length
+                ? `Correct ${toCorrect.length} ${toYear} record${toCorrect.length === 1 ? '' : 's'}`
+                : `Open ${toYear} for ${toApply.length}`}
         </button>
       </div>
     </div>
