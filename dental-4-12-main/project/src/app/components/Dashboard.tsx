@@ -601,9 +601,14 @@ export const Dashboard = () => {
           <div className="bg-card p-4 rounded-xl border border-border">
             <h2 className="text-sm font-bold text-foreground">Oral Health Trend</h2>
             <p className="text-[11px] text-muted-foreground mb-3">Mean DMFT index · last 6 months</p>
-            {/* No historical monthly snapshots exist yet to compute a real
-                trend from -- an honest empty state, not fabricated numbers. */}
-            <NoDataYet message="No historical trend data yet. This chart will populate once monthly snapshots begin accumulating." />
+            {/* ⚠ Sprint 105: this used to say the chart "will populate once
+                monthly snapshots begin accumulating". NOTHING ACCUMULATES THEM
+                — grep confirms no snapshot mechanism exists anywhere in the app
+                or server. So that sentence promised a feature that will never
+                arrive on its own, which is worse than an empty chart: it tells
+                the reader it is working and merely needs time. Building it
+                needs a scheduled job and a place to keep the series. */}
+            <NoDataYet message="Not built yet — nothing records the monthly DMFT snapshots this trend would be drawn from, so it will stay empty until that is added." />
           </div>
         </div>
 

@@ -140,11 +140,20 @@ const DOH_ROWS: RowDef[] = [
   { type:'data', label:'OFC Upon Complete Oral Rehabilitation', field:'ofc_rehab',  indent:true },
 ];
 
-// No real Referral or bulk-Session-tracking model exists anywhere in the
-// ERD -- these lists are genuinely empty until such a model is built, never
-// fabricated placeholder rows.
-const mockReferrals: { student:string; school:string; grade:string; date:string; facility:string; reason:string; followUp:string; status:string }[] = [];
-const mockSessions: { date:string; school:string; grade:string; section:string; students:number; procedures:string[]; treated:number }[] = [];
+// No REFERRAL or bulk-Session model exists anywhere in the ERD, so these lists
+// are permanently empty — never fabricated placeholder rows.
+//
+// ⚠ Sprint 105: they used to be called `referralRows`/`sessionRows` and their
+// panels reported "0 referrals issued" / "No referrals recorded yet", which
+// reads as A WORKING FEATURE WITH NO DATA rather than a feature that does not
+// exist. That is the failure CLAUDE.md calls worse than a missing feature: the
+// output looks authoritative. The tables are KEPT because their column sets
+// document what such a model would have to hold, and because the DOH Oral
+// Health Program Report already asks for referral counts (four rows, all
+// printing "—" for the same missing model). The captions now say so plainly.
+const NOT_TRACKED = 'Not tracked yet — no model exists';
+const referralRows: { student:string; school:string; grade:string; date:string; facility:string; reason:string; followUp:string; status:string }[] = [];
+const sessionRows: { date:string; school:string; grade:string; section:string; students:number; procedures:string[]; treated:number }[] = [];
 
 
 const ALL_GRADES_INT = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
@@ -870,7 +879,11 @@ export const Reports = () => {
                     {[
                       { label:'Total Procedures', value: grandTotal, color:'text-blue-700 bg-blue-50 border-blue-200' },
                       { label:'Most Common', value: mostCommon, color:'text-green-700 bg-green-50 border-green-200', small: true },
-                      { label:'Sessions', value: mockSessions.length, color:'text-cyan-700 bg-cyan-50 border-cyan-200' },
+                      // ⚠ "—", not 0. This tile sits between three REAL computed
+                      // numbers, so a zero here reads as "we measured, and it is
+                      // none" — the same convention the DOH tables use for a cell
+                      // with no source (Sprints 89/90).
+                      { label:'Sessions (not tracked)', value: '—', color:'text-cyan-700 bg-cyan-50 border-cyan-200' },
                       { label:'Students Treated', value: periodTreatmentCount, color:'text-purple-700 bg-purple-50 border-purple-200' },
                     ].map((c,i) => (
                       <div key={i} className={`rounded-xl border p-4 ${c.color}`}>
@@ -1116,7 +1129,7 @@ export const Reports = () => {
               <div className="bg-card rounded-xl border border-border overflow-hidden">
                 <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
                   <h3 className="text-sm font-bold text-foreground">Treatment Sessions</h3>
-                  <span className="text-xs text-muted-foreground">{mockSessions.length} sessions recorded</span>
+                  <span className="text-xs text-amber-700">{NOT_TRACKED}</span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
@@ -1126,9 +1139,13 @@ export const Reports = () => {
                       ))}</tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {mockSessions.length === 0 ? (
-                        <tr><td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">No treatment sessions recorded yet.</td></tr>
-                      ) : mockSessions.map((s, i) => {
+                      {sessionRows.length === 0 ? (
+                        <tr><td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
+                          There is no bulk-session model in the system, so nothing can be recorded here yet —
+                          this is not an empty period. Individual treatments ARE recorded, and are counted
+                          in Total Procedures above.
+                        </td></tr>
+                      ) : sessionRows.map((s, i) => {
                         const pct = Math.round((s.treated / s.students) * 100);
                         return (
                           <tr key={i} className="hover:bg-gray-50">
@@ -1162,7 +1179,7 @@ export const Reports = () => {
               <div className="bg-card rounded-xl border border-border overflow-hidden">
                 <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
                   <h3 className="text-sm font-bold text-foreground">Referral Tracking</h3>
-                  <span className="text-xs text-muted-foreground">{mockReferrals.length} referrals issued</span>
+                  <span className="text-xs text-amber-700">{NOT_TRACKED}</span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
@@ -1172,9 +1189,13 @@ export const Reports = () => {
                       ))}</tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {mockReferrals.length === 0 ? (
-                        <tr><td colSpan={8} className="px-4 py-6 text-center text-muted-foreground">No referrals recorded yet.</td></tr>
-                      ) : mockReferrals.map((r, i) => (
+                      {referralRows.length === 0 ? (
+                        <tr><td colSpan={8} className="px-4 py-6 text-center text-muted-foreground">
+                          There is no referral model in the system, so nothing can be recorded here yet —
+                          this is not an empty period. The DOH Program Report&apos;s four referral rows print
+                          &ldquo;—&rdquo; for the same reason. Record referrals in Treatment History remarks meanwhile.
+                        </td></tr>
+                      ) : referralRows.map((r, i) => (
                         <>
                         <tr key={i} {...activatable(() => setExpandedReferral(expandedReferral === i ? null : i))}
                           className="hover:bg-orange-50/40 cursor-pointer select-none">

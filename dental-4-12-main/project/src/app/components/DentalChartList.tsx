@@ -34,14 +34,14 @@ export const DentalChartList = () => {
   const [genderFilter, setGenderFilter] = useState('all');
   const [ageGroupFilter, setAgeGroupFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const { students: mockPatients, loading: studentsLoading } = useStudents();
+  const { students: allPatients, loading: studentsLoading } = useStudents();
 
   const allSections = useMemo(() => {
-    let base = gradeFilter !== 'all' ? mockPatients.filter(p => p.grade === gradeFilter) : mockPatients;
+    let base = gradeFilter !== 'all' ? allPatients.filter(p => p.grade === gradeFilter) : allPatients;
     return [...new Set(base.map(p => p.section))].sort();
-  }, [gradeFilter, mockPatients]);
+  }, [gradeFilter, allPatients]);
 
-  const filtered = useMemo(() => mockPatients.filter(p => {
+  const filtered = useMemo(() => allPatients.filter(p => {
     const age = calculateAge(p.birthdate);
     const ag = getAgeGroup(age);
     if (gradeFilter !== 'all' && p.grade !== gradeFilter) return false;
@@ -54,7 +54,7 @@ export const DentalChartList = () => {
       if (!formattedName.includes(query) && !p.grade.toLowerCase().includes(query) && !p.section.toLowerCase().includes(query)) return false;
     }
     return true;
-  }), [mockPatients, gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm]);
+  }), [allPatients, gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm]);
 
   const hasActiveFilters = gradeFilter !== 'all' || sectionFilter !== 'all' || genderFilter !== 'all' || ageGroupFilter !== 'all' || searchTerm !== '';
   const clearFilters = () => { setGradeFilter('all'); setSectionFilter('all'); setGenderFilter('all'); setAgeGroupFilter('all'); setSearchTerm(''); };
@@ -136,7 +136,7 @@ export const DentalChartList = () => {
         </div>
         {filtered.length > 0 && (
           <div className={studentListTableStyles.footer}>
-            Showing {filtered.length} of {mockPatients.length} records
+            Showing {filtered.length} of {allPatients.length} records
           </div>
         )}
       </div>

@@ -43,7 +43,7 @@ export const TreatmentRecords = () => {
   const { selectedSchool } = useAuth();
   const { students: allStudents, loading: studentsLoading } = useStudents();
   // School-scoped like every other list page
-  const mockPatients = useMemo(
+  const allPatients = useMemo(
     () => (selectedSchool ? allStudents.filter((s) => s.school === selectedSchool) : allStudents),
     [allStudents, selectedSchool],
   );
@@ -68,8 +68,8 @@ export const TreatmentRecords = () => {
   }, []);
 
   const sourcePatients = useMemo(
-    () => (viewMode === 'treatment' ? mockPatients.filter((p) => treatmentIds.has(p.id)) : mockPatients),
-    [viewMode, treatmentIds, mockPatients],
+    () => (viewMode === 'treatment' ? allPatients.filter((p) => treatmentIds.has(p.id)) : allPatients),
+    [viewMode, treatmentIds, allPatients],
   );
 
   const filtered = useMemo(() => sourcePatients.filter(t => {
@@ -126,7 +126,7 @@ export const TreatmentRecords = () => {
         <div className="flex flex-wrap gap-2">
           <ListSearchInput value={searchTerm} onChange={setSearchTerm} />
           <FS value={gradeFilter} onChange={g => { setGradeFilter(g); setSectionFilter('all'); }} label="All Grades" opts={GRADES.map(g => ({ v: g, l: g }))} />
-          <FS value={sectionFilter} onChange={setSectionFilter} label="All Sections" opts={[...new Set((gradeFilter !== 'all' ? mockPatients.filter((r:any) => r.grade === gradeFilter) : mockPatients).map((r:any) => r.section))].sort().map((s:any) => ({ v: s, l: s }))} />
+          <FS value={sectionFilter} onChange={setSectionFilter} label="All Sections" opts={[...new Set((gradeFilter !== 'all' ? allPatients.filter((r:any) => r.grade === gradeFilter) : allPatients).map((r:any) => r.section))].sort().map((s:any) => ({ v: s, l: s }))} />
           <FS value={genderFilter} onChange={setGenderFilter} label="All Genders" opts={[{ v:'Male', l:'Male' }, { v:'Female', l:'Female' }]} />
           <FS value={ageGroupFilter} onChange={setAgeGroupFilter} label="All Age Groups"
             opts={[{ v:'4 & below', l:'4 & below' }, { v:'5-9', l:'5-9' }, { v:'10-14', l:'10-14' }, { v:'15-19', l:'15-19' }, { v:'20 & above', l:'20 & above' }]} />

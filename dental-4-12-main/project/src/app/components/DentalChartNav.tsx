@@ -43,14 +43,14 @@ export const DentalChartNav = () => {
   const { selectedSchool } = useAuth();
   const { students: allStudents, loading: studentsLoading } = useStudents();
   // School-scoped like every other list page
-  const mockPatients = useMemo(
+  const allPatients = useMemo(
     () => (selectedSchool ? allStudents.filter((s) => s.school === selectedSchool) : allStudents),
     [allStudents, selectedSchool],
   );
 
   const sourcePatients = useMemo(
-    () => (viewMode === 'queued' ? mockPatients.filter((p) => queuedStudentIds.includes(p.id)) : mockPatients),
-    [viewMode, queuedStudentIds, mockPatients],
+    () => (viewMode === 'queued' ? allPatients.filter((p) => queuedStudentIds.includes(p.id)) : allPatients),
+    [viewMode, queuedStudentIds, allPatients],
   );
 
   const allSections = useMemo(() => {
