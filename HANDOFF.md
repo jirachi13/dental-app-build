@@ -135,6 +135,16 @@ Three backlog items taken together. **One of them needed no work at all.**
 
 ⚠ **The verifier was wrong twice before it was right, both times about the DOM, not the app:** it counted `table tbody tr` on a screen whose candidate list is a **div list**, giving `0 rows -> 0` — which reads exactly like a broken filter. **Third session in a row where a "failure" was the test's own setup.** Check what the list is actually made of before asserting on it.
 
+## Sprint 107 (patient list loses its Actions column) — CODE DONE + PUSHED 2026-09-04, ⚠ **NOT VERIFIED — THE DEPLOY HAS NOT LANDED**
+Backlog #46. That column held **exactly one control**: a per-row queue button duplicating tick-box + "Queue Selected". Removing it takes a whole column off the ~390px width and leaves one code path instead of two.
+
+- **⚠ The state it carried had to survive the removal.** That button was the ONLY per-row indicator that a pupil was queued (`isQueued` appeared five times, all inside it). A green **"Queued"** chip now sits beside the name, mirroring the **Pending sync** chip already there. Dropping the column without this would have removed information, not just a duplicate control.
+- **`addQueuedStudentId` / `removeQueuedStudentId` DELETED** from `utils/queueStorage.ts` — that button was their only caller. Leaving them unused would have left #46's drift risk dormant rather than removed. The bulk `queueTicked`/`unqueueTicked` path is now the only writer.
+- **Known trade, accepted:** a one-off queue is **2 clicks** (tick, then Queue) instead of 1. If the aide says she overwhelmingly does one-offs, the cheap reversal is a small icon button — **the chip stays either way**, because that is the part carrying information.
+- Local `tsc` and `vite build` are clean; commit `228174c9`.
+
+**⚠⚠ DEPLOY STUCK — READ BEFORE ASSUMING THIS SPRINT IS LIVE.** Every deploy earlier today landed in **~45 s**. This one has not landed after **~13 minutes**: the live entry chunk is still `index-OxDJBx18.js` and still contains the string `Queue for Charting`, while the local build produces `index-BdOXQexX.js`. The push itself succeeded (`c231a78d..228174c9`). **`verify_sprint107.mjs` is written but has NEVER been run** — do not record a result for it until the deploy lands. **Check the Vercel dashboard for a failed or queued build.** Possibly related: pushes today print `Required status check "build" is expected.`
+
 ## ⚠ UNVERIFIED DOH CAPTIONS — RESOLVABLE, PARTLY DONE, **16 STILL IN THE CODE** (2026-09-02, re-counted 2026-09-04)
 **Kept in HANDOFF by the hygiene pass because it is live work, not history.** Counted against the code on 2026-09-04: `grep -c unverified` gives **10 in `TargetClientList.tsx` and 6 in `OralHealthProgramReport.tsx`** — down from the original 14 + 17, so Sprints 83/84/89 fixed roughly half and stopped. The workbook that makes the rest resolvable is already on disk; nothing is blocked. Finishing it is a small sprint and exactly the kind of detail a panelist spot-checks.
 **This retires a blocker HANDOFF listed as USER-ONLY** ("19 unverified DOH captions — needs a photo of blank forms; no higher-res version exists in the manuscript"). It does: `TCLForm2andFHSISReport.xlsx` and `2026Form2withFHSIS.xlsx` are real DOH files, not scans, so every caption can be read exactly. **No photo is needed any more.**
