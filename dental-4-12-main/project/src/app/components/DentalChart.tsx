@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { GradePill } from './GradePill';
 import { useToast } from './Toast';
 import { useStudentNav } from '../hooks/useStudentNav';
+import { validateStudentValues } from '../utils/studentValidation';
 import { useAppointments } from '../hooks/useAppointments';
 import { useDentalChartData } from '../hooks/useDentalChartData';
 import { apiClient, ApiError } from '../api/client';
@@ -583,6 +584,24 @@ export const DentalChart = () => {
 
   const handleSaveInfo = async () => {
     if (!id || !draftInfo) return;
+    // Same shared rules as the Add form and the bulk import (Sprint 120). Only
+    // ONE of the 27 records on file fails them (a contact number), so this
+    // blocks almost nothing that already exists -- but it does mean a legacy
+    // bad value must be corrected before that pupil can be edited, which is
+    // the point. Undefined fields are skipped, so editing a name never trips
+    // on a phone the encoder is not looking at.
+    const problems = validateStudentValues({
+      lastName: draftInfo.last_name,
+      firstName: draftInfo.first_name,
+      middleName: draftInfo.middle_name,
+      birthdate: draftInfo.birthday ? String(draftInfo.birthday).slice(0, 10) : undefined,
+      contactNumber: draftInfo.contact_number,
+      guardianContact: draftInfo.guardian_contact,
+    });
+    if (problems.length) {
+      setInfoError(problems.join(' '));
+      return;
+    }
     setInfoSaving(true);
     setInfoError(null);
     try {

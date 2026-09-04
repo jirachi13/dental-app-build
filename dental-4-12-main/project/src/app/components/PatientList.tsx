@@ -24,6 +24,7 @@ import { calculateAge, getAgeGroup, AGE_GROUPS } from '../utils/age';
 import { schoolYearLabel } from '../utils/schoolYear';
 import { Notice } from './Notice';
 import { PromoteAssign } from './PromoteAssign';
+import { validateStudentValues, validateBirthdate, validatePhone, validateName, MAX_NAME_LENGTH, MIN_AGE_YEARS, MAX_AGE_YEARS } from '../utils/studentValidation';
 
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 
@@ -120,6 +121,14 @@ const buildBulkRow = (rec: Record<string, string>): BulkRow => {
   else if (!birthday) error = 'Missing birthday';
   else if (isNaN(new Date(birthday).getTime())) error = `Invalid birthday "${birthday}"`;
   else if (!address) error = 'Missing address';
+  // Same value rules as the Add form (Sprint 120). This is the path that can
+  // insert hundreds of rows with nobody reading them, so a bad birthday here
+  // is worse than a bad one typed by hand.
+  else error = validateBirthdate(birthday)
+    ?? validateName(lastName, 'Last Name')
+    ?? validateName(firstName, 'First Name')
+    ?? validateName(middleName, 'Middle Name')
+    ?? validatePhone(contactNumber, 'Contact Number');
   return { lastName, firstName, middleName, sex: sex ?? sexRaw, grade: grade ?? gradeRaw, section, birthday, address, contactNumber, error };
 };
 
@@ -362,6 +371,20 @@ export const PatientList = () => {
   // confirmDuplicate is the answer to a previous 409: the encoder has looked at
   // the matches and says this really is a different child. Re-reads `newPatient`
   // rather than caching a payload, so "Save anyway" cannot drift from the form.
+  // Native date bounds from the SAME constants the JS check uses, so the
+  // picker and the error message can never disagree about what is plausible.
+  const birthdateBounds = useMemo(() => {
+    const t = new Date();
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
+    return {
+      // The JS check rejects an age below MIN_AGE_YEARS, so the picker must
+      // stop there too -- a picker that offers a date the save will reject is
+      // the same disagreement Sprint 62 removed from the required fields.
+      max: iso(new Date(t.getFullYear() - MIN_AGE_YEARS, t.getMonth(), t.getDate())),
+      min: iso(new Date(t.getFullYear() - MAX_AGE_YEARS, t.getMonth(), t.getDate())),
+    };
+  }, []);
+
   const handleAddStudent = async (confirmDuplicate = false) => {
     setAddPatientError(null);
     // birthdate/gender/address/section are all required on the backend
@@ -383,6 +406,22 @@ export const PatientList = () => {
       // Names them. "Please fill in all required fields" leaves the user
       // hunting, which is what made the missing Address asterisk costly.
       setAddPatientError(`Please fill in: ${missing.join(', ')}.`);
+      return;
+    }
+    // Values, not just presence (Sprint 120). Same shared rules the bulk
+    // importer uses, so the two cannot disagree about what a valid birthday is.
+    // All problems at once -- fixing them one save at a time is the thing that
+    // makes an encoder give up and type anything that passes.
+    const valueProblems = validateStudentValues({
+      lastName: newPatient.lastName,
+      firstName: newPatient.firstName,
+      middleName: newPatient.middleName,
+      birthdate: newPatient.birthdate,
+      contactNumber: newPatient.contactNumber,
+      guardianContact: newPatient.guardianContact,
+    });
+    if (valueProblems.length) {
+      setAddPatientError(valueProblems.join(' '));
       return;
     }
     const school = schools.find((s) => s.school_name === newPatient.school);
@@ -910,12 +949,12 @@ export const PatientList = () => {
                 <p className="text-xs text-muted-foreground">{ocrFindingsNote}</p>
               )}
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-sm font-medium text-foreground mb-1">Last Name{req('lastName')} {ocrHint('lastName')}</label><input type="text" value={newPatient.lastName} onChange={e => setNewPatient({...newPatient, lastName: e.target.value})} className={ocrFieldClass('lastName')} /></div>
-                <div><label className="block text-sm font-medium text-foreground mb-1">First Name{req('firstName')} {ocrHint('firstName')}</label><input type="text" value={newPatient.firstName} onChange={e => setNewPatient({...newPatient, firstName: e.target.value})} className={ocrFieldClass('firstName')} /></div>
+                <div><label className="block text-sm font-medium text-foreground mb-1">Last Name{req('lastName')} {ocrHint('lastName')}</label><input type="text" value={newPatient.lastName} maxLength={MAX_NAME_LENGTH} onChange={e => setNewPatient({...newPatient, lastName: e.target.value})} className={ocrFieldClass('lastName')} /></div>
+                <div><label className="block text-sm font-medium text-foreground mb-1">First Name{req('firstName')} {ocrHint('firstName')}</label><input type="text" value={newPatient.firstName} maxLength={MAX_NAME_LENGTH} onChange={e => setNewPatient({...newPatient, firstName: e.target.value})} className={ocrFieldClass('firstName')} /></div>
               </div>
-              <div><label className="block text-sm font-medium text-foreground mb-1">Middle Name {ocrHint('middleName')}</label><input type="text" value={newPatient.middleName} onChange={e => setNewPatient({...newPatient, middleName: e.target.value})} className={ocrFieldClass('middleName')} /></div>
+              <div><label className="block text-sm font-medium text-foreground mb-1">Middle Name {ocrHint('middleName')}</label><input type="text" value={newPatient.middleName} maxLength={MAX_NAME_LENGTH} onChange={e => setNewPatient({...newPatient, middleName: e.target.value})} className={ocrFieldClass('middleName')} /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-sm font-medium text-foreground mb-1">Birthdate{req('birthdate')} {ocrHint('birthdate')}</label><input type="date" value={newPatient.birthdate} onChange={e => setNewPatient({...newPatient, birthdate: e.target.value})} className={ocrFieldClass('birthdate')} /></div>
+                <div><label className="block text-sm font-medium text-foreground mb-1">Birthdate{req('birthdate')} {ocrHint('birthdate')}</label><input type="date" value={newPatient.birthdate} min={birthdateBounds.min} max={birthdateBounds.max} onChange={e => setNewPatient({...newPatient, birthdate: e.target.value})} className={ocrFieldClass('birthdate')} /></div>
                 <div><label className="block text-sm font-medium text-foreground mb-1">Gender{req('gender')} {ocrHint('gender')}</label><select value={newPatient.gender} onChange={e => setNewPatient({...newPatient, gender: e.target.value})} className={ocrFieldClass('gender')}><option value="">Select</option><option>Male</option><option>Female</option></select></div>
               </div>
               <div><label className="block text-sm font-medium text-foreground mb-1">School{req('school')}</label><select value={newPatient.school} onChange={e => setNewPatient({...newPatient, school: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"><option value="">Select School</option>{schoolNames.map(s => <option key={s}>{s}</option>)}</select></div>
@@ -927,9 +966,9 @@ export const PatientList = () => {
                 <div><label className="block text-sm font-medium text-foreground mb-1">Grade{req('grade')}</label><select value={newPatient.grade} onChange={e => setNewPatient({...newPatient, grade: e.target.value})} className={plainFieldClass}><option value="">Select Grade</option>{GRADES.map(g => <option key={g}>{g}</option>)}</select></div>
                 <div><label className="block text-sm font-medium text-foreground mb-1">Section{req('section')}</label><input type="text" value={newPatient.section} onChange={e => setNewPatient({...newPatient, section: e.target.value})} placeholder="e.g. Sampaguita" className={plainFieldClass} /></div>
               </div>
-              <div><label className="block text-sm font-medium text-foreground mb-1">Contact Number{req('contactNumber')} {ocrHint('contactNumber')}</label><input type="text" value={newPatient.contactNumber} onChange={e => setNewPatient({...newPatient, contactNumber: e.target.value})} placeholder="09XX-XXX-XXXX" className={ocrFieldClass('contactNumber')} /></div>
+              <div><label className="block text-sm font-medium text-foreground mb-1">Contact Number{req('contactNumber')} {ocrHint('contactNumber')}</label><input type="text" value={newPatient.contactNumber} inputMode="tel" onChange={e => setNewPatient({...newPatient, contactNumber: e.target.value})} placeholder="09XX-XXX-XXXX" className={ocrFieldClass('contactNumber')} /></div>
               <div><label className="block text-sm font-medium text-foreground mb-1">Guardian Name{req('guardianName')}</label><input type="text" value={newPatient.guardianName} onChange={e => setNewPatient({...newPatient, guardianName: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
-              <div><label className="block text-sm font-medium text-foreground mb-1">Guardian Contact{req('guardianContact')}</label><input type="text" value={newPatient.guardianContact} onChange={e => setNewPatient({...newPatient, guardianContact: e.target.value})} placeholder="09XX-XXX-XXXX" className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+              <div><label className="block text-sm font-medium text-foreground mb-1">Guardian Contact{req('guardianContact')}</label><input type="text" value={newPatient.guardianContact} inputMode="tel" onChange={e => setNewPatient({...newPatient, guardianContact: e.target.value})} placeholder="09XX-XXX-XXXX" className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
               <div><label className="block text-sm font-medium text-foreground mb-1">PhilHealth Number {ocrHint('philhealthNumber')}</label><input type="text" value={newPatient.philhealthNumber} onChange={e => setNewPatient({...newPatient, philhealthNumber: e.target.value})} placeholder="XX-XXXXXXXXX-X" className={ocrFieldClass('philhealthNumber')} /></div>
               <div><label className="block text-sm font-medium text-foreground mb-1">PhilHealth Status</label><select value={newPatient.philhealthStatus} onChange={e => setNewPatient({...newPatient, philhealthStatus: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"><option value="None">None</option><option value="Principal">Principal</option><option value="Dependent">Dependent</option></select></div>
               <div className="flex items-center gap-3 pt-2"><input type="checkbox" id="is4ps" checked={newPatient.is4Ps} onChange={e => setNewPatient({...newPatient, is4Ps: e.target.checked})} className="w-4 h-4 rounded accent-primary" /><label htmlFor="is4ps" className="text-sm font-medium text-foreground">4Ps / NHTS Member</label></div>
