@@ -3,7 +3,7 @@ import { getModel } from "./shared/getModel.js";
 import { softDeleteFields } from "./shared/softDelete.js";
 
 // ERD deviation (Sprint 108, like DENTIST_ROTATION before it). A note written
-// against a DATE rather than a patient — "no clinic, barangay fiesta",
+// against a DATE rather than a patient — "no clinic, holiday",
 // "compressor down", "dentist at Annex A". The user asked for both this and a
 // per-appointment remark and confirmed they are different things: a holiday is
 // not a patient remark.

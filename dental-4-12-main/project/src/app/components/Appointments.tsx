@@ -774,7 +774,7 @@ export const Appointments = () => {
                   onChange={(e) => setNoteDraft(e.target.value)}
                   maxLength={500}
                   rows={2}
-                  placeholder="e.g. No clinic — barangay fiesta"
+                  placeholder="e.g. No clinic — holiday"
                   aria-label="New note for this date"
                   className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 />
