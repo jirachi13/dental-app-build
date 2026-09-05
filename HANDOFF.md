@@ -10,42 +10,42 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ▶ RESUME HERE — PARKED 2026-09-05 (8th session), everything pushed at `508ada98`
-Tree clean apart from the two untracked root strays (`package.json`, `package-lock.json`), which predate this session. **Eleven sprints shipped (127-137), every one verified in the browser or by a script.** Per-sprint detail is in the sections below.
+## ▶ RESUME HERE — PARKED 2026-09-05 (8th session), everything pushed at `e4e05679`
+Tree clean apart from the two untracked root strays (`package.json`, `package-lock.json`), which predate this session. **Twenty sprints shipped (127-146), every one verified in the browser or at the endpoint.** Per-sprint detail is in the sections below.
 
-| # | Sprint | The bit worth remembering |
+| # | Theme | The bit worth remembering |
 |---|---|---|
-| 127 | REFERRAL model | Five DOH rows had no source. The enum IS the form's printed row list. |
-| 129 | Review fixes + purge guard | `purge:demo` did not know about `Referral`. **The script now refuses unless every model is planned or excluded with a reason.** |
-| 128, 130 | Reports defaulted to empty periods | Two controls, same fault: the school-year filter, then the TCL's own period. **A report defaulting to an empty period reads as broken.** |
-| 130, 133 | Print by inclusion | The old CSS listed chrome to hide, so captions kept leaking onto DOH returns. Now everything is hidden except `.form-print`. |
-| 131, 132 | Day dialog + demo appointments | The dialog stacked because it was `max-w-md`. Seeding appointments then exposed `AppointmentCard` clipped inside it. |
-| 134 | TCL filed as two sheets | **Both TCL pages were in the manuscript all along** (Appendix E). The app was never short a column — the OUTPUT was one sheet. |
-| 135, 136 | IPTR is the real form | The "IPTR PDF" was a screenshot of the app, Edit buttons included. Now the two-page Appendix G form. |
-| 137 | Form 1, the second IPTR | Both IPTRs are valid, so the button is a choice. **The user's photo is NOT in the repo — real patient data.** |
+| 127, 129 | REFERRAL model + review | Five DOH rows had no source. **`purge:demo` now REFUSES unless every model is planned or excluded with a reason.** |
+| 128, 130 | Reports opened on empty periods | Two controls, same fault. **A report defaulting to an empty period reads as broken.** |
+| 130, 133 | Print by inclusion | The old CSS listed chrome to hide, so captions leaked onto DOH returns. Now everything is hidden except `.form-print`. |
+| 131, 132 | Day dialog + demo appointments | The dialog stacked because it was `max-w-md`. Seeding appointments then exposed a clipped card. |
+| 134 | TCL filed as two sheets | **Both pages were in the manuscript all along.** The app was never short a column — the OUTPUT was one sheet. |
+| 135-137 | The IPTR forms | The PDF was a screenshot of the app. Now the real two-page form, **and Form 1 beside it — both are valid.** |
+| 138-143 | Reports moved server-side | ~382 KB of whole-collection reads → six aggregates, three of them **flat at any roll size**. |
+| 144-146 | The two list screens | `history` bounded, then **both lists filtered, sorted and PAGED on the server** — every filter moved together. |
 
-### ⚠ THE LESSON OF THIS SESSION — the source was in the repo the whole time
-Three separate items were blocked on "the workbook is on the other laptop" or "we need a scan". **All three were already here**, embedded as base64 PNGs in `docs/Group404 - Manuscript.md`: Appendix E (both TCL pages), Appendix F, Appendix G (both IPTR pages). Extracting them is six lines of base64. **Before recording something as blocked on a missing document, grep the manuscript.**
+### ⚠ THE TWO LESSONS OF THIS SESSION
+1. **The source was in the repo the whole time.** Three items were recorded as blocked on "the workbook is on the other laptop" or "we need a scan". All three were embedded as base64 PNGs in `docs/Group404 - Manuscript.md` (Appendices E, F, G). **Before recording something as blocked on a missing document, grep the manuscript.**
+2. **`tsc` and the build cannot see a broken screen.** A hook after an early return blanked a page; a card was clipped out of its container; a ten-column grid printed across the next page; and a matrix keyed by code was read by label, which `Record<string, …>` accepts silently. **Every one shipped a clean build and was caught by opening the browser.**
 
-Second lesson, repeated three times: **`tsc` and the build cannot see a broken screen.** A hook after an early return blanked the record page, a card was clipped out of its container, and a ten-column grid printed across the neighbouring page — all with a clean build. Every one was caught by opening the browser.
-
-### ▶ FOUR THINGS ONLY YOU CAN DO — each is one click, and each closes shipped work
-1. **Click `IPTR` and `Form 1`** on a pupil's record → closes Sprints 135, 136, 137. Producing a PDF means downloading, which I do not do.
+### ▶ FIVE THINGS ONLY YOU CAN DO — each closes shipped work
+1. **Click `IPTR` and `Form 1`** on a pupil's record → closes Sprints 135-137. Producing a PDF means downloading, which I do not do.
 2. **Click `Excel` on the Target Client List** → confirm two sheets, `Page 1` and `Page 2` → closes Sprint 134 / #56.
-3. **Ctrl+P on the report tabs** → confirm the sheet is the form and nothing else → closes #57. Content is already verified; only pagination, landscape and the `zoom: 0.45` need a real preview.
+3. **Ctrl+P on the report tabs** → confirm the sheet is the form and nothing else → closes #57. Content is verified; only pagination, landscape and the `zoom: 0.45` need a real preview.
 4. **`SEED_BHO_PASSWORD` is 7 chars in the production backup** — a re-seed there is refused by the Sprint 120 guard until it is lengthened.
+5. **The Chapter 3 ERD figure** — now owes five deviations (`school_ids[]`, `DAY_NOTE`, the name split, `REFERRAL`, the two IPTR forms' reading of the model). A redraw, not a patch.
 
 ### ⚠ READ BEFORE TOUCHING THE DATABASE
 - **`.env` points at DEV** (`cluster0.o7e3c5o`). Production is `floral-cluster.edqpjtu` and lives **only in Vercel**.
 - **`.env.production.bak-20260904-222928`** holds the old config. **Restore the WHOLE FILE, never one line** — the two databases have different `FIELD_ENCRYPTION_SECRET`s.
-- Every script prints its target first (`announceTarget.ts`) and shouts on production. ⚠ Call it **after** `connectDB()` — before it, it prints `(unknown host)` and tells you nothing.
-- Dev now also holds demo appointments (`npm run seed:appointments`) and IPTR grades (`npm run backfill:iptr-grades`).
+- Every script prints its target (`announceTarget.ts`). ⚠ Call it **after** `connectDB()`; before it, it prints `(unknown host)` and tells you nothing.
+- Dev holds demo appointments (`seed:appointments`), IPTR grades (`backfill:iptr-grades`), **0 TREATMENT rows** and 0 referrals.
 
-### Next — scoped and ready, in the order I would take them
-1. **#55 structured treatment/condition dropdowns with tooth numbers** — needs three answers from the dentist first (per tooth or per visit? conditions without a tooth? chart click or number list?).
-2. **#59 the bulk-upload format** — the importer already exists; the open question is whose column set wins, and it cannot be settled until a real roster file exists.
-3. **#37 / #61 follow-up** — the eleven unmapped Form 1 history questions need the dentist to say which stored field, if any, answers each.
-4. **The Chapter 3 ERD figure (USER-ONLY)** — now owes five deviations: `school_ids[]`, `DAY_NOTE`, the name split, `REFERRAL`, and the IPTR forms' own reading of the model. A redraw, not a patch.
+### Next — everything scoped needs YOU or the dentist first
+1. **#55 structured treatment/condition dropdowns** — three questions for the dentist (per tooth or per visit? conditions without a tooth? chart click or number list?).
+2. **#59 the bulk-upload format** — the importer already exists; whose column set wins cannot be settled until a real roster file exists.
+3. **#61 Form 1's eleven unmapped history questions** — the dentist decides which stored field, if any, answers each.
+4. **The only unblocked engineering item left is #24's last line:** the server still reads whole collections to build each aggregate. A `$lookup` pipeline is the answer **if** it ever hurts; nothing measured says it does at 26 pupils, so this is not urgent work.
 
 ⚠ **Two dev servers may still be running from this session** (`npm run dev:server` on :4000, `npm run dev` on :5173). Kill them if the ports are wanted.
 
