@@ -281,11 +281,14 @@ const SERVICE_ROWS: Row[] = [
  *  The three a/b/c referral rows and the prescriptions row were missing
  *  entirely. */
 const OTHER_ROWS: Row[] = [
-  { key: 'ref_primary', label: 'No. of patients referred to other Primary Care Facilities', field: null },
-  { key: 'ref_higher', label: 'Total no. of patients referred to Higher Level of Care', field: null },
-  { key: 'ref_cancer', label: 'a. No. of patients for Oral Cancer Screening Referrals', field: null, indent: true },
-  { key: 'ref_surgical', label: 'b. No. of patients for Surgical Procedures', field: null, indent: true },
-  { key: 'ref_private', label: 'c. No. of Referrals to Private Facilities', field: null, indent: true },
+  // Sprint 127 — fed by the REFERRAL model. `ref_higher` is the total of the
+  // three indented rows plus referrals recorded as higher_level with no stated
+  // sub-kind; see useDohReportData for why that is not double-counting.
+  { key: 'ref_primary', label: 'No. of patients referred to other Primary Care Facilities', field: 'ref_primary' },
+  { key: 'ref_higher', label: 'Total no. of patients referred to Higher Level of Care', field: 'ref_higher' },
+  { key: 'ref_cancer', label: 'a. No. of patients for Oral Cancer Screening Referrals', field: 'ref_cancer', indent: true },
+  { key: 'ref_surgical', label: 'b. No. of patients for Surgical Procedures', field: 'ref_surgical', indent: true },
+  { key: 'ref_private', label: 'c. No. of Referrals to Private Facilities', field: 'ref_private', indent: true },
   { key: 'prescriptions', label: 'No. of patients given Dental Prescriptions', field: null },
 ];
 

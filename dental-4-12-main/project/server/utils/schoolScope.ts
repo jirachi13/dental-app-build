@@ -25,7 +25,7 @@ import {
 //   StudentIptr        student_id  -> Student
 //   MedicalHistory     iptr_id     -> StudentIptr -> Student
 //   DietarySocialHabits, OralHealthCondition, DentalChart,
-//   Treatment, PreventiveCareRecord   (same, via iptr_id)
+//   Treatment, PreventiveCareRecord, Referral   (same, via iptr_id)
 //   ToothRecord        chart_id    -> DentalChart -> StudentIptr -> Student
 //   RiskStratification preventive_id -> PreventiveCareRecord -> ... -> Student
 //   Appointment        student_id  -> Student
@@ -63,6 +63,7 @@ const RULES: Record<string, ScopeRule> = {
   OralHealthCondition: { via: "iptr_id" },
   DentalChart: { via: "iptr_id" },
   Treatment: { via: "iptr_id" },
+  Referral: { via: "iptr_id" },
   PreventiveCareRecord: { via: "iptr_id" },
   ToothRecord: { via: "chart_id" },
   RiskStratification: { via: "preventive_id" },

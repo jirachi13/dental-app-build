@@ -160,6 +160,29 @@ export interface ApiTreatment {
   isArchived: boolean;
 }
 
+// Sprint 127. `referral_type` is the DOH Program Report's own row list — see
+// server/models/Referral.ts for which enum value fills which printed row.
+export type ReferralType =
+  | 'primary_care'
+  | 'higher_level'
+  | 'oral_cancer_screening'
+  | 'surgical'
+  | 'private_facility';
+
+export interface ApiReferral {
+  _id: string;
+  iptr_id: string;
+  dentist_id: string | null;
+  referral_type: ReferralType;
+  date_issued: string;
+  facility_name: string;
+  reason: string;
+  notes: string;
+  status: 'pending' | 'completed' | 'no-show';
+  follow_up_date: string | null;
+  isArchived: boolean;
+}
+
 export interface ApiDentist {
   _id: string;
   school_id: string;

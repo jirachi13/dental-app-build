@@ -14,6 +14,7 @@ import type {
   ApiRiskStratification,
   ApiDentalChart,
   ApiToothRecord,
+  ApiReferral,
 } from '../api/types';
 
 // ─── Section C — Services Rendered (Sprint 90) ───────────────────────────────
@@ -206,7 +207,7 @@ export function useDohReportData(schoolYear: string | null = null, schoolName: s
       // Accepted deliberately: without them Services Rendered cannot be filled
       // at all, and the same two collections are already fetched this way by
       // useRPCTracking. It makes the pagination work more urgent, not less.
-      const [schools, students, iptrs, medicals, dietaries, orals, preventives, risks, charts, toothRecords] = await Promise.all([
+      const [schools, students, iptrs, medicals, dietaries, orals, preventives, risks, charts, toothRecords, referrals] = await Promise.all([
         apiClient.get<ApiSchool[]>('/schools'),
         apiClient.get<ApiStudent[]>('/students'),
         apiClient.get<ApiStudentIptr[]>('/student-iptrs'),
@@ -217,6 +218,10 @@ export function useDohReportData(schoolYear: string | null = null, schoolName: s
         apiClient.get<ApiRiskStratification[]>('/risk-stratifications'),
         apiClient.get<ApiDentalChart[]>('/dental-charts'),
         apiClient.get<ApiToothRecord[]>('/tooth-records'),
+        // Sprint 127 — the eleventh whole-collection read on this hook. Same
+        // justification as the tenth: without it the form's five referral rows
+        // cannot be filled at all. It makes Open work 24 more urgent, not less.
+        apiClient.get<ApiReferral[]>('/referrals'),
       ]);
 
       // Scope to one school. Matched on school_id rather than the display name:
@@ -298,6 +303,15 @@ export function useDohReportData(schoolYear: string | null = null, schoolName: s
         const list = toothByChart.get(t.chart_id) ?? [];
         list.push(t);
         toothByChart.set(t.chart_id, list);
+      }
+
+      // Sprint 127 — referrals per IPTR, which is how they reach a school
+      // year, a grade and an age band without carrying any of those fields.
+      const referralsByIptr = new Map<string, ApiReferral[]>();
+      for (const r of referrals) {
+        const list = referralsByIptr.get(r.iptr_id) ?? [];
+        list.push(r);
+        referralsByIptr.set(r.iptr_id, list);
       }
 
       const increment = (map: Map<string, number>, key: string, by = 1) => map.set(key, (map.get(key) ?? 0) + by);
@@ -394,6 +408,34 @@ export function useDohReportData(schoolYear: string | null = null, schoolName: s
             if (teeth > 0) {
               bump(`${field}_head`);      // one patient
               bump(`${field}_tooth`, teeth); // however many teeth
+            }
+          }
+
+          // ── Section D, Referrals (Sprint 127) ───────────────────────────
+          // The form counts PATIENTS, not slips: a pupil referred twice to the
+          // same kind of facility in one school year is one patient on that
+          // row. Hence a Set of types per IPTR rather than a running total.
+          //
+          // ⚠ a/b/c are printed INDENTED UNDER "Total no. of patients referred
+          // to Higher Level of Care", so that total is `higher_level` PLUS the
+          // three sub-rows — a patient referred for surgery is one of the
+          // three AND one of the total, exactly as the paper form reads.
+          // Recording that patient as `higher_level` too would double-count
+          // them, which is why the sub-rows are their own enum values.
+          const iptrReferrals = referralsByIptr.get(iptrId) ?? [];
+          if (iptrReferrals.length > 0) {
+            const types = new Set(iptrReferrals.map((r) => r.referral_type));
+            if (types.has('primary_care')) bump('ref_primary');
+            if (types.has('oral_cancer_screening')) bump('ref_cancer');
+            if (types.has('surgical')) bump('ref_surgical');
+            if (types.has('private_facility')) bump('ref_private');
+            if (
+              types.has('higher_level') ||
+              types.has('oral_cancer_screening') ||
+              types.has('surgical') ||
+              types.has('private_facility')
+            ) {
+              bump('ref_higher');
             }
           }
 

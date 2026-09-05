@@ -13,7 +13,7 @@ import { exportDohReportToXlsx } from '../utils/exportDohXlsx';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { activatable } from '../utils/a11y';
 import { apiClient } from '../api/client';
-import type { ApiTreatment, ApiToothRecord, ApiDentalChart, ApiStudentIptr } from '../api/types';
+import type { ApiTreatment, ApiToothRecord, ApiDentalChart, ApiStudentIptr, ApiReferral, ReferralType } from '../api/types';
 import { useStudents } from '../hooks/useStudents';
 import { TargetClientList } from './TargetClientList';
 import { OralHealthProgramReport } from './OralHealthProgramReport';
@@ -141,8 +141,10 @@ const DOH_ROWS: RowDef[] = [
   { type:'data', label:'OFC Upon Complete Oral Rehabilitation', field:'ofc_rehab',  indent:true },
 ];
 
-// No REFERRAL or bulk-Session model exists anywhere in the ERD, so these lists
-// are permanently empty — never fabricated placeholder rows.
+// Sprint 127: REFERRAL now exists, so `referralRows` is computed from the
+// database below and this note applies to `sessionRows` alone — no bulk-Session
+// model exists anywhere in the ERD, so that list stays permanently empty rather
+// than carrying fabricated placeholder rows.
 //
 // ⚠ Sprint 105: they used to be called `referralRows`/`sessionRows` and their
 // panels reported "0 referrals issued" / "No referrals recorded yet", which
@@ -153,7 +155,17 @@ const DOH_ROWS: RowDef[] = [
 // Health Program Report already asks for referral counts (four rows, all
 // printing "—" for the same missing model). The captions now say so plainly.
 const NOT_TRACKED = 'Not tracked yet — no model exists';
-const referralRows: { student:string; school:string; grade:string; date:string; facility:string; reason:string; followUp:string; status:string }[] = [];
+type ReferralRow = { student:string; school:string; grade:string; date:string; facility:string; reason:string; followUp:string; status:string };
+
+// The same labels the student record's Referrals tab uses. Kept in words the
+// DOH form uses, because this table is read next to that form.
+const REFERRAL_TYPE_LABELS: Record<ReferralType, string> = {
+  primary_care: 'Other Primary Care Facility',
+  higher_level: 'Higher Level of Care',
+  oral_cancer_screening: 'Oral Cancer Screening',
+  surgical: 'Surgical Procedure',
+  private_facility: 'Private Facility',
+};
 const sessionRows: { date:string; school:string; grade:string; section:string; students:number; procedures:string[]; treated:number }[] = [];
 
 
@@ -282,25 +294,61 @@ export const Reports = () => {
   const [toothRecords, setToothRecords] = useState<ApiToothRecord[]>([]);
   const [dentalCharts, setDentalCharts] = useState<ApiDentalChart[]>([]);
   const [iptrs, setIptrs] = useState<ApiStudentIptr[]>([]);
+  const [referrals, setReferrals] = useState<ApiReferral[]>([]);
 
   useEffect(() => {
     (async () => {
       try {
-        const [t, tr, dc, ip] = await Promise.all([
+        const [t, tr, dc, ip, rf] = await Promise.all([
           apiClient.get<ApiTreatment[]>('/treatments'),
           apiClient.get<ApiToothRecord[]>('/tooth-records'),
           apiClient.get<ApiDentalChart[]>('/dental-charts'),
           apiClient.get<ApiStudentIptr[]>('/student-iptrs'),
+          apiClient.get<ApiReferral[]>('/referrals'),
         ]);
         setTreatments(t);
         setToothRecords(tr);
         setDentalCharts(dc);
         setIptrs(ip);
+        setReferrals(rf);
       } catch (err) {
         console.error('Reports extra data fetch failed:', err);
       }
     })();
   }, []);
+
+  // ── Referral Tracking rows (Sprint 127) ─────────────────────────────────
+  // A referral hangs off an IPTR, so the student (and with them the school and
+  // the grade shown in this table) is reached through that year's record. A
+  // referral whose student is not in `realStudents` is simply absent — that is
+  // the school scope already applied to this page, not a silent drop.
+  const referralRows: ReferralRow[] = useMemo(() => {
+    const studentByIptr = new Map<string, string>();
+    for (const i of iptrs) studentByIptr.set(i._id, i.student_id);
+    const gradeByIptr = new Map<string, string>();
+    for (const i of iptrs) gradeByIptr.set(i._id, i.grade_level ?? '');
+    const studentById = new Map(realStudents.map((st) => [st.id, st]));
+
+    return referrals
+      .map((r) => {
+        const student = studentById.get(studentByIptr.get(r.iptr_id) ?? '');
+        if (!student) return null;
+        return {
+          student: student.name,
+          school: student.school,
+          // The IPTR's own grade is the grade AT THE TIME (Sprint 57a); the
+          // student's current grade would relabel last year's referrals.
+          grade: gradeByIptr.get(r.iptr_id) || student.grade,
+          date: r.date_issued,
+          facility: r.facility_name,
+          reason: REFERRAL_TYPE_LABELS[r.referral_type] + ' — ' + r.reason,
+          followUp: r.follow_up_date ? r.follow_up_date.slice(0, 10) : '—',
+          status: r.status,
+        };
+      })
+      .filter((r) => r !== null)
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [referrals, iptrs, realStudents]);
 
   const handleDownloadPdf = async () => {
     if (!dohReportRef.current) return;
@@ -1184,7 +1232,7 @@ export const Reports = () => {
               <div className="bg-card rounded-xl border border-border overflow-hidden">
                 <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
                   <h3 className="text-sm font-bold text-foreground">Referral Tracking</h3>
-                  <span className="text-xs text-amber-700">{NOT_TRACKED}</span>
+                  <span className="text-xs text-muted-foreground">{referralRows.length} recorded</span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
@@ -1196,9 +1244,8 @@ export const Reports = () => {
                     <tbody className="divide-y divide-gray-100">
                       {referralRows.length === 0 ? (
                         <tr><td colSpan={8} className="px-4 py-6 text-center text-muted-foreground">
-                          There is no referral model in the system, so nothing can be recorded here yet —
-                          this is not an empty period. The DOH Program Report&apos;s four referral rows print
-                          &ldquo;—&rdquo; for the same reason. Record referrals in Treatment History remarks meanwhile.
+                          No referrals recorded. Referrals are written on a pupil&apos;s record, under Referrals,
+                          and are counted on the DOH Program Report from there.
                         </td></tr>
                       ) : referralRows.map((r, i) => (
                         <>

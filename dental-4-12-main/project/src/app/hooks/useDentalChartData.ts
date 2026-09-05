@@ -11,6 +11,7 @@ import type {
   ApiDentalChart,
   ApiToothRecord,
   ApiTreatment,
+  ApiReferral,
   ApiDentist,
 } from '../api/types';
 
@@ -22,6 +23,7 @@ export interface IptrYearData {
   dentalChart: ApiDentalChart | null;
   toothRecords: ApiToothRecord[];
   treatments: ApiTreatment[];
+  referrals: ApiReferral[];
 }
 
 export function useDentalChartData(studentId: string | undefined) {
@@ -62,15 +64,16 @@ export function useDentalChartData(studentId: string | undefined) {
       // A student with no IPTR years has nothing to join to — skip five
       // round-trips that could only return empty.
       const iptrQuery = myIptrs.map((i) => i._id).join(',');
-      const [allMedical, allDiet, allOral, allCharts, allTreatments] = iptrQuery
+      const [allMedical, allDiet, allOral, allCharts, allTreatments, allReferrals] = iptrQuery
         ? await Promise.all([
             apiClient.get<ApiMedicalHistory[]>(`/medical-histories?iptr_id=${iptrQuery}`),
             apiClient.get<ApiDietarySocialHabits[]>(`/dietary-social-habits?iptr_id=${iptrQuery}`),
             apiClient.get<ApiOralHealthCondition[]>(`/oral-health-conditions?iptr_id=${iptrQuery}`),
             apiClient.get<ApiDentalChart[]>(`/dental-charts?iptr_id=${iptrQuery}`),
             apiClient.get<ApiTreatment[]>(`/treatments?iptr_id=${iptrQuery}`),
+            apiClient.get<ApiReferral[]>(`/referrals?iptr_id=${iptrQuery}`),
           ])
-        : [[], [], [], [], []];
+        : [[], [], [], [], [], []];
 
       const myCharts = allCharts.filter((c) => iptrIds.has(c.iptr_id));
       const chartIds = myCharts.map((c) => c._id);
@@ -88,6 +91,7 @@ export function useDentalChartData(studentId: string | undefined) {
           dentalChart,
           toothRecords: dentalChart ? allToothRecords.filter((t) => t.chart_id === dentalChart._id) : [],
           treatments: allTreatments.filter((t) => t.iptr_id === iptr._id),
+          referrals: allReferrals.filter((r) => r.iptr_id === iptr._id),
         };
       });
 

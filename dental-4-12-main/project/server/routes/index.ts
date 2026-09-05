@@ -29,6 +29,7 @@ import {
   AuditTrail,
   DentistRotation,
   DayNote,
+  Referral,
 } from "../models/index.js";
 
 const router = Router();
@@ -456,6 +457,19 @@ router.use("/day-notes", createCrudRouter(DayNote, {
   writeRoles: CLINICAL_WRITE_ROLES,
   archiveRoles: CLINICAL_WRITE_ROLES,
   dateField: "date",
+}));
+
+// Sprint 127 — referrals. `dateField` bounds the reports' sweep the way
+// Sprint 56 did for appointments; `filterable: ["iptr_id"]` serves the student
+// record's Referrals tab. `archiveRoles` is set for the same reason Sprint 108
+// had to set it on day notes: it defaults to ADMIN_ONLY, and the tab shows the
+// dentist a remove button — a control that appears to work must work. Restore
+// stays admin-only per CLAUDE.md's soft-delete rule.
+router.use("/referrals", createCrudRouter(Referral, {
+  writeRoles: CLINICAL_WRITE_ROLES,
+  archiveRoles: CLINICAL_WRITE_ROLES,
+  filterable: ["iptr_id"],
+  dateField: "date_issued",
 }));
 
 // Audit trail — System Admin only, both to read and (already, since Sprint 6)

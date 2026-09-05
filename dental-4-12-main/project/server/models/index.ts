@@ -16,3 +16,4 @@ export { default as Appointment } from "./Appointment.js";
 export { default as AuditTrail } from "./AuditTrail.js";
 export { default as DentistRotation } from "./DentistRotation.js";
 export { default as DayNote } from "./DayNote.js";
+export { default as Referral } from "./Referral.js";
