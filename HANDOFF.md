@@ -331,6 +331,18 @@ A repeat of Sprint 145 on the second list: **~5.5 MB at 8,000 pupils → one pag
 
 ## Open work (each needs approval; sprint loop applies)
 
+62. **⚠ RECORDING AN RPC VISIT IS ALSO RECORDING TREATMENT — user, 2026-09-05. `PREVENTIVE_CARE_RECORD` STORES NO SERVICES AT ALL.** NOT scoped; it is a model change, so it needs approval.
+    - **The model has four fields:** `iptr_id`, `visit_date`, `visit_number`, `facility_based`. That is it. **A visit records that someone was seen, never what was done to them.**
+    - **The Record Visit modal saves exactly those** (`RPCTracking.tsx:78` → `POST /preventive-care-records` with date, number, facility flag). The dentist ticks nothing.
+    - **But CLAUDE.md's own module 5 says an RPC visit IS a set of services:** *"oral screening, prophylaxis, fluoride varnish, hygiene instruction, caries risk assessment"* — and page 2 of the Target Client List prints exactly those as per-visit tick columns for FIRST and SECOND visit.
+    - **⚠ THIS IS WHY SEVERAL FILED FIGURES ARE APPROXIMATIONS, and the code already says so in three places.** `useRPCTracking`'s own comment: *"this is 'the student has had this treatment', NOT 'this was done at the RPC visit' — PREVENTIVE_CARE_RECORD stores no services at all, so per-visit treatment data does not exist to filter on."* The TCL therefore answers "did this pupil ever have FV?" where the form asks "was FV done at this visit?", and `useDohReportData` derives 1st/2nd application from CHART DATES because nothing records the ordinal.
+    - **RECOMMENDED SHAPE — service ticks ON the visit, not a join:** add to `PREVENTIVE_CARE_RECORD` the columns the form actually prints — `oral_screening`, `oral_prophylaxis`, `fluoride_varnish`, `oral_hygiene_instruction`, and the visit's `caries_risk` (Low/Moderate/High). Booleans default **false**, risk defaults **null**. The Record Visit modal grows a tick row. **The TCL's per-visit columns then read the visit instead of guessing from the chart, and 1st/2nd application stops being inferred from dates.**
+    - **⚠ Do NOT route this through TREATMENT or TOOTH_RECORD.** `TREATMENT` is free-text diagnosis/treatment_done for a chairside entry; `TOOTH_RECORD` is per-tooth, and a fluoride varnish or a prophylaxis is whole-mouth — there is no tooth to hang it on. Forcing either would invent per-tooth data the dentist never recorded.
+    - **⚠ ERD deviation** — same treatment as `REFERRAL` got: build it, then update `docs/DATA-MODEL.md` and the Chapter 3 figure.
+    - **⚠ Existing rows have no answer.** Every visit recorded before this change must read as *not recorded*, never as "not done" — the same rule `facility_based` already follows (default null, and FHSIS prints "not recorded" rather than inventing the split). Booleans defaulting false would silently claim no service was given.
+    - **Distinct from #55**, which is about structured entry on the CHART. This is about the visit.
+
+
 61. **~~THERE ARE TWO IPTR VERSIONS AND BOTH ARE VALID~~ — BUILT 2026-09-05 as Sprint 137.** Both forms are offered; the PDF button is now a choice. ⚠ The photo of Form 1 is NOT in the repo (real patient data - see that sprint). Original note:
     - The user has now confirmed what backlog **#37** suspected: the Taguig City Health Office **"INDIVIDUAL PATIENT TREATMENT RECORD"** (manuscript Appendix G, the one Sprint 135 built) and the **"Form 3 / INDIVIDUAL TREATMENT RECORD"** they photographed on 2026-09-03 are **both in use**. Neither supersedes the other.
     - **So the app must OFFER BOTH, not choose.** Sprint 135's `IptrForm` is version A; version B needs its own component built to its own scan, and the PDF button becomes a choice ("which form?") rather than a single action.
