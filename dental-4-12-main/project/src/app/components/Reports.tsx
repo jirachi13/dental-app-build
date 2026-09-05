@@ -211,6 +211,25 @@ export const Reports = () => {
   const { schoolNames } = useSchools();
   const [dohSchoolYear, setDohSchoolYear] = useState<string | null>(() => schoolYearLabel());
   const { getRealCount, years: dohYears, unplacedCount, loading: dohLoading, lastUpdated: dohLastUpdated } = useDohReportData(dohSchoolYear, reportSchool);
+
+  // Sprint 128 — the calendar's school year is not necessarily a year the
+  // database HAS. Opening Reports in September 2026 defaulted every DOH report
+  // to 2026-2027 while every record sat under 2025-2026, so all three tabs
+  // reported zeros and dashes on a database with 26 fully-charted pupils.
+  //
+  // Once the real year list arrives, a selection that names a year with no
+  // records is replaced by the NEWEST year that has them. Only that case is
+  // touched: `null` is the deliberate "All years to date" choice, and a year
+  // that IS in the list is the user's own pick — neither is overridden, and
+  // the align runs once rather than fighting the dropdown on every load.
+  const didAlignYear = useRef(false);
+  useEffect(() => {
+    if (didAlignYear.current || dohYears.length === 0) return;
+    if (dohSchoolYear !== null && !dohYears.includes(dohSchoolYear)) {
+      setDohSchoolYear(dohYears[0]); // years arrive newest-first
+    }
+    didAlignYear.current = true;
+  }, [dohYears, dohSchoolYear]);
   // Fields with no real backing data source yet show 0, never a fabricated
   // fallback number -- see useDohReportData.ts for exactly which fields are
   // real vs. not yet wireable.
@@ -599,6 +618,17 @@ export const Reports = () => {
                   it could be scoped, and it is still the right answer for a
                   cumulative count. */}
               <option value="">All years to date</option>
+              {/* ⚠ The selected year is listed even when the database holds no
+                  records for it (an empty database, or the moment before the
+                  year list loads). Without this the <select> falls back to
+                  displaying its FIRST option — so the control read "All years
+                  to date" while the report was actually filtering to a year
+                  with nothing in it. A control that appears to work must work:
+                  it now always shows the year it is really using, and says
+                  when that year has no records. */}
+              {dohSchoolYear && !dohYears.includes(dohSchoolYear) && (
+                <option value={dohSchoolYear}>{dohSchoolYear} (no records)</option>
+              )}
               {dohYears.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
 
@@ -636,6 +666,10 @@ export const Reports = () => {
               used to be computed against TODAY, which silently rewrote past
               reports every time a pupil was promoted or had a birthday. */}
           <p className="text-xs text-muted-foreground">
+            {dohSchoolYear && !dohLoading && dohYears.length > 0 && !dohYears.includes(dohSchoolYear) && (
+              <> <span className="font-medium text-amber-700">No records exist for {dohSchoolYear}</span>, so every figure below is zero.
+              Records exist for {dohYears.join(', ')}. </>
+            )}
             {dohSchoolYear
               ? <>Covering school year <span className="font-medium text-foreground">{dohSchoolYear}</span>. Grade is the grade recorded for that year, and age is the pupil&apos;s age at that year&apos;s first recorded visit (or the start of the school year where no visit is recorded) — not their grade or age today.</>
               : <>Covering <span className="font-medium text-foreground">all years to date</span>, so a pupil with several school years is counted once per year. Pick a school year above to report on one.</>}
