@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router';
-import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, TrendingUp, FileText, Plus, Pencil, Trash2, Brain, Download, X, Maximize2, Minimize2, Check } from 'lucide-react';
+import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, TrendingUp, FileText, Plus, Pencil, Trash2, Brain, Download, X, Maximize2, Minimize2, Check, ChevronUp, ChevronDown } from 'lucide-react';
 import { exportDohReportToPdf, exportPagesToPdf } from '../utils/exportPdf';
 import { getGradeColor } from '../utils/gradeColors';
 import { computeBmi, BMI_NOTE } from '../utils/bmi';
@@ -179,17 +179,27 @@ const serviceChips: { label: string; field: ServiceField }[] = [
 let chartingModeMemo = false;
 
 // Base44-exact condition codes: uppercase=permanent, lowercase=temporary (auto-applied)
-export const conditionCodes = [
+//
+// Split into common and rare for the palette (Sprint 156, her division). Un, S,
+// JC and P are charted a handful of times a year and were holding four
+// permanent slots on a chairside screen. ⚠ `conditionCodes` stays the whole
+// list, in the same order, because the Legend, IptrForm, Reports, RPCTracking,
+// Dashboard and TargetClientList all read it — the palette collapses, the
+// vocabulary does not shrink.
+const commonConditionCodes = [
   { code: '✓', label: 'Sound/Sealed', perm: '✓', temp: '✓' },
   { code: 'D', label: 'Decayed', perm: 'D', temp: 'd' },
   { code: 'M', label: 'Missing', perm: 'M', temp: 'm' },
   { code: 'F', label: 'Filled', perm: 'F', temp: 'f' },
   { code: 'X', label: 'Indicated for Extr.', perm: 'X', temp: 'x' },
+];
+const rareConditionCodes = [
   { code: 'Un', label: 'Unerupted', perm: 'Un', temp: 'un' },
   { code: 'S', label: 'Supernumerary Tooth', perm: 'S', temp: 's' },
   { code: 'JC', label: 'Jacket Crown', perm: 'JC', temp: 'jc' },
   { code: 'P', label: 'Pontic', perm: 'P', temp: 'p' },
 ];
+export const conditionCodes = [...commonConditionCodes, ...rareConditionCodes];
 
 // Base44-exact treatment codes
 // `local` is the word the clinic and the families actually use. The clinical
@@ -211,6 +221,13 @@ export const treatmentCodes = [
   { code: 'X', label: 'Extraction', local: 'Bunot' },
   { code: 'SDF', label: 'Silver Diamine Fluoride' },
 ];
+
+// The palette's two rows (Sprint 156). Per-tooth codes lead; the whole-mouth
+// three sit behind "More" rather than being dropped, so an FV already charted
+// on a tooth by an older record can still be changed or cleared.
+const perToothTreatmentCodes = treatmentCodes.filter((t) => !WHOLE_MOUTH_TREATMENT_CODES.includes(t.code));
+const wholeMouthTreatmentCodes = treatmentCodes.filter((t) => WHOLE_MOUTH_TREATMENT_CODES.includes(t.code));
+
 
 /** "Extraction (Bunot)" where a local term exists, otherwise just the label. */
 export const treatmentLabel = (t: { label: string; local?: string }) =>
@@ -395,6 +412,8 @@ export const DentalChart = () => {
   const [draftVisitDate, setDraftVisitDate] = useState('');
   const [draftChartDate, setDraftChartDate] = useState('');
   const [othersOralOpen, setOthersOralOpen] = useState(false);
+  const [rareConditionsOpen, setRareConditionsOpen] = useState(false);
+  const [rareTreatmentsOpen, setRareTreatmentsOpen] = useState(false);
 
   useEffect(() => {
     if (!currentYearData) {
@@ -1472,9 +1491,15 @@ export const DentalChart = () => {
               {canEditHistory && currentYearData && (editMode || activeTab === 'history' || (canEdit && activeTab === 'chart')) && (
                 <div className="flex shrink-0 items-center gap-2 px-3">
                   {!editMode ? (
-                    <button onClick={() => setEditMode(true)} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted">
-                      <Pencil className="w-3 h-3" />
-                      {canEdit ? 'Edit Chart' : 'Edit History & Oral'}
+                    /* Icon only, at the right end of the tab strip — her
+                       control. The label moves to the tooltip and the aria
+                       label, so a screen reader and a hover still say which
+                       of the two things this edits. */
+                    <button onClick={() => setEditMode(true)}
+                      title={canEdit ? 'Edit chart' : 'Edit history & oral'}
+                      aria-label={canEdit ? 'Edit chart' : 'Edit history & oral'}
+                      className="flex items-center justify-center rounded-lg border border-border p-2 text-foreground transition-colors hover:bg-muted">
+                      <Pencil className="w-4 h-4" />
                     </button>
                   ) : (
                     <>
@@ -1827,7 +1852,7 @@ export const DentalChart = () => {
               <button
                 type="button"
                 onClick={() => setLegendOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs border border-border rounded-lg hover:bg-gray-50"
+                className="flex items-center gap-1.5 rounded-lg bg-destructive px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:opacity-90"
               >
                 <FileText className="w-3.5 h-3.5" /> Legend
               </button>
@@ -1836,7 +1861,7 @@ export const DentalChart = () => {
                   type="button"
                   onClick={() => setChartingMode(true)}
                   title="Full-screen charting — Escape exits"
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs border border-border rounded-lg hover:bg-gray-50"
+                  className="flex items-center gap-1.5 rounded-lg border border-primary px-2.5 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
                 >
                   <Maximize2 className="w-3.5 h-3.5" /> Charting Mode
                 </button>
@@ -1848,31 +1873,67 @@ export const DentalChart = () => {
                 the top of the screen doing nothing while the summaries above
                 are what a dentist actually reads. The words moved to Legend.
                 It reappears, unchanged, the moment Edit Chart is pressed. */}
+            {/* ── THE PALETTE (Sprint 156) ────────────────────────────────
+                Her chairside layout: code-only pills, the words in the Legend,
+                the rare codes collapsed, and each "Applying…" banner under the
+                palette it came from rather than once at the foot of the card —
+                picking a treatment on the right used to light a message on the
+                far left. Clear All moved onto the heading row and disappears
+                when there is nothing to clear; a permanently-visible disabled
+                destructive button is noise on a blank chart. */}
             {editingChart && (
             <div className="bg-blue-50 rounded-xl p-4">
-              {!canEdit && <p className="text-xs text-muted-foreground mb-2 italic">View only — editing restricted to Dentist</p>}
-              {canEdit && !editMode && <p className="text-xs text-muted-foreground mb-2 italic">View mode — click "Edit Chart" to record conditions/treatments</p>}
               <div className={`grid grid-cols-1 ${iptrContext === 'default' ? 'lg:grid-cols-2' : ''} gap-4`}>
                 {iptrContext !== 'treatment' && (
-                // Symmetric padding with the treatment column so the two grids
-                // get identical width -- the divider's padding on one side only
-                // made its buttons 3px smaller than its neighbour's.
                 <div className={iptrContext === 'default' ? 'lg:pr-4' : undefined}>
-                  <div className="text-sm font-semibold text-foreground mb-2 uppercase tracking-wide">Condition Codes</div>
-                  {/* Solo (full-width) flows to more columns so buttons stay the
-                      size they are in the paired layout. More columns alone was
-                      not enough -- 9 across a full-width card still measured
-                      101px against the pair's 89px -- so the buttons also carry
-                      a max width. Verified by measurement, not by eye. */}
-                  <div className={`grid gap-1.5 justify-items-center ${iptrContext ==='dental-queue' ? 'grid-cols-4 sm:grid-cols-6 lg:grid-cols-9' : 'grid-cols-4 sm:grid-cols-5'}`}>
-                    {conditionCodes.map((c) => (
-                      <button key={c.code} onClick={() => { setSelectedCondition(selectedCondition === c.code ? null : c.code); setSelectedTreatment(null); }}
-                        className={`aspect-square w-full max-w-[86px] min-h-[54px] rounded-lg border p-1.5 text-center transition-all flex flex-col items-center justify-center gap-1 ${selectedCondition === c.code ? 'bg-teal-600 text-white ring-2 ring-teal-300 border-teal-600' : 'bg-card border-border text-foreground hover:border-teal-400'}`}>
-                        <div className="text-[13px] sm:text-[15px] font-bold font-mono leading-none">{c.perm}/{c.temp}</div>
-                        <div className="text-[9px] sm:text-[10px] font-medium leading-tight">{c.label}</div>
+                  <div className="flex items-center justify-between gap-2 mb-2 min-h-[26px]">
+                    <div className="text-sm font-bold text-primary uppercase tracking-wide">Condition Codes</div>
+                    {chartedConditionCount > 0 && (
+                      <button onClick={() => setConfirmClear('condition')}
+                        className="flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-[11px] font-semibold text-foreground transition-all hover:border-red-400 hover:text-destructive">
+                        <Trash2 className="h-3 w-3" /> Clear All ({chartedConditionCount})
+                      </button>
+                    )}
+                  </div>
+                  {/* "More" is the last item IN the same wrap row, so the rare
+                      four read as a continuation of the palette rather than as
+                      a separate control below it. */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {commonConditionCodes.map((c) => (
+                      <button key={c.code} title={c.label}
+                        onClick={() => { setSelectedCondition(selectedCondition === c.code ? null : c.code); setSelectedTreatment(null); }}
+                        className={`h-9 w-[60px] shrink-0 rounded-md border text-center transition-all flex items-center justify-center ${selectedCondition === c.code ? 'bg-teal-600 text-white ring-2 ring-teal-300 border-teal-600' : 'bg-card border-border text-foreground hover:border-teal-400'}`}>
+                        <span className="text-xs font-bold font-mono leading-none">{c.perm}/{c.temp}</span>
                       </button>
                     ))}
+                    <button type="button" onClick={() => setRareConditionsOpen((v) => !v)}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 hover:underline">
+                      {rareConditionsOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                      More ({rareConditionCodes.length})
+                    </button>
                   </div>
+                  {rareConditionsOpen && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {rareConditionCodes.map((c) => (
+                        <button key={c.code} title={c.label}
+                          onClick={() => { setSelectedCondition(selectedCondition === c.code ? null : c.code); setSelectedTreatment(null); }}
+                          className={`h-9 w-[60px] shrink-0 rounded-md border text-center transition-all flex items-center justify-center ${selectedCondition === c.code ? 'bg-teal-600 text-white ring-2 ring-teal-300 border-teal-600' : 'bg-card border-border text-foreground hover:border-teal-400'}`}>
+                          <span className="text-xs font-bold font-mono leading-none">{c.perm}/{c.temp}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {selectedCondition && (() => {
+                    const c = conditionCodes.find((x) => x.code === selectedCondition);
+                    return (
+                      <div className="mt-3 flex items-center gap-2">
+                        <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-teal-100 text-teal-800">
+                          Applying: {c?.perm}/{c?.temp} ({c?.label}). Click teeth to apply.
+                        </span>
+                        <button onClick={() => setSelectedCondition(null)} className="text-xs text-muted-foreground hover:text-foreground underline">Clear</button>
+                      </div>
+                    );
+                  })()}
                 </div>
                 )}
                 {iptrContext !== 'dental-queue' && (
@@ -1882,58 +1943,75 @@ export const DentalChart = () => {
                 // two grids read as one long palette. Divider only when both
                 // are on screen: side by side from lg, stacked below it.
                 <div className={iptrContext === 'default' ? 'border-t border-border pt-4 lg:border-t-0 lg:pt-0 lg:border-l lg:pl-4' : undefined}>
-                  <div className="text-sm font-semibold text-foreground mb-2 uppercase tracking-wide">Treatment Codes</div>
-                  <div className={`grid gap-1.5 justify-items-center ${iptrContext ==='treatment' ? 'grid-cols-4 sm:grid-cols-6 lg:grid-cols-9' : 'grid-cols-4 sm:grid-cols-5'}`}>
-                    {treatmentCodes.map((t) => (
-                      <button key={t.code} onClick={() => { setSelectedTreatment(selectedTreatment === t.code ? null : t.code); setSelectedCondition(null); }}
-                        className={`aspect-square w-full max-w-[86px] min-h-[54px] rounded-lg border p-1.5 text-center transition-all flex flex-col items-center justify-center gap-1 ${selectedTreatment === t.code ? 'bg-blue-600 text-white ring-2 ring-blue-300 border-blue-600' : 'bg-card border-border text-foreground hover:border-blue-400'}`}>
-                        <span className="text-[13px] sm:text-[15px] font-bold font-mono leading-none">{t.code}</span>
-                        <span className="text-[9px] sm:text-[10px] font-medium leading-tight">{t.label}</span>
-                        {/* The word the clinic actually says, under the
-                            clinical term — the buttons are pressed during an
-                            appointment, not read off a form. */}
-                        {t.local && <span className="text-[8px] sm:text-[9px] opacity-70 leading-none">{t.local}</span>}
+                  <div className="flex items-center justify-between gap-2 mb-2 min-h-[26px]">
+                    <div className="text-sm font-bold text-primary uppercase tracking-wide">Treatment Codes</div>
+                    {chartedTreatmentCount > 0 && (
+                      <button onClick={() => setConfirmClear('treatment')}
+                        className="flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-[11px] font-semibold text-foreground transition-all hover:border-red-400 hover:text-destructive">
+                        <Trash2 className="h-3 w-3" /> Clear All ({chartedTreatmentCount})
+                      </button>
+                    )}
+                  </div>
+                  {/* The treatments that happen TO A TOOTH lead. ⚠ The three
+                      whole-mouth services are behind "More", NOT removed as
+                      they are on her branch: they are recorded on the RPC visit
+                      now (Sprint 147), but the palette has always allowed them
+                      on a tooth and old chartings carry them. Dropping them
+                      would leave an existing FV on tooth 16 with no way to
+                      change or clear it. */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {perToothTreatmentCodes.map((t) => (
+                      <button key={t.code} title={treatmentLabel(t)}
+                        onClick={() => { setSelectedTreatment(selectedTreatment === t.code ? null : t.code); setSelectedCondition(null); }}
+                        className={`h-9 w-[60px] shrink-0 rounded-md border text-center transition-all flex items-center justify-center ${selectedTreatment === t.code ? 'bg-blue-600 text-white ring-2 ring-blue-300 border-blue-600' : 'bg-card border-border text-foreground hover:border-blue-400'}`}>
+                        <span className="text-xs font-bold font-mono leading-none">{t.code}</span>
                       </button>
                     ))}
+                    <button type="button" onClick={() => setRareTreatmentsOpen((v) => !v)}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                      {rareTreatmentsOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                      More ({wholeMouthTreatmentCodes.length})
+                    </button>
                   </div>
+                  {rareTreatmentsOpen && (
+                    <div className="mt-2">
+                      <div className="flex flex-wrap gap-1.5">
+                        {wholeMouthTreatmentCodes.map((t) => (
+                          <button key={t.code} title={treatmentLabel(t)}
+                            onClick={() => { setSelectedTreatment(selectedTreatment === t.code ? null : t.code); setSelectedCondition(null); }}
+                            className={`h-9 w-[60px] shrink-0 rounded-md border text-center transition-all flex items-center justify-center ${selectedTreatment === t.code ? 'bg-blue-600 text-white ring-2 ring-blue-300 border-blue-600' : 'bg-card border-border text-foreground hover:border-blue-400'}`}>
+                            <span className="text-xs font-bold font-mono leading-none">{t.code}</span>
+                          </button>
+                        ))}
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-muted-foreground">
+                        These describe the whole mouth. Record them under <strong>Treatments Given</strong> above, which is
+                        what the DOH return counts; charting them on a tooth is kept for older records.
+                      </p>
+                    </div>
+                  )}
+                  {selectedTreatment && (() => {
+                    const t = treatmentCodes.find((x) => x.code === selectedTreatment);
+                    return (
+                      <div className="mt-3 flex items-center gap-2">
+                        <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-800">
+                          Applying: {selectedTreatment} ({t?.label}). Click teeth to apply.
+                        </span>
+                        <button onClick={() => setSelectedTreatment(null)} className="text-xs text-muted-foreground hover:text-foreground underline">Clear</button>
+                      </div>
+                    );
+                  })()}
                 </div>
                 )}
               </div>
-              {/* Bulk clear: wiping a mis-charted arch one tooth at a time is
-                  32 clicks. Conditions and treatments clear separately so
-                  re-charting one vocabulary does not discard the other. */}
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <button
-                  onClick={() => setConfirmClear('condition')}
-                  disabled={chartedConditionCount === 0}
-                  className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-all hover:border-red-400 hover:text-destructive disabled:opacity-40 disabled:pointer-events-none"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Clear All Conditions ({chartedConditionCount})
-                </button>
-                <button
-                  onClick={() => setConfirmClear('treatment')}
-                  disabled={chartedTreatmentCount === 0}
-                  className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-all hover:border-red-400 hover:text-destructive disabled:opacity-40 disabled:pointer-events-none"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Clear All Treatments ({chartedTreatmentCount})
-                </button>
-              </div>
-              {(selectedCondition || selectedTreatment) && (
-                <div className="mt-3 flex items-center gap-2">
-                  {selectedCondition && (() => {
-                    const c = conditionCodes.find((x) => x.code === selectedCondition);
-                    return <span className="text-xs font-semibold px-3 py-1 rounded-full bg-teal-100 text-teal-800">Applying: {c?.perm}/{c?.temp} — {c?.label} · Click teeth to apply</span>;
-                  })()}
-                  {selectedTreatment && <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-100 text-blue-800">Applying treatment: {selectedTreatment} · Click teeth to apply</span>}
-                  {/* Without this the erase mode is folklore: the palette shows
-                      what you are applying, but nothing said what a bare click
-                      does when nothing is selected. */}
-                  {!selectedCondition && !selectedTreatment && (
-                    <span className="text-xs font-semibold px-3 py-1 rounded-full bg-muted text-foreground">No code selected · Click teeth to clear</span>
-                  )}
-                  <button onClick={() => { setSelectedCondition(null); setSelectedTreatment(null); }} className="text-xs text-muted-foreground hover:text-foreground underline">Clear</button>
+              {/* Without this the erase mode is folklore: the palette shows what
+                  you are applying, but nothing said what a bare click does when
+                  nothing is selected. */}
+              {!selectedCondition && !selectedTreatment && (
+                <div className="mt-3">
+                  <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-muted text-foreground">
+                    No code selected · Click teeth to clear
+                  </span>
                 </div>
               )}
             </div>
