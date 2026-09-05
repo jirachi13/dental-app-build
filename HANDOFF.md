@@ -2,44 +2,53 @@
 
 **Compressed 2026-09-04 (hygiene pass; previous one 2026-07-11).** Completed-sprint history → `docs/BUILD-LOG.md`; pre-2026-07-11 narratives → git history (`git show 73bc4e47:HANDOFF.md`). **This file keeps ONLY live state: current status, the resume note, unresolved findings, open work, user-only items, warnings and durable gotchas. A finished sprint belongs in BUILD-LOG the moment it is finished — do not let them accumulate here again.**
 
-## Current status (2026-09-04)
+## Current status (2026-09-05)
 - **Phase 1 + 2 DONE and deployed**: https://dental-app-build.vercel.app (Vercel; **push to main auto-deploys** — verified across the 23h–27b sprints; older notes saying CLI-only are superseded). ML service live on Render free tier at `https://floral-ml-service.onrender.com` (sleeps after ~15min idle; first request 30–60s, may 503 once — retry works).
 - **Phase 3 built end-to-end on SYNTHETIC data** (21a–21g); re-run against real data BLOCKED — **not on locating files: there are none.** Barangay Tanyag's dental records are paper IPTR forms, so real data exists only once hand-encoded (n = 50, decided 2026-09-01). The current blocker is the dentist's DOH risk-classification source, which Section 4 of `docs/iptr-encoding-brief.md` needs before encoding can start — see Open work 3. Once encoded: `clean_excel.py data/raw` → `build_features.py` → `run_experiments.py` → regenerate `algo-results.md`/`model-selection-rationale.md` → `train.py` → commit new `active/model.pkl` (Render auto-deploys) → UI's synthetic-data banner clears itself.
 - **Last sprints**: 102 (Promote/Assign re-runnable — the screen could not fix its own mistakes, 09-04), 101 (school gate enforced SERVER-side — `school_ids` was in the JWT and nothing read it, 09-04), 100 (users hold MULTIPLE schools; `school_id` → `school_ids[]`, 09-04), 99 (**the API runs in `sin1` — the ~500 ms per request was geography, ~4.2x faster**, 09-04), then 98 (demo treatments seeded — Services Rendered now has real numbers, 09-03), 97 (notification bell — three real sources, counts only, server-side aggregate, 09-03), 96 (accent contrast — every visible text node on 8 screens now passes WCAG AA, 09-03), 95 (school switcher restored on a collapsed sidebar — user-reported, 09-03), 94 (150 hardcoded greys → tokens; muted-foreground darkened after measuring it fails AA on the CANVAS background, 09-03), 93 (appointment date prefills today; the one real contrast failure fixed — and the finding that the grey sprawl is a TOKEN problem, not a contrast one, 09-03), 92 (the audit trail read is bounded — and the fetch now follows the screen's date filter so a filter cannot lie, 09-03), 91 (the missing indexes — evidence-driven, and the finding that AuditTrail's unbounded read is the real scale risk, 09-03), 90 (Services Rendered wired to real numbers — and the finding that NO tooth record carries a treatment_code, so the section honestly reads 0, 09-03), 89 (Program Report section C rebuilt against the FILED January 2026 return — and the finding that the DOH workbook is a DIFFERENT form, 09-03), 88 (per-school summary sheet — the last supplied form with no output at all, 09-03), 87 (OCR corrections — and the upside-down-page bug that reported 31 phantom findings on a blank form, 09-03), 86 (OCR reads the IPTR checkbox grid — ink density, not character recognition; findings shown never applied, 09-03), 85 (official output — TCL Excel-only, Program Report PDF+Excel, IPTR PDF, blank consent form; formats are decisions, see that section, 09-03), 84 (Target Client List reconciled against the SOURCE WORKBOOK — now 66 columns, incl. the 20-column ORAL HEALTH STATUS group the app never had, 09-03), 83 (Program Report gains the form's missing section A + rows; DOH tables adopt the printed forms' amber band and blocked-cell grey, 09-03), 82 (Target Client List 40 → 50 columns; still short of the real 66 — the workbook is on the OTHER laptop, 09-03), 81 (RECORDING an RPC visit — `PREVENTIVE_CARE_RECORD` had no write path anywhere in the app until now; plus `facility_based` for the FHSIS a/b sub-rows, 09-03), 76 (archiving no longer blocks re-creation; restore guards the uniqueness instead — found by running sprint74's suite on dirty state, 09-02), 75 (`apply:seed-passwords` — `seed:demo` skips existing accounts, so `.env` edits never reached them, 09-02), 74 (Promote/Assign bulk rollover — **now 14/14**, 09-02), 73 (Consolidated rows/grades picker + export handling, 09-02), 72 (TCL column picker, 09-02), 71 (hideable rows/columns + ART sub-rows, 09-02), 70 (IPTR grade/section editable — retained pupils, 09-02), 69 (adding a student opens the school-year record, 09-02), 68 (height/weight + derived BMI per school year, 09-02), 67 (inline school switcher + local treatment terms, 09-02), 66 (archive UI — view + restore, 09-02), 65 (all student lists alphabetical by surname, 09-02), 64b (Target Client List full column set, 09-02), 64 (Program Report full column set, 09-02), 63 (System Admin gets the operational screens, 09-02), 62 (required fields on Add Student, 09-02), 61 (split login layout, 09-02), 60 (schools registry; dropdowns read the DB, 09-02), 59 (DOH School filter made real — it was cosmetic, 09-02), 58 (shared pagination on all four lists + prominent save toast, 09-02), 57b (DOH reports scoped to a school year; age at examination, 09-02), 57a (IPTR carries grade/section; migration run, 09-02), 56b (patient-list row joins server-side; useStudents stops pulling 6 collections, 09-02), 56 (bounded appointment reads + the first indexes in the codebase, 09-02), 55 (Oral Health Program Reporting Form, 09-02), 54 (Target Client List, 09-02), 53 (students-list pagination — CLIENT-side only, 09-02). All pushed and deployed. Per-sprint detail in the sections below.
+- **New scripts this session:** `npm run seed:appointments` (demo appointments — there was none), `npm run backfill:iptr-grades` (grade_level onto older IPTRs), `npm run verify:referrals` (16 checks, refuses on production).
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ▶ RESUME HERE — PARKED 2026-09-04 (7th session), everything pushed at `b735c11f`
-Tree clean apart from the two untracked root strays (`package.json`, `package-lock.json`). **Sixteen sprints shipped (111-126), every one verified.** Per-sprint detail is in `docs/BUILD-LOG.md` — HANDOFF keeps live state only.
+## ▶ RESUME HERE — PARKED 2026-09-05 (8th session), everything pushed at `508ada98`
+Tree clean apart from the two untracked root strays (`package.json`, `package-lock.json`), which predate this session. **Eleven sprints shipped (127-137), every one verified in the browser or by a script.** Per-sprint detail is in the sections below.
 
 | # | Sprint | The bit worth remembering |
 |---|---|---|
-| 111-112 | Fresh-clone rehearsal | **#38 closed.** A bad `MONGODB_URI` does NOT stop the server booting — it looks healthy and 500s on every call. |
-| 113-114 | Placeholder secrets | `seed:demo` created four accounts with `choose-a-password`. The startup guard WARNS, never throws. |
-| 115 | npm advisories 13 → 4 | `pdfjs-dist` was reachable via the OCR upload. **`npm audit fix` can update the lock and NOT the files.** |
-| 116-117 | purge:demo + `is_demo` | The purge was about to delete the three REAL schools. Real data is now real **by construction**. |
-| 118 | Chart stops pulling the roster | `.select()` on an encrypted model returns **ciphertext**, silently, with a 200. |
-| 119-123 | Promote/Assign: ticks, search, transfer | Built from a real read of the prototype's source, after two wrong conclusions about it. |
-| 120-121 | Input validation | `shared/` is the project's **first** cross-boundary module. The offline queue is why the server must enforce it. |
-| 124 | DATA-MODEL was 17 fields behind | And **"the ERD is 4 deviations behind" was wrong all session** — it is a redraw. |
-| 125 | Audit finding #21 | What survives logout no longer identifies who was here. |
-| 126 | **Dev ≠ production** | The rehearsal cluster became the DEV database. 13 of 21 scripts wrote to a database without saying which. |
+| 127 | REFERRAL model | Five DOH rows had no source. The enum IS the form's printed row list. |
+| 129 | Review fixes + purge guard | `purge:demo` did not know about `Referral`. **The script now refuses unless every model is planned or excluded with a reason.** |
+| 128, 130 | Reports defaulted to empty periods | Two controls, same fault: the school-year filter, then the TCL's own period. **A report defaulting to an empty period reads as broken.** |
+| 130, 133 | Print by inclusion | The old CSS listed chrome to hide, so captions kept leaking onto DOH returns. Now everything is hidden except `.form-print`. |
+| 131, 132 | Day dialog + demo appointments | The dialog stacked because it was `max-w-md`. Seeding appointments then exposed `AppointmentCard` clipped inside it. |
+| 134 | TCL filed as two sheets | **Both TCL pages were in the manuscript all along** (Appendix E). The app was never short a column — the OUTPUT was one sheet. |
+| 135, 136 | IPTR is the real form | The "IPTR PDF" was a screenshot of the app, Edit buttons included. Now the two-page Appendix G form. |
+| 137 | Form 1, the second IPTR | Both IPTRs are valid, so the button is a choice. **The user's photo is NOT in the repo — real patient data.** |
 
-### ⚠ THE LESSON OF THIS SESSION — a check that measures nothing looks exactly like a check that passes
-**Four false PASSES**, which is the dangerous direction: `vercel env pull` writes the literal `[SENSITIVE]` for secret vars, so a comparison found no placeholders having compared nothing · an unscoped selector matched the patient list's checkboxes **through a modal overlay** and reported a roster from the wrong table · two schema audits had a regex that matched nothing, so both compared an **empty field list** and hid 17 undocumented fields · a localStorage check compared the stored value against `null`. **Every check must state what it compared** — rows scanned, models parsed, precondition asserted — and throw when the thing it needs is missing.
+### ⚠ THE LESSON OF THIS SESSION — the source was in the repo the whole time
+Three separate items were blocked on "the workbook is on the other laptop" or "we need a scan". **All three were already here**, embedded as base64 PNGs in `docs/Group404 - Manuscript.md`: Appendix E (both TCL pages), Appendix F, Appendix G (both IPTR pages). Extracting them is six lines of base64. **Before recording something as blocked on a missing document, grep the manuscript.**
+
+Second lesson, repeated three times: **`tsc` and the build cannot see a broken screen.** A hook after an early return blanked the record page, a card was clipped out of its container, and a ten-column grid printed across the neighbouring page — all with a clean build. Every one was caught by opening the browser.
+
+### ▶ FOUR THINGS ONLY YOU CAN DO — each is one click, and each closes shipped work
+1. **Click `IPTR` and `Form 1`** on a pupil's record → closes Sprints 135, 136, 137. Producing a PDF means downloading, which I do not do.
+2. **Click `Excel` on the Target Client List** → confirm two sheets, `Page 1` and `Page 2` → closes Sprint 134 / #56.
+3. **Ctrl+P on the report tabs** → confirm the sheet is the form and nothing else → closes #57. Content is already verified; only pagination, landscape and the `zoom: 0.45` need a real preview.
+4. **`SEED_BHO_PASSWORD` is 7 chars in the production backup** — a re-seed there is refused by the Sprint 120 guard until it is lengthened.
 
 ### ⚠ READ BEFORE TOUCHING THE DATABASE
-- **`.env` now points at DEV** (`cluster0.o7e3c5o`). Production is `floral-cluster.edqpjtu` and lives **only in Vercel**.
+- **`.env` points at DEV** (`cluster0.o7e3c5o`). Production is `floral-cluster.edqpjtu` and lives **only in Vercel**.
 - **`.env.production.bak-20260904-222928`** holds the old config. **Restore the WHOLE FILE, never one line** — the two databases have different `FIELD_ENCRYPTION_SECRET`s.
-- Every script prints its target first (`announceTarget.ts`) and shouts on production.
-- **Production still holds the user's test input, untouched**, and `purge:demo` will not clear person-typed records. See the test-input section.
+- Every script prints its target first (`announceTarget.ts`) and shouts on production. ⚠ Call it **after** `connectDB()` — before it, it prints `(unknown host)` and tells you nothing.
+- Dev now also holds demo appointments (`npm run seed:appointments`) and IPTR grades (`npm run backfill:iptr-grades`).
 
-### Next — nothing is scoped and ready
-1. **The Chapter 3 ERD figure (USER-ONLY).** `docs/DATA-MODEL.md` is accurate for the first time, so it is finally a clean source. **A redraw, not a patch.**
-2. **Clearing test input** — on the user's word only.
-3. **`SEED_BHO_PASSWORD` is 7 chars in the production backup** — a re-seed there would be refused by the Sprint 120 guard until it is lengthened.
-4. **Ask the dentist:** does a mid-year section move need to be recoverable? (Sprint 123 overwrites the current year's placement.) That is the last real gap against the prototype.
-5. **#50 JWT rotation — DE-PRIORITISED.** Raised too often for what it is: no evidence of a problem, the values were set 66 days ago by someone following the README. If it is ever wanted, search the Vercel logs for `secret-guard` first — that answers it for free.
+### Next — scoped and ready, in the order I would take them
+1. **#55 structured treatment/condition dropdowns with tooth numbers** — needs three answers from the dentist first (per tooth or per visit? conditions without a tooth? chart click or number list?).
+2. **#59 the bulk-upload format** — the importer already exists; the open question is whose column set wins, and it cannot be settled until a real roster file exists.
+3. **#37 / #61 follow-up** — the eleven unmapped Form 1 history questions need the dentist to say which stored field, if any, answers each.
+4. **The Chapter 3 ERD figure (USER-ONLY)** — now owes five deviations: `school_ids[]`, `DAY_NOTE`, the name split, `REFERRAL`, and the IPTR forms' own reading of the model. A redraw, not a patch.
+
+⚠ **Two dev servers may still be running from this session** (`npm run dev:server` on :4000, `npm run dev` on :5173). Kill them if the ports are wanted.
+
 
 ## ✅ SCHOOL SWITCHER — BOTH FINDINGS FIXED (was 'NOT FIXED', corrected by the 2026-09-04 hygiene pass)
 Kept as one line because the heading claimed open work that has since shipped, and a stale blocker is worse than no note.
