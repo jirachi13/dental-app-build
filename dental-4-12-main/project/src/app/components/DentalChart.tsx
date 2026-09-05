@@ -1764,38 +1764,6 @@ export const DentalChart = () => {
                 ))}
               </div>
             </div>
-
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              <div className="bg-gray-50 rounded-xl p-3">
-                <div className="font-semibold text-muted-foreground mb-2 uppercase tracking-wide text-[10px]">Condition Codes</div>
-                <div className="space-y-1">
-                  {[
-                    { codes: '✓/✓', label: 'Sound/Sealed', bg: 'bg-green-50' },
-                    { codes: 'D/d', label: 'Decayed', bg: 'bg-red-100' },
-                    { codes: 'M/m', label: 'Missing', bg: 'bg-slate-200' },
-                    { codes: 'F/f', label: 'Filled', bg: 'bg-blue-100' },
-                    { codes: 'X/x', label: 'Indicated for Extraction', bg: 'bg-orange-100' },
-                    { codes: 'Un/un', label: 'Unerupted', bg: 'bg-purple-50' },
-                    { codes: 'S/s', label: 'Supernumerary Tooth', bg: 'bg-yellow-50' },
-                    { codes: 'JC/jc', label: 'Jacket Crown', bg: 'bg-pink-50' },
-                    { codes: 'P/p', label: 'Pontic', bg: 'bg-indigo-50' },
-                  ].map(({ codes, label, bg }) => (
-                    <div key={codes} className="flex items-center gap-2">
-                      <span className={`font-mono font-bold text-foreground text-[10px] px-1.5 py-0.5 rounded border border-border w-14 text-center ${bg}`}>{codes}</span>
-                      <span className="text-muted-foreground">{label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-3">
-                <div className="font-semibold text-muted-foreground mb-2 uppercase tracking-wide text-[10px]">Treatment Codes</div>
-                <div className="space-y-1">
-                  {[['FV', 'Fluoride Varnish'], ['PFS', 'Pit and Fissure Sealant'], ['PF', 'Permanent Filling'], ['TF', 'Temporary Filling'], ['X', 'Extraction'], ['SDF', 'Silver Diamine Fluoride']].map(([code, label]) => (
-                    <div key={code} className="flex gap-2"><span className="font-mono font-bold text-blue-700 w-10">{code}</span><span className="text-muted-foreground">{label}</span></div>
-                  ))}
-                </div>
-              </div>
-            </div>
             </div>
           </div>
         )}
@@ -2122,8 +2090,18 @@ export const DentalChart = () => {
               </div>
               <div className="space-y-1">
                 {conditionCodes.map((c) => (
-                  <div key={c.code} className="flex items-baseline gap-3 text-sm">
-                    <span className="font-mono font-bold text-foreground w-16 shrink-0">{c.perm}/{c.temp}</span>
+                  <div key={c.code} className="flex items-center gap-3 text-sm">
+                    {/* ⚠ The swatch reads `conditionColors` — the SAME map the
+                        tooth cells render from (see the odontogram above), not a
+                        colour typed here. A hand-typed swatch is how a legend
+                        ends up describing a colour the chart no longer uses. */}
+                    <span
+                      className={`font-mono font-bold text-foreground text-xs w-16 shrink-0 text-center px-1.5 py-1 rounded border ${
+                        conditionColors[c.perm] ?? 'bg-card border-border'
+                      }`}
+                    >
+                      {c.perm}/{c.temp}
+                    </span>
                     <span className="text-muted-foreground">{c.label}</span>
                   </div>
                 ))}
