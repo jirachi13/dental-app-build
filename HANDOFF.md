@@ -114,6 +114,14 @@ Five rows of the Oral Health Program Report printed "—" because no model fed t
 
 ## Open work (each needs approval; sprint loop applies)
 
+57. **Printouts must contain ONLY the form — user rule 2026-09-05, NOT scoped.** Their words: *"the print out should just be the forms do not include headers or somethings from the webpage not inside the forms"*. Now also a standing rule in CLAUDE.md.
+    - **What the print CSS does today** (`src/styles/index.css:76-140`): hides `aside`, `header`, `nav`, `button`, `[role="navigation"]` and `.doh-report-controls`, sets landscape, and zooms `#doh-report-printable` to 0.45.
+    - **⚠ What it does NOT hide, and therefore still prints** (read from the CSS and the DOM, not yet confirmed on paper): the page title block ("Reports · DOH Consolidated Report & Internal Reports"), the `<label>` text beside the hidden `<select>`s ("School:", "School year:"), and every explanatory caption — "Every column of the paper form is shown…", "Covering school year …", "Sep 2026 — showing 0 clients consulted…". Those explain the APP; none of them is on the DOH form.
+    - **The fix is a different STRATEGY, not more selectors.** Hiding chrome element by element is why this keeps leaking as the UI grows. Print by inclusion: give each report ONE printable root, hide everything outside it in `@media print`, and move anything that genuinely belongs on paper inside it.
+    - **Check the PDF/Excel exports the same way** — `exportDohReportToPdf` captures a ref, so whatever sits inside that element goes into the PDF too; the captions may already be in the filed PDF.
+    - **Verify on actual output, not by reading CSS:** print-preview each of the seven report tabs, or export the PDF and open it. This item is only closed when a printed sheet is indistinguishable from the official form.
+
+
 56. **The real Target Client List is TWO PAGES; ours is one — user, 2026-09-05, to be done after the current workflow. NOT scoped, and deliberately not guessed at.**
     - **What the user said:** *"target client list is two pages, we only have 1"*.
     - **⚠ WHETHER to build it is NOT a question — the user has said before, and again on 2026-09-05, that forms are copied EXACTLY.** Page 2 gets reproduced whatever it turns out to hold, blank cells included. CLAUDE.md's form rule was strengthened the same day to say so, because the earlier wording ("keep all rows and columns") let a whole missing PAGE pass. **The open question below is only HOW, never whether.**
