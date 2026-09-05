@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link, useSearchParams } from 'react-router';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, X, Check, Clock, Users, Stethoscope, AlertCircle, RotateCcw, FileText } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, X, Check, Clock, Users, Stethoscope, AlertCircle, RotateCcw, FileText, Pencil } from 'lucide-react';
 import { getGradeColor } from '../utils/gradeColors';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
 import { GradePill } from './GradePill';
@@ -314,6 +314,30 @@ export const Appointments = () => {
       toast.error(err instanceof Error ? err.message : 'Could not save the note');
     } finally {
       setApptNoteSaving(false);
+    }
+  };
+
+  // Sprint 131 — editing an existing day note. `PUT /day-notes/:id` has
+  // accepted CLINICAL_WRITE_ROLES since Sprint 108; nothing in the UI ever
+  // called it, so correcting a typo meant archiving the note and retyping it —
+  // which left the wrong note in the archive permanently.
+  const [dayNoteEditId, setDayNoteEditId] = useState<string | null>(null);
+  const [dayNoteEditDraft, setDayNoteEditDraft] = useState('');
+  const [dayNoteEditSaving, setDayNoteEditSaving] = useState(false);
+
+  const saveDayNoteEdit = async (id: string) => {
+    if (!dayNoteEditDraft.trim()) return;
+    setDayNoteEditSaving(true);
+    try {
+      await apiClient.put(`/day-notes/${id}`, { note: dayNoteEditDraft.trim() });
+      setDayNoteEditId(null);
+      setDayNoteEditDraft('');
+      await reloadDayNotes();
+      toast.success('Note updated.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not update the note');
+    } finally {
+      setDayNoteEditSaving(false);
     }
   };
 
@@ -679,116 +703,205 @@ export const Appointments = () => {
       {/* Sprint 108 — the day panel. Shows what is ALREADY on that date
           (appointments, read-only here) alongside its notes, because a note
           about a day is usually written with the day's schedule in view. */}
+        {/* Sprint 131 - TWO HALVES, not one tall stack.
+            The cause of the stacking was the WIDTH: this modal opened at
+            max-w-md (~448px), where a schedule, the day's notes and a write
+            box can only sit on top of each other, and on a busy day the write
+            box was pushed below the fold. Widened and split: LEFT reads
+            (schedule + existing notes, scrolling in its own half), RIGHT
+            writes (the add-note box, always visible).
+            ⚠ Single column below md: at ~390px two columns are worse than
+            one, so the phone keeps the original stack with the form last. */}
       {noteDay && (
-        <Modal onClose={() => setNoteDay(null)} maxWidth="max-w-md" closeDisabled={noteSaving}>
+        <Modal onClose={() => setNoteDay(null)} maxWidth="max-w-3xl" closeDisabled={noteSaving}>
           <div className="flex items-center justify-between p-5 border-b border-gray-100">
             <h2 className="text-lg font-bold text-foreground">{formatDateWithWeekday(toLocalDateString(noteDay))}</h2>
             <button onClick={() => setNoteDay(null)} className="p-2 hover:bg-gray-100 rounded-lg" aria-label="Close"><X className="w-4 h-4"/></button>
           </div>
-          <div className="p-5 space-y-4">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Appointments</p>
-              {getAppointmentsForDay(noteDay).length === 0 ? (
-                <p className="text-sm text-muted-foreground">None scheduled.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {getAppointmentsForDay(noteDay).map((a) => (
-                    <li key={a.id} className="text-sm">
-                      <span className="text-foreground">{a.time} · {a.grade} {a.section}</span>
-                      <ul className="mt-1 space-y-1 pl-3 border-l-2 border-gray-100">
-                        {a.students.map((st) => (
-                          <li key={st.appointmentId} className="text-xs">
-                            <div className="flex items-start justify-between gap-2">
-                              <span className="text-foreground">{st.name}</span>
-                              {canWriteNotes && apptNoteId !== st.appointmentId && (
-                                <button
-                                  onClick={() => { setApptNoteId(st.appointmentId); setApptNoteDraft(st.notes); }}
-                                  className="text-primary hover:underline shrink-0"
-                                >
-                                  {st.notes ? 'Edit note' : 'Add note'}
-                                </button>
-                              )}
-                            </div>
-                            {apptNoteId === st.appointmentId ? (
-                              <div className="mt-1 space-y-1">
-                                <input
-                                  value={apptNoteDraft}
-                                  onChange={(e) => setApptNoteDraft(e.target.value)}
-                                  maxLength={500}
-                                  placeholder="e.g. bring guardian"
-                                  aria-label={`Note for ${st.name}`}
-                                  className="w-full px-2 py-1 text-xs border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
-                                />
-                                <div className="flex gap-1.5">
-                                  <button onClick={() => saveApptNote(st.appointmentId)} disabled={apptNoteSaving}
-                                    className="px-2 py-0.5 text-xs bg-primary text-white rounded disabled:opacity-50">
-                                    {apptNoteSaving ? 'Saving…' : 'Save'}
+          <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-5">
+
+            {/* ── READ HALF ─────────────────────────────────────────────── */}
+            <div className="space-y-4 md:max-h-[60vh] md:overflow-y-auto md:pr-1">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Appointments</p>
+                {getAppointmentsForDay(noteDay).length === 0 ? (
+                  <p className="text-sm text-muted-foreground">None scheduled.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {getAppointmentsForDay(noteDay).map((a) => (
+                      <li key={a.id}>
+                        {/* The SAME card the Today / Upcoming / Completed /
+                            Missed tabs use, with its real actions - mark
+                            completed, mark missed, re-open. It was already in
+                            scope here; this dialog just never used it and
+                            offered a note editor and nothing else. */}
+                        <AppointmentCard a={a} showActions />
+                        {/* Student rows stay NESTED under the card. The card is
+                            per SESSION (time + grade + section) while these are
+                            the individual pupils in it, so replacing them with
+                            the card alone would have lost the per-pupil note
+                            and the link to that pupil's chart. */}
+                        <ul className="mt-1 space-y-1 pl-3 border-l-2 border-gray-100">
+                          {a.students.map((st) => (
+                            <li key={st.appointmentId} className="text-xs">
+                              <div className="flex items-start justify-between gap-2">
+                                {/* Straight to THIS pupil's record. The card's
+                                    own link goes to the chart LIST, which is
+                                    the right target for a session and the
+                                    wrong one for a named pupil. */}
+                                <Link to={`/dental-chart/${st.id}`} className="text-foreground hover:text-primary hover:underline">
+                                  {st.name}
+                                </Link>
+                                {canWriteNotes && apptNoteId !== st.appointmentId && (
+                                  <button
+                                    onClick={() => { setApptNoteId(st.appointmentId); setApptNoteDraft(st.notes); }}
+                                    className="text-primary hover:underline shrink-0"
+                                  >
+                                    {st.notes ? 'Edit note' : 'Add note'}
                                   </button>
-                                  <button onClick={() => { setApptNoteId(null); setApptNoteDraft(''); }} disabled={apptNoteSaving}
-                                    className="px-2 py-0.5 text-xs border border-border rounded">Cancel</button>
-                                </div>
+                                )}
                               </div>
-                            ) : st.notes ? (
-                              <p className="text-[11px] text-blue-800 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 mt-0.5">{st.notes}</p>
-                            ) : null}
-                          </li>
-                        ))}
-                      </ul>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Notes</p>
-              {notesFor(noteDay).length === 0 ? (
-                <p className="text-sm text-muted-foreground">No notes on this date.</p>
-              ) : (
-                <ul className="space-y-1.5">
-                  {notesFor(noteDay).map((n) => (
-                    <li key={n._id} className="flex items-start justify-between gap-2 text-sm bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
-                      <span className="text-amber-900">
-                        {n.note}
-                        {/* A note with no school applies everywhere — say so,
-                            rather than leaving the reader to infer it. */}
-                        <span className="block text-[11px] text-amber-700/80">
-                          {n.school_id ? (schools.find((sc) => sc._id === n.school_id)?.school_name ?? 'One school') : 'All schools'}
-                        </span>
-                      </span>
-                      {canWriteNotes && (
-                        <button onClick={() => archiveDayNote(n._id)} className="text-amber-700 hover:text-destructive shrink-0" aria-label="Remove note">
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {canWriteNotes ? (
-              <div className="space-y-2">
-                <textarea
-                  value={noteDraft}
-                  onChange={(e) => setNoteDraft(e.target.value)}
-                  maxLength={500}
-                  rows={2}
-                  placeholder="e.g. No clinic — holiday"
-                  aria-label="New note for this date"
-                  className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-                <button
-                  onClick={saveDayNote}
-                  disabled={noteSaving || !noteDraft.trim()}
-                  className="w-full px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50"
-                >
-                  {noteSaving ? 'Saving…' : 'Add note'}
-                </button>
+                              {apptNoteId === st.appointmentId ? (
+                                <div className="mt-1 space-y-1">
+                                  <input
+                                    value={apptNoteDraft}
+                                    onChange={(e) => setApptNoteDraft(e.target.value)}
+                                    maxLength={500}
+                                    placeholder="e.g. bring guardian"
+                                    aria-label={`Note for ${st.name}`}
+                                    className="w-full px-2 py-1 text-xs border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                                  />
+                                  <div className="flex gap-1.5">
+                                    <button onClick={() => saveApptNote(st.appointmentId)} disabled={apptNoteSaving}
+                                      className="px-2 py-0.5 text-xs bg-primary text-white rounded disabled:opacity-50">
+                                      {apptNoteSaving ? 'Saving…' : 'Save'}
+                                    </button>
+                                    <button onClick={() => { setApptNoteId(null); setApptNoteDraft(''); }} disabled={apptNoteSaving}
+                                      className="px-2 py-0.5 text-xs border border-border rounded">Cancel</button>
+                                  </div>
+                                </div>
+                              ) : st.notes ? (
+                                <p className="text-[11px] text-blue-800 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 mt-0.5">{st.notes}</p>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">Your role can read day notes but not write them.</p>
-            )}
+
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Notes on this date</p>
+                {notesFor(noteDay).length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No notes on this date.</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {notesFor(noteDay).map((n) => (
+                      <li key={n._id} className="text-sm bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                        {dayNoteEditId === n._id ? (
+                          <div className="space-y-1.5">
+                            <textarea
+                              value={dayNoteEditDraft}
+                              onChange={(e) => setDayNoteEditDraft(e.target.value)}
+                              maxLength={500}
+                              rows={2}
+                              aria-label="Edit note"
+                              className="w-full px-2 py-1 text-sm border border-amber-300 rounded bg-card focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                            <div className="flex gap-1.5">
+                              <button onClick={() => saveDayNoteEdit(n._id)} disabled={dayNoteEditSaving || !dayNoteEditDraft.trim()}
+                                className="px-2 py-0.5 text-xs bg-primary text-white rounded disabled:opacity-50">
+                                {dayNoteEditSaving ? 'Saving…' : 'Save'}
+                              </button>
+                              <button onClick={() => { setDayNoteEditId(null); setDayNoteEditDraft(''); }} disabled={dayNoteEditSaving}
+                                className="px-2 py-0.5 text-xs border border-border rounded bg-card">Cancel</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-amber-900">
+                              {n.note}
+                              {/* A note with no school applies everywhere — say so,
+                                  rather than leaving the reader to infer it. */}
+                              <span className="block text-[11px] text-amber-700/80">
+                                {n.school_id ? (schools.find((sc) => sc._id === n.school_id)?.school_name ?? 'One school') : 'All schools'}
+                              </span>
+                            </span>
+                            {canWriteNotes && (
+                              <span className="flex items-center gap-1.5 shrink-0">
+                                {/* Edit, new in Sprint 131. Until now the only
+                                    way to correct a typo was to remove the note
+                                    and retype it, which left the wrong wording
+                                    in the archive for good. */}
+                                <button onClick={() => { setDayNoteEditId(n._id); setDayNoteEditDraft(n.note); }}
+                                  className="text-amber-700 hover:text-primary" aria-label="Edit note">
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                {/* "Remove" on screen, ARCHIVE underneath — the
+                                    record is never hard deleted and a System
+                                    Admin can restore it from /archive. */}
+                                <button onClick={() => archiveDayNote(n._id)} className="text-amber-700 hover:text-destructive" aria-label="Remove note">
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            {/* ── WRITE HALF ────────────────────────────────────────────── */}
+            <div className="md:border-l md:border-gray-100 md:pl-5">
+              {canWriteNotes ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add a note</p>
+                  {/* Grows with what is typed instead of holding two lines and
+                      scrolling a long note out of sight (user, 2026-09-05),
+                      capped so it can never push the Add button off a phone. */}
+                  <textarea
+                    value={noteDraft}
+                    onChange={(e) => {
+                      setNoteDraft(e.target.value);
+                      // ⚠ `scrollHeight` excludes the border, and the box is
+                      // border-box — without the +2 the element ends up two
+                      // pixels short of its own content and shows a scrollbar
+                      // for text that is already fully visible.
+                      const el = e.currentTarget;
+                      el.style.height = 'auto';
+                      const grown = Math.min(el.scrollHeight + 2, 220);
+                      el.style.height = `${grown}px`;
+                      el.style.overflowY = el.scrollHeight + 2 > 220 ? 'auto' : 'hidden';
+                    }}
+                    maxLength={500}
+                    rows={3}
+                    placeholder="e.g. No clinic — holiday"
+                    aria-label="New note for this date"
+                    className="w-full px-3 py-2 text-sm border border-border rounded-lg resize-y overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-muted-foreground">{noteDraft.length}/500</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {selectedSchool ? 'This school only' : 'All schools'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={saveDayNote}
+                    disabled={noteSaving || !noteDraft.trim()}
+                    className="w-full px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50"
+                  >
+                    {noteSaving ? 'Saving…' : 'Add note'}
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">Your role can read day notes but not write them.</p>
+              )}
+            </div>
           </div>
         </Modal>
       )}
