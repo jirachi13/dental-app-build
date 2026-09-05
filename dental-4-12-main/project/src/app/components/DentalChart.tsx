@@ -1487,13 +1487,22 @@ export const DentalChart = () => {
                     <Pencil className="w-3 h-3" /> Edit
                   </button>
                 )}
+                {/* ⚠ The button CARRIES ITS LABEL WHEN COLLAPSED. The state
+                    persists across pupils (Sprint 166), so a bare chevron meant
+                    the birthday, address, PhilHealth and guardian simply were
+                    not there on every record for the rest of the session, with
+                    nothing on screen saying they could come back. Reported as
+                    "basic patient info missing", which is exactly right: hidden
+                    content needs a way in that reads as one. */}
                 <button
                   onClick={() => setBasicInfoExpanded((v) => !v)}
                   title={basicInfoExpanded ? 'Hide basic information' : 'Show basic information'}
                   aria-label={basicInfoExpanded ? 'Hide basic information' : 'Show basic information'}
-                  className="flex items-center gap-1.5 px-2 py-1.5 text-xs border border-border rounded-lg text-muted-foreground hover:bg-gray-50"
+                  aria-expanded={basicInfoExpanded}
+                  className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium border border-border rounded-lg text-muted-foreground hover:bg-gray-50"
                 >
                   {basicInfoExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  {!basicInfoExpanded && 'Basic info'}
                 </button>
               </div>
             </div>
