@@ -859,9 +859,13 @@ export const DentalChart = () => {
   }, [activeTab, visibleTabs]);
 
   const handleToggleConsent = async (checked: boolean) => {
-    if (!id || !canEdit) return;
+    const iptrId = yearIptr?._id;
+    if (!iptrId || !canEdit) return;
     try {
-      await apiClient.put(`/students/${id}`, { consent_status: checked ? 'complete' : 'pending' });
+      // ⚠ The YEAR's record, not the student's. `consent_given_at` is stamped
+      // server-side by the model hook — a client-supplied "when was consent
+      // given" is not evidence of anything.
+      await apiClient.put(`/student-iptrs/${iptrId}`, { consent_status: checked ? 'complete' : 'pending' });
       await reload();
       toast.success(checked ? 'Consent marked complete.' : 'Consent marked pending.');
     } catch (err) {
@@ -1152,6 +1156,10 @@ export const DentalChart = () => {
   // fallback to the student's current grade: that fallback IS the bug. They
   // render as "not recorded", which is honest about what the system knows.
   const yearIptr = years[selectedYear]?.iptr;
+  // ⚠ Consent is per SCHOOL YEAR (Sprint 167). Reading STUDENT.consent_status
+  // said a pupil who consented once had consented forever — a 2023 signature
+  // authorising 2026 treatment.
+  const consentComplete = yearIptr?.consent_status === 'complete';
   const yearGrade = yearIptr?.grade_level ?? null;
   const yearSection = yearIptr?.section ?? null;
   const NOT_RECORDED = 'Grade not recorded';
@@ -1469,11 +1477,11 @@ export const DentalChart = () => {
                     tab and its own toggle, and editing student info must never
                     reach it. */}
                 <span
-                  title={`${student.consent_status === 'complete' ? 'Consent obtained' : 'Consent pending'} for ${yearIptr?.school_year ?? 'this year'}`}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${student.consent_status === 'complete' ? 'bg-success-surface text-success' : 'bg-warning-surface text-warning'}`}
+                  title={`${consentComplete ? 'Consent obtained' : 'Consent pending'} for ${yearIptr?.school_year ?? 'this year'}`}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${consentComplete ? 'bg-success-surface text-success' : 'bg-warning-surface text-warning'}`}
                 >
-                  {student.consent_status === 'complete' ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldAlert className="w-3.5 h-3.5" />}
-                  {student.consent_status === 'complete' ? 'Consent Complete' : 'Consent Pending'}
+                  {consentComplete ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldAlert className="w-3.5 h-3.5" />}
+                  {consentComplete ? 'Consent Complete' : 'Consent Pending'}
                 </span>
                 {/* Colour rather than neutral grey, so sex reads at a glance —
                     and it stays visible while the card is collapsed. */}
@@ -1662,6 +1670,54 @@ export const DentalChart = () => {
           )}
         </div>
       </div>
+
+      {/* ── CONSENT BANNER (Sprint 167, hers) ──────────────────────────────
+          History tab only. It is registration data — a dentist mid-chart or
+          mid-treatment-entry does not need it repeated on every tab, and the
+          card's chip above already carries the status everywhere else.
+
+          ⚠ NO APPROVAL DATE SHOWN, even though `consent_given_at` now exists:
+          every record predating this sprint has null there, and printing
+          "—" beside a completed consent reads as a missing signature rather
+          than a missing field. It goes in once the data is real. */}
+      {activeTab === 'history' && years.length > 0 && yearIptr && (
+        <div className={`rounded-xl border p-3 ${consentComplete ? 'bg-success-surface border-green-200' : 'bg-warning-surface border-amber-200'}`}>
+          <div className="flex items-start gap-3 min-w-0">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-card ${consentComplete ? 'text-success' : 'text-warning'}`}>
+              {consentComplete ? <ShieldCheck className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
+            </div>
+            <div className="min-w-0">
+              <div className={`text-sm font-bold ${consentComplete ? 'text-success' : 'text-warning'}`}>
+                {consentComplete
+                  ? `Physical copy of consent obtained for ${yearIptr.school_year}`
+                  : `Consent pending for ${yearIptr.school_year}`}
+              </div>
+              <div className="flex items-center gap-1.5 mt-1">
+                {yearGrade ? (
+                  <>
+                    <GradePill grade={yearGrade} />
+                    {yearSection && <span style={{ color: gc.solid }} className="text-xs font-semibold">{yearSection}</span>}
+                  </>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Grade/section not recorded for this year</span>
+                )}
+              </div>
+            </div>
+          </div>
+          {!consentComplete && (
+            <label className={`flex items-center gap-2 mt-2 ${canEdit ? 'cursor-pointer' : 'cursor-default'}`}>
+              <input
+                type="checkbox"
+                checked={false}
+                onChange={(e) => { if (canEdit && e.target.checked) handleToggleConsent(true); }}
+                disabled={!canEdit}
+                className="w-4 h-4 rounded accent-primary disabled:opacity-60 disabled:cursor-not-allowed"
+              />
+              <span className="text-xs font-medium text-foreground">Consent has been obtained (Nakumpleto na ang pahintulot)</span>
+            </label>
+          )}
+        </div>
+      )}
 
       {/* Tab Content */}
       <div className="bg-card rounded-xl border border-border">
@@ -2325,8 +2381,8 @@ export const DentalChart = () => {
           <div className="p-4 space-y-4">
             <div className="bg-gray-50 rounded-xl p-4 w-48">
               <div className="text-xs text-muted-foreground mb-1">Consent Status</div>
-              <div className={`text-sm font-bold ${student.consent_status === 'complete' ? 'text-success' : 'text-muted-foreground'}`}>
-                {student.consent_status === 'complete' ? 'Completed' : 'Pending'}
+              <div className={`text-sm font-bold ${consentComplete ? 'text-success' : 'text-muted-foreground'}`}>
+                {consentComplete ? 'Completed' : 'Pending'}
               </div>
             </div>
 
@@ -2348,7 +2404,7 @@ export const DentalChart = () => {
                 </div>
               </div>
               <label className={`flex items-center gap-2 mt-4 ${canEdit ? 'cursor-pointer' : 'cursor-default'}`}>
-                <input type="checkbox" checked={student.consent_status === 'complete'} onChange={(e) => canEdit && handleToggleConsent(e.target.checked)} disabled={!canEdit} className="w-4 h-4 rounded accent-primary disabled:opacity-60 disabled:cursor-not-allowed" />
+                <input type="checkbox" checked={consentComplete} onChange={(e) => canEdit && handleToggleConsent(e.target.checked)} disabled={!canEdit} className="w-4 h-4 rounded accent-primary disabled:opacity-60 disabled:cursor-not-allowed" />
                 <span className="text-xs text-foreground">Nakumpleto na ang pahintulot / Consent has been obtained</span>
               </label>
             </div>

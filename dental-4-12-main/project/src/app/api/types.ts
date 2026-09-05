@@ -72,6 +72,10 @@ export interface ApiStudentIptr {
   height_cm: number | null;
   weight_kg: number | null;
   isArchived: boolean;
+  /** Consent for THIS school year (Sprint 167). A guardian signs each year. */
+  consent_status: 'pending' | 'complete';
+  /** Server-set when consent_status becomes 'complete'; null while pending. */
+  consent_given_at?: string | null;
 }
 
 export interface ApiDentalChart {

@@ -33,10 +33,35 @@ const studentIptrSchema = new mongoose.Schema(
     // recorded either, so no migration accompanies this.
     height_cm: { type: Number, default: null, min: 0, max: 300 },
     weight_kg: { type: Number, default: null, min: 0, max: 500 },
+
+    // ── Consent, PER SCHOOL YEAR (Sprint 167, adopted from the collaborator) ─
+    //
+    // ⚠ A guardian's 2023 signature does not authorize treatment in 2026. This
+    // used to live on STUDENT as a single lifetime flag — the same "one grade
+    // for a multi-year student" bug Sprint 57a fixed for grade_level, so it
+    // moves to the same place for the same reason.
+    //
+    // Defaults to "pending" for EVERY new year, including a freshly-added year
+    // for a returning pupil: last year's "complete" never carries forward.
+    // `migrateIptrConsent.ts` backfills the latest year only, from the old
+    // STUDENT.consent_status.
+    consent_status: { type: String, enum: ["pending", "complete"], default: "pending" },
+    // Set SERVER-SIDE by the hook below whenever consent_status changes — never
+    // trust a client-supplied timestamp for "when was consent given". Cleared
+    // back to null the moment a "complete" is reverted, because a pending
+    // record has no valid given-date any more.
+    consent_given_at: { type: Date, default: null },
     ...softDeleteFields,
   },
   { timestamps: { createdAt: "created_at", updatedAt: false } },
 );
+
+studentIptrSchema.pre("save", function (next) {
+  if (this.isModified("consent_status")) {
+    this.consent_given_at = this.consent_status === "complete" ? new Date() : null;
+  }
+  next();
+});
 
 // Sprint 91. Leads with isArchived because every GET filters on it.
 // One student's records for the IPTR screen — `filterable: ["student_id"]`

@@ -31,6 +31,11 @@ const studentSchema = new mongoose.Schema(
     philhealth_status: { type: String, enum: ["None", "Principal", "Dependent"], default: "None" },
     is_4ps: { type: Boolean, default: false },
     fourps_id: { type: String, default: "" },
+    // ⚠ LEGACY as of Sprint 167 — consent is per school year now and lives on
+    // STUDENT_IPTR. Nothing reads or writes this any more. The FIELD IS KEPT so
+    // the existing values stay readable (never hard delete), and so
+    // migrateIptrConsent.ts can carry them forward on any database that has not
+    // been migrated yet. Do not start reading it again.
     consent_status: { type: String, enum: ["pending", "complete"], default: "pending" },
     // Marks a record created by a seeder rather than by a real encoding
     // session. Defaults to false, so anything a person creates — the Add
