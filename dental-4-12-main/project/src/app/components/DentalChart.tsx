@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router';
-import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, TrendingUp, FileText, Plus, Pencil, Trash2, Brain, Download, X, Maximize2, Minimize2, Check, ChevronUp, ChevronDown, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, TrendingUp, FileText, Plus, Pencil, Trash2, Brain, Download, X, Maximize2, Minimize2, Check, ChevronUp, ChevronDown, ShieldCheck, ShieldAlert, Shield as ShieldIcon } from 'lucide-react';
 import { exportDohReportToPdf, exportPagesToPdf } from '../utils/exportPdf';
 import { getGradeColor } from '../utils/gradeColors';
 import { computeBmi, BMI_NOTE } from '../utils/bmi';
@@ -18,6 +18,7 @@ import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Modal } from './Modal';
 import { useSchools } from '../hooks/useSchools';
+import { SERVICES as CONSENT_SERVICES } from './ConsentForm';
 import { IptrForm, IptrFormPage2 } from './IptrForm';
 import { IptrFormV2 } from './IptrFormV2';
 import type { ReferralType } from '../api/types';
@@ -437,6 +438,9 @@ export const DentalChart = () => {
       return value;
     });
   };
+  // Consent is confirmed against the FORM, not against a bare "are you sure"
+  // (Sprint 169, hers). `revert` distinguishes the two directions.
+  const [confirmConsent, setConfirmConsent] = useState<{ schoolYear: string; revert: boolean } | null>(null);
   const [rareConditionsOpen, setRareConditionsOpen] = useState(false);
   const [rareTreatmentsOpen, setRareTreatmentsOpen] = useState(false);
 
@@ -1709,7 +1713,7 @@ export const DentalChart = () => {
               <input
                 type="checkbox"
                 checked={false}
-                onChange={(e) => { if (canEdit && e.target.checked) handleToggleConsent(true); }}
+                onChange={(e) => { if (canEdit && e.target.checked) setConfirmConsent({ schoolYear: yearIptr.school_year, revert: false }); }}
                 disabled={!canEdit}
                 className="w-4 h-4 rounded accent-primary disabled:opacity-60 disabled:cursor-not-allowed"
               />
@@ -2424,7 +2428,9 @@ export const DentalChart = () => {
                 </div>
               </div>
               <label className={`flex items-center gap-2 mt-4 ${canEdit ? 'cursor-pointer' : 'cursor-default'}`}>
-                <input type="checkbox" checked={consentComplete} onChange={(e) => canEdit && handleToggleConsent(e.target.checked)} disabled={!canEdit} className="w-4 h-4 rounded accent-primary disabled:opacity-60 disabled:cursor-not-allowed" />
+                <input type="checkbox" checked={consentComplete}
+                  onChange={(e) => { if (canEdit && yearIptr) setConfirmConsent({ schoolYear: yearIptr.school_year, revert: !e.target.checked }); }}
+                  disabled={!canEdit} className="w-4 h-4 rounded accent-primary disabled:opacity-60 disabled:cursor-not-allowed" />
                 <span className="text-xs font-medium text-foreground">Nakumpleto na ang pahintulot / Consent has been obtained</span>
               </label>
               </div>
@@ -2803,6 +2809,88 @@ export const DentalChart = () => {
         onConfirm={confirmDeleteYearNow}
         onCancel={() => setConfirmDeleteYear(null)}
       />
+      {/* ── CONSENT CONFIRMATION (Sprint 169, hers) ────────────────────────
+          Her dialog, and the reason for it is right: ticking "consent
+          obtained" is a claim about a piece of PAPER, so the dialog shows the
+          form that paper is, and the person ticking confirms against it.
+
+          ⚠ The service list is OURS — `SERVICES` in ConsentForm.tsx,
+          transcribed verbatim from the blank form supplied 2026-09-03, grade
+          ranges and all. Hers is a paraphrase in sentence case. A paraphrase in
+          the dialog and the real wording on the sheet is how someone confirms
+          against a form that says something else. */}
+      {confirmConsent && (
+        <Modal onClose={() => setConfirmConsent(null)} maxWidth="max-w-[666px]">
+          <div className="flex items-start gap-3 p-6 border-b border-border">
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${confirmConsent.revert ? 'bg-warning' : 'bg-primary'}`}>
+              {confirmConsent.revert ? <ShieldAlert className="w-5 h-5 text-white" /> : <ShieldCheck className="w-5 h-5 text-white" />}
+            </div>
+            <div className="min-w-0">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-primary mb-1">Guardian Consent</div>
+              <h2 className="text-lg font-bold text-foreground">
+                {confirmConsent.revert ? 'Revert consent to pending?' : 'Confirm consent obtained'}
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                {confirmConsent.revert
+                  ? `This says the signed copy for ${confirmConsent.schoolYear} is NOT on file after all.`
+                  : `Confirm a signed physical copy of the form below is on file for ${confirmConsent.schoolYear} before continuing.`}
+              </p>
+            </div>
+          </div>
+          {!confirmConsent.revert && (
+            <div className="p-6 pb-0">
+              <div className="rounded-lg border border-border bg-canvas p-4 max-h-64 overflow-y-auto text-xs text-foreground space-y-3">
+                <p className="font-bold text-sm">Parents/Guardian Consent Form</p>
+                <p className="text-muted-foreground">
+                  Ang dentista po ng ating school clinic ay magsasagawa ng serbisyong dental sa mga mag-aaral na may
+                  layuning makapagbigay ng preventive at curative treatment. Ang mga serbisyo dental ay ang mga sumusunod:
+                </p>
+                <ul className="space-y-2">
+                  {CONSENT_SERVICES.map((sv) => (
+                    <li key={sv.label}>
+                      <span className="font-semibold">{sv.label}</span>
+                      {sv.note && <span className="block text-muted-foreground">{sv.note}</span>}
+                    </li>
+                  ))}
+                </ul>
+                <p className="pt-2 border-t border-border font-medium">
+                  Oo, pumapayag ako na bigyan ng serbisyong dental ang aking anak/apo/pamangkin.
+                </p>
+              </div>
+            </div>
+          )}
+          <div className="p-6 space-y-4">
+            <div className="flex items-start gap-2.5 rounded-lg bg-warning-surface p-3">
+              <ShieldIcon className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
+              {/* ⚠ Worded to be TRUE. Hers says the tick "cannot be undone" and
+                  hides the box once complete. Ours can be reverted — the model
+                  hook clears `consent_given_at` on the way back, and that path
+                  exists precisely so a mis-tick can be corrected without a
+                  database edit. Saying "cannot be undone" when it can is the
+                  same class of untruth as a control that only looks like it
+                  works, so the wording follows the behaviour. */}
+              <p className="text-xs text-warning">
+                {confirmConsent.revert
+                  ? 'The recorded consent date for this school year will be cleared.'
+                  : `This records consent for ${confirmConsent.schoolYear} only, and stamps the date. It can be reverted here, which clears that date.`}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3 p-6 pt-0">
+            <button onClick={() => setConfirmConsent(null)}
+              className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-gray-50 text-sm font-medium">
+              Cancel
+            </button>
+            <button
+              onClick={() => { const revert = confirmConsent.revert; setConfirmConsent(null); handleToggleConsent(!revert); }}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-white text-sm font-medium ${confirmConsent.revert ? 'bg-warning hover:opacity-90' : 'bg-primary hover:bg-primary-hover'}`}
+            >
+              <Check className="w-4 h-4" /> {confirmConsent.revert ? 'Revert to pending' : 'Confirm consent'}
+            </button>
+          </div>
+        </Modal>
+      )}
+
       <ConfirmDialog
         open={pendingNav !== null}
         title="Leave this chart unsaved?"

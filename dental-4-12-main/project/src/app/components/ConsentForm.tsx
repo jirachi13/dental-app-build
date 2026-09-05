@@ -26,7 +26,10 @@ import { exportDohReportToPdf } from '../utils/exportPdf';
 // eligibility rules (fluoride varnish is Kinder-Grade 1, sealant Grade 2-3) and
 // must not be paraphrased.
 
-const SERVICES: { label: string; note?: string }[] = [
+/** ⚠ Exported so the consent CONFIRMATION reads the same list the printed form
+ *  carries. A paraphrase in the dialog and the real wording on the sheet is how
+ *  someone ticks "consent obtained" against a form that says something else. */
+export const SERVICES: { label: string; note?: string }[] = [
   { label: 'ORAL EXAM O DENTAL CHECK UP', note: 'ITO AY TAUNANG GINAGAWA SA LAHAT NG MAG-AARAL.' },
   {
     label: 'TOPICAL FLUORIDE VARNISH APPLICATION (KINDER AT GRADE 1)',
