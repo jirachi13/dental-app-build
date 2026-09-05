@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router';
-import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, TrendingUp, FileText, Plus, Pencil, Trash2, Brain, Download, X } from 'lucide-react';
+import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, TrendingUp, FileText, Plus, Pencil, Trash2, Brain, Download, X, Maximize2, Minimize2 } from 'lucide-react';
 import { exportDohReportToPdf, exportPagesToPdf } from '../utils/exportPdf';
 import { getGradeColor } from '../utils/gradeColors';
 import { computeBmi, BMI_NOTE } from '../utils/bmi';
@@ -125,6 +125,15 @@ const computeDMFT = (chart: Record<number, ChartEntry>) => {
   return { d, m, f, x, t: d + m + f + x, D, M, F, X, T: D + M + F + X };
 };
 
+// Charting mode survives the remount between students (Sprint 153).
+//
+// ⚠ MODULE SCOPE ON PURPOSE. routes.tsx keys this component by `:id`, so
+// stepping to the next child UNMOUNTS and remounts it — any useState would
+// reset to false and drop the dentist out of full screen on every single
+// student, which is the one thing the mode exists to avoid. It is session
+// state, not record state, so it belongs neither in the URL nor in the DB.
+let chartingModeMemo = false;
+
 // Base44-exact condition codes: uppercase=permanent, lowercase=temporary (auto-applied)
 export const conditionCodes = [
   { code: '✓', label: 'Sound/Sealed', perm: '✓', temp: '✓' },
@@ -208,7 +217,12 @@ export const DentalChart = () => {
   type TabKey = 'history' | 'chart' | 'appointments' | 'records' | 'treatments' | 'referrals' | 'ai';
   type IptrContext = 'default' | 'dental-queue' | 'risk' | 'treatment';
   const iptrContext = (searchParams.get('context') as IptrContext) || 'default';
-  const initialTab = (searchParams.get('tab') as TabKey) || 'history';
+  const [chartingMode, setChartingModeState] = useState(chartingModeMemo);
+  const setChartingMode = (on: boolean) => { chartingModeMemo = on; setChartingModeState(on); };
+  // An explicit ?tab= still wins — a deep link says where to land. Otherwise a
+  // remount inside charting mode has to come back to the CHART tab, or the
+  // dentist arrives at the next child on History with the mode still on.
+  const initialTab = (searchParams.get('tab') as TabKey) || (chartingModeMemo ? 'chart' : 'history');
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const allTabs: { key: TabKey; label: string }[] = [
     { key: 'history', label: 'History & Oral' },
@@ -364,6 +378,37 @@ export const DentalChart = () => {
   const cancelEdit = async () => {
     setEditMode(false);
     await reload(); // refetch → draft-sync effect resets all drafts
+  };
+
+  // ── Charting mode (Sprint 153) ──────────────────────────────────────────
+  // Adopted from the collaborator's `majorUpdates` branch: a full-screen
+  // surface for the loop the dentist actually repeats at a school — chart a
+  // mouth, save, next child — instead of charting inside a record page with a
+  // nav rail, a status strip and six tabs around it.
+  //
+  // Escape leaves. A mode with no keyboard way out is a trap on a laptop.
+  useEffect(() => {
+    if (!chartingMode) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setChartingMode(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [chartingMode]);
+
+  // Leaving the chart tab leaves the mode. Full screen over History would hide
+  // the tab strip that got you there.
+  useEffect(() => {
+    if (activeTab !== 'chart' && chartingModeMemo) setChartingMode(false);
+  }, [activeTab]);
+
+  // ⚠ Stepping to another student while edit mode is on DISCARDS the draft —
+  // nothing is written until Save Chart. That hole already existed on the
+  // header's prev/next buttons; charting mode makes stepping the main loop, so
+  // it is guarded here for both. Confirm-and-lose, never lose silently.
+  const [pendingNav, setPendingNav] = useState<{ id: string; name: string } | null>(null);
+  const goToStudent = (target: { id: string; name: string } | null) => {
+    if (!target) return;
+    if (editMode) { setPendingNav(target); return; }
+    navigate(`/dental-chart/${target.id}`);
   };
 
   const currentChart = draftChart;
@@ -1039,7 +1084,7 @@ export const DentalChart = () => {
           </div>
           <div className="hidden sm:flex items-center gap-1 border border-border rounded-lg overflow-hidden">
             <button
-              onClick={() => prevPatient && navigate(`/dental-chart/${prevPatient.id}`)}
+              onClick={() => goToStudent(prevPatient)}
               disabled={!prevPatient}
               title={prevPatient ? `← ${prevPatient.name}` : undefined}
               className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-gray-100 disabled:opacity-30 disabled:cursor-default border-r border-border"
@@ -1054,7 +1099,7 @@ export const DentalChart = () => {
               {navIndex >= 0 ? `${navIndex + 1}/${navList.length}` : '—'}
             </span>
             <button
-              onClick={() => nextPatient && navigate(`/dental-chart/${nextPatient.id}`)}
+              onClick={() => goToStudent(nextPatient)}
               disabled={!nextPatient}
               title={nextPatient ? `${nextPatient.name} →` : undefined}
               className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-gray-100 disabled:opacity-30 disabled:cursor-default border-l border-border"
@@ -1463,7 +1508,66 @@ export const DentalChart = () => {
 
         {/* ── TAB 2: Dental Chart ── */}
         {activeTab === 'chart' && (
-          <div className="p-0 space-y-0">
+          /* ⚠ The SAME JSX renders in both states — charting mode only changes
+             this container. Duplicating the odontogram into a separate overlay
+             component is how two charting surfaces drift apart. z-[75] clears
+             the nav rail, which is what frees the full width. */
+          <div className={chartingMode ? 'fixed inset-0 z-[75] bg-canvas overflow-y-auto overscroll-contain' : 'p-0 space-y-0'}>
+            {chartingMode && (
+              /* flex-wrap + min-w-0, not a bare justify-between: this bar is
+                 read on a tablet at the chair as well as on a laptop. */
+              <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-card px-4 py-2">
+                <div className="min-w-0 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span className="text-base font-bold text-foreground truncate">{surnameFirst(student)}</span>
+                  {/* The same coloured pills the patient card uses. Charting
+                      mode is exactly where a dentist confirms they have the
+                      right child, so it should not invent a new way to say it. */}
+                  {yearGrade && <GradePill grade={yearGrade} />}
+                  {yearSection && (
+                    <span style={{ backgroundColor: gc.light, color: gc.solid }}
+                      className="rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap">{yearSection}</span>
+                  )}
+                  <span className="h-4 w-px bg-border" aria-hidden="true" />
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {currentYearData?.iptr.school_year}
+                    {navIndex >= 0 ? ` · ${navIndex + 1} of ${navList.length}` : ''}
+                  </span>
+                </div>
+                <div className="ml-auto flex flex-wrap items-center gap-2">
+                  {canEdit && (editMode ? (
+                    <>
+                      <button onClick={cancelEdit} className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted">
+                        Cancel
+                      </button>
+                      <button onClick={handleSave} disabled={saving}
+                        className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-medium text-white disabled:opacity-60 ${saved ? 'bg-green-600' : 'bg-primary hover:bg-primary-hover'}`}>
+                        <Save className="w-3.5 h-3.5" /> {saving ? 'Saving…' : saved ? 'Saved' : 'Save Chart'}
+                      </button>
+                    </>
+                  ) : (
+                    <button onClick={() => setEditMode(true)} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted">
+                      <Pencil className="w-3.5 h-3.5" /> Edit Chart
+                    </button>
+                  ))}
+                  <div className="flex items-center rounded-lg border border-border overflow-hidden">
+                    <button onClick={() => goToStudent(prevPatient)} disabled={!prevPatient}
+                      title={prevPatient ? `← ${prevPatient.name}` : undefined}
+                      className="flex items-center gap-1 border-r border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-gray-100 disabled:opacity-30 disabled:cursor-default">
+                      <ChevronLeft className="w-3.5 h-3.5" /> Prev
+                    </button>
+                    <button onClick={() => goToStudent(nextPatient)} disabled={!nextPatient}
+                      title={nextPatient ? `${nextPatient.name} →` : undefined}
+                      className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-gray-100 disabled:opacity-30 disabled:cursor-default">
+                      Next student <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <button onClick={() => setChartingMode(false)} title="Exit charting mode (Esc)"
+                    className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted">
+                    <Minimize2 className="w-3.5 h-3.5" /> Exit
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="p-4 space-y-4">
             {/* ── DENTAL CONDITION / TREATMENT SUMMARY (Sprint 151) ──────────
                 Layout adopted from the collaborator's `majorUpdates` branch.
@@ -1475,6 +1579,12 @@ export const DentalChart = () => {
                 answered "is it present?"; a per-tooth treatment is only
                 meaningful WITH the teeth it was done to, which a count alone
                 never says. */}
+            {/* ⚠ Hidden in charting mode. These are READ-OUTS — they are read
+                after the mouth is charted, and two full tables between the
+                header and the teeth defeats the point of the mode. The compact
+                DMFT card below is deliberately KEPT: it is one row, and a
+                running DMFT is worth seeing while charting. */}
+            {!chartingMode && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="bg-teal-50/70 rounded-xl border border-teal-200 p-4 space-y-4">
                 <div className="text-xs font-semibold text-teal-800 uppercase tracking-wide">Dental Condition Summary</div>
@@ -1561,6 +1671,7 @@ export const DentalChart = () => {
                     screen end up disagreeing. */}
               </div>
             </div>
+            )}
 
             {/* Sprint 148 — one row per charting recorded this school year.
                 Hidden when there is only one: a picker with a single option is
@@ -1599,7 +1710,7 @@ export const DentalChart = () => {
 
             {/* Legend button — the codes stay on the palette, the WORDS live in
                 here (Sprint 152, adopted from the collaborator's design). */}
-            <div className="flex justify-end">
+            <div className="flex flex-wrap justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setLegendOpen(true)}
@@ -1607,6 +1718,16 @@ export const DentalChart = () => {
               >
                 <FileText className="w-3.5 h-3.5" /> Legend
               </button>
+              {!chartingMode && (
+                <button
+                  type="button"
+                  onClick={() => setChartingMode(true)}
+                  title="Full-screen charting — Escape exits"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs border border-border rounded-lg hover:bg-gray-50"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" /> Charting Mode
+                </button>
+              )}
             </div>
             {/* ⚠ Sprint 152 — the palette is HIDDEN in view mode rather than
                 shown greyed out, adopted from the collaborator's layout. It was
@@ -1753,6 +1874,7 @@ export const DentalChart = () => {
               </div>
             </div>
 
+            {!chartingMode && (
             <div className="bg-gray-50 rounded-xl border border-border p-4">
               <div className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">Treatment Code Counter (Auto-computed)</div>
               <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2">
@@ -1764,6 +1886,7 @@ export const DentalChart = () => {
                 ))}
               </div>
             </div>
+            )}
             </div>
           </div>
         )}
@@ -2173,6 +2296,14 @@ export const DentalChart = () => {
         busy={deletingYear}
         onConfirm={confirmDeleteYearNow}
         onCancel={() => setConfirmDeleteYear(null)}
+      />
+      <ConfirmDialog
+        open={pendingNav !== null}
+        title="Leave this chart unsaved?"
+        message={`Nothing on this chart has been saved yet. Going to ${pendingNav?.name ?? 'the next student'} discards it. Cancel, then use Save Chart if you want to keep it.`}
+        confirmLabel="Discard and continue"
+        onConfirm={() => { const t = pendingNav; setPendingNav(null); setEditMode(false); if (t) navigate(`/dental-chart/${t.id}`); }}
+        onCancel={() => setPendingNav(null)}
       />
       <ConfirmDialog
         open={confirmClear !== null}
