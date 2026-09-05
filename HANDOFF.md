@@ -114,6 +114,14 @@ Five rows of the Oral Health Program Report printed "—" because no model fed t
 
 ## Open work (each needs approval; sprint loop applies)
 
+56. **The real Target Client List is TWO PAGES; ours is one — user, 2026-09-05, to be done after the current workflow. NOT scoped, and deliberately not guessed at.**
+    - **What the user said:** *"target client list is two pages, we only have 1"*.
+    - **What is NOT yet known, and must be established before building anything:** whether "two pages" means (a) the printed form runs onto a second sheet with MORE COLUMNS our 66 do not include, (b) the same columns continued onto a second page of ROWS (a pure print/pagination matter), or (c) two distinct sheets in the workbook with different headings. These need different work — (a) is a data gap, (b) is a print stylesheet job, (c) is a second report. **Do not start until the page-2 heading row has been read.**
+    - **⚠ The source workbook is NOT on this device.** `TCLForm2andFHSISReport.xlsx` / `2026Form2withFHSIS.xlsx` were read on the other laptop during Sprint 84; `data/` is per-device and this machine holds only the Nutritional Status files. Either pull the workbook over or check it on that machine.
+    - **What exists today:** `TargetClientList.tsx` renders ONE continuous 66-column table (Sprint 84), Excel-export only — no PDF, decided 2026-09-03 because Excel paginates columns natively where a PDF sprays them across pages. If page 2 turns out to be a print concern, that decision is the relevant context, not a bug to fix.
+    - **Related but distinct, already logged:** the 27 cohort tabs (age x sex) are a PRESENTATION of the same rows, not extra data. Do not conflate "two pages" with those tabs until the form is read.
+
+
 55. **Structured TREATMENT entry: dropdowns for treatment and condition, plus tooth numbers on both — user idea 2026-09-05, NOT scoped, to be done after the current workflow.** Their words: *"noting or adding or what treatment can be dropdown, adding condition can be drop down and can also indicated teeth numbers on them both, i dont know how to implement any thoughts?"*
     - **The vocabulary already exists and must not be reinvented.** `DentalChart.tsx` exports `treatmentCodes` (OEX, OP, FV, PFS, TR, TF, X, SDF …) and holds the condition codes; the DOH reports, the TCL and `useDohReportData` all read those exact codes. A second, parallel list typed into a Treatment form would drift from them within a sprint and the forms would disagree.
     - **Tooth numbers also already exist**, as `TOOTH_RECORD` rows keyed by FDI number under a `DENTAL_CHART`. So the honest question is not "where do we store teeth" but **which store is the source of truth**.
