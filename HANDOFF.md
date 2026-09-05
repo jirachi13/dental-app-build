@@ -10,8 +10,30 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ▶ RESUME HERE — PARKED 2026-09-05 (8th session), everything pushed at `bb2965ad`
-Tree clean apart from the two untracked root strays (`package.json`, `package-lock.json`), which predate this session. **Twenty-four sprints shipped (127-150)**, every one verified in the browser or at the endpoint.
+## ▶ RESUME HERE — 2026-09-05 (9th session), on branch `adopt-design` at `fe36d1a1`
+
+**`main` is UNTOUCHED. The adoption work is on `adopt-design`, four commits, pushed. Checkpoint tag `pre-design-adoption` marks the last commit before any of it.** Nothing here is merged; the user is reviewing the branch before deciding.
+
+### Why the branch exists
+A classmate (`peanutbutterjelly03`, a real collaborator on this repo) redesigned the Dental Chart tab on her fork's `majorUpdates` branch and pressed for her design. Her work is **not** on her own `main` — it sits in an open pull request, and the owner's branch ruleset on `main` ("changes must be made through a pull request", "required status check build") is bypassed on every push, which is why her pushes never landed. **We adopted her LAYOUT and kept OUR code, which is further along.** Each commit states what was taken and what was deliberately refused.
+
+| Sprint | Adopted | The bit worth remembering |
+|---|---|---|
+| 151 | Dental Condition / Treatment Summary panels, with Tooth Count and Tooth Numbers | Two of her readings of the form are right and were followed exactly: **"present" excludes missing and unerupted**, and the temporary block is **dfx, not dmfx** — the form has no primary "missing" row. The derivation moved to `shared/iptrSectionB.ts` and **`IptrFormV2` now calls it too**; it had its own copy of the same arithmetic, which is how a screen and a sheet filed with the City Health Office disagree about one pupil. **Refused:** her whole-mouth service rows here — Sprint 147 records those on `PREVENTIVE_CARE_RECORD`, against the visit, and the DOH return reads that. |
+| 152 | Legend button; the code palette leaves view mode | The palette was already `pointer-events-none` when not editing — it held the top of the screen doing nothing above the summaries a dentist reads. It now appears only in edit mode. The Legend renders OUR `conditionCodes`/`treatmentCodes`, so it cannot drift from the palette. |
+| 152b | — | Deleted the static reference card below the odontogram. **It had already drifted: six treatment codes against the nine in `treatmentCodes`** — OEX, OP and TR were missing. Its one unique thing was the colour key, so the Legend chips now read `conditionColors`, the same map the tooth cells render from. |
+| 153 | Charting Mode | Full-screen chairside surface: chart a mouth, save, next child. The chart tab's own container goes `fixed inset-0 z-[75]` — the **same JSX** in both states, never a second odontogram. **The mode lives in a module-level memo, not `useState`: `routes.tsx` keys this component by `:id`, so Next student remounts it and state would drop you out of full screen on every child.** Escape exits. **Refused:** hiding the DMFT card — one compact row, and a running DMFT is worth seeing while charting. |
+
+### ⚠ A real bug found on the way, fixed in 153
+**Stepping to another student while editing discarded the draft chart silently** — nothing is written until Save Chart. The hole already existed on the header's prev/next buttons; charting mode makes stepping the main loop. Both paths now route through one guard that names the student it would move to.
+
+### What is left of the adoption queue
+Only her **status strip / school chip**, which is app-wide chrome rather than the IPTR work that was actually wanted. **Recommended: leave it.** If the branch reviews well the next move is a PR to `main`, not more adoption.
+
+---
+
+## Parked 2026-09-05 (8th session), pushed at `bb2965ad`
+**Twenty-four sprints shipped (127-150)**, every one verified in the browser or at the endpoint.
 
 | # | Theme | The bit worth remembering |
 |---|---|---|
