@@ -1202,7 +1202,6 @@ export const DentalChart = () => {
           </Link>
           <div className="min-w-0">
             <h1 className="text-lg font-bold text-foreground">Individual Patient Treatment Record</h1>
-            <p className="text-xs text-muted-foreground">{surnameFirst(student)} · {yearGradeLabel} · {student.sex} · {patientAge} yrs</p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -1258,17 +1257,10 @@ export const DentalChart = () => {
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
-          {years.length > 0 && (
-            <>
-              <button onClick={() => setSelectedYear(Math.max(0, selectedYear - 1))} disabled={selectedYear === 0} className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-30">
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-sm font-medium px-3 py-1.5 bg-blue-50 text-blue-800 rounded-lg">{years[selectedYear]?.iptr.school_year}</span>
-              <button onClick={() => setSelectedYear(Math.min(years.length - 1, selectedYear + 1))} disabled={selectedYear === years.length - 1} className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-30">
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </>
-          )}
+          {/* The year arrows are gone (Sprint 163, her header). The year CHIPS
+              row directly under the tab strip already selects the school year,
+              names its exam date and shows its DMFT — two controls for one
+              choice, one of which said less. */}
         </div>
       </div>
       </div>
@@ -1575,6 +1567,32 @@ export const DentalChart = () => {
                   )}
                 </div>
               )}
+              {/* Sprint 163 — Charting Mode and Legend sit at the right end of
+                  the YEAR ROW, level with the year chips, which is where hers
+                  are. They were below the charting picker, half a screen down
+                  from the tab that owns them. Chart tab only: neither means
+                  anything on History or Consent. */}
+              {activeTab === 'chart' && (
+                <div className="ml-auto flex flex-shrink-0 items-center gap-2 py-2 pr-1">
+                  {!chartingMode && (
+                    <button
+                      type="button"
+                      onClick={() => setChartingMode(true)}
+                      title="Full-screen charting — Escape exits"
+                      className="flex items-center gap-1.5 rounded-lg border border-primary px-2.5 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
+                    >
+                      <Maximize2 className="w-3.5 h-3.5" /> Charting Mode
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setLegendOpen(true)}
+                    className="flex items-center gap-1.5 rounded-lg bg-destructive px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:opacity-90"
+                  >
+                    <FileText className="w-3.5 h-3.5" /> Legend
+                  </button>
+                </div>
+              )}
               </div>
               </div>
             </div>
@@ -1863,27 +1881,6 @@ export const DentalChart = () => {
               </div>
             )}
 
-            {/* Legend button — the codes stay on the palette, the WORDS live in
-                here (Sprint 152, adopted from the collaborator's design). */}
-            <div className="flex flex-wrap justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setLegendOpen(true)}
-                className="flex items-center gap-1.5 rounded-lg bg-destructive px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:opacity-90"
-              >
-                <FileText className="w-3.5 h-3.5" /> Legend
-              </button>
-              {!chartingMode && (
-                <button
-                  type="button"
-                  onClick={() => setChartingMode(true)}
-                  title="Full-screen charting — Escape exits"
-                  className="flex items-center gap-1.5 rounded-lg border border-primary px-2.5 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
-                >
-                  <Maximize2 className="w-3.5 h-3.5" /> Charting Mode
-                </button>
-              )}
-            </div>
             {/* ⚠ Sprint 152 — the palette is HIDDEN in view mode rather than
                 shown greyed out, adopted from the collaborator's layout. It was
                 already `pointer-events-none` when not editing, so it occupied
@@ -1898,8 +1895,15 @@ export const DentalChart = () => {
                 far left. Clear All moved onto the heading row and disappears
                 when there is nothing to clear; a permanently-visible disabled
                 destructive button is noise on a blank chart. */}
-            {editingChart && (
-            <div className="bg-blue-50 rounded-xl p-4">
+            {/* ⚠ Sprint 163 REVERSES Sprint 152. I hid this whole card in view
+                mode; hers shows it GREYED with the hint below, and hers is
+                right for this screen — a dentist opening a record sees what can
+                be charted and that they are not in edit mode yet, instead of a
+                palette that only exists after a click they have no reason to
+                expect. The `pointer-events-none` is what makes it honest. */}
+            <div className={`bg-blue-50 rounded-xl p-4 ${!editingChart ? 'opacity-60 pointer-events-none select-none' : ''}`}>
+              {!canEdit && <p className="text-xs text-muted-foreground mb-2 italic">View only — editing restricted to Dentist</p>}
+              {canEdit && !editMode && <p className="text-xs text-muted-foreground mb-2 italic">View mode — click the pencil icon above to record conditions/treatments</p>}
               <div className={`grid grid-cols-1 ${iptrContext === 'default' ? 'lg:grid-cols-2' : ''} gap-4`}>
                 {iptrContext !== 'treatment' && (
                 <div className={iptrContext === 'default' ? 'lg:pr-4' : undefined}>
@@ -2032,7 +2036,6 @@ export const DentalChart = () => {
                 </div>
               )}
             </div>
-            )}
 
             <div className="bg-card rounded-xl border border-border p-4 overflow-x-auto">
               {/* Every row is 16 equal slots, so a primary tooth sits directly
