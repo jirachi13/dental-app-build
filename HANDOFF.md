@@ -154,7 +154,26 @@ Read from the manuscript's own scans, which were on this machine all along: **`d
 - ⚠ **NOT VERIFIED: the workbook itself.** Producing it means downloading a file, which was not done. **Click Excel on the Target Client List and confirm two sheets named Page 1 / Page 2 with the column counts above.**
 - **A related find, for #37:** Appendix G ("Individual Patient Treatment Record") also embeds **TWO** images (`image19`, `image20`), and Appendix F one (`image18`). **The IPTR is a two-page form too** - worth checking our IPTR output against both pages before defense, exactly as this sprint did for the TCL.
 
+## Sprint 135 (the IPTR PDF is the DOH form now, not a screenshot of the app) - page 1 DONE 2026-09-05, tsc + build clean, verified on screen. Page 2 is the next sprint.
+The PDF button used to capture `recordRef`: the patient-info card, the tab strip, the **Edit buttons**, whatever tab was open. **That is the document a family or a referral is handed.**
+
+- **New `IptrForm.tsx`, built to the scan** in `docs/Group404 - Manuscript.md` Appendix G (`image19`, 576x740 and legible - far better than the TCL scans). It renders off-screen (`fixed -left-[10000px]`) and the PDF captures it. **Off-screen rather than conditionally mounted on purpose: html2canvas needs a laid-out element, so `display: none` would capture nothing.**
+- **Reproduced in the form's own order and wording:** DOH / City of Taguig header · Personal Information · the **Year 1-5 matrix** (DATE EXAMINED, then Medical History 14 rows, Dietary Habits and Social History 7, Oral Health Condition 10) · the Filipino consent paragraph verbatim · **Lagda ng Pasyente / Lagda ng Magulang o Guardian** · the 10-column visit table (Date · Weight · Temp · BP · Chief Complaint · Diagnosis · Treatment Done · Dentist · Signature · Remarks) with ruled blank rows so a printed copy is usable chairside.
+- **Every row of the paper form is rendered, blanks included.** No source: **Blood Disorders · Medical (Last Admission & Cause) · Orally Fit · Completely Edentulous · Occupation · Temp · BP · Chief Complaint · Signature**. They print empty, never omitted, and an on-screen note (carrying `print-hide`, so it stays off paper) names them.
+- **Dental Caries is DERIVED, not fabricated:** `ORAL_HEALTH_CONDITION` has no such boolean, so it reads that year's tooth records for a `D`/`d` **condition** - the same source the TCL already uses. ⚠ `condition`, never `treatment_code`: X means "indicated for extraction" as a condition and "extracted" as a treatment.
+- **More than five school years:** the form has five columns, so the LAST five are shown. Showing the oldest five would hide current care.
+- ⚠ **A hook after an early return broke the whole page**, briefly: `useRef` was added beside the PDF handler, which sits after `if (loading)` / `if (error)`, so React threw *"Rendered more hooks than during the previous render"* and the record page rendered nothing. Moved to the top with the other hooks. **Caught only because the form was opened in the browser** - `tsc` and the build were both clean.
+- **Verified on screen against the scan:** header, personal information carrying the pupil's real values with Occupation blank, the Year 1-5 matrix with `2025-2026` in Year 1 and real ticks (Nail Biting, Debris), consent, both signature lines, and the visit table with its ruled rows.
+- ⚠ **NOT verified: the PDF file itself** - producing it means downloading. Click **PDF** on a pupil's record and confirm the file is the form.
+
 ## Open work (each needs approval; sprint loop applies)
+
+61. **⚠ THERE ARE TWO IPTR VERSIONS AND BOTH ARE VALID — user, 2026-09-05. This changes #60/Sprint 135 from "the form" to "a form".**
+    - The user has now confirmed what backlog **#37** suspected: the Taguig City Health Office **"INDIVIDUAL PATIENT TREATMENT RECORD"** (manuscript Appendix G, the one Sprint 135 built) and the **"Form 3 / INDIVIDUAL TREATMENT RECORD"** they photographed on 2026-09-03 are **both in use**. Neither supersedes the other.
+    - **So the app must OFFER BOTH, not choose.** Sprint 135's `IptrForm` is version A; version B needs its own component built to its own scan, and the PDF button becomes a choice ("which form?") rather than a single action.
+    - **Before building version B:** get a legible scan of it into the repo the way Appendix G already is. The 2026-09-03 photo was a phone snap; the Appendix G images are embedded base64 in the manuscript and are what made Sprint 135 possible.
+    - ⚠ **Do not "reconcile" the two into one merged form.** Two valid forms filed with the same office are two documents; merging them would produce a third that is neither, which is exactly what the form-fidelity rule forbids.
+
 
 60. **⚠ THE "IPTR PDF" IS A SCREENSHOT OF THE APP, NOT THE DOH FORM — found 2026-09-05, SCOPED, not built.** `DentalChart.tsx:875` captures `recordRef`, which spans lines 953-1832: the patient-info card, the tab strip, the Edit buttons, whatever tab happens to be open. **That is the document a family or a referral receives.** Under CLAUDE.md's form rule ("reproduce every page … the form is the form") and the printout rule, it is the wrong artifact.
     - **Both official pages are ON THIS MACHINE and are LEGIBLE** (unlike the TCL scans): manuscript **Appendix G**, `image19` = page 1, `image20` = page 2, 576x740 each.

@@ -17,6 +17,7 @@ import { surnameFirst, surnameFirstWithInitial } from '../utils/studentName';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
 import { useSchools } from '../hooks/useSchools';
+import { IptrForm } from './IptrForm';
 import type { ReferralType } from '../api/types';
 
 // Sprint 127 — the referral kinds are the DOH Oral Health Program Report's own
@@ -249,6 +250,8 @@ export const DentalChart = () => {
   // Wraps the record body for the PDF export, excluding the sticky toolbar —
   // a downloaded patient record should not carry Edit/Save buttons.
   const recordRef = useRef<HTMLDivElement | null>(null);
+  // The off-screen DOH form captured by the IPTR PDF button (Sprint 135).
+  const iptrFormRef = useRef<HTMLDivElement | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const tabsRowRef = useRef<HTMLDivElement | null>(null);
   const [stickyOffsets, setStickyOffsets] = useState({ tabsTop: 0, yearTop: 0 });
@@ -865,14 +868,26 @@ export const DentalChart = () => {
   const yearGradeLabel = yearGrade ? `${yearGrade}${yearSection ? ` ${yearSection}` : ''}` : NOT_RECORDED;
 
   // The patient's own record as a PDF — Sprint 52 named this "the one export a
-  // clinic actually needs (a patient's own record for their file)" and left it
-  // unbuilt. Captures the record body, not the sticky toolbar.
+  // clinic actually needs (a patient's own record for their file)".
+  //
+  // ⚠ Sprint 135 changed WHAT is captured. It used to capture `recordRef`, the
+  // on-screen record region: the patient-info card, the tab strip, the Edit
+  // buttons, whatever tab happened to be open. That is a screenshot of the app,
+  // and it is the document a family or a referral is handed. It now captures
+  // the real DOH form, built to the scan in the manuscript (Appendix G).
+  //
+  // `iptrFormRef` renders off-screen rather than conditionally: html2canvas
+  // needs a laid-out element, so `display: none` would capture nothing.
+  // ⚠ Declared at the TOP of the component with the other hooks, not here:
+  // this function sits after the `if (loading)` / `if (error)` early returns,
+  // and a hook after a conditional return changes the hook ORDER between
+  // renders ("Rendered more hooks than during the previous render").
   const onIptrPdf = async () => {
-    if (!recordRef.current) return;
+    if (!iptrFormRef.current) return;
     setPdfBusy(true);
     try {
       const who = surnameFirst(student).replace(/[^\w]+/g, '-');
-      await exportDohReportToPdf(recordRef.current, `IPTR_${who}.pdf`);
+      await exportDohReportToPdf(iptrFormRef.current, `IPTR_${who}.pdf`);
     } finally {
       setPdfBusy(false);
     }
@@ -880,6 +895,13 @@ export const DentalChart = () => {
 
   return (
     <div className="space-y-4 max-w-5xl mx-auto">
+      {/* The printable form, off-screen. Kept mounted so the PDF button has a
+          laid-out element to capture; `aria-hidden` so it is not read twice by
+          a screen reader, and it carries `.form-print` so a browser print of
+          this page produces the FORM, not the app. */}
+      <div aria-hidden className="fixed -left-[10000px] top-0" ref={iptrFormRef}>
+        <IptrForm student={student} years={years} dentists={dentists} />
+      </div>
       {/* Sticky header row */}
       <div ref={headerRowRef} className="sticky top-0 z-40 bg-gray-50 pb-2">
       <div className="flex items-center justify-between gap-2">
