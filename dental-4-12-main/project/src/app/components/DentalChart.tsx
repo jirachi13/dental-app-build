@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router';
-import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, TrendingUp, FileText, Plus, Pencil, Trash2, Brain, Download, X, Maximize2, Minimize2 } from 'lucide-react';
+import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, TrendingUp, FileText, Plus, Pencil, Trash2, Brain, Download, X, Maximize2, Minimize2, Check } from 'lucide-react';
 import { exportDohReportToPdf, exportPagesToPdf } from '../utils/exportPdf';
 import { getGradeColor } from '../utils/gradeColors';
 import { computeBmi, BMI_NOTE } from '../utils/bmi';
@@ -124,6 +124,41 @@ const computeDMFT = (chart: Record<number, ChartEntry>) => {
   });
   return { d, m, f, x, t: d + m + f + x, D, M, F, X, T: D + M + F + X };
 };
+
+// ─── Whole-mouth findings, as CHIPS (Sprint 154) ─────────────────────────────
+// Layout and wording adopted from the collaborator's `majorUpdates` branch.
+// These describe the MOUTH, not a tooth: you do not have calculus "on tooth 26"
+// for charting purposes, you either have it or you do not. Stored on
+// ORAL_HEALTH_CONDITION, one row per school year, and rendered as chips rather
+// than as palette buttons so the difference is visible rather than remembered.
+const oralConditionChips: { label: string; field: keyof OralDraft }[] = [
+  { label: 'Debris', field: 'debris' },
+  { label: 'Gingivitis', field: 'gingivitis' },
+  { label: 'Calculus', field: 'calculus' },
+  { label: 'Periodontal Disease', field: 'periodontal' },
+  { label: 'Cleft Lip / Palate', field: 'cleftLipPalate' },
+  { label: 'Abnormal Growth', field: 'abnormalGrowth' },
+];
+
+// ─── Services given AT a visit (Sprint 154) ──────────────────────────────────
+// Her card, our storage. She kept these on DENTAL_CHART; ours live on
+// PREVENTIVE_CARE_RECORD against the RPC visit (Sprint 147), which is what the
+// Target Client List and the DOH return actually read. The DESIGN is unchanged
+// by that — she draws these apart from the per-tooth codes for the same reason
+// we store them apart.
+//
+// ⚠ Two of her chips are NOT here: "Consultation" and a free-text "Others".
+// Neither has a field on PREVENTIVE_CARE_RECORD, and a checkbox that saves
+// nowhere is exactly the placeholder CLAUDE.md forbids. Adding them is a model
+// change and needs the dentist's word on what Consultation means for the
+// return. `oral_hygiene_instruction` is ours and hers has no chip for it.
+type ServiceField = 'oral_screening' | 'oral_prophylaxis' | 'fluoride_varnish' | 'oral_hygiene_instruction';
+const serviceChips: { label: string; field: ServiceField }[] = [
+  { label: 'Oral Examination', field: 'oral_screening' },
+  { label: 'Fluoride Varnish', field: 'fluoride_varnish' },
+  { label: 'Oral Prophylaxis', field: 'oral_prophylaxis' },
+  { label: 'Oral Hygiene Instruction', field: 'oral_hygiene_instruction' },
+];
 
 // Charting mode survives the remount between students (Sprint 153).
 //
@@ -308,13 +343,28 @@ export const DentalChart = () => {
   const currentYearDataRaw = years[selectedYear];
   // The hook defaults to the latest charting; this swaps in whichever one the
   // dentist picked, with its own tooth records.
-  const currentYearData = currentYearDataRaw && selectedChartId
-    ? {
-        ...currentYearDataRaw,
-        dentalChart: currentYearDataRaw.charts.find((c) => c._id === selectedChartId) ?? currentYearDataRaw.dentalChart,
-        toothRecords: currentYearDataRaw.toothRecordsByChart[selectedChartId] ?? currentYearDataRaw.toothRecords,
-      }
-    : currentYearDataRaw;
+  //
+  // ⚠ useMemo IS LOAD-BEARING, not a micro-optimisation (Sprint 154). The
+  // spread built a NEW OBJECT on every render, and the draft-sync effect below
+  // lists `currentYearData` in its deps — so picking a charting, or arriving on
+  // a `?chart=` deep link, put the screen in an INFINITE RENDER LOOP: effect →
+  // setDraftChart(new object) → render → new currentYearData → effect. Measured
+  // at 6,656 DOM mutations in 2 seconds on an idle page. Because that effect
+  // ends in `setEditMode(...)`, Edit Chart could never stay on either: every
+  // charting reached through the picker was silently read-only.
+  //
+  // It typechecked, it built, and the page LOOKED right — the loop is invisible
+  // until you count renders or try to edit.
+  const currentYearData = useMemo(
+    () => (currentYearDataRaw && selectedChartId
+      ? {
+          ...currentYearDataRaw,
+          dentalChart: currentYearDataRaw.charts.find((c) => c._id === selectedChartId) ?? currentYearDataRaw.dentalChart,
+          toothRecords: currentYearDataRaw.toothRecordsByChart[selectedChartId] ?? currentYearDataRaw.toothRecords,
+        }
+      : currentYearDataRaw),
+    [currentYearDataRaw, selectedChartId],
+  );
 
   // Draft (editable) copies of the current year's real data -- initialized
   // from real records when the selected year changes, persisted for real on
@@ -324,6 +374,18 @@ export const DentalChart = () => {
   const [draftMed, setDraftMed] = useState<MedicalHistoryDraft>(emptyMed());
   const [draftDiet, setDraftDiet] = useState<DietDraft>(emptyDiet());
   const [draftOral, setDraftOral] = useState<OralDraft>(emptyOral());
+  // Services given at the visit this charting belongs to (Sprint 154).
+  // ⚠ null, not false. PREVENTIVE_CARE_RECORD defaults every service to null
+  // and its own comment says why: `false` claims on a form filed with the City
+  // Health Office that a service was WITHHELD, where null reads "not
+  // recorded". A checkbox is binary, so unticking writes null back — never
+  // false. "Explicitly not done" has no tick on the paper form either.
+  const [draftServices, setDraftServices] = useState<Record<ServiceField, boolean | null>>({
+    oral_screening: null, oral_prophylaxis: null, fluoride_varnish: null, oral_hygiene_instruction: null,
+  });
+  const [draftVisitDate, setDraftVisitDate] = useState('');
+  const [draftChartDate, setDraftChartDate] = useState('');
+  const [othersOralOpen, setOthersOralOpen] = useState(false);
 
   useEffect(() => {
     if (!currentYearData) {
@@ -331,6 +393,9 @@ export const DentalChart = () => {
       setDraftMed(emptyMed());
       setDraftDiet(emptyDiet());
       setDraftOral(emptyOral());
+      setDraftServices({ oral_screening: null, oral_prophylaxis: null, fluoride_varnish: null, oral_hygiene_instruction: null });
+      setDraftVisitDate('');
+      setDraftChartDate('');
       setEditMode(false);
       return;
     }
@@ -353,6 +418,20 @@ export const DentalChart = () => {
       sugarSweetened: dh.sugar_beverages, alcoholDrinker: dh.alcohol_drinker, tobaccoUser: dh.tobacco_user,
       betelNut: dh.betel_nut_chewer, bodyPiercing: dh.body_piercing, nailBiting: dh.nail_biting, thumbsucking: dh.thumb_sucking,
     } : emptyDiet());
+
+    // The dates and services follow the SELECTED charting, not the year: a
+    // pupil charted twice has two visits, and showing the first visit's
+    // services beside the second's teeth would be a quiet lie.
+    const selectedChartRec = currentYearData.dentalChart;
+    const visit = selectedChartRec ? currentYearData.preventiveByChart[selectedChartRec._id] : undefined;
+    setDraftChartDate(selectedChartRec ? new Date(selectedChartRec.date_charted).toISOString().slice(0, 10) : '');
+    setDraftVisitDate(visit ? new Date(visit.visit_date).toISOString().slice(0, 10) : '');
+    setDraftServices({
+      oral_screening: visit?.oral_screening ?? null,
+      oral_prophylaxis: visit?.oral_prophylaxis ?? null,
+      fluoride_varnish: visit?.fluoride_varnish ?? null,
+      oral_hygiene_instruction: visit?.oral_hygiene_instruction ?? null,
+    });
 
     const oc = currentYearData.oralCondition;
     setDraftOral(oc ? {
@@ -412,6 +491,12 @@ export const DentalChart = () => {
   };
 
   const currentChart = draftChart;
+
+  // The RPC visit this charting is attached to, if any (Sprint 154). Absent for
+  // every charting made before Sprint 149 and any made from this screen.
+  const linkedVisitForCard = currentYearData?.dentalChart
+    ? currentYearData.preventiveByChart[currentYearData.dentalChart._id]
+    : undefined;
 
   // ── IPTR Section B + per-tooth treatment summary (Sprint 151) ───────────
   //
@@ -665,7 +750,30 @@ export const DentalChart = () => {
         ? apiClient.put(`/oral-health-conditions/${currentYearData.oralCondition._id}`, oralBody)
         : apiClient.post('/oral-health-conditions', oralBody);
 
-      await Promise.all([...toothWrites, medWrite, dietWrite, oralWrite]);
+      // ── The visit's services and the two dates (Sprint 154) ─────────────
+      // ⚠ Written to the LINKED RPC visit only. If this charting is attached
+      // to no visit there is nowhere to record a service, and the card says so
+      // on screen rather than silently dropping the tick. Creating a visit
+      // from here is deliberately NOT done: an invented RPC visit changes the
+      // pupil's 1st/2nd application count on a return filed with the City
+      // Health Office.
+      const linkedVisit = currentYearData.dentalChart
+        ? currentYearData.preventiveByChart[currentYearData.dentalChart._id]
+        : undefined;
+      const extraWrites: Promise<unknown>[] = [];
+      if (linkedVisit) {
+        extraWrites.push(apiClient.put(`/preventive-care-records/${linkedVisit._id}`, {
+          ...draftServices,
+          ...(draftVisitDate ? { visit_date: draftVisitDate } : {}),
+        }));
+      }
+      const savedChartId = currentYearData.dentalChart?._id;
+      if (savedChartId && draftChartDate
+          && draftChartDate !== new Date(currentYearData.dentalChart!.date_charted).toISOString().slice(0, 10)) {
+        extraWrites.push(apiClient.put(`/dental-charts/${savedChartId}`, { date_charted: draftChartDate }));
+      }
+
+      await Promise.all([...toothWrites, medWrite, dietWrite, oralWrite, ...extraWrites]);
       await reload();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -1579,6 +1687,99 @@ export const DentalChart = () => {
                 answered "is it present?"; a per-tooth treatment is only
                 meaningful WITH the teeth it was done to, which a count alone
                 never says. */}
+            {/* ── ORAL CONDITIONS / TREATMENTS GIVEN (Sprint 154) ──────────
+                Card, columns, chips, inline dates and the Others expander are
+                the collaborator's, from `majorUpdates`, and it opens the tab
+                because that is where she put it: a screening records the mouth
+                before it reaches for a tooth code.
+
+                ⚠ DELIBERATELY OUTSIDE the blue palette card, which is gated on
+                `editingChart` (dentist only, because teeth are). Folding these
+                in would silently take the oral-condition boxes away from the
+                dental aide, who has always been able to edit them. Conditions
+                follow `editingHistory` (dentist + aide); services follow
+                `editingChart`.
+
+                Her storage is the one thing not copied: she added these to
+                DENTAL_CHART, ours live on ORAL_HEALTH_CONDITION and on the RPC
+                visit's PREVENTIVE_CARE_RECORD (Sprint 147), which is what the
+                Target Client List and the DOH return read. */}
+            <div className="bg-card rounded-xl border border-border p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className={editingHistory ? '' : 'opacity-60 pointer-events-none select-none'}>
+                <div className="flex flex-wrap items-center gap-3 mb-2">
+                  <div className="text-sm font-bold text-primary uppercase tracking-wide">Oral Conditions</div>
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    Date examined
+                    <input type="date" value={draftChartDate} disabled={!currentYearData?.dentalChart}
+                      onChange={(e) => setDraftChartDate(e.target.value)}
+                      title={currentYearData?.dentalChart ? undefined : 'No charting recorded for this school year yet'}
+                      className="border border-border rounded px-2 py-1 text-xs bg-card text-foreground disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-ring" />
+                  </label>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-2">
+                  {oralConditionChips.map(({ label, field }) => (
+                    <label key={field}
+                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs cursor-pointer transition-colors ${draftOral[field] ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-blue-200 text-foreground hover:bg-canvas'}`}>
+                      <input type="checkbox" checked={!!draftOral[field]}
+                        onChange={(e) => setDraftOral((prev) => ({ ...prev, [field]: e.target.checked }))}
+                        className="w-4 h-4 rounded accent-primary" />
+                      {label}
+                    </label>
+                  ))}
+                  <button type="button" onClick={() => setOthersOralOpen((v) => !v)}
+                    className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs text-left transition-colors ${othersOralOpen || draftOral.others ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-blue-200 text-foreground hover:bg-canvas'}`}>
+                    <span className={`w-4 h-4 rounded border shrink-0 flex items-center justify-center ${othersOralOpen || draftOral.others ? 'bg-primary border-primary' : 'border-gray-600'}`}>
+                      {(othersOralOpen || draftOral.others) && <Check className="w-3 h-3 text-white" />}
+                    </span>
+                    Others
+                  </button>
+                </div>
+                {othersOralOpen && (
+                  <div className="mt-3 rounded-lg bg-canvas p-3">
+                    <label className="block text-xs font-bold text-foreground mb-1">Specify Other</label>
+                    <input type="text" value={draftOral.others}
+                      onChange={(e) => setDraftOral((prev) => ({ ...prev, others: e.target.value }))}
+                      placeholder="Specify other oral condition…"
+                      className="w-full text-xs border border-border rounded px-2 py-1.5 bg-card focus:outline-none focus:ring-1 focus:ring-ring" />
+                  </div>
+                )}
+              </div>
+
+              <div className={`border-t border-border pt-4 lg:border-t-0 lg:pt-0 lg:border-l lg:border-border lg:pl-4 ${editingChart && linkedVisitForCard ? '' : 'opacity-60 pointer-events-none select-none'}`}>
+                <div className="flex flex-wrap items-center gap-3 mb-2">
+                  <div className="text-sm font-bold text-primary uppercase tracking-wide">Treatments Given</div>
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    Date treated
+                    <input type="date" value={draftVisitDate} disabled={!linkedVisitForCard}
+                      onChange={(e) => setDraftVisitDate(e.target.value)}
+                      className="border border-border rounded px-2 py-1 text-xs bg-card text-foreground disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-ring" />
+                  </label>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-2">
+                  {serviceChips.map(({ label, field }) => (
+                    <label key={field}
+                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs cursor-pointer transition-colors ${draftServices[field] ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-blue-200 text-foreground hover:bg-canvas'}`}>
+                      {/* Unticking writes null, not false — see the state above. */}
+                      <input type="checkbox" checked={draftServices[field] === true}
+                        onChange={(e) => setDraftServices((prev) => ({ ...prev, [field]: e.target.checked ? true : null }))}
+                        className="w-4 h-4 rounded accent-primary" />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* ⚠ Said plainly on screen rather than left as a card that looks
+                editable and saves nothing. A charting made from this screen is
+                attached to no RPC visit, and the services belong to the visit. */}
+            {!linkedVisitForCard && (
+              <p className="text-xs text-muted-foreground -mt-2">
+                Treatments Given is read-only here: this charting is not attached to an RPC visit, and a service is
+                recorded against the visit. Record it under <strong>RPC Tracking → Record Visit</strong>.
+              </p>
+            )}
+
             {/* ⚠ Hidden in charting mode. These are READ-OUTS — they are read
                 after the mouth is charted, and two full tables between the
                 header and the teeth defeats the point of the mode. The compact
