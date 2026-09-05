@@ -156,6 +156,14 @@ input::-ms-clear {
     visibility: visible !important;
   }
 
+  /* Explanatory text that lives INSIDE a printable root because it belongs
+     beside the form on screen, but is not on the paper form and must not
+     reach it (Sprint 133). Use this rather than moving such notes out of
+     the root — on screen they belong with the table they describe. */
+  .print-hide {
+    display: none !important;
+  }
+
   .form-print {
     position: absolute !important;
     left: 0 !important;

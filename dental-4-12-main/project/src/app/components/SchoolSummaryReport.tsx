@@ -232,7 +232,13 @@ export function SchoolSummaryReport({ schoolName, schoolYear }: Props) {
         {/* Every claim the table makes, and every one it declines to make.
             Inside the printable region deliberately: a filed copy that shows
             "—" without saying why invites someone to read it as zero. */}
-        <div className="mt-3 space-y-1 text-[11px] leading-relaxed text-muted-foreground">
+        {/* ⚠ `print-hide` (Sprint 133): these notes explain the SYSTEM to a
+            reader on screen — why a cell reads "—", why there is no (m)
+            row — and none of them is printed on the paper sheet. They sit
+            inside the printable root because they belong beside the table
+            on screen, so print has to drop them explicitly. The sheet filed
+            with the City Health Office must look like the official form. */}
+        <div className="print-hide mt-3 space-y-1 text-[11px] leading-relaxed text-muted-foreground">
           <p>
             <span className="font-semibold">MALE / FEMALE</span> count students; each{' '}
             <span className="font-semibold">TOTAL</span> counts teeth.{' '}
