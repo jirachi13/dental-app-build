@@ -1,4 +1,5 @@
 import { Router } from "express";
+import mongoose from "mongoose";
 import { getHealth } from "../controllers/healthController.js";
 import { validateStudentValues } from "../../shared/studentValidation.js";
 import { createUser, resetPassword, sendResetLink, initiateTwofa, confirmTwofa, disableTwofa } from "../controllers/userController.js";
@@ -555,9 +556,70 @@ router.get("/stats/risk-candidates", requireAuth, asyncHandler(async (req, res) 
       validated_by_dentist: r.validated_by_dentist ?? false,
       validated_at: r.validated_at ? new Date(r.validated_at).toISOString() : null,
     })),
+    // Sprint 144 — the LIST carries only the last two assessments per pupil.
+    // The badge reads the latest and the trend compares the last two; nothing
+    // on the list reads further back. `history` is the one field here that
+    // grows with TIME as well as roll size, so leaving it unbounded meant the
+    // response grew every school year even if the roll never changed. The
+    // detail panel fetches the full history from /stats/risk-history.
+    historyLimit: 2,
   });
 
   res.json(rows);
+}));
+
+// Sprint 144 — one pupil's FULL assessment history, for the detail panel.
+// Deliberately its own endpoint rather than a bigger list row: it is read when
+// a dentist opens one pupil, which is once per selection, not once per page.
+router.get("/stats/risk-history", requireAuth, asyncHandler(async (req, res) => {
+  const studentId = typeof req.query.student_id === "string" ? req.query.student_id : "";
+  if (!mongoose.isValidObjectId(studentId)) {
+    res.status(400).json({ error: "Invalid student_id" });
+    return;
+  }
+  // ⚠ The same school gate as the list. Without it this endpoint would hand a
+  // pinned school_admin any pupil's clinical history by id — the exact hole
+  // Sprint 101 closed on the read paths.
+  const scope = await scopeFilter("Student", req);
+  const student = await Student.findOne(
+    scope ? { _id: studentId, isArchived: false, ...scope } : { _id: studentId, isArchived: false },
+  ).select("_id").lean();
+  if (!student) {
+    res.status(404).json({ error: "Student not found" });
+    return;
+  }
+
+  const active = { isArchived: false };
+  const iptrs = await StudentIptr.find({ ...active, student_id: studentId }).select("_id school_year").lean();
+  const iptrIds = (iptrs as any[]).map((i) => i._id);
+  const preventives = await PreventiveCareRecord.find({ ...active, iptr_id: { $in: iptrIds } })
+    .select("_id visit_date")
+    .lean();
+  const risks = await RiskStratification.find({
+    ...active,
+    preventive_id: { $in: (preventives as any[]).map((p) => p._id) },
+  }).lean();
+
+  // ⚠ TO ISO FIRST. `.lean()` returns `visit_date` as a Date, and
+  // `String(date).slice(0, 10)` yields "Sun Aug 09", not "2026-08-09" — the
+  // detail panel would then print a different date format from the list for
+  // the same assessment. Caught by reading the endpoint's output.
+  const visitDateById = new Map(
+    (preventives as any[]).map((p) => [String(p._id), p.visit_date ? new Date(p.visit_date).toISOString() : ""]),
+  );
+  const history = (risks as any[])
+    .map((r) => ({
+      id: String(r._id),
+      riskLevel: r.risk_level,
+      recommendation: r.recommendation ?? "",
+      dmfScore: Number(r.dmf_score ?? 0),
+      validated: r.validated_by_dentist ?? false,
+      validatedAt: r.validated_at ? new Date(r.validated_at).toISOString() : null,
+      visitDate: String(visitDateById.get(String(r.preventive_id)) ?? "").slice(0, 10),
+    }))
+    .sort((a, b) => a.visitDate.localeCompare(b.visitDate));
+
+  res.json(history);
 }));
 
 router.get("/stats/doh-report", requireAuth, asyncHandler(async (req, res) => {

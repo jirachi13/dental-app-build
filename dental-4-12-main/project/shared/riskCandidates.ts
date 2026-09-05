@@ -97,7 +97,11 @@ export interface RiskCandidate {
   /** Risk assessments attach to an RPC visit per the ERD (preventive_id FK);
    *  null means the pupil has no RPC visit yet, so nothing to attach to. */
   latestPreventiveId: string | null;
+  /** Trimmed to `historyLimit` when the caller asks for it — see that field. */
   history: RiskHistoryEntry[];
+  /** How many assessments the pupil actually has, whatever `history` carries.
+   *  The detail panel needs to know a trimmed list is trimmed. */
+  historyCount: number;
 }
 
 export interface RiskCandidatesInput {
@@ -113,6 +117,18 @@ export interface RiskCandidatesInput {
   /** "Now" for the age calculation. Passed in rather than read from the clock
    *  so a caller can reproduce a result; defaults to the current time. */
   now?: number;
+  /** Keep only the LAST n assessments per pupil, and report the true count in
+   *  `historyCount`.
+   *
+   *  ⚠ WHY THIS EXISTS: `history` is the only field on this row that grows with
+   *  TIME as well as with roll size — a pupil followed K to G10 accumulates
+   *  assessments forever, so the list response would grow every school year
+   *  even if the roll never changed. The LIST only ever reads the last two (the
+   *  badge reads the latest, the trend compares the last two); the full history
+   *  belongs to the detail panel, which fetches it per pupil.
+   *
+   *  Undefined means "no limit" — the per-pupil endpoint passes nothing. */
+  historyLimit?: number;
 }
 
 function calcAge(birthday: string, now: number): number {
@@ -198,6 +214,7 @@ export function buildRiskCandidates(input: RiskCandidatesInput): RiskCandidate[]
     );
 
     const b = (v: boolean | undefined): 0 | 1 => (v ? 1 : 0);
+    const limit = input.historyLimit;
     return {
       id: s._id,
       name: surnameFirst(s),
@@ -225,7 +242,8 @@ export function buildRiskCandidates(input: RiskCandidatesInput): RiskCandidate[]
       latestPreventiveId: studentPreventives.length
         ? studentPreventives[studentPreventives.length - 1]._id
         : null,
-      history,
+      history: limit === undefined ? history : history.slice(-limit),
+      historyCount: history.length,
     };
   });
 

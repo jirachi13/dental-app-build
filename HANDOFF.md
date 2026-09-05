@@ -283,6 +283,19 @@ Chosen over server-side filters because filters do not scale: at 8,000 pupils th
 2. **The SERVER still reads whole collections** to build every aggregate. A `$lookup` pipeline is the answer if server memory becomes the constraint; **nothing measured says it is yet** — the demo is 26 pupils.
 3. Six aggregates now share one shape and one gate (`scopeFilter`), so paging or pipelining them is a repeat of the same change, not six different ones.
 
+## Sprint 144 (the one row field that grew with TIME is now bounded) - DONE 2026-09-05, tsc + build clean, verified in the browser.
+**⚠ THIS IS NOT THE PAGING SPRINT, AND THAT IS DELIBERATE.** Measured first: `risk-candidates` is **673 B/row** and `rpc-rows` **685 B/row** — about **5.4 MB each at 8,000 pupils**. Real, but an order of magnitude below the 32 MB the reports were.
+
+**Why paging was NOT built:** both pages filter the WHOLE population client-side — Risk has search + grade + section + risk level + gender + age group + priority sort + bulk "Assess Selected"; RPC has search + grade + section + gender + age group + outstanding-only + treatment. **Paging the query without moving all of those server-side produces filters that only filter the current page** — a control that appears to work and does not, which CLAUDE.md forbids outright. That is its own sprint per page, and it needs the bulk-select semantics decided first (does "Assess Selected" mean the page or the filtered set?).
+
+**What WAS done, because it is correct on its own merits:**
+- **`history` is bounded to the last TWO entries on the list** (`historyLimit`), with the true `historyCount` alongside. **It is the ONLY row field that grows with TIME as well as roll size** — a pupil followed K to G10 accumulates assessments forever, so the response grew every school year even if the roll never changed. The list only ever reads the latest (badge) and the last two (trend).
+- **New `GET /stats/risk-history?student_id=`** for the detail panel — read once per selection, not once per page. **It carries the same `scopeFilter` gate**; without it a pinned `school_admin` could pull any pupil's clinical history by id, which is exactly the hole Sprint 101 closed on the read paths. Unknown or out-of-scope id → 404.
+- ⚠ **A format bug caught by reading the endpoint's own output:** `.lean()` returns `visit_date` as a Date, so `String(date).slice(0,10)` produced **"Sun Aug 09"** instead of `2026-08-09` — the detail panel would have printed a different date format from the list for the same assessment. Converted to ISO first.
+- **Verified in the browser:** selecting a pupil shows Risk History `High · Visit: 2026-08-28 · DMF 5 · Not validated`, fetched per pupil, correctly formatted.
+
+**#24 remaining, unchanged and honest:** paging the two list endpoints (with their filters moved server-side), and the server still reading whole collections to build each aggregate. **Nothing measured says either is hurting yet at 26 pupils.**
+
 ## Open work (each needs approval; sprint loop applies)
 
 61. **~~THERE ARE TWO IPTR VERSIONS AND BOTH ARE VALID~~ — BUILT 2026-09-05 as Sprint 137.** Both forms are offered; the PDF button is now a choice. ⚠ The photo of Form 1 is NOT in the repo (real patient data - see that sprint). Original note:

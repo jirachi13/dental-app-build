@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { apiClient, ApiError } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { useRiskClassification, type RiskCandidate } from '../hooks/useRiskClassification';
+import { useRiskClassification, type RiskCandidate, type RiskHistoryEntry } from '../hooks/useRiskClassification';
 import { calculateAge, getAgeGroup, AGE_GROUPS } from '../utils/age';
 import { SkeletonStatGrid, SkeletonTable } from './Skeleton';
 import { Notice } from './Notice';
@@ -186,8 +186,34 @@ export const AIAnalytics = () => {
     return counts;
   }, [candidates]);
 
-  const selected: RiskCandidate | null =
+  const selectedRow: RiskCandidate | null =
     candidates.find((c) => c.id === selectedId) ?? null;
+
+  // ⚠ Sprint 144 — the LIST carries only the last two assessments per pupil
+  // (that is all the badge and the trend read), because `history` is the one
+  // row field that grows with TIME as well as roll size. The full history is
+  // fetched here, once per selection, so the panel below still shows every
+  // past assessment.
+  const [fullHistory, setFullHistory] = useState<RiskHistoryEntry[] | null>(null);
+  useEffect(() => {
+    if (!selectedId) { setFullHistory(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await apiClient.get<RiskHistoryEntry[]>(`/stats/risk-history?student_id=${selectedId}`);
+        if (!cancelled) setFullHistory(rows);
+      } catch {
+        // Fall back to the two entries already on the row rather than showing
+        // an empty history, which would read as "never assessed".
+        if (!cancelled) setFullHistory(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedId]);
+
+  const selected: RiskCandidate | null = selectedRow
+    ? { ...selectedRow, history: fullHistory ?? selectedRow.history }
+    : null;
 
   const selectStudent = (id: string) => {
     setSelectedId(id);
