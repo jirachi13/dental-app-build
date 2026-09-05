@@ -308,6 +308,27 @@ The paging sprint Sprint 144 deliberately did not attempt. **~5.4 MB at 8,000 pu
 - **Verified at the endpoint AND on screen:** Annex A → 6 rows / total 6, tiles High 2 · Medium 2 · Low 1 · Unassessed 1 (unchanged from before the sprint), grade options only Annex A's three grades; `risk=High` → 2 rows, total 2, the right two pupils; `limit=2&offset=2` → 2 rows with **total 26**, so the pager knows the true size. The pager hides itself below one page.
 - **Left in #24:** the same treatment for `rpc-rows` (seven filters of its own), and the server still reading whole collections per aggregate.
 
+## Sprint 146 (RPC Tracking filtered and paged on the server) - DONE 2026-09-05, tsc + build clean, verified in the browser and at the endpoint. **BOTH list screens are now paged.**
+A repeat of Sprint 145 on the second list: **~5.5 MB at 8,000 pupils → one page of 25 rows.**
+
+- **All seven filters moved together, plus the school context:** search · grade · section · gender · age group · status (`outstanding` is the resting value, not `all`) · treatment code. Any one left behind would have filtered only the visible page.
+- **`total`, `schoolTotal` and `sectionOptions` are computed over the POPULATION.** The pager's *"1-6 of 6"* and its *"(filtered from N)"* have to describe the roll, and the section dropdown narrows to the chosen grade over the whole school, not the page — verified: `grade=Grade 6` returns `sections: ["Topaz"]`.
+- **`usePagination` is gone from this screen**; the same page-size behaviour (changing 25 → 50 keeps you near the same records) is reimplemented against the server's totals so the control keeps working identically.
+- **⚠ A THIRD COPY OF THE DOH AGE BRACKETS DELETED.** `RPCTracking.tsx` had its own private `calculateAge`/`getAgeGroup` — `shared/age.ts` says in its own header that a second copy is how two screens disagree about a 9-year-old, and this was the third. The filter that used them runs on the server now.
+- **Verified at the endpoint:** Annex A → 6 rows / total 6 / schoolTotal 6, sections `Dahlia, Garnet, Topaz`; `grade=Grade 6` → 2 rows, sections narrowed to `Topaz`; `status=all` → 25 rows of **total 26** (page 1); `limit=2&offset=2` → 2 rows, total 26; `status=complete` → 1 pupil. **On screen the page is unchanged**: the same six pupils, `1-6 of 6 records`, items-per-page 25.
+
+### #24 — CLOSED for the client. Six aggregates, two paged lists.
+| Screen | Before | After |
+|---|---|---|
+| DOH Consolidated | 11 collections, ~108 KB | 12.2 KB, **flat** |
+| Risk Classification | 9, ~95 KB | one page of 50, **~34 KB** |
+| RPC Tracking | 6, ~72 KB | one page of 25, **~17 KB** |
+| School Summary | 6, ~72 KB | 483 B, **flat** |
+| FHSIS | 4, ~35 KB | 2.9 KB, **flat** |
+| Reports panels | 5, ~50 KB | 1.4 KB |
+
+**The one honest caveat left:** the SERVER still reads whole collections to build each aggregate. Nothing measured says that hurts at 26 pupils; a `$lookup` pipeline is the answer when it does. That is the only #24 item still open.
+
 ## Open work (each needs approval; sprint loop applies)
 
 61. **~~THERE ARE TWO IPTR VERSIONS AND BOTH ARE VALID~~ — BUILT 2026-09-05 as Sprint 137.** Both forms are offered; the PDF button is now a choice. ⚠ The photo of Form 1 is NOT in the repo (real patient data - see that sprint). Original note:

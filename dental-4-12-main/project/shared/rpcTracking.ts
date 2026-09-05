@@ -285,3 +285,76 @@ const rows: RPCRow[] = students.map((s) => {
   rows.sort((a, b) => a.studentName.localeCompare(b.studentName));
   return rows;
 }
+
+// ─── Filtering and paging (Sprint 146) ─────────────────────────────────────
+//
+// The same move as Sprint 145 made on Risk Classification, for the same
+// reason: this page filtered the whole population in the browser, so the
+// endpoint had to send every pupil (685 B/row, ~5.5 MB at 8,000). Paging the
+// query while any filter stayed client-side would have filtered only the
+// visible page.
+
+import { getAgeGroup, calculateAge } from './age.js';
+
+export interface RpcListQuery {
+  q?: string;
+  /** The school context — client-side scoping here would make the page count
+   *  describe a roll the user is not looking at. */
+  school?: string;
+  grade?: string;
+  section?: string;
+  gender?: string;
+  ageGroup?: string;
+  /** 'outstanding' (the resting value) hides completed pairs; 'all' shows
+   *  everything; anything else matches RPCRow.status exactly. */
+  status?: string;
+  /** A TOOTH_RECORD treatment code the pupil has had at some point. */
+  treatment?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface RpcListPage {
+  rows: RPCRow[];
+  /** Rows matching the filters, before paging — the "of N" in the pager. */
+  total: number;
+  /** Rows in the school context before any other filter, for the pager's
+   *  "(filtered from N)" note. */
+  schoolTotal: number;
+  /** Sections present in the school context, narrowed to the chosen grade —
+   *  computed over the POPULATION, never the page, or the dropdown would hide
+   *  the section you need to pick next. */
+  sectionOptions: string[];
+}
+
+export function filterRpcRows(all: RPCRow[], query: RpcListQuery): RpcListPage {
+  const inSchool = query.school ? all.filter((r) => r.school === query.school) : all;
+  const q = (query.q ?? '').toLowerCase();
+
+  const rows = inSchool.filter((r) => {
+    if (query.grade && query.grade !== 'all' && r.grade !== query.grade) return false;
+    if (query.section && query.section !== 'all' && r.section !== query.section) return false;
+    if (query.gender && query.gender !== 'all' && r.gender !== query.gender) return false;
+    if (query.ageGroup && query.ageGroup !== 'all' && getAgeGroup(calculateAge(r.birthdate)) !== query.ageGroup) return false;
+    if (query.status === 'outstanding') {
+      if (r.status === 'complete') return false;
+    } else if (query.status && query.status !== 'all' && r.status !== query.status) {
+      return false;
+    }
+    if (query.treatment && query.treatment !== 'all' && !r.treatmentCodes.includes(query.treatment)) return false;
+    if (q && !r.studentName.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  const offset = Math.max(0, query.offset ?? 0);
+  const limit = query.limit && query.limit > 0 ? query.limit : rows.length;
+
+  return {
+    rows: rows.slice(offset, offset + limit),
+    total: rows.length,
+    schoolTotal: inSchool.length,
+    sectionOptions: [...new Set(
+      inSchool.filter((r) => !query.grade || query.grade === 'all' || r.grade === query.grade).map((r) => r.section),
+    )].filter(Boolean).sort(),
+  };
+}

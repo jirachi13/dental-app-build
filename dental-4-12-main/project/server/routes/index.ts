@@ -12,7 +12,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import { ADMIN_ONLY, CLINICAL_WRITE_ROLES } from "../middleware/roleGroups.js";
 import { aggregateDohReport } from "../../shared/dohAggregate.js";
 import { buildRiskCandidates, filterRiskCandidates } from "../../shared/riskCandidates.js";
-import { buildRpcRows } from "../../shared/rpcTracking.js";
+import { buildRpcRows, filterRpcRows } from "../../shared/rpcTracking.js";
 import { buildSchoolSummary } from "../../shared/schoolSummary.js";
 import { buildFhsisCounts } from "../../shared/fhsis.js";
 import { buildReportsPanels } from "../../shared/reportsPanels.js";
@@ -502,7 +502,23 @@ router.get("/stats/rpc-rows", requireAuth, asyncHandler(async (req, res) => {
     })),
   });
 
-  res.json(rows);
+  // Sprint 146 — filter and PAGE here, the same move Sprint 145 made on the
+  // risk list. ⚠ `sectionOptions` and both totals are computed over the
+  // population, never the page.
+  const page = filterRpcRows(rows, {
+    q: typeof req.query.q === "string" ? req.query.q : "",
+    school: typeof req.query.school === "string" && req.query.school ? req.query.school : "",
+    grade: typeof req.query.grade === "string" ? req.query.grade : "all",
+    section: typeof req.query.section === "string" ? req.query.section : "all",
+    gender: typeof req.query.gender === "string" ? req.query.gender : "all",
+    ageGroup: typeof req.query.age_group === "string" ? req.query.age_group : "all",
+    status: typeof req.query.status === "string" ? req.query.status : "outstanding",
+    treatment: typeof req.query.treatment === "string" ? req.query.treatment : "all",
+    limit: Number(req.query.limit) > 0 ? Number(req.query.limit) : 25,
+    offset: Number(req.query.offset) > 0 ? Number(req.query.offset) : 0,
+  });
+
+  res.json(page);
 }));
 
 router.get("/stats/risk-candidates", requireAuth, asyncHandler(async (req, res) => {

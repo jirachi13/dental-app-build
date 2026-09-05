@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { Search, Plus, X, CheckCircle, AlertCircle, Clock, Shield, School as SchoolIcon, List, ChevronRight, Users } from 'lucide-react';
@@ -32,7 +32,6 @@ export const RPCTracking = () => {
   const { selectedSchool, user } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
-  const { records: rpcRecords, loading, error, reload } = useRPCTracking();
 
   // Recording a visit (Sprint 81). Until now PREVENTIVE_CARE_RECORD had NO
   // write path anywhere in the app — the two-visit RPC module could be read
@@ -106,44 +105,59 @@ export const RPCTracking = () => {
   const [statusFilter, setStatusFilter] = useState('outstanding');
   const [treatmentFilter, setTreatmentFilter] = useState('all');
 
-  const calculateAge = (birthdate: string) => {
-    const today = new Date();
-    const birth = new Date(birthdate);
-    let age = today.getFullYear() - birth.getFullYear();
-    const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-    return age;
+  // ── Sprint 146: FILTERED AND PAGED ON THE SERVER ────────────────────────
+  //
+  // ⚠ Every filter moved together, including the SCHOOL context. Paging the
+  // query while one stayed here would have filtered only the visible page —
+  // and a page count describing a roll the user is not looking at.
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const {
+    records: rpcRecords,
+    total,
+    schoolTotal,
+    sectionOptions,
+    loading,
+    error,
+    reload,
+  } = useRPCTracking({
+    q: searchTerm,
+    school: selectedSchool ?? undefined,
+    grade: gradeFilter,
+    section: sectionFilter,
+    gender: genderFilter,
+    ageGroup: ageGroupFilter,
+    status: statusFilter,
+    treatment: treatmentFilter,
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
+  });
+
+  // Back to page 1 on any filter change — a narrowed filter can otherwise
+  // leave the user on a page that no longer exists, looking at nothing.
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, selectedSchool, gradeFilter, sectionFilter, genderFilter, ageGroupFilter, statusFilter, treatmentFilter]);
+
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  // Changing page size keeps you near the same records rather than dumping you
+  // back to the top — the same rule usePagination applied.
+  const changePageSize = (next: number) => {
+    const firstRow = (page - 1) * pageSize;
+    setPageSize(next);
+    setPage(Math.floor(firstRow / next) + 1);
   };
 
-  const getAgeGroup = (age: number) => {
-    if (age <= 4) return '4 & below';
-    if (age <= 9) return '5-9';
-    if (age <= 14) return '10-14';
-    if (age <= 19) return '15-19';
-    return '20 & above';
-  };
+  // ⚠ The local `calculateAge`/`getAgeGroup` copies were deleted in Sprint 146.
+  // They were a THIRD copy of the DOH age brackets — `shared/age.ts` says in
+  // its own header that a second copy is how two screens disagree about a
+  // 9-year-old, and the filter that used them now runs on the server anyway.
 
-  const schoolRecords = selectedSchool
-    ? rpcRecords.filter(r => r.school === selectedSchool)
-    : rpcRecords;
 
-  const filtered = useMemo(() => schoolRecords.filter(r => {
-    const age = calculateAge(r.birthdate);
-    if (gradeFilter !== 'all' && r.grade !== gradeFilter) return false;
-    if (sectionFilter !== 'all' && r.section !== sectionFilter) return false;
-    if (genderFilter !== 'all' && r.gender !== genderFilter) return false;
-    if (ageGroupFilter !== 'all' && getAgeGroup(age) !== ageGroupFilter) return false;
-    if (statusFilter === 'outstanding') { if (r.status === 'complete') return false; }
-    else if (statusFilter !== 'all' && r.status !== statusFilter) return false;
-    if (treatmentFilter !== 'all' && !r.treatmentCodes.includes(treatmentFilter)) return false;
-    if (searchTerm && !r.studentName.toLowerCase().includes(searchTerm.toLowerCase())) return false;
-    return true;
-  }), [schoolRecords, gradeFilter, sectionFilter, genderFilter, ageGroupFilter, statusFilter, treatmentFilter, searchTerm]);
 
-  // Paged (Sprint 58): this list rendered EVERY filtered row, which is fine at
-  // demo scale and thousands of DOM rows at ~8,000 students. Reset keys are the
-  // filter inputs, never `filtered` — see Pagination.tsx.
-  const pager = usePagination(filtered, [gradeFilter, sectionFilter, genderFilter, ageGroupFilter, statusFilter, treatmentFilter, searchTerm]);
+  // Already filtered and paged by the server (Sprint 146).
+  const filtered = rpcRecords;
+
 
   // sectionFilter was missing from both of these — an active section filter
   // neither lit up "Clear All" nor got cleared by it.
@@ -199,7 +213,7 @@ export const RPCTracking = () => {
         </div>
         <div className="flex flex-wrap gap-2">
           <FS value={gradeFilter} onChange={g => { setGradeFilter(g); setSectionFilter('all'); }} label="All Grades" opts={GRADES.map(g=>({v:g,l:g}))} />
-          <FS value={sectionFilter} onChange={setSectionFilter} label="All Sections" opts={[...new Set((gradeFilter !== 'all' ? schoolRecords.filter(r => r.grade === gradeFilter) : schoolRecords).map(r => r.section))].sort().map(s => ({v:s,l:s}))} />
+          <FS value={sectionFilter} onChange={setSectionFilter} label="All Sections" opts={sectionOptions.map(sec => ({ v: sec, l: sec }))} />
           <FS value={genderFilter} onChange={setGenderFilter} label="All Genders" opts={[{v:'Male',l:'Male'},{v:'Female',l:'Female'}]} />
           <FS value={ageGroupFilter} onChange={setAgeGroupFilter} label="All Age Groups" opts={[{v:'4 & below',l:'4 & below'},{v:'5-9',l:'5-9'},{v:'10-14',l:'10-14'},{v:'15-19',l:'15-19'},{v:'20 & above',l:'20 & above'}]} />
           {/* 'outstanding' is listed first and is the default — FS renders its
@@ -225,7 +239,7 @@ export const RPCTracking = () => {
             <tbody className="divide-y divide-gray-100">
               {filtered.length === 0 ? (
                 <tr><td colSpan={canRecord ? 8 : 7} className="text-center py-12 text-muted-foreground">{hasActiveFilters ? <>No records match your filters. <button onClick={clearFilters} className="text-primary hover:underline font-medium">Clear filters</button></> : 'No RPC records for this school yet.'}</td></tr>
-              ) : pager.paged.map(r => {
+              ) : filtered.map(r => {
                 const sc = statusConfig[r.status] || statusConfig['not-started'];
                 const gc = getGradeColor(r.grade);
                 return (
@@ -279,11 +293,16 @@ export const RPCTracking = () => {
         </div>
         <div className="px-4 py-3 border-t border-gray-100 text-sm text-muted-foreground">
           <Pagination
-            {...pager}
-            onPage={pager.setPage}
-            onPageSize={pager.changePageSize}
+            page={page}
+            pageCount={pageCount}
+            pageSize={pageSize}
+            from={total === 0 ? 0 : (page - 1) * pageSize + 1}
+            to={Math.min(page * pageSize, total)}
+            total={total}
+            onPage={setPage}
+            onPageSize={changePageSize}
             noun="records"
-            detail={filtered.length !== schoolRecords.length ? `(filtered from ${schoolRecords.length})` : ''}
+            detail={total !== schoolTotal ? `(filtered from ${schoolTotal})` : ''}
           />
         </div>
       </div>
