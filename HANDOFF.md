@@ -10,44 +10,48 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ▶ RESUME HERE — PARKED 2026-09-05 (8th session), everything pushed at `e4e05679`
-Tree clean apart from the two untracked root strays (`package.json`, `package-lock.json`), which predate this session. **Twenty sprints shipped (127-146), every one verified in the browser or at the endpoint.** Per-sprint detail is in the sections below.
+## ▶ RESUME HERE — PARKED 2026-09-05 (8th session), everything pushed at `bb2965ad`
+Tree clean apart from the two untracked root strays (`package.json`, `package-lock.json`), which predate this session. **Twenty-four sprints shipped (127-150)**, every one verified in the browser or at the endpoint.
 
 | # | Theme | The bit worth remembering |
 |---|---|---|
-| 127, 129 | REFERRAL model + review | Five DOH rows had no source. **`purge:demo` now REFUSES unless every model is planned or excluded with a reason.** |
-| 128, 130 | Reports opened on empty periods | Two controls, same fault. **A report defaulting to an empty period reads as broken.** |
-| 130, 133 | Print by inclusion | The old CSS listed chrome to hide, so captions leaked onto DOH returns. Now everything is hidden except `.form-print`. |
-| 131, 132 | Day dialog + demo appointments | The dialog stacked because it was `max-w-md`. Seeding appointments then exposed a clipped card. |
+| 127, 129 | REFERRAL + review | Five DOH rows had no source. **`purge:demo` now REFUSES unless every model is planned or excluded with a reason.** |
+| 128, 130 | Reports opened on empty periods | Two controls, same fault. A report defaulting to an empty period reads as broken. |
+| 130, 133 | Print by inclusion | The old CSS listed chrome to hide, so captions leaked onto DOH returns. |
+| 131, 132 | Day dialog + demo appointments | The dialog stacked because it was `max-w-md`; seeding appointments then exposed a clipped card. |
 | 134 | TCL filed as two sheets | **Both pages were in the manuscript all along.** The app was never short a column — the OUTPUT was one sheet. |
 | 135-137 | The IPTR forms | The PDF was a screenshot of the app. Now the real two-page form, **and Form 1 beside it — both are valid.** |
-| 138-143 | Reports moved server-side | ~382 KB of whole-collection reads → six aggregates, three of them **flat at any roll size**. |
-| 144-146 | The two list screens | `history` bounded, then **both lists filtered, sorted and PAGED on the server** — every filter moved together. |
+| 138-143 | Reports moved server-side | ~382 KB of whole-collection reads → six aggregates, three **flat at any roll size**. |
+| 144-146 | The two list screens | Bounded `history`, then **both lists filtered, sorted and PAGED server-side** — every filter moved together. |
+| 147 | A visit records its SERVICES | `PREVENTIVE_CARE_RECORD` had four fields and never said what was DONE. |
+| 148-150 | A charting belongs to a VISIT | The chart screen hid later chartings; now a charting states its visit and the report reads it. |
 
-### ⚠ THE TWO LESSONS OF THIS SESSION
-1. **The source was in the repo the whole time.** Three items were recorded as blocked on "the workbook is on the other laptop" or "we need a scan". All three were embedded as base64 PNGs in `docs/Group404 - Manuscript.md` (Appendices E, F, G). **Before recording something as blocked on a missing document, grep the manuscript.**
-2. **`tsc` and the build cannot see a broken screen.** A hook after an early return blanked a page; a card was clipped out of its container; a ten-column grid printed across the next page; and a matrix keyed by code was read by label, which `Record<string, …>` accepts silently. **Every one shipped a clean build and was caught by opening the browser.**
+### ⚠ THE THREE LESSONS OF THIS SESSION
+1. **The source was in the repo the whole time.** Three items were recorded as blocked on "the workbook is on the other laptop" or "we need a scan". All three were base64 PNGs in `docs/Group404 - Manuscript.md` (Appendices E, F, G). **Grep the manuscript before calling a form blocked.**
+2. **`tsc` and the build cannot see a broken screen.** A hook after an early return blanked a page; a card was clipped out of its container; a ten-column grid printed across the next page; a matrix keyed by code was read by label; a `useEffect` wiped a deep link twice. **Every one shipped a clean build and was caught by opening the browser.**
+3. **A refactor of a filed report is only done when the NUMBERS are diffed.** Sprint 150's first attempt moved `sdf_1st` 9 → 7 and `sdf_2nd` 0 → 2 on a document that goes to the City Health Office, and it compiled perfectly. **Capture the totals before, compare after — every time.**
 
 ### ▶ FIVE THINGS ONLY YOU CAN DO — each closes shipped work
-1. **Click `IPTR` and `Form 1`** on a pupil's record → closes Sprints 135-137. Producing a PDF means downloading, which I do not do.
-2. **Click `Excel` on the Target Client List** → confirm two sheets, `Page 1` and `Page 2` → closes Sprint 134 / #56.
-3. **Ctrl+P on the report tabs** → confirm the sheet is the form and nothing else → closes #57. Content is verified; only pagination, landscape and the `zoom: 0.45` need a real preview.
+1. **Click `IPTR` and `Form 1`** on a pupil's record → closes Sprints 135-137 (producing a PDF means downloading, which I do not do).
+2. **Click `Excel` on the Target Client List** → confirm two sheets, `Page 1` / `Page 2` → closes Sprint 134 / #56.
+3. **Ctrl+P on the report tabs** → confirm the sheet is the form and nothing else → closes #57. Only pagination, landscape and the `zoom: 0.45` still need a real preview.
 4. **`SEED_BHO_PASSWORD` is 7 chars in the production backup** — a re-seed there is refused by the Sprint 120 guard until it is lengthened.
-5. **The Chapter 3 ERD figure** — now owes five deviations (`school_ids[]`, `DAY_NOTE`, the name split, `REFERRAL`, the two IPTR forms' reading of the model). A redraw, not a patch.
+5. **The Chapter 3 ERD figure** — now owes **eight** deviations: `school_ids[]`, `DAY_NOTE`, the name split, `REFERRAL`, the two IPTR forms' reading, `PREVENTIVE_CARE_RECORD`'s services, and `DENTAL_CHART.preventive_id`. A redraw, not a patch.
 
 ### ⚠ READ BEFORE TOUCHING THE DATABASE
 - **`.env` points at DEV** (`cluster0.o7e3c5o`). Production is `floral-cluster.edqpjtu` and lives **only in Vercel**.
-- **`.env.production.bak-20260904-222928`** holds the old config. **Restore the WHOLE FILE, never one line** — the two databases have different `FIELD_ENCRYPTION_SECRET`s.
-- Every script prints its target (`announceTarget.ts`). ⚠ Call it **after** `connectDB()`; before it, it prints `(unknown host)` and tells you nothing.
-- Dev holds demo appointments (`seed:appointments`), IPTR grades (`backfill:iptr-grades`), **0 TREATMENT rows** and 0 referrals.
+- **`.env.production.bak-20260904-222928`** holds the old config. **Restore the WHOLE FILE, never one line** — different `FIELD_ENCRYPTION_SECRET`s.
+- Every script prints its target (`announceTarget.ts`). ⚠ Call it **after** `connectDB()`, or it prints `(unknown host)` and tells you nothing.
+- **Dev test data left in place, all plausible:** Ivan has a Visit 1 with services (2026-03-15); Castillo has a Visit 2 (2026-04-20) with an **empty charting attached** — the only chart carrying a `preventive_id`. Dev also holds **0 TREATMENT rows** and 0 referrals.
 
 ### Next — everything scoped needs YOU or the dentist first
 1. **#55 structured treatment/condition dropdowns** — three questions for the dentist (per tooth or per visit? conditions without a tooth? chart click or number list?).
-2. **#59 the bulk-upload format** — the importer already exists; whose column set wins cannot be settled until a real roster file exists.
+2. **#59 the bulk-upload format** — the importer exists; whose column set wins cannot be settled without a real roster file.
 3. **#61 Form 1's eleven unmapped history questions** — the dentist decides which stored field, if any, answers each.
-4. **The only unblocked engineering item left is #24's last line:** the server still reads whole collections to build each aggregate. A `$lookup` pipeline is the answer **if** it ever hurts; nothing measured says it does at 26 pupils, so this is not urgent work.
+4. **#63's leftover question:** should PAST chartings be read-only? Editing follows the picker now, so an old charting can be edited. One-line change either way.
+5. **Only unblocked engineering item:** the server still reads whole collections to build each aggregate. A `$lookup` pipeline is the answer **if** it ever hurts — nothing measured says it does at 26 pupils.
 
-⚠ **Two dev servers may still be running from this session** (`npm run dev:server` on :4000, `npm run dev` on :5173). Kill them if the ports are wanted.
+⚠ **Two dev servers may still be running** (`dev:server` on :4000, `dev` on :5173). Kill them if the ports are wanted.
 
 
 ## ✅ SCHOOL SWITCHER — BOTH FINDINGS FIXED (was 'NOT FIXED', corrected by the 2026-09-04 hygiene pass)
