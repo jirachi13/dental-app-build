@@ -247,6 +247,28 @@ Chosen over server-side filters because filters do not scale: at 8,000 pupils th
 
 - **Left:** `useFhsisData` (4 reads), `Reports.tsx`'s own five, and paging the two row-per-pupil endpoints. ⚠ Also still true: **the SERVER reads whole collections** to build every one of these; a `$lookup` pipeline is the next step if server memory becomes the constraint.
 
+## Sprint 142 (FHSIS tallies on the server) - DONE 2026-09-05, tsc + build clean, verified end to end. **Every reporting hook is now server-side.**
+- **FOUR whole collections (~35 KB) → 2.9 KB**, most of which is the `schools` list the report's own dropdown needs. Output is COUNTS, so it is **flat**. New `GET /stats/fhsis?month=&school=`.
+- **Logic MOVED to `shared/fhsis.ts`.** The two rules that make this return honest are exactly the ones a copy would lose: the **"within a year"** qualifier on a completed 2nd visit, and **an unrecorded `facility_based` landing in `unrecorded` rather than being guessed into sub-row a or b**.
+- **Verified END TO END, not just at the endpoint:** set the form's Reporting month to August 2026 and the sheet rendered **Children 5-9 → M2 F4 total 6** and **Adolescents 10-19 → M2 F2 total 4**, matching `/stats/fhsis?month=2026-08` exactly.
+- ⚠ **A false alarm worth recording so it is not re-investigated:** the FHSIS tab shows zeros on first open because its **Reporting month defaults to the current month (September)**, and the seeded visits are in Aug/Jul/Apr/Feb. **That is NOT the Sprint 128/130 bug** — this form already discloses it, printing *"Visits recorded in: AUGUST 2026, JULY 2026, APRIL 2026, FEBRUARY 2026"* beside the picker. It is the honest-empty pattern working.
+- ⚠ **The FHSIS tab has its OWN month input**, separate from the page-level month/year dropdowns at top right. Changing the wrong one looks like the report ignoring you.
+
+### #24 — the client half is DONE (Sprints 138-142)
+
+| Hook | Before | After |
+|---|---|---|
+| `useDohReportData` | 11 collections, ~108 KB | 1 request, **12.2 KB — flat** |
+| `useRiskClassification` | 9, ~95 KB | 1, 16 KB (row per pupil) |
+| `useRPCTracking` | 6, ~72 KB | 1, 16.3 KB (row per pupil) |
+| `useSchoolSummary` | 6, ~72 KB | 1, **483 B — flat** |
+| `useFhsisData` | 4, ~35 KB | 1, **2.9 KB — flat** |
+
+**Still open in #24, and stated rather than buried:**
+1. **`Reports.tsx` fetches five whole collections of its own** (`treatments`, `tooth-records`, `dental-charts`, `student-iptrs`, `referrals`) for the Treatment Summary and Referral Tracking panels.
+2. **Two endpoints return a row per pupil** (`risk-candidates`, `rpc-rows`) and still grow with the roll — paging them is separate.
+3. **The SERVER still reads whole collections** to build every aggregate. A `$lookup` pipeline is the next step if server memory becomes the constraint; nothing measured says it is yet.
+
 ## Open work (each needs approval; sprint loop applies)
 
 61. **~~THERE ARE TWO IPTR VERSIONS AND BOTH ARE VALID~~ — BUILT 2026-09-05 as Sprint 137.** Both forms are offered; the PDF button is now a choice. ⚠ The photo of Form 1 is NOT in the repo (real patient data - see that sprint). Original note:

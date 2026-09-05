@@ -13,6 +13,7 @@ import { aggregateDohReport } from "../../shared/dohAggregate.js";
 import { buildRiskCandidates } from "../../shared/riskCandidates.js";
 import { buildRpcRows } from "../../shared/rpcTracking.js";
 import { buildSchoolSummary } from "../../shared/schoolSummary.js";
+import { buildFhsisCounts } from "../../shared/fhsis.js";
 import { findDuplicateStudents } from "../utils/studentDuplicates.js";
 import {
   School,
@@ -309,6 +310,51 @@ router.get("/stats/notifications", requireAuth, asyncHandler(async (req, res) =>
 // ⚠ `.lean()` is safe on Student here and would NOT be if this endpoint needed
 // a name: it reads only `sex` and `school_id`. A lean read of an encrypted
 // field returns `<iv>:<ciphertext>` silently with a 200 (Sprint 118).
+// Sprint 142 — the FHSIS monthly counts, tallied HERE instead of in the
+// browser (four whole collections before). Output is COUNTS, so the response
+// is flat. Same `scopeFilter` gate as the other aggregates.
+//
+// ⚠ `.lean()` is safe on Student: this reads only sex, birthday and school_id.
+// It would NOT be if the form ever needed a name (Sprint 118).
+//
+// ⚠ The `schools` list is returned to the client as well — the report's own
+// school dropdown is populated from it, and it was one of the four whole
+// collections this endpoint replaces.
+router.get("/stats/fhsis", requireAuth, asyncHandler(async (req, res) => {
+  const scope = await scopeFilter("Student", req);
+  const studentFilter = scope ? { isArchived: false, ...scope } : { isArchived: false };
+  const active = { isArchived: false };
+
+  const [students, iptrs, pcrs, schools] = await Promise.all([
+    Student.find(studentFilter).select("_id school_id sex birthday").lean(),
+    StudentIptr.find(active).select("_id student_id").lean(),
+    PreventiveCareRecord.find(active).select("iptr_id visit_date visit_number facility_based").lean(),
+    School.find(active).lean(),
+  ]);
+
+  const str = (v: unknown) => String(v ?? "");
+  const out = buildFhsisCounts({
+    students: (students as any[]).map((s) => ({
+      _id: str(s._id),
+      school_id: str(s.school_id),
+      sex: str(s.sex),
+      birthday: s.birthday ? new Date(s.birthday).toISOString() : "",
+    })),
+    iptrs: (iptrs as any[]).map((i) => ({ _id: str(i._id), student_id: str(i.student_id) })),
+    pcrs: (pcrs as any[]).map((p) => ({
+      iptr_id: str(p.iptr_id),
+      visit_date: p.visit_date ? new Date(p.visit_date).toISOString() : "",
+      visit_number: Number(p.visit_number ?? 0),
+      facility_based: p.facility_based ?? null,
+    })),
+    schools: (schools as any[]).map((s) => ({ _id: str(s._id), school_name: str(s.school_name) })),
+    month: typeof req.query.month === "string" ? req.query.month : "",
+    schoolName: typeof req.query.school === "string" ? req.query.school : "",
+  });
+
+  res.json({ ...out, schools });
+}));
+
 router.get("/stats/school-summary", requireAuth, asyncHandler(async (req, res) => {
   const scope = await scopeFilter("Student", req);
   const studentFilter = scope ? { isArchived: false, ...scope } : { isArchived: false };
