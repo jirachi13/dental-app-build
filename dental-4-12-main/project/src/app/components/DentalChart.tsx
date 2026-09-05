@@ -153,6 +153,15 @@ const oralConditionChips: { label: string; field: keyof OralDraft }[] = [
 // change and needs the dentist's word on what Consultation means for the
 // return. `oral_hygiene_instruction` is ours and hers has no chip for it.
 type ServiceField = 'oral_screening' | 'oral_prophylaxis' | 'fluoride_varnish' | 'oral_hygiene_instruction';
+// The three codes that describe the whole mouth, not a tooth. They have their
+// own rows in the Treatment Summary, above the per-tooth table — her split.
+//
+// ⚠ A code listed here still appears in the per-tooth table WHEN TEETH ARE
+// CHARTED WITH IT. The palette allows it, so filtering blindly would make a
+// charted FV vanish from the summary; a summary that hides a charted tooth is
+// worse than one row too many.
+const WHOLE_MOUTH_TREATMENT_CODES = ['OEX', 'FV', 'OP'];
+
 const serviceChips: { label: string; field: ServiceField }[] = [
   { label: 'Oral Examination', field: 'oral_screening' },
   { label: 'Fluoride Varnish', field: 'fluoride_varnish' },
@@ -518,6 +527,12 @@ export const DentalChart = () => {
   );
   const indicateNumberRows = useMemo(() => sectionBRows(chartedTeeth), [chartedTeeth]);
   const treatmentTeeth = useMemo(() => teethByTreatmentCode(chartedTeeth), [chartedTeeth]);
+  const perToothTreatmentRows = useMemo(
+    () => treatmentCodes.filter(
+      (t) => !WHOLE_MOUTH_TREATMENT_CODES.includes(t.code) || (treatmentTeeth[t.code]?.length ?? 0) > 0,
+    ),
+    [treatmentTeeth],
+  );
 
   // Whole-mouth findings. ⚠ Dental Caries is DERIVED from the teeth, never a
   // separate tick — caries is recorded tooth by tooth, and a second source for
@@ -1677,16 +1692,6 @@ export const DentalChart = () => {
               </div>
             )}
             <div className="p-4 space-y-4">
-            {/* ── DENTAL CONDITION / TREATMENT SUMMARY (Sprint 151) ──────────
-                Layout adopted from the collaborator's `majorUpdates` branch.
-                Bound to OUR data: the odontogram being edited, and the shared
-                Section B derivation the printed Form 1 also uses.
-
-                ⚠ Two tables because there are two kinds of answer — the
-                distinction is hers and it is right. A whole-mouth finding is
-                answered "is it present?"; a per-tooth treatment is only
-                meaningful WITH the teeth it was done to, which a count alone
-                never says. */}
             {/* ── ORAL CONDITIONS / TREATMENTS GIVEN (Sprint 154) ──────────
                 Card, columns, chips, inline dates and the Others expander are
                 the collaborator's, from `majorUpdates`, and it opens the tab
@@ -1780,99 +1785,6 @@ export const DentalChart = () => {
               </p>
             )}
 
-            {/* ⚠ Hidden in charting mode. These are READ-OUTS — they are read
-                after the mouth is charted, and two full tables between the
-                header and the teeth defeats the point of the mode. The compact
-                DMFT card below is deliberately KEPT: it is one row, and a
-                running DMFT is worth seeing while charting. */}
-            {!chartingMode && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="bg-teal-50/70 rounded-xl border border-teal-200 p-4 space-y-4">
-                <div className="text-xs font-semibold text-teal-800 uppercase tracking-wide">Dental Condition Summary</div>
-
-                <table className="w-full table-fixed border-collapse text-xs">
-                  <colgroup><col className="w-[63%]" /><col className="w-[37%]" /></colgroup>
-                  <tbody>
-                    {presentOralConditions.map(({ label, present }) => (
-                      <tr key={label}>
-                        <td className="border-b border-teal-200/70 px-2 py-1.5 text-foreground">{label}</td>
-                        <td className="border-b border-teal-200/70 px-2 py-1.5 font-semibold text-teal-800">
-                          {present ? 'Yes' : ''}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                {/* Section B of the paper IPTR, verbatim rows and order. Every
-                    figure is DERIVED from the teeth above — none of it is
-                    typed, so it cannot disagree with the odontogram. */}
-                <table className="w-full table-fixed border-collapse text-xs">
-                  <colgroup><col className="w-[45%]" /><col className="w-[18%]" /><col className="w-[37%]" /></colgroup>
-                  <thead>
-                    <tr className="text-left text-teal-800">
-                      <th className="border-b border-teal-200/70 px-2 py-1.5 font-semibold">Indicate Number</th>
-                      <th className="border-b border-teal-200/70 px-2 py-1.5 font-semibold">Tooth Count</th>
-                      <th className="border-b border-teal-200/70 px-2 py-1.5 font-semibold">Tooth Numbers</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {indicateNumberRows.map(({ label, teeth }) => (
-                      <tr key={label}>
-                        <td className="border-b border-teal-200/70 px-2 py-1.5 text-foreground">{label}</td>
-                        <td className="border-b border-teal-200/70 px-2 py-1.5 font-semibold text-foreground">
-                          {teeth.length ? teeth.length : ''}
-                        </td>
-                        <td className="border-b border-teal-200/70 px-2 py-1.5 font-mono text-foreground break-words">
-                          {teeth.join(', ')}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="bg-blue-50/70 rounded-xl border border-blue-200 p-4 space-y-4">
-                <div className="text-xs font-semibold text-primary uppercase tracking-wide">Treatment Summary</div>
-                <table className="w-full table-fixed border-collapse text-xs">
-                  <colgroup><col className="w-[45%]" /><col className="w-[18%]" /><col className="w-[37%]" /></colgroup>
-                  <thead>
-                    <tr className="text-left text-primary">
-                      <th className="border-b border-blue-200/70 px-2 py-1.5 font-semibold">Treatment</th>
-                      <th className="border-b border-blue-200/70 px-2 py-1.5 font-semibold">Tooth Count</th>
-                      <th className="border-b border-blue-200/70 px-2 py-1.5 font-semibold">Tooth Numbers</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {treatmentCodes.map((t) => {
-                      const teeth = treatmentTeeth[t.code] ?? [];
-                      return (
-                        <tr key={t.code}>
-                          <td className="border-b border-blue-200/70 px-2 py-1.5 text-foreground">
-                            <span className="font-semibold mr-1">{t.code}</span>
-                            {t.label}
-                          </td>
-                          <td className="border-b border-blue-200/70 px-2 py-1.5 font-semibold text-foreground">
-                            {teeth.length ? teeth.length : ''}
-                          </td>
-                          <td className="border-b border-blue-200/70 px-2 py-1.5 font-mono text-foreground break-words">
-                            {teeth.join(', ')}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                {/* ⚠ The collaborator's version also carried whole-mouth service
-                    rows here (oral examination, fluoride varnish, prophylaxis,
-                    consultation) backed by fields on DENTAL_CHART. They are NOT
-                    copied: Sprint 147 records those on PREVENTIVE_CARE_RECORD,
-                    against the visit, and the DOH report reads that. Two homes
-                    for "was fluoride varnish given" is how a filed return and a
-                    screen end up disagreeing. */}
-              </div>
-            </div>
-            )}
 
             {/* Sprint 148 — one row per charting recorded this school year.
                 Hidden when there is only one: a picker with a single option is
@@ -2088,6 +2000,155 @@ export const DentalChart = () => {
               </div>
             </div>
             )}
+            {/* ── SUMMARIES (Sprint 151, moved to the foot of the tab in 155) ──
+                Her page order, and it is the right one: these are READ-OUTS.
+                They are read after the mouth is charted, so they follow the
+                teeth instead of standing between the header and them.
+
+                ⚠ Two tables because there are two kinds of answer — the
+                distinction is hers. A whole-mouth finding is answered "is it
+                present?"; a per-tooth treatment is only meaningful WITH the
+                teeth it was done to, which a count alone never says.
+
+                Hidden in charting mode for the same reason: a read-out is not
+                a charting surface. */}
+            {!chartingMode && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="bg-teal-50/70 rounded-xl border border-teal-200 p-4 space-y-4">
+                <div className="text-xs font-semibold text-teal-800 uppercase tracking-wide">Dental Condition Summary</div>
+
+                <table className="w-full table-fixed border-collapse text-xs">
+                  <colgroup><col className="w-[63%]" /><col className="w-[37%]" /></colgroup>
+                  <tbody>
+                    <tr>
+                      <td className="border-b border-teal-200/70 px-2 py-1.5 text-foreground">Date of Oral Examination</td>
+                      <td className="border-b border-teal-200/70 px-2 py-1.5 font-semibold text-teal-800">
+                        {draftChartDate ? formatDate(draftChartDate) : ''}
+                      </td>
+                    </tr>
+                    {/* ⚠ BLANK ON PURPOSE, and it is her row, kept. "Orally Fit
+                        Child" is a DOH IPTR field with a clinical definition —
+                        caries-free or every caries treated, no debris, no gum
+                        pathology — and the last of those is a judgement no
+                        field of ours records. Deriving it from the teeth would
+                        publish a clinical verdict the dentist never gave. The
+                        row stays because a missing row is a different form; the
+                        cell stays empty until there is something real in it. */}
+                    <tr>
+                      <td className="border-b border-teal-200/70 px-2 py-1.5 text-foreground">
+                        Orally Fit Child
+                        <span className="ml-1 text-muted-foreground">— not recorded</span>
+                      </td>
+                      <td className="border-b border-teal-200/70 px-2 py-1.5" />
+                    </tr>
+                    {presentOralConditions.map(({ label, present }) => (
+                      <tr key={label}>
+                        <td className="border-b border-teal-200/70 px-2 py-1.5 text-foreground">{label}</td>
+                        <td className="border-b border-teal-200/70 px-2 py-1.5 font-semibold text-teal-800">
+                          {present ? 'Yes' : ''}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr>
+                      <td className="border-b border-teal-200/70 px-2 py-1.5 text-foreground">Others</td>
+                      <td className="border-b border-teal-200/70 px-2 py-1.5 text-foreground break-words">{draftOral.others}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* Section B of the paper IPTR, verbatim rows and order. Every
+                    figure is DERIVED from the teeth above — none of it is
+                    typed, so it cannot disagree with the odontogram. */}
+                <table className="w-full table-fixed border-collapse text-xs">
+                  <colgroup><col className="w-[45%]" /><col className="w-[18%]" /><col className="w-[37%]" /></colgroup>
+                  <thead>
+                    <tr className="text-left text-teal-800">
+                      <th className="border-b border-teal-200/70 px-2 py-1.5 font-semibold">Indicate Number</th>
+                      <th className="border-b border-teal-200/70 px-2 py-1.5 font-semibold">Tooth Count</th>
+                      <th className="border-b border-teal-200/70 px-2 py-1.5 font-semibold">Tooth Numbers</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {indicateNumberRows.map(({ label, teeth }) => (
+                      <tr key={label}>
+                        <td className="border-b border-teal-200/70 px-2 py-1.5 text-foreground">{label}</td>
+                        <td className="border-b border-teal-200/70 px-2 py-1.5 font-semibold text-foreground">
+                          {teeth.length ? teeth.length : ''}
+                        </td>
+                        <td className="border-b border-teal-200/70 px-2 py-1.5 font-mono text-foreground break-words">
+                          {teeth.join(', ')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="bg-blue-50/70 rounded-xl border border-blue-200 p-4 space-y-4">
+                <div className="text-xs font-semibold text-primary uppercase tracking-wide">Treatment Summary</div>
+
+                {/* The whole-mouth services, as their OWN rows above the
+                    per-tooth table — her split, adopted in full this time.
+                    Sprint 151 refused these rows because hers read fields she
+                    had added to DENTAL_CHART; they read the RPC visit here, so
+                    there is still exactly one home for "was fluoride varnish
+                    given" and it is the one the DOH return counts. */}
+                <table className="w-full table-fixed border-collapse text-xs">
+                  <colgroup><col className="w-[63%]" /><col className="w-[37%]" /></colgroup>
+                  <tbody>
+                    <tr>
+                      <td className="border-b border-blue-200/70 px-2 py-1.5 text-foreground">Date of Treatment</td>
+                      <td className="border-b border-blue-200/70 px-2 py-1.5 font-semibold text-primary">
+                        {draftVisitDate ? formatDate(draftVisitDate) : ''}
+                      </td>
+                    </tr>
+                    {serviceChips.map(({ label, field }) => (
+                      <tr key={field}>
+                        <td className="border-b border-blue-200/70 px-2 py-1.5 text-foreground">{label}</td>
+                        {/* Blank for null AND for false: null is "not recorded"
+                            and there is no tick for "withheld" on the paper
+                            form either. Only a real Yes prints. */}
+                        <td className="border-b border-blue-200/70 px-2 py-1.5 font-semibold text-primary">
+                          {draftServices[field] === true ? 'Yes' : ''}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                <table className="w-full table-fixed border-collapse text-xs">
+                  <colgroup><col className="w-[45%]" /><col className="w-[18%]" /><col className="w-[37%]" /></colgroup>
+                  <thead>
+                    <tr className="text-left text-primary">
+                      <th className="border-b border-blue-200/70 px-2 py-1.5 font-semibold">Treatment</th>
+                      <th className="border-b border-blue-200/70 px-2 py-1.5 font-semibold">Tooth Count</th>
+                      <th className="border-b border-blue-200/70 px-2 py-1.5 font-semibold">Tooth Numbers</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {perToothTreatmentRows.map((t) => {
+                      const teeth = treatmentTeeth[t.code] ?? [];
+                      return (
+                        <tr key={t.code}>
+                          <td className="border-b border-blue-200/70 px-2 py-1.5 text-foreground">
+                            <span className="font-semibold mr-1">{t.code}</span>
+                            {t.label}
+                          </td>
+                          <td className="border-b border-blue-200/70 px-2 py-1.5 font-semibold text-foreground">
+                            {teeth.length ? teeth.length : ''}
+                          </td>
+                          <td className="border-b border-blue-200/70 px-2 py-1.5 font-mono text-foreground break-words">
+                            {teeth.join(', ')}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            )}
+
             </div>
           </div>
         )}
