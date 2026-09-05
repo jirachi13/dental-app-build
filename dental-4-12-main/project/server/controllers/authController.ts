@@ -294,3 +294,43 @@ export async function resetPassword(req: Request, res: Response) {
 
   res.json({ success: true });
 }
+
+/**
+ * Step-up check: re-verify the SIGNED-IN user's own password before a bulk or
+ * structural action (Sprint 170).
+ *
+ * ⚠ Added because her PatientList — taken whole in the shell adoption — calls
+ * this for the bulk-archive confirmation, and our server had no such route. It
+ * was returning 404, so typing the right password failed exactly like typing
+ * the wrong one. Taking a component without its server side is how a screen
+ * ends up looking complete and doing nothing.
+ *
+ * Deliberately returns only `{ valid: true }`. It confirms the person at the
+ * keyboard is the account holder; it grants nothing and issues no token, so
+ * there is nothing here worth replaying.
+ *
+ * Rate-limited and behind requireAuth at the route, like every other password
+ * path — an unlimited endpoint that says yes/no to a password is an oracle.
+ */
+export async function verifyPassword(req: Request, res: Response) {
+  const { password } = req.body;
+
+  if (!password) {
+    res.status(400).json({ error: "password is required" });
+    return;
+  }
+
+  const user = await User.findById(req.user!.id).select("+password_hash");
+  if (!user) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  const matches = await comparePassword(password, user.password_hash);
+  if (!matches) {
+    res.status(401).json({ error: "Incorrect password" });
+    return;
+  }
+
+  res.json({ valid: true });
+}
