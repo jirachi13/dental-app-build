@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router';
-import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, TrendingUp, FileText, Plus, Pencil, Trash2, Brain, Download } from 'lucide-react';
+import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, TrendingUp, FileText, Plus, Pencil, Trash2, Brain, Download, X } from 'lucide-react';
 import { exportDohReportToPdf, exportPagesToPdf } from '../utils/exportPdf';
 import { getGradeColor } from '../utils/gradeColors';
 import { computeBmi, BMI_NOTE } from '../utils/bmi';
@@ -16,6 +16,7 @@ import { toLocalDateString, formatDate } from '../utils/localDate';
 import { surnameFirst, surnameFirstWithInitial } from '../utils/studentName';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
+import { Modal } from './Modal';
 import { useSchools } from '../hooks/useSchools';
 import { IptrForm, IptrFormPage2 } from './IptrForm';
 import { IptrFormV2 } from './IptrFormV2';
@@ -270,6 +271,10 @@ export const DentalChart = () => {
   // findings while January's existed is reading a stale mouth.
   // `?chart=<id>` lands directly on one charting — Record Visit's "chart now"
   // navigates here with the charting it just created (Sprint 149).
+  // Sprint 152 — the code palette's WORDS live here now, adopted from the
+  // collaborator's design. Her reasoning: the odontogram needs the codes, not
+  // the glossary, and a chairside screen has no room for both.
+  const [legendOpen, setLegendOpen] = useState(false);
   const [selectedChartId, setSelectedChartId] = useState<string | null>(
     searchParams.get('chart'),
   );
@@ -1591,7 +1596,26 @@ export const DentalChart = () => {
                 </span>
               </div>
             )}
-            <div className={`bg-blue-50 rounded-xl p-4 ${!editingChart ? 'opacity-50 pointer-events-none select-none' : ''}`}>
+
+            {/* Legend button — the codes stay on the palette, the WORDS live in
+                here (Sprint 152, adopted from the collaborator's design). */}
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setLegendOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs border border-border rounded-lg hover:bg-gray-50"
+              >
+                <FileText className="w-3.5 h-3.5" /> Legend
+              </button>
+            </div>
+            {/* ⚠ Sprint 152 — the palette is HIDDEN in view mode rather than
+                shown greyed out, adopted from the collaborator's layout. It was
+                already `pointer-events-none` when not editing, so it occupied
+                the top of the screen doing nothing while the summaries above
+                are what a dentist actually reads. The words moved to Legend.
+                It reappears, unchanged, the moment Edit Chart is pressed. */}
+            {editingChart && (
+            <div className="bg-blue-50 rounded-xl p-4">
               {!canEdit && <p className="text-xs text-muted-foreground mb-2 italic">View only — editing restricted to Dentist</p>}
               {canEdit && !editMode && <p className="text-xs text-muted-foreground mb-2 italic">View mode — click "Edit Chart" to record conditions/treatments</p>}
               <div className={`grid grid-cols-1 ${iptrContext === 'default' ? 'lg:grid-cols-2' : ''} gap-4`}>
@@ -1679,6 +1703,7 @@ export const DentalChart = () => {
                 </div>
               )}
             </div>
+            )}
 
             <div className="bg-card rounded-xl border border-border p-4 overflow-x-auto">
               {/* Every row is 16 equal slots, so a primary tooth sits directly
@@ -2068,6 +2093,82 @@ export const DentalChart = () => {
             )}
           </div>
         )}
+
+      {/* Chart legend (Sprint 152). Adopted from the collaborator's design;
+          the content is OUR code lists, so it cannot drift from the palette
+          the dentist actually clicks. */}
+      {legendOpen && (
+        <Modal onClose={() => setLegendOpen(false)}>
+          <div className="flex items-start justify-between gap-4 p-5 border-b border-border">
+            <div>
+              <h2 className="text-lg font-bold text-foreground">Chart Legend</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Every code used on this chart. Upper-case marks a permanent tooth, lower-case the primary
+                tooth in the same position.
+              </p>
+            </div>
+            <button
+              onClick={() => setLegendOpen(false)}
+              aria-label="Close legend"
+              className="shrink-0 p-1.5 rounded-lg text-muted-foreground hover:bg-gray-100 hover:text-foreground"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="p-5 space-y-5 max-h-[60vh] overflow-y-auto">
+            <div>
+              <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                Condition codes — per tooth
+              </div>
+              <div className="space-y-1">
+                {conditionCodes.map((c) => (
+                  <div key={c.code} className="flex items-baseline gap-3 text-sm">
+                    <span className="font-mono font-bold text-foreground w-16 shrink-0">{c.perm}/{c.temp}</span>
+                    <span className="text-muted-foreground">{c.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                Treatment codes — per tooth
+              </div>
+              <div className="space-y-1">
+                {treatmentCodes.map((t) => (
+                  <div key={t.code} className="flex items-baseline gap-3 text-sm">
+                    <span className="font-mono font-bold text-primary w-16 shrink-0">{t.code}</span>
+                    <span className="text-muted-foreground">{treatmentLabel(t)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                Recorded elsewhere, not on a tooth
+              </div>
+              {/* ⚠ Deliberately different from the collaborator's version. Hers
+                  listed whole-mouth services as chips on this screen; ours are
+                  recorded against the RPC VISIT (Sprint 147), so the legend
+                  says where they live rather than implying they are charted
+                  here. */}
+              <p className="text-xs text-muted-foreground">
+                Whole-mouth findings — gingivitis, periodontal disease, debris, calculus, abnormal growth,
+                cleft lip/palate — are recorded once per school year under <strong>History &amp; Oral</strong>.
+                The services given at a visit — oral screening, prophylaxis, fluoride varnish, hygiene
+                instruction — are recorded against that visit in <strong>RPC Tracking</strong>, which is what
+                the DOH return counts.
+              </p>
+            </div>
+            <div>
+              <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Scores</div>
+              <div className="space-y-1 text-sm text-muted-foreground">
+                <div><span className="font-mono font-bold text-foreground">DMFT</span> — permanent teeth Decayed + Missing + Filled</div>
+                <div><span className="font-mono font-bold text-foreground">dmft</span> — primary teeth decayed + missing + filled</div>
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
 
         {/* ── TAB 7: AI Risk — the full assessment workflow (generate, validate,
              save) lives on the dedicated Risk Classification page (Sprint 21f);
