@@ -90,7 +90,7 @@ export const ConsentForm = () => {
       </div>
 
       <div className="bg-card rounded-xl border border-border overflow-x-auto">
-        <div ref={printableRef} className="bg-white text-black p-8 mx-auto" style={{ width: 780, fontSize: 11, lineHeight: 1.5 }}>
+        <div ref={printableRef} className="form-print bg-white text-black p-8 mx-auto" style={{ width: 780, fontSize: 11, lineHeight: 1.5 }}>
           <h1 className="text-center font-bold tracking-wide" style={{ fontSize: 15 }}>
             PARENTS/GUARDIAN CONSENT FORM
           </h1>

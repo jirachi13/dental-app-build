@@ -193,7 +193,7 @@ export function SchoolSummaryReport({ schoolName, schoolYear }: Props) {
         </div>
       </div>
 
-      <div ref={printableRef} className="bg-card rounded-xl border border-border p-4">
+      <div ref={printableRef} className="form-print bg-card rounded-xl border border-border p-4">
         {/* Wide content scrolls inside its own container — the table must never
             push the page sideways at 390px (CLAUDE.md, three device classes). */}
         <div className="overflow-x-auto">

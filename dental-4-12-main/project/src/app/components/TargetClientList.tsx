@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
 import type { ApiStudent, ApiAppointment, ApiOralHealthCondition, ApiStudentIptr } from '../api/types';
@@ -443,6 +443,37 @@ export const TargetClientList = () => {
       });
   }, [students, rpcRecords, raw, appointments, orals, iptrs, selectedSchool]);
 
+  // Sprint 130 — the same fault Sprint 128 fixed on the school-year filter,
+  // in the control that fix did not reach. This anchor defaults to TODAY, so
+  // opening the Target Client List in September 2026 asked for a month in which
+  // nothing had happened: the form rendered all 66 columns and NOT ONE ROW, on
+  // a database holding 23 recorded consultations (2026-02-16 to 2026-08-29).
+  // An empty period is indistinguishable from a broken report.
+  //
+  // Once the rows are known, an anchor whose period contains no consultation is
+  // moved to the LATEST consultation date — the period a clinic actually wants
+  // when it opens the list. Done once, so it never fights the date picker, and
+  // never when the user has already moved it themselves.
+  const latestConsult = useMemo(() => {
+    const dates = rows.map((r) => r.consultDate).filter((d): d is string => !!d).sort();
+    return dates.length ? dates[dates.length - 1].slice(0, 10) : null;
+  }, [rows]);
+
+  const didAlignAnchor = useRef(false);
+  useEffect(() => {
+    if (didAlignAnchor.current || !latestConsult) return;
+    const { start: s0, end: e0 } = periodRange(anchor, period);
+    const [ly, lm, ld] = latestConsult.split('-').map(Number);
+    const anyInPeriod = rows.some((r) => {
+      if (!r.consultDate) return false;
+      const [y, m, d] = r.consultDate.slice(0, 10).split('-').map(Number);
+      const dt = new Date(y, m - 1, d);
+      return dt >= s0 && dt < e0;
+    });
+    if (!anyInPeriod) setAnchor(toLocalDateString(new Date(ly, lm - 1, ld)));
+    didAlignAnchor.current = true;
+  }, [rows, latestConsult, anchor, period]);
+
   const { start, end, label: periodLabel } = useMemo(() => periodRange(anchor, period), [anchor, period]);
 
   // Filtered on DATE OF CONSULTATION, which is the form's own first column —
@@ -643,6 +674,11 @@ export const TargetClientList = () => {
           >{showPicker ? 'Done' : `Columns${hiddenCount ? ` (${hiddenCount} hidden)` : ''}`}</button>
           <span className="font-semibold text-foreground">{periodLabel}</span> — showing {visible.length} client
           {visible.length !== 1 ? 's' : ''} consulted{selectedSchool ? ' at the selected school' : ' across all schools'}.
+          {visible.length === 0 && latestConsult && (
+            <span className="text-amber-700 font-medium">
+              {' '}No consultation falls in this period; the most recent one on record is {formatDate(latestConsult)}.
+            </span>
+          )}
           {withoutConsult > 0 && ` ${withoutConsult} enrolled client${withoutConsult !== 1 ? 's have' : ' has'} no recorded consultation and appear${withoutConsult !== 1 ? '' : 's'} in no period.`}
         </p>
         {rawError && <p className="text-xs text-destructive mt-1">{rawError}</p>}
@@ -700,7 +736,7 @@ export const TargetClientList = () => {
 
       {/* Scrolls inside its own container, like the DOH table — the form is far
           wider than any screen and the page itself must never scroll sideways. */}
-      <div className="bg-card rounded-xl border border-border overflow-x-auto">
+      <div className="form-print bg-card rounded-xl border border-border overflow-x-auto">
         <table className="border-collapse">
           <thead className="bg-gray-50">
             {/* Group band — thin, above the tall caption band, exactly as the

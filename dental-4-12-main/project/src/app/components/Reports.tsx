@@ -731,7 +731,7 @@ export const Reports = () => {
           )}
 
           {/* Table */}
-          <div id="doh-report-printable" className="bg-card rounded-xl border border-border overflow-hidden">
+          <div id="doh-report-printable" className="form-print bg-card rounded-xl border border-border overflow-hidden">
             {/* ref goes on the scrollable inner div, not the overflow-hidden outer
                 one — html2canvas clips to the ref'd element's own rendered box,
                 so ref'ing the outer div only captured the already-clipped width. */}

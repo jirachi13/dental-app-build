@@ -207,7 +207,7 @@ export const FhsisReport = ({ schoolName }: { schoolName: string }) => {
           element's own rendered box, so a banner placed outside it shows on
           screen and is silently missing from the PDF — the exact trap noted on
           the DOH Consolidated report. */}
-      <div ref={printableRef} className="overflow-x-auto rounded-lg border border-gray-200 bg-card p-4">
+      <div ref={printableRef} className="form-print overflow-x-auto rounded-lg border border-gray-200 bg-card p-4">
         {/* Header band, as printed. */}
         <div className="mb-3 text-sm">
           <div className="flex flex-wrap gap-x-8 gap-y-1">
