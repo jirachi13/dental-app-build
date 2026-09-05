@@ -201,6 +201,17 @@ The user supplied a legible photograph of Form 1 and confirmed **both IPTRs are 
 - **Verified on screen against the photo:** both halves, the pupil's real values, `Age 11` heading the first column with four blank Age columns, section A marks, section B counts, and the services row dated from the chart.
 - ⚠ **Still unverified: the PDF files** - producing them means downloading. **Click IPTR and Form 1 on a pupil's record.**
 
+## Sprint 138 (the DOH report's arithmetic moved to the server) - DONE 2026-09-05, tsc + build clean, numbers verified unchanged. First half of #24.
+Chosen over server-side filters because filters do not scale: at 8,000 pupils the id list IS an 8,000-entry query string. Aggregation ends the problem instead of relocating it.
+
+- **~108 KB across 11 whole collections → ONE request of 12.2 KB**, and the response does not grow with the roll: it is counts, not rows. The measurement that justified the sprint is in #24 (~4.1 KB per pupil per page open; ~32 MB at 8,000, 60-80 MB once mouths are charted realistically).
+- **The logic was MOVED to `shared/dohAggregate.ts`, not copied.** Two implementations of a DOH return would drift, and the drift would appear as two different numbers on a document filed with the City Health Office. `shared/` is the cross-boundary module Sprint 120/121 established, already in both tsconfigs.
+- **`useDohReportData` went from 487 lines to 147.** `getRealCount` / `getRealTotal` and the **REAL_FIELDS allowlist are unchanged** - that allowlist is what keeps "no source" honest, since a field not named in it returns null and the form prints "—".
+- **New `GET /stats/doh-report?school_year=&school=`**, gated by the same `scopeFilter` as `/stats/student-rows` — Sprint 101 caught that endpoint handing every school's pupils to a pinned `school_admin`, and a new endpoint must not reopen it. **Scoping happens server-side**, which is what makes the response small.
+- ⚠ **`.lean()` is safe HERE and would not be on a name field.** This reads only sex, birthday, school_id and ids, none encrypted. A lean read of an encrypted field returns `<iv>:<ciphertext>` silently (Sprint 118) — if this endpoint ever needs a name, it must drop lean for that query.
+- **VERIFIED THE NUMBERS DID NOT MOVE**, which is the only thing that matters in a refactor of a filed report: Dental Caries `3 1 · 0 1 · 3 2` (total 3/4 → 5) and Gingivitis `2 2 · 2 2 · 1 2` (total 3/4 → 7) are identical to the pre-change screenshot, and the endpoint's own totals agree (`gingivitis 7`, `DMF_total 5`, `examined 26`, `rpoc_visit1 22`).
+- **Still open in #24, deliberately:** `useRiskClassification` (9 whole reads), `useSchoolSummary` (6), `useRPCTracking` (6), `useFhsisData` (4), and `Reports.tsx`'s own five. Same treatment, one report at a time. ⚠ Also unchanged: **the SERVER still reads whole collections** to compute the aggregate — the browser no longer does. A `$lookup` pipeline is the next step if server memory becomes the constraint.
+
 ## Open work (each needs approval; sprint loop applies)
 
 61. **~~THERE ARE TWO IPTR VERSIONS AND BOTH ARE VALID~~ — BUILT 2026-09-05 as Sprint 137.** Both forms are offered; the PDF button is now a choice. ⚠ The photo of Form 1 is NOT in the repo (real patient data - see that sprint). Original note:

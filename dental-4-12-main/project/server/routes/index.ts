@@ -9,6 +9,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { scopeFilter } from "../utils/schoolScope.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { ADMIN_ONLY, CLINICAL_WRITE_ROLES } from "../middleware/roleGroups.js";
+import { aggregateDohReport } from "../../shared/dohAggregate.js";
 import { findDuplicateStudents } from "../utils/studentDuplicates.js";
 import {
   School,
@@ -253,6 +254,95 @@ router.get("/stats/notifications", requireAuth, asyncHandler(async (req, res) =>
 // a new endpoint must not reopen it. `students` cannot use .lean(): the name
 // fields are encrypted and mongoose-field-encryption decrypts in post('init'),
 // which a lean read never triggers.
+// Sprint 138 — the DOH report's counts, computed HERE instead of in the
+// browser.
+//
+// ⚠ WHY: `useDohReportData` downloaded ELEVEN WHOLE COLLECTIONS to draw one
+// report. Measured 2026-09-05 against dev — 26 pupils, ~108 KB, i.e. ~4.1 KB
+// per pupil per page open, so ~32 MB at the Chapter 1 scale of 8,000 pupils,
+// and 60-80 MB once mouths are charted at a realistic 20-32 teeth instead of
+// the demo's ~5. The response here is a few KB whatever the roll size.
+//
+// The joining logic itself was MOVED to `shared/dohAggregate.ts`, not copied:
+// two implementations of a DOH return would drift, and the drift would appear
+// as two different numbers on a document filed with the City Health Office.
+//
+// ⚠ SCOPE GATE, same as /stats/student-rows. Sprint 101 caught that endpoint
+// handing every school's students to a school_admin pinned to one; a new
+// endpoint must not reopen it.
+//
+// ⚠ `.lean()` IS SAFE HERE and would not be on a name field: this reads only
+// sex, birthday, school_id and ids, none of which are encrypted. A lean read of
+// an encrypted field returns `<iv>:<ciphertext>` silently (Sprint 118), so if
+// this endpoint ever needs a name, it must drop lean for that query.
+router.get("/stats/doh-report", requireAuth, asyncHandler(async (req, res) => {
+  const scope = await scopeFilter("Student", req);
+  const studentFilter = scope ? { isArchived: false, ...scope } : { isArchived: false };
+  const active = { isArchived: false };
+
+  const [schools, students, iptrs, medicals, dietaries, orals, preventives, risks, charts, toothRecords, referrals] =
+    await Promise.all([
+      School.find(active).select("_id school_name").lean(),
+      Student.find(studentFilter).select("_id school_id sex birthday").lean(),
+      StudentIptr.find(active).select("_id student_id school_year grade_level").lean(),
+      MedicalHistory.find(active).lean(),
+      DietarySocialHabits.find(active).lean(),
+      OralHealthCondition.find(active).lean(),
+      PreventiveCareRecord.find(active).select("_id iptr_id visit_number visit_date facility_based").lean(),
+      RiskStratification.find(active).select("preventive_id dmf_score dmf_index risk_level").lean(),
+      DentalChart.find(active).select("_id iptr_id date_charted").lean(),
+      ToothRecord.find(active).select("chart_id treatment_code").lean(),
+      Referral.find(active).select("iptr_id referral_type").lean(),
+    ]);
+
+  const str = (v: unknown) => String(v ?? "");
+  const out = aggregateDohReport({
+    schools: (schools as any[]).map((s) => ({ _id: str(s._id), school_name: str(s.school_name) })),
+    students: (students as any[]).map((s) => ({
+      _id: str(s._id),
+      school_id: str(s.school_id),
+      sex: str(s.sex),
+      birthday: s.birthday ? new Date(s.birthday).toISOString() : "",
+    })),
+    iptrs: (iptrs as any[]).map((i) => ({
+      _id: str(i._id),
+      student_id: str(i.student_id),
+      school_year: str(i.school_year),
+      grade_level: i.grade_level ?? null,
+    })),
+    medicals: (medicals as any[]).map((m) => ({ ...m, iptr_id: str(m.iptr_id) })),
+    dietaries: (dietaries as any[]).map((d) => ({ ...d, iptr_id: str(d.iptr_id) })),
+    orals: (orals as any[]).map((o) => ({ ...o, iptr_id: str(o.iptr_id) })),
+    preventives: (preventives as any[]).map((p) => ({
+      _id: str(p._id),
+      iptr_id: str(p.iptr_id),
+      visit_number: p.visit_number,
+      visit_date: p.visit_date ? new Date(p.visit_date).toISOString() : null,
+      facility_based: p.facility_based ?? null,
+    })),
+    risks: (risks as any[]).map((r) => ({
+      preventive_id: str(r.preventive_id),
+      dmf_score: Number(r.dmf_score ?? 0),
+      dmf_index: str(r.dmf_index),
+      risk_level: str(r.risk_level),
+    })),
+    charts: (charts as any[]).map((c) => ({
+      _id: str(c._id),
+      iptr_id: str(c.iptr_id),
+      date_charted: c.date_charted ? new Date(c.date_charted).toISOString() : "",
+    })),
+    toothRecords: (toothRecords as any[]).map((t) => ({
+      chart_id: str(t.chart_id),
+      treatment_code: t.treatment_code ?? null,
+    })),
+    referrals: (referrals as any[]).map((r) => ({ iptr_id: str(r.iptr_id), referral_type: str(r.referral_type) })),
+    schoolYear: typeof req.query.school_year === "string" && req.query.school_year ? req.query.school_year : null,
+    schoolName: typeof req.query.school === "string" && req.query.school ? req.query.school : null,
+  });
+
+  res.json(out);
+}));
+
 router.get("/stats/student-nav", requireAuth, asyncHandler(async (req, res) => {
   const scope = await scopeFilter("Student", req);
   const studentFilter = scope ? { isArchived: false, ...scope } : { isArchived: false };
