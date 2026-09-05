@@ -11,7 +11,7 @@ import { scopeFilter } from "../utils/schoolScope.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { ADMIN_ONLY, CLINICAL_WRITE_ROLES } from "../middleware/roleGroups.js";
 import { aggregateDohReport } from "../../shared/dohAggregate.js";
-import { buildRiskCandidates } from "../../shared/riskCandidates.js";
+import { buildRiskCandidates, filterRiskCandidates } from "../../shared/riskCandidates.js";
 import { buildRpcRows } from "../../shared/rpcTracking.js";
 import { buildSchoolSummary } from "../../shared/schoolSummary.js";
 import { buildFhsisCounts } from "../../shared/fhsis.js";
@@ -565,7 +565,24 @@ router.get("/stats/risk-candidates", requireAuth, asyncHandler(async (req, res) 
     historyLimit: 2,
   });
 
-  res.json(rows);
+  // Sprint 145 — filter, sort and PAGE here. Doing any of those on the client
+  // is what forced this endpoint to send every pupil (measured 673 B/row, so
+  // ~5.4 MB at 8,000). ⚠ The tiles' counts and the dropdown options come back
+  // computed over the whole filtered population, never the page.
+  const page = filterRiskCandidates(rows, {
+    q: typeof req.query.q === "string" ? req.query.q : "",
+    school: typeof req.query.school === "string" && req.query.school ? req.query.school : "",
+    grade: typeof req.query.grade === "string" ? req.query.grade : "all",
+    section: typeof req.query.section === "string" ? req.query.section : "all",
+    risk: typeof req.query.risk === "string" ? req.query.risk : "all",
+    gender: typeof req.query.gender === "string" ? req.query.gender : "all",
+    ageGroup: typeof req.query.age_group === "string" ? req.query.age_group : "all",
+    sort: req.query.sort === "name" ? "name" : "priority",
+    limit: Number(req.query.limit) > 0 ? Number(req.query.limit) : 50,
+    offset: Number(req.query.offset) > 0 ? Number(req.query.offset) : 0,
+  });
+
+  res.json(page);
 }));
 
 // Sprint 144 — one pupil's FULL assessment history, for the detail panel.

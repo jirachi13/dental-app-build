@@ -296,6 +296,18 @@ Chosen over server-side filters because filters do not scale: at 8,000 pupils th
 
 **#24 remaining, unchanged and honest:** paging the two list endpoints (with their filters moved server-side), and the server still reading whole collections to build each aggregate. **Nothing measured says either is hurting yet at 26 pupils.**
 
+## Sprint 145 (Risk Classification is filtered, sorted and PAGED on the server) - DONE 2026-09-05, tsc + build clean, verified in the browser and at the endpoint.
+The paging sprint Sprint 144 deliberately did not attempt. **~5.4 MB at 8,000 pupils → one page of 50 rows (~34 KB), whatever the roll.**
+
+- **EVERY filter moved together, and that was the whole point.** Search · grade · section · risk level · gender · age group · sort · **and the SCHOOL context**. Paging the query while any one stayed in the browser would have filtered only the current page — a control that appears to work and does not.
+- **⚠ THE SCHOOL SCOPE WAS THE EASY ONE TO MISS.** The page filtered by `selectedSchool` client-side; leaving it there would have shown *"page 1 of the whole roll, minus the other schools"* with a page count that lies.
+- **⚠ COUNTS AND DROPDOWN OPTIONS ARE COMPUTED OVER THE WHOLE FILTERED POPULATION, never the page.** The four risk tiles must describe the roll, and a grade dropdown listing only page 1's grades hides the value you would need to pick next. Options are additionally scoped to the school context so they never offer another school's grades.
+- **"Assess Selected" still means what it always meant.** `checkedIds` was already a Set that survives paging, so the semantics did not change — but ticked pupils from other pages need their `features`, so every row ever loaded is kept in a `rowCacheRef`. Bulk assessment now iterates **all ticked ids**, not `filtered ∩ ticked`, which after paging would have silently assessed a subset. The pager says *"N selected across all pages"* so that is visible rather than assumed.
+- **`age.ts` moved to `shared/`** — its own comment warned that a second copy of the brackets is how two screens disagree about a 9-year-old, and the age-group filter now runs server-side.
+- **The selected pupil survives paging** — the detail panel falls back to the row cache, so opening a pupil then paging away does not blank it.
+- **Verified at the endpoint AND on screen:** Annex A → 6 rows / total 6, tiles High 2 · Medium 2 · Low 1 · Unassessed 1 (unchanged from before the sprint), grade options only Annex A's three grades; `risk=High` → 2 rows, total 2, the right two pupils; `limit=2&offset=2` → 2 rows with **total 26**, so the pager knows the true size. The pager hides itself below one page.
+- **Left in #24:** the same treatment for `rpc-rows` (seven filters of its own), and the server still reading whole collections per aggregate.
+
 ## Open work (each needs approval; sprint loop applies)
 
 61. **~~THERE ARE TWO IPTR VERSIONS AND BOTH ARE VALID~~ — BUILT 2026-09-05 as Sprint 137.** Both forms are offered; the PDF button is now a choice. ⚠ The photo of Form 1 is NOT in the repo (real patient data - see that sprint). Original note:

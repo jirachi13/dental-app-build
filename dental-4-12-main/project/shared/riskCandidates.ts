@@ -252,3 +252,108 @@ export function buildRiskCandidates(input: RiskCandidatesInput): RiskCandidate[]
   rows.sort((a, b) => a.name.localeCompare(b.name));
   return rows;
 }
+
+// ─── Filtering, sorting and paging (Sprint 145) ────────────────────────────
+//
+// ⚠ THESE RUN ON THE SERVER NOW. The page used to filter and sort the whole
+// population in the browser, which is why the list endpoint had to send every
+// pupil. Paging the query WITHOUT moving these would have produced filters
+// that only filter the current page — a control that appears to work and does
+// not.
+//
+// ⚠ THE COUNTS AND THE DROPDOWN OPTIONS ARE COMPUTED OVER THE WHOLE FILTERED
+// POPULATION, NOT THE PAGE. The four risk tiles must count the roll, and a
+// grade dropdown that lists only the grades on page 1 is worse than no filter.
+
+import { calculateAge, getAgeGroup } from './age.js';
+
+export interface RiskListQuery {
+  q?: string;
+  /** ⚠ The school context ALSO had to move here. The page scoped by school in
+   *  the browser; leaving that client-side while paging server-side would have
+   *  shown "page 1 of the whole roll, minus the other schools" — a page count
+   *  that lies. */
+  school?: string;
+  grade?: string;
+  section?: string;
+  risk?: string;
+  gender?: string;
+  ageGroup?: string;
+  sort?: 'name' | 'priority';
+  limit?: number;
+  offset?: number;
+}
+
+export interface RiskListPage {
+  rows: RiskCandidate[];
+  /** Rows matching the filters, before paging. */
+  total: number;
+  /** Over the whole filtered set — the tiles must not describe one page. */
+  counts: { High: number; Medium: number; Low: number; unassessed: number; worsening: number; improving: number };
+  /** Over the WHOLE population, not the filtered set: a dropdown that hides
+   *  the value you would need to select next is a trap. `sectionOptions`
+   *  narrows to the chosen grade, which is how the page already behaved. */
+  gradeOptions: string[];
+  sectionOptions: string[];
+}
+
+/** Unassessed sits between Medium and Low, as it did on the client. */
+function priorityRank(c: RiskCandidate): number {
+  const latest = c.history[c.history.length - 1];
+  if (!latest) return 2.5;
+  return { High: 1, Medium: 2, Low: 3 }[latest.riskLevel];
+}
+
+export function filterRiskCandidates(all: RiskCandidate[], query: RiskListQuery): RiskListPage {
+  const q = (query.q ?? '').toLowerCase();
+  const matches = (c: RiskCandidate) => {
+    if (q && !c.name.toLowerCase().includes(q)) return false;
+    if (query.school && c.school !== query.school) return false;
+    if (query.grade && query.grade !== 'all' && c.grade !== query.grade) return false;
+    if (query.section && query.section !== 'all' && c.section !== query.section) return false;
+    if (query.gender && query.gender !== 'all' && c.gender !== query.gender) return false;
+    if (query.ageGroup && query.ageGroup !== 'all' && getAgeGroup(calculateAge(c.birthdate)) !== query.ageGroup) return false;
+    if (query.risk && query.risk !== 'all') {
+      const latest = c.history[c.history.length - 1];
+      if (query.risk === 'Unassessed' ? !!latest : latest?.riskLevel !== query.risk) return false;
+    }
+    return true;
+  };
+
+  const inSchool = query.school ? all.filter((c) => c.school === query.school) : all;
+  const filtered = all.filter(matches);
+
+  const counts = { High: 0, Medium: 0, Low: 0, unassessed: 0, worsening: 0, improving: 0 };
+  const order = { High: 1, Medium: 2, Low: 3 } as const;
+  for (const c of filtered) {
+    const latest = c.history[c.history.length - 1];
+    if (!latest) { counts.unassessed++; continue; }
+    counts[latest.riskLevel]++;
+    // ⚠ The trend needs the last TWO, which is exactly why the list keeps two
+    // (Sprint 144) rather than one.
+    if (c.history.length >= 2) {
+      const delta = order[latest.riskLevel] - order[c.history[c.history.length - 2].riskLevel];
+      if (delta > 0) counts.worsening++;
+      else if (delta < 0) counts.improving++;
+    }
+  }
+
+  const sorted = filtered.slice();
+  if (query.sort === 'name') sorted.sort((a, b) => a.name.localeCompare(b.name));
+  else sorted.sort((a, b) => priorityRank(a) - priorityRank(b) || b.features.dmf_score - a.features.dmf_score);
+
+  const offset = Math.max(0, query.offset ?? 0);
+  const limit = query.limit && query.limit > 0 ? query.limit : sorted.length;
+
+  return {
+    rows: sorted.slice(offset, offset + limit),
+    total: filtered.length,
+    counts,
+    // Scoped to the school context — otherwise the dropdowns would offer
+    // grades and sections that belong to a school the user is not viewing.
+    gradeOptions: [...new Set(inSchool.map((c) => c.grade))].filter(Boolean).sort(),
+    sectionOptions: [...new Set(
+      inSchool.filter((c) => !query.grade || query.grade === 'all' || c.grade === query.grade).map((c) => c.section),
+    )].filter(Boolean).sort(),
+  };
+}
