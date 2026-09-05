@@ -221,6 +221,16 @@ Chosen over server-side filters because filters do not scale: at 8,000 pupils th
 - **Verified in the browser:** the page renders 6 Annex A pupils with decrypted names, schools, grades and badges (High 2 · Medium 2 · Low 1 · Unassessed 1), in surname order. Endpoint spot-check: `Aquino, Rafael dmf=1 D=1 idx=dmf hist=1`, `Bonifacio, Miguel dmf=0 idx=DMF hist=1`.
 - **Left of #24 after this:** `useSchoolSummary` (6 whole reads), `useRPCTracking` (6), `useFhsisData` (4), `Reports.tsx`'s own five. The two worst are done.
 
+## Sprint 140 (RPC Tracking joins on the server; the school-year rule stops being copied) - DONE 2026-09-05, tsc + build clean, verified in the browser.
+- **SIX whole collections → one request of 16.3 KB** (students, schools, IPTRs, preventive-care records, charts, tooth records ≈ 72 KB before). New `GET /stats/rpc-rows`, same `scopeFilter` gate.
+- **Logic MOVED to `shared/rpcTracking.ts`.** The 4-6 month window, the school-year cutoff (`tight` / `impossible`) and the tooth-count roll-ups decide what a DOH return reports — a second copy would drift invisibly until two screens disagreed.
+- **`schoolYear.ts` moved to `shared/` too.** Its own comment said `server/scripts/migrateIptrGrades.ts` keeps a private copy *"because server scripts do not import from src/"* — `shared/` removes that excuse. The client util re-exports, so no import changed. ⚠ The migration script's copy is still there; folding it in is a one-line follow-up, not done here.
+- **⚠ Same encryption rule as Sprint 139:** `Student.find()` with no `.lean()` and no `.select()`, because the row carries the NAME. Probed: `ciphertext? False`.
+- **⚠ Still one row per pupil** — grows with the roll, paging open under #24.
+- **Verified in the browser:** RPC Records lists the 6 Annex A pupils with Visit 1 dates, `Visit 1 Only` badges, Days Until Due (124d / 108d / 143d / 143d / 125d) and the Record buttons. Endpoint totals: 26 rows — pending 20, not-started 4, overdue 1, complete 1.
+- **⚠ A wasted round trip worth remembering:** the route is `/rpc`, not `/rpc-tracking`. The sidebar label and the path differ.
+- **Left of #24:** `useSchoolSummary` (6 reads), `useFhsisData` (4), `Reports.tsx`'s own five, plus paging the two row-per-pupil endpoints.
+
 ## Open work (each needs approval; sprint loop applies)
 
 61. **~~THERE ARE TWO IPTR VERSIONS AND BOTH ARE VALID~~ — BUILT 2026-09-05 as Sprint 137.** Both forms are offered; the PDF button is now a choice. ⚠ The photo of Form 1 is NOT in the repo (real patient data - see that sprint). Original note:

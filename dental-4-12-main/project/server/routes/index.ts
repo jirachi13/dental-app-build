@@ -11,6 +11,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import { ADMIN_ONLY, CLINICAL_WRITE_ROLES } from "../middleware/roleGroups.js";
 import { aggregateDohReport } from "../../shared/dohAggregate.js";
 import { buildRiskCandidates } from "../../shared/riskCandidates.js";
+import { buildRpcRows } from "../../shared/rpcTracking.js";
 import { findDuplicateStudents } from "../utils/studentDuplicates.js";
 import {
   School,
@@ -290,6 +291,65 @@ router.get("/stats/notifications", requireAuth, asyncHandler(async (req, res) =>
 // it, and a projection that omits the markers leaves the plugin nothing to
 // decrypt. Either one returns `<iv>:<ciphertext>` — silently, with a 200
 // (Sprint 118). Everything else here is lean because none of it is encrypted.
+// Sprint 140 — the RPC Tracking roll-up, joined HERE instead of in the browser
+// (six whole collections before). Same `scopeFilter` gate as the other three
+// aggregates.
+//
+// ⚠ Like /stats/risk-candidates and unlike /stats/doh-report, this returns ONE
+// ROW PER PUPIL, so it still grows with the roll. Paging is open work (#24).
+//
+// ⚠ `Student.find()` has no .lean() and no .select(): the row carries the
+// pupil's NAME, and either would return `<iv>:<ciphertext>` silently with a
+// 200 (Sprint 118).
+router.get("/stats/rpc-rows", requireAuth, asyncHandler(async (req, res) => {
+  const scope = await scopeFilter("Student", req);
+  const studentFilter = scope ? { isArchived: false, ...scope } : { isArchived: false };
+  const active = { isArchived: false };
+
+  const [students, schools, iptrs, preventives, charts, toothRecords] = await Promise.all([
+    Student.find(studentFilter),
+    School.find(active).select("_id school_name").lean(),
+    StudentIptr.find(active).select("_id student_id school_year").lean(),
+    PreventiveCareRecord.find(active).select("_id iptr_id visit_date visit_number facility_based").lean(),
+    DentalChart.find(active).select("_id iptr_id").lean(),
+    ToothRecord.find(active).select("chart_id tooth_number condition treatment_code").lean(),
+  ]);
+
+  const str = (v: unknown) => String(v ?? "");
+  const rows = buildRpcRows({
+    students: (students as any[]).map((s) => ({
+      _id: str(s._id),
+      school_id: str(s.school_id),
+      sex: str(s.sex),
+      birthday: s.birthday ? new Date(s.birthday).toISOString() : "",
+      grade_level: str(s.grade_level),
+      section: str(s.section),
+      last_name: s.last_name ?? "",
+      first_name: s.first_name ?? "",
+      middle_name: s.middle_name ?? "",
+      full_name: s.full_name ?? "",
+    })),
+    schools: (schools as any[]).map((s) => ({ _id: str(s._id), school_name: str(s.school_name) })),
+    iptrs: (iptrs as any[]).map((i) => ({ _id: str(i._id), student_id: str(i.student_id), school_year: str(i.school_year) })),
+    preventives: (preventives as any[]).map((p) => ({
+      _id: str(p._id),
+      iptr_id: str(p.iptr_id),
+      visit_date: p.visit_date ? new Date(p.visit_date).toISOString() : "",
+      visit_number: Number(p.visit_number ?? 0),
+      facility_based: p.facility_based ?? null,
+    })),
+    charts: (charts as any[]).map((c) => ({ _id: str(c._id), iptr_id: str(c.iptr_id) })),
+    toothRecords: (toothRecords as any[]).map((t) => ({
+      chart_id: str(t.chart_id),
+      tooth_number: Number(t.tooth_number ?? 0),
+      condition: t.condition ?? null,
+      treatment_code: t.treatment_code ?? null,
+    })),
+  });
+
+  res.json(rows);
+}));
+
 router.get("/stats/risk-candidates", requireAuth, asyncHandler(async (req, res) => {
   const scope = await scopeFilter("Student", req);
   const studentFilter = scope ? { isArchived: false, ...scope } : { isArchived: false };
