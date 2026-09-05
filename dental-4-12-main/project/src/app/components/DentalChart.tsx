@@ -2379,34 +2379,55 @@ export const DentalChart = () => {
         {/* ── TAB 3: Consent & Appointments ── */}
         {activeTab === 'appointments' && (
           <div className="p-4 space-y-4">
-            <div className="bg-gray-50 rounded-xl p-4 w-48">
-              <div className="text-xs text-muted-foreground mb-1">Consent Status</div>
-              <div className={`text-sm font-bold ${consentComplete ? 'text-success' : 'text-muted-foreground'}`}>
-                {consentComplete ? 'Completed' : 'Pending'}
-              </div>
-            </div>
+            {/* ⚠ The lone "Consent Status" box is gone (Sprint 168). It was a
+                third place saying the same word: the patient card's chip says
+                it on every tab, and the History banner says it with the school
+                year attached. Its own status now sits in this card's header,
+                where the text it refers to actually is.
 
-            <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
-              <div className="text-xs font-bold text-slate-700 mb-2">Pahintulot ng Pasyente / Magulang o Guardian</div>
-              <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                Card, header rule and status chip follow her Student Records
+                pattern, the same one the Dental Charts list took, so this tab
+                stops being the last screen in its own style. */}
+            <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-5">
+                <div className="min-w-0">
+                  <h2 className="text-base font-bold text-foreground">Pahintulot ng Pasyente / Magulang o Guardian</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Consent for {yearIptr?.school_year ?? 'this school year'} — a guardian signs once per school year.
+                  </p>
+                </div>
+                <span
+                  className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${consentComplete ? 'bg-success-surface text-success' : 'bg-warning-surface text-warning'}`}
+                >
+                  {consentComplete ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldAlert className="w-3.5 h-3.5" />}
+                  {consentComplete ? 'Consent Complete' : 'Consent Pending'}
+                </span>
+              </div>
+              <div className="p-5">
+              <p className="text-xs text-muted-foreground leading-relaxed mb-4">
                 Pinahihintulutan ko ang Dentista na gawin ang mga kinakailangang Dental Procedure/Treatment sa aking ngipin at bibig o ngipin ng aking anak/kapatid/apo/pamangkin gaya ng ipinaliwanag sa akin at ng aking pagpayag dito. Nauunawaan ko rin na ang anumang impormasyong nakolekta ay gagamitin para sa mga layuning pangkalusugan lamang.
               </p>
-              <div className="grid grid-cols-2 gap-6">
+              {/* ⚠ The signature rules stay, and stay EMPTY. Consent is given on
+                  paper — the tick below records that the physical copy exists,
+                  it is not itself a signature. Two columns down to one below
+                  `sm`, or each rule ends up too short to sign on a phone. */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
                   <div className="text-xs text-muted-foreground mb-2">Lagda ng Pasyente</div>
-                  <div className="border-b-2 border-gray-400 h-10 mb-1" />
+                  <div className="border-b-2 border-border h-10 mb-1" />
                   <div className="text-xs text-muted-foreground">Pirma sa itaas ng pangalan</div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground mb-2">Lagda ng Magulang o Guardian</div>
-                  <div className="border-b-2 border-gray-400 h-10 mb-1" />
+                  <div className="border-b-2 border-border h-10 mb-1" />
                   <div className="text-xs text-muted-foreground">Pirma sa itaas ng pangalan</div>
                 </div>
               </div>
               <label className={`flex items-center gap-2 mt-4 ${canEdit ? 'cursor-pointer' : 'cursor-default'}`}>
                 <input type="checkbox" checked={consentComplete} onChange={(e) => canEdit && handleToggleConsent(e.target.checked)} disabled={!canEdit} className="w-4 h-4 rounded accent-primary disabled:opacity-60 disabled:cursor-not-allowed" />
-                <span className="text-xs text-foreground">Nakumpleto na ang pahintulot / Consent has been obtained</span>
+                <span className="text-xs font-medium text-foreground">Nakumpleto na ang pahintulot / Consent has been obtained</span>
               </label>
+              </div>
             </div>
 
             <div className="bg-blue-50 rounded-xl border border-blue-200 p-4">
