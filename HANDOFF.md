@@ -123,6 +123,13 @@ Raised by the user: *"school summary is 0s"*, then *"they still dont have rows"*
 
 ## Open work (each needs approval; sprint loop applies)
 
+58. **Day-note dialog: split it into two halves instead of one tall stack — user idea 2026-09-05, NOT scoped, after the current workflow.** Their words: *"how about make it two halves one part is to fill in add note, the other half is the showing of current sched and notes instead of topping each other"*.
+    - **The cause is one line, and it is not the layout — it is the WIDTH.** The day panel is a `Modal` opened with `maxWidth="max-w-md"` (`Appointments.tsx:683`), i.e. ~448px. At that width a two-column split is unusable, so everything stacks: **Appointments** (the day's schedule) → **Notes** (existing notes) → the add-note textarea and button. On a busy day the write box is pushed below the fold, which is exactly the "topping each other" complaint.
+    - **How I would implement it:** widen the modal to `max-w-3xl`, then inside it `grid grid-cols-1 md:grid-cols-2 gap-4` — LEFT = schedule + existing notes (the read half), RIGHT = the add-note form (the write half, always visible). Give the left column `max-h-[60vh] overflow-y-auto` so a long day scrolls inside its own half instead of pushing the form away.
+    - **⚠ Keep the stack below `md:`.** CLAUDE.md's three device classes apply: at ~390px two columns are worse than one, so the phone keeps today's single column with the form last. This is a widescreen improvement, not a layout replacement.
+    - **Check while in there:** the same dialog is where a note is archived (Sprint 108's remove button), so the read half must keep that control reachable after the split.
+
+
 57. **Printouts must contain ONLY the form — user rule 2026-09-05, NOT scoped.** Their words: *"the print out should just be the forms do not include headers or somethings from the webpage not inside the forms"*. Now also a standing rule in CLAUDE.md.
     - **What the print CSS does today** (`src/styles/index.css:76-140`): hides `aside`, `header`, `nav`, `button`, `[role="navigation"]` and `.doh-report-controls`, sets landscape, and zooms `#doh-report-printable` to 0.45.
     - **⚠ What it does NOT hide, and therefore still prints** (read from the CSS and the DOM, not yet confirmed on paper): the page title block ("Reports · DOH Consolidated Report & Internal Reports"), the `<label>` text beside the hidden `<select>`s ("School:", "School year:"), and every explanatory caption — "Every column of the paper form is shown…", "Covering school year …", "Sep 2026 — showing 0 clients consulted…". Those explain the APP; none of them is on the DOH form.
