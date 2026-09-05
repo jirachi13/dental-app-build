@@ -177,9 +177,24 @@ Built to the second scan (`image20`). The PDF is now **two pages**, because the 
 - **Verified on screen against the scan:** all five charts, Year 1 dated `2025-2026` with the rest blank as on paper, both legends, the signature line.
 - ⚠ **Still not verified: the PDF file** - producing it means downloading. **Click PDF on a pupil's record and confirm two pages.**
 
+## Sprint 137 (the SECOND IPTR - DOH Form 1 - and the PDF button becomes a choice) - DONE 2026-09-05, tsc + build clean, verified on screen. Closes #61.
+The user supplied a legible photograph of Form 1 and confirmed **both IPTRs are valid**. The app now offers both and merges neither.
+
+- **⚠ PRIVACY, RAISED BEFORE ANYTHING WAS COMMITTED: the photo shows a real pupil's surname, first name, middle initial, birth date, age, sex, school and findings.** It is **NOT in the repo** - this repo is public and those are the exact fields the database encrypts. If a scan is ever added it must be a blank form, or have the handwriting blanked first. (Appendix G's images are safe: they are blank forms.)
+- **⚠ IT IS "Form 1", NOT "Form 3".** Backlog #37 recorded the wrong number; the sheet says Form 1.
+- **New `IptrFormV2.tsx`,** a two-column sheet reproduced from the photo: LEFT = "Patient's Medical and Dental History" (16 Filipino questions, Oo / Hindi / Remarks) · consent paragraph verbatim · *Lagda at Pangalan ng Pasyente* / *For Minor: Lagda ng Magulang* · **SERVICES RENDERED** (Date · Oral Prophylaxis · Temporary Filling · Permanent Filling · Sealant · Extraction · **Flouride** · Consultation · Others · Signature). RIGHT = Form 1 / Philhealth File No · DOH **Center for Health Development** · School · **INDIVIDUAL TREATMENT RECORD** · Name (Surname/Apelyido · First Name/Pangalan · M.I.) · Date of Birth · Age · Place of Birth · Sex M/F · Address · Occupation · **ORAL HEALTH STATUS** with five **Age** columns, section A (check present/absent) and section B (indicate number).
+- **Spelling is the sheet's, deliberately** - "Flouride", "Exaination", "meslodens", "meadaling mapagod". Same rule the School Summary follows.
+- **⚠ ONLY UNAMBIGUOUS HISTORY MAPPINGS WERE MADE** (diabetes, sakit sa puso, mataas na presyon, allergy, naospital). The other eleven print **blank, never a guessed "Hindi"** - on a signed medical history that is a clinical claim. *"Sakit sa atay"* is deliberately NOT answered from `hepatitis_disorders`: hepatitis is narrower than the question. **The dentist decides those mappings, not this file.**
+- **⚠ DENTITION IS DECIDED BY TOOTH NUMBER, NOT LETTER CASE.** `✓` (Sound/Sealed) is the same character in both dentitions, so a case test would have counted every sound baby tooth as permanent. FDI quadrants 5-8 are primary.
+- **⚠ A COUNTED ZERO PRINTS; AN UNCHARTED YEAR IS BLANK.** Section B is headed "Indicate Number", so 0 means "none found" and is an answer - but a year with no dental chart was never examined, and printing 0 there would claim it was.
+- **The toolbar now has TWO buttons, `IPTR` and `Form 1`**, each naming which document it produces. A single "PDF" button would have had to pick one silently.
+- **A layout bug caught only by looking:** the ten-column SERVICES RENDERED grid overflowed out of the left half and printed across the right page of the form. Fixed with its own tighter type and `table-fixed`; the sheet widened to 1040px.
+- **Verified on screen against the photo:** both halves, the pupil's real values, `Age 11` heading the first column with four blank Age columns, section A marks, section B counts, and the services row dated from the chart.
+- ⚠ **Still unverified: the PDF files** - producing them means downloading. **Click IPTR and Form 1 on a pupil's record.**
+
 ## Open work (each needs approval; sprint loop applies)
 
-61. **⚠ THERE ARE TWO IPTR VERSIONS AND BOTH ARE VALID — user, 2026-09-05. This changes #60/Sprint 135 from "the form" to "a form".**
+61. **~~THERE ARE TWO IPTR VERSIONS AND BOTH ARE VALID~~ — BUILT 2026-09-05 as Sprint 137.** Both forms are offered; the PDF button is now a choice. ⚠ The photo of Form 1 is NOT in the repo (real patient data - see that sprint). Original note:
     - The user has now confirmed what backlog **#37** suspected: the Taguig City Health Office **"INDIVIDUAL PATIENT TREATMENT RECORD"** (manuscript Appendix G, the one Sprint 135 built) and the **"Form 3 / INDIVIDUAL TREATMENT RECORD"** they photographed on 2026-09-03 are **both in use**. Neither supersedes the other.
     - **So the app must OFFER BOTH, not choose.** Sprint 135's `IptrForm` is version A; version B needs its own component built to its own scan, and the PDF button becomes a choice ("which form?") rather than a single action.
     - **Before building version B:** get a legible scan of it into the repo the way Appendix G already is. The 2026-09-03 photo was a phone snap; the Appendix G images are embedded base64 in the manuscript and are what made Sprint 135 possible.

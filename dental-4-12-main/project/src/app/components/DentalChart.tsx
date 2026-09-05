@@ -18,6 +18,7 @@ import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
 import { useSchools } from '../hooks/useSchools';
 import { IptrForm, IptrFormPage2 } from './IptrForm';
+import { IptrFormV2 } from './IptrFormV2';
 import type { ReferralType } from '../api/types';
 
 // Sprint 127 — the referral kinds are the DOH Oral Health Program Report's own
@@ -253,6 +254,7 @@ export const DentalChart = () => {
   // The off-screen DOH form captured by the IPTR PDF button (Sprint 135).
   const iptrFormRef = useRef<HTMLDivElement | null>(null);
   const iptrFormPage2Ref = useRef<HTMLDivElement | null>(null);
+  const iptrFormV2Ref = useRef<HTMLDivElement | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const tabsRowRef = useRef<HTMLDivElement | null>(null);
   const [stickyOffsets, setStickyOffsets] = useState({ tabsTop: 0, yearTop: 0 });
@@ -883,12 +885,22 @@ export const DentalChart = () => {
   // this function sits after the `if (loading)` / `if (error)` early returns,
   // and a hook after a conditional return changes the hook ORDER between
   // renders ("Rendered more hooks than during the previous render").
-  const onIptrPdf = async () => {
-    if (!iptrFormRef.current) return;
+  // ⚠ TWO IPTR FORMS ARE VALID AT ONCE (user, 2026-09-05), so this is a CHOICE,
+  // not a single action. `patient` is the Taguig City Health Office "Individual
+  // PATIENT Treatment Record" (manuscript Appendix G, two pages); `form1` is
+  // the DOH Center for Health Development "Individual Treatment Record". They
+  // are different documents and are never merged.
+  const onIptrPdf = async (which: 'patient' | 'form1') => {
     setPdfBusy(true);
     try {
       const who = surnameFirst(student).replace(/[^\w]+/g, '-');
-      // TWO PDF PAGES, because the IPTR is a two-page form (Sprint 136).
+      if (which === 'form1') {
+        if (!iptrFormV2Ref.current) return;
+        await exportPagesToPdf([iptrFormV2Ref.current], `ITR_Form1_${who}.pdf`);
+        return;
+      }
+      if (!iptrFormRef.current) return;
+      // TWO PDF PAGES, because that form is a two-page form (Sprint 136).
       // Capturing both into one tall page would produce a document that is not
       // the form.
       await exportPagesToPdf(
@@ -909,6 +921,7 @@ export const DentalChart = () => {
       <div aria-hidden className="fixed -left-[10000px] top-0">
         <div ref={iptrFormRef}><IptrForm student={student} years={years} dentists={dentists} /></div>
         <div ref={iptrFormPage2Ref}><IptrFormPage2 years={years} /></div>
+        <div ref={iptrFormV2Ref}><IptrFormV2 student={student} schoolName={schoolName} years={years} /></div>
       </div>
       {/* Sticky header row */}
       <div ref={headerRowRef} className="sticky top-0 z-40 bg-gray-50 pb-2">
@@ -929,14 +942,26 @@ export const DentalChart = () => {
               file with no filing purpose. Sprint 52 removed the bulk patient
               exports for exactly that reason and named THIS as the one export
               a clinic actually needs. */}
-          <button
-            onClick={onIptrPdf}
-            disabled={pdfBusy}
-            title="Download this patient's record as a PDF"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs border border-border rounded-lg hover:bg-gray-50 disabled:opacity-50"
-          >
-            <Download className="w-3.5 h-3.5" />{pdfBusy ? 'Preparing…' : 'PDF'}
-          </button>
+          {/* Both forms are in use, so both are offered and the button says
+              WHICH — a single "PDF" button would have to pick one silently. */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => onIptrPdf('patient')}
+              disabled={pdfBusy}
+              title="Download the Individual PATIENT Treatment Record (City Health Office, 2 pages)"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs border border-border rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              <Download className="w-3.5 h-3.5" />{pdfBusy ? 'Preparing…' : 'IPTR'}
+            </button>
+            <button
+              onClick={() => onIptrPdf('form1')}
+              disabled={pdfBusy}
+              title="Download the Individual Treatment Record (DOH Form 1)"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs border border-border rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              <Download className="w-3.5 h-3.5" />{pdfBusy ? 'Preparing…' : 'Form 1'}
+            </button>
+          </div>
           <div className="hidden sm:flex items-center gap-1 border border-border rounded-lg overflow-hidden">
             <button
               onClick={() => prevPatient && navigate(`/dental-chart/${prevPatient.id}`)}
