@@ -73,6 +73,10 @@ export interface ApiDentalChart {
   iptr_id: string;
   dentist_id: string;
   date_charted: string;
+  /** The RPC visit this charting was done at (Sprint 149), or null for a
+   *  charting with no visit attached — including every chart created before
+   *  that sprint. */
+  preventive_id?: string | null;
   isArchived: boolean;
 }
 

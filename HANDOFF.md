@@ -354,6 +354,16 @@ User: *"record visit is also treatment, in rpc tracking"* — and the code agree
 - ⚠ **Editing follows the selection**, because `handleSaveChart` writes to `currentYearData.dentalChart`. **So selecting an old charting and editing it edits history.** That is arguably right — a typo from January should be fixable — but it is now possible where it was not, and the only guard is that the picker shows which date is selected and flags the latest. **If the dentist wants past chartings read-only, say so and it is a one-line condition.**
 - ⚠ **Creating a NEW charting from this screen is still not possible** — unchanged from before. That is #63 step 2's job: Record Visit will create the charting already attached to the visit.
 
+## Sprint 149 (a charting now belongs to a visit) - DONE 2026-09-05, tsc + build clean, verified end to end. #63 step 2.
+- **`DENTAL_CHART.preventive_id`** (nullable FK, ERD deviation) — the visit a charting was done at.
+- **Record Visit has TWO exits now:** *Record visit* alone, and ***Record visit & chart now***, which creates the visit, creates the charting **already attached to it**, and opens that charting. **Two acts, two buttons** — a plain visit leaves no empty charting behind for someone to read as *"charted, found nothing"*.
+- **⚠ The chart-now button is hidden for an AIDE.** `DENTAL_CHART.dentist_id` is required and an aide has no DENTIST row; absent beats failing at save.
+- **The charting picker labels a linked charting `· Visit 1` / `· Visit 2`** and shows the date alone for unlinked ones rather than guessing a number.
+- **Verified end to end:** recorded Visit 2 for Castillo, Nico on 2026-04-20 via *chart now* → landed on `/dental-chart/…?tab=chart&chart=…` with the picker reading **Aug 15 2025 · Apr 20 2026 · Visit 2 (selected) · Aug 9 2026 · latest**.
+- ⚠⚠ **TWO FAILED FIXES BEFORE THAT WORKED, both with clean typechecks and builds.** A `useEffect` keyed on `selectedYear` wiped the `?chart=` deep link: it fires on mount, **and again when the year index resolves after the data loads**, so a first-run guard was not enough either. **The right answer was NO effect at all** — a stale chart id needs no clearing, because the lookup already falls back to the latest charting when the id is not in the year on display. Caught only by opening the browser, twice.
+- ⚠ **Step 3 is NOT done:** the reports still infer "1st / 2nd application" from chart dates. They can now read `preventive_id` instead, which is the point of the link.
+- ⚠ **Dev test data:** Castillo, Nico now has a Visit 2 (2026-04-20) and an empty charting attached to it. Left in place — dev is seeded and disposable — but it is the only chart carrying a `preventive_id`.
+
 ## Open work (each needs approval; sprint loop applies)
 
 63. **⚠ A CHARTING BELONGS TO A VISIT, AND THE APP CANNOT SAY WHICH — user, 2026-09-05: *"visit 1 is charting to treatment, same as visit 2"*.** NOT scoped. **Contains a LIVE BUG, measured, that should be fixed first and separately.**

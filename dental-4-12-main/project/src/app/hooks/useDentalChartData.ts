@@ -13,6 +13,7 @@ import type {
   ApiTreatment,
   ApiReferral,
   ApiDentist,
+  ApiPreventiveCareRecord,
 } from '../api/types';
 
 export interface IptrYearData {
@@ -31,6 +32,10 @@ export interface IptrYearData {
    *  each charting is self-contained: that visit's findings and the treatments
    *  done at it. They are read one at a time, never merged. */
   charts: ApiDentalChart[];
+  /** Visit number of each charting, keyed by chart id (Sprint 149). Absent
+   *  means the charting is attached to no visit — every chart made before that
+   *  sprint, and any made from the chart screen rather than from Record Visit. */
+  visitNumberByChart: Record<string, 1 | 2>;
   /** The charting currently being viewed — **the LATEST by date**, which is
    *  the current state of the mouth. It used to be the OLDEST, which is what
    *  made later work invisible. */
@@ -82,7 +87,7 @@ export function useDentalChartData(studentId: string | undefined) {
       // A student with no IPTR years has nothing to join to — skip five
       // round-trips that could only return empty.
       const iptrQuery = myIptrs.map((i) => i._id).join(',');
-      const [allMedical, allDiet, allOral, allCharts, allTreatments, allReferrals] = iptrQuery
+      const [allMedical, allDiet, allOral, allCharts, allTreatments, allReferrals, allPreventives] = iptrQuery
         ? await Promise.all([
             apiClient.get<ApiMedicalHistory[]>(`/medical-histories?iptr_id=${iptrQuery}`),
             apiClient.get<ApiDietarySocialHabits[]>(`/dietary-social-habits?iptr_id=${iptrQuery}`),
@@ -90,8 +95,11 @@ export function useDentalChartData(studentId: string | undefined) {
             apiClient.get<ApiDentalChart[]>(`/dental-charts?iptr_id=${iptrQuery}`),
             apiClient.get<ApiTreatment[]>(`/treatments?iptr_id=${iptrQuery}`),
             apiClient.get<ApiReferral[]>(`/referrals?iptr_id=${iptrQuery}`),
+            // One more filtered read, and a deliberate one: it is what lets a
+            // charting say "Visit 1" instead of only a date (Sprint 149).
+            apiClient.get<ApiPreventiveCareRecord[]>(`/preventive-care-records?iptr_id=${iptrQuery}`),
           ])
-        : [[], [], [], [], [], []];
+        : [[], [], [], [], [], [], []];
 
       const myCharts = allCharts.filter((c) => iptrIds.has(c.iptr_id));
       const chartIds = myCharts.map((c) => c._id);
@@ -108,7 +116,15 @@ export function useDentalChartData(studentId: string | undefined) {
         // The latest is the current state of the mouth. The old code took the
         // first, so a pupil charted again in January showed August's findings.
         const dentalChart = charts.length ? charts[charts.length - 1] : null;
+        const visitNumberByChart: Record<string, 1 | 2> = {};
+        for (const c of charts) {
+          const visit = c.preventive_id
+            ? allPreventives.find((v) => v._id === c.preventive_id)
+            : undefined;
+          if (visit) visitNumberByChart[c._id] = visit.visit_number;
+        }
         return {
+          visitNumberByChart,
           charts,
           iptr,
           medicalHistory: allMedical.find((m) => m.iptr_id === iptr._id) ?? null,

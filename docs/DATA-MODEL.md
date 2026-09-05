@@ -26,6 +26,10 @@ Exact from ERD Chapter 3. **Read this before touching any schema, model, or migr
 **ORAL_HEALTH_CONDITION** — oral_id, iptr_id (FK), oral_hygiene (VARCHAR 50), gingivitis (BOOLEAN), periodontal_disease (BOOLEAN), debris (BOOLEAN), calculus (BOOLEAN), abnormal_growth (BOOLEAN), cleft_lip_palate (BOOLEAN), others (TEXT), created_at
 
 **DENTAL_CHART** — chart_id, iptr_id (FK), dentist_id (FK), date_charted (DATE), isArchived, archivedAt, archivedBy
+- **`preventive_id` (FK → PREVENTIVE_CARE_RECORD, NULLABLE — Sprint 149, ⚠ ERD DEVIATION).** The RPC visit this charting was done at. The dentist screens and treats at the SAME visit (user, 2026-09-05), so a charting IS a visit's work: its findings and the treatments done at it, on the same TOOTH_RECORDs.
+- **⚠ NULL is normal, not an error.** Every chart created before Sprint 149, and any created from the chart screen rather than from Record Visit, has no visit — charting with no visit attached is a real thing. The DOH report's date-based inference of "1st / 2nd application" stays the fallback for those rows.
+- **⚠ SEVERAL CHARTINGS PER SCHOOL YEAR ARE NORMAL** — measured 2026-09-05, 22 of 26 IPTRs on dev have two or more. Code that reads `charts[0]` is wrong; Sprint 148 fixed the one screen that did.
+
 
 **TOOTH_RECORD** — tooth_record_id, chart_id (FK), tooth_number (INT), condition (VARCHAR 100), treatment_code (VARCHAR 50)
 

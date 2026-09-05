@@ -262,10 +262,20 @@ export const DentalChart = () => {
   // every later one: 22 of 26 IPTRs on dev have two or more, and a pupil with
   // three showed 3 of their 4 tooth records. A dentist looking at August's
   // findings while January's existed is reading a stale mouth.
-  const [selectedChartId, setSelectedChartId] = useState<string | null>(null);
-  // A chart id belongs to one school year; keeping it across a year switch
-  // would leave the screen showing a chart that is not in the year on display.
-  useEffect(() => { setSelectedChartId(null); }, [selectedYear]);
+  // `?chart=<id>` lands directly on one charting — Record Visit's "chart now"
+  // navigates here with the charting it just created (Sprint 149).
+  const [selectedChartId, setSelectedChartId] = useState<string | null>(
+    searchParams.get('chart'),
+  );
+  // ⚠ NO RESET EFFECT HERE, and that is the point. Two attempts failed: an
+  // effect keyed on `selectedYear` fires on mount AND again when the year
+  // index resolves once the data loads, and both runs wiped the `?chart=`
+  // deep link that Record Visit's "chart now" navigates with — the charting
+  // was created and listed, and the screen still opened on a different one.
+  //
+  // A stale id needs no clearing: the lookup below falls back to the latest
+  // charting when the id is not in the year on display, so an id from another
+  // year is simply ignored. Both breakages typechecked and built cleanly.
   const [pdfBusy, setPdfBusy] = useState(false);
   const tabsRowRef = useRef<HTMLDivElement | null>(null);
   const [stickyOffsets, setStickyOffsets] = useState({ tabsTop: 0, yearTop: 0 });
@@ -1429,6 +1439,12 @@ export const DentalChart = () => {
                       title={`${teeth} tooth record${teeth === 1 ? '' : 's'}`}
                     >
                       {formatDate(c.date_charted)}
+                      {/* A charting made from Record Visit knows its visit; one
+                          made here, or before Sprint 149, shows the date alone
+                          rather than a guessed visit number. */}
+                      {currentYearData.visitNumberByChart[c._id] && (
+                        <span className="ml-1 opacity-70">· Visit {currentYearData.visitNumberByChart[c._id]}</span>
+                      )}
                       {i === currentYearData.charts.length - 1 && <span className="ml-1 opacity-70">· latest</span>}
                     </button>
                   );

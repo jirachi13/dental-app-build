@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Search, Plus, X, CheckCircle, AlertCircle, Clock, Shield, School as SchoolIcon, List, ChevronRight, Users } from 'lucide-react';
 import { getGradeColor } from '../utils/gradeColors';
 import { useRPCTracking } from '../hooks/useRPCTracking';
+import type { ApiDentist } from '../api/types';
 import { treatmentCodes, treatmentLabel } from './DentalChart';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { activatable } from '../utils/a11y';
@@ -31,6 +32,22 @@ const ViewToggle = ({ mode, onChange }: { mode: 'school' | 'list'; onChange: (m:
 export const RPCTracking = () => {
   const { selectedSchool, user } = useAuth();
   const navigate = useNavigate();
+  // Sprint 149 — DENTAL_CHART.dentist_id is required, so charting from here
+  // needs the DENTIST row behind the signed-in user. Resolved the same way
+  // DentalChart does it (`d.user_id === user.id`); an aide has none, which is
+  // why the "chart now" button is hidden for them rather than failing on save.
+  const [dentists, setDentists] = useState<ApiDentist[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await apiClient.get<ApiDentist[]>('/dentists');
+        if (!cancelled) setDentists(rows);
+      } catch { /* charting stays unavailable; recording a visit still works */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+  const currentDentist = dentists.find((d) => d.user_id === user?.id);
   const toast = useToast();
 
   // Recording a visit (Sprint 81). Until now PREVENTIVE_CARE_RECORD had NO
@@ -85,12 +102,12 @@ export const RPCTracking = () => {
     : null;
   const targetSchoolYear = visitDate ? schoolYearLabel(new Date(`${visitDate}T00:00:00`)) : '';
 
-  const saveVisit = async () => {
+  const saveVisit = async (chartNow = false) => {
     if (!recording || !targetIptrId || !recording.nextVisitNumber) return;
     setSaving(true);
     setSaveError(null);
     try {
-      await apiClient.post('/preventive-care-records', {
+      const visit = await apiClient.post<{ _id: string }>('/preventive-care-records', {
         iptr_id: targetIptrId,
         visit_date: visitDate,
         visit_number: recording.nextVisitNumber,
@@ -98,6 +115,28 @@ export const RPCTracking = () => {
         ...services,
         caries_risk: cariesRisk,
       });
+
+      // Sprint 149 — the charting done AT this visit, created already attached
+      // to it. The dentist screens and treats at the same visit, so a visit
+      // that involved charting has exactly one chart, and that chart's tooth
+      // records are what was found and done there.
+      //
+      // ⚠ Created ONLY on "Record visit & chart now". A visit that was purely
+      // a screening should not leave an empty charting behind for someone to
+      // read as "charted, found nothing".
+      //
+      // ⚠ `dentist_id` is required by the model, so this path needs one. The
+      // aide can record a visit but cannot open a charting — the button is
+      // hidden for them rather than failing at save.
+      if (chartNow && currentDentist) {
+        const chart = await apiClient.post<{ _id: string }>('/dental-charts', {
+          iptr_id: targetIptrId,
+          dentist_id: currentDentist._id,
+          date_charted: visitDate,
+          preventive_id: visit._id,
+        });
+        navigate(`/dental-chart/${recording.id}?tab=chart&chart=${chart._id}`);
+      }
       toast.success(`Visit ${recording.nextVisitNumber} recorded for ${recording.studentName}.`);
       setRecording(null);
       // ⚠ Reset, or the next pupil inherits this one's ticks — a service
@@ -441,7 +480,23 @@ export const RPCTracking = () => {
           </div>
           <div className="flex justify-end gap-2 px-6 py-4 border-t">
             <button onClick={() => setRecording(null)} disabled={saving} className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-gray-50 disabled:opacity-50">Cancel</button>
-            <button onClick={saveVisit} disabled={saving || !visitDate || !targetIptrId} className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50">
+            {/* Sprint 149 — two ways out, because a visit and a charting are
+                different acts even though they happen together. "Record visit"
+                alone leaves no empty charting behind for someone to read as
+                "charted, found nothing"; "& chart now" creates the charting
+                already attached to this visit and opens it.
+                ⚠ Hidden for an aide: DENTAL_CHART needs a dentist_id, and an
+                aide has no DENTIST row — better absent than failing on save. */}
+            {currentDentist && (
+              <button
+                onClick={() => saveVisit(true)}
+                disabled={saving || !visitDate || !targetIptrId}
+                className="px-4 py-2 text-sm font-medium border border-primary text-primary rounded-lg hover:bg-primary/5 disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Record visit & chart now'}
+              </button>
+            )}
+            <button onClick={() => saveVisit(false)} disabled={saving || !visitDate || !targetIptrId} className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50">
               {saving ? 'Saving…' : 'Record visit'}
             </button>
           </div>
