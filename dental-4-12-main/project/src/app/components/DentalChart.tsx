@@ -178,6 +178,13 @@ const serviceChips: { label: string; field: ServiceField }[] = [
 // state, not record state, so it belongs neither in the URL nor in the DB.
 let chartingModeMemo = false;
 
+// Whether the patient card is expanded, also across the remount (Sprint 166).
+// ⚠ Same reason as `chartingModeMemo` above: routes.tsx keys this component by
+// `:id`, so Next student remounts it and a useState would spring the card back
+// open on every child. Collapsing it is a decision about how you want to WORK,
+// not a fact about one pupil, so it should outlive the pupil.
+let basicInfoExpandedMemo = true;
+
 // Base44-exact condition codes: uppercase=permanent, lowercase=temporary (auto-applied)
 //
 // Split into common and rare for the palette (Sprint 156, her division). Un, S,
@@ -422,7 +429,14 @@ export const DentalChart = () => {
   const [othersOralOpen, setOthersOralOpen] = useState(false);
   // Her card collapses (Sprint 164). Identity is checked once on arrival and
   // then only gets in the way of the tab below it.
-  const [basicInfoExpanded, setBasicInfoExpanded] = useState(true);
+  const [basicInfoExpanded, setBasicInfoExpandedState] = useState(basicInfoExpandedMemo);
+  const setBasicInfoExpanded = (next: boolean | ((v: boolean) => boolean)) => {
+    setBasicInfoExpandedState((prev) => {
+      const value = typeof next === 'function' ? next(prev) : next;
+      basicInfoExpandedMemo = value;
+      return value;
+    });
+  };
   const [rareConditionsOpen, setRareConditionsOpen] = useState(false);
   const [rareTreatmentsOpen, setRareTreatmentsOpen] = useState(false);
 
