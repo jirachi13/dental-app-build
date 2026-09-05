@@ -14,6 +14,7 @@ import { buildRiskCandidates } from "../../shared/riskCandidates.js";
 import { buildRpcRows } from "../../shared/rpcTracking.js";
 import { buildSchoolSummary } from "../../shared/schoolSummary.js";
 import { buildFhsisCounts } from "../../shared/fhsis.js";
+import { buildReportsPanels } from "../../shared/reportsPanels.js";
 import { findDuplicateStudents } from "../utils/studentDuplicates.js";
 import {
   School,
@@ -320,6 +321,67 @@ router.get("/stats/notifications", requireAuth, asyncHandler(async (req, res) =>
 // ⚠ The `schools` list is returned to the client as well — the report's own
 // school dropdown is populated from it, and it was one of the four whole
 // collections this endpoint replaces.
+// Sprint 143 — the Reports page's OWN two panels (Treatment Summary and
+// Referral Tracking), which fetched five whole collections on top of the five
+// report hooks already moved. Last of #24's client half.
+//
+// ⚠ `Student.find()` has no .lean() and no .select(): the referral rows carry
+// the pupil's NAME, and either would return ciphertext silently (Sprint 118).
+router.get("/stats/reports-panels", requireAuth, asyncHandler(async (req, res) => {
+  const scope = await scopeFilter("Student", req);
+  const studentFilter = scope ? { isArchived: false, ...scope } : { isArchived: false };
+  const active = { isArchived: false };
+
+  const [students, schools, iptrs, charts, toothRecords, treatments, referrals] = await Promise.all([
+    Student.find(studentFilter),
+    School.find(active).select("_id school_name").lean(),
+    StudentIptr.find(active).select("_id student_id grade_level").lean(),
+    DentalChart.find(active).select("_id iptr_id date_charted").lean(),
+    ToothRecord.find(active).select("chart_id treatment_code").lean(),
+    Treatment.find(active).select("iptr_id date").lean(),
+    Referral.find(active).lean(),
+  ]);
+
+  const str = (v: unknown) => String(v ?? "");
+  const iso = (v: unknown) => (v ? new Date(v as string).toISOString() : "");
+  const out = buildReportsPanels({
+    students: (students as any[]).map((s) => ({
+      _id: str(s._id),
+      school_id: str(s.school_id),
+      sex: str(s.sex),
+      grade_level: str(s.grade_level),
+      last_name: s.last_name ?? "",
+      first_name: s.first_name ?? "",
+      middle_name: s.middle_name ?? "",
+      full_name: s.full_name ?? "",
+    })),
+    schools: (schools as any[]).map((s) => ({ _id: str(s._id), school_name: str(s.school_name) })),
+    iptrs: (iptrs as any[]).map((i) => ({
+      _id: str(i._id),
+      student_id: str(i.student_id),
+      grade_level: i.grade_level ?? null,
+    })),
+    charts: (charts as any[]).map((c) => ({ _id: str(c._id), iptr_id: str(c.iptr_id), date_charted: iso(c.date_charted) })),
+    toothRecords: (toothRecords as any[]).map((t) => ({ chart_id: str(t.chart_id), treatment_code: t.treatment_code ?? null })),
+    treatments: (treatments as any[]).map((t) => ({ iptr_id: str(t.iptr_id), date: iso(t.date) })),
+    referrals: (referrals as any[]).map((r) => ({
+      _id: str(r._id),
+      iptr_id: str(r.iptr_id),
+      referral_type: str(r.referral_type),
+      date_issued: iso(r.date_issued),
+      facility_name: str(r.facility_name),
+      reason: str(r.reason),
+      follow_up_date: r.follow_up_date ? iso(r.follow_up_date) : null,
+      status: str(r.status),
+    })),
+    from: typeof req.query.from === "string" && req.query.from ? req.query.from : null,
+    to: typeof req.query.to === "string" && req.query.to ? req.query.to : null,
+    schoolName: typeof req.query.school === "string" && req.query.school ? req.query.school : null,
+  });
+
+  res.json(out);
+}));
+
 router.get("/stats/fhsis", requireAuth, asyncHandler(async (req, res) => {
   const scope = await scopeFilter("Student", req);
   const studentFilter = scope ? { isArchived: false, ...scope } : { isArchived: false };

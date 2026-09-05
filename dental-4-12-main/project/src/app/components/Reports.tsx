@@ -13,7 +13,8 @@ import { exportDohReportToXlsx } from '../utils/exportDohXlsx';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { activatable } from '../utils/a11y';
 import { apiClient } from '../api/client';
-import type { ApiTreatment, ApiToothRecord, ApiDentalChart, ApiStudentIptr, ApiReferral, ReferralType } from '../api/types';
+import type { ReferralType } from '../api/types';
+import type { ReportsPanelsOutput } from '../../../shared/reportsPanels';
 import { useStudents } from '../hooks/useStudents';
 import { TargetClientList } from './TargetClientList';
 import { OralHealthProgramReport } from './OralHealthProgramReport';
@@ -310,71 +311,15 @@ export const Reports = () => {
   // Raw collections for the Treatment Summary's real per-procedure counts:
   // tooth records carry the procedure codes, their chart carries the date,
   // the IPTR links back to the student (school / grade / gender).
-  const [treatments, setTreatments] = useState<ApiTreatment[]>([]);
-  const [toothRecords, setToothRecords] = useState<ApiToothRecord[]>([]);
-  const [dentalCharts, setDentalCharts] = useState<ApiDentalChart[]>([]);
-  const [iptrs, setIptrs] = useState<ApiStudentIptr[]>([]);
-  const [referrals, setReferrals] = useState<ApiReferral[]>([]);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const [t, tr, dc, ip, rf] = await Promise.all([
-          apiClient.get<ApiTreatment[]>('/treatments'),
-          apiClient.get<ApiToothRecord[]>('/tooth-records'),
-          apiClient.get<ApiDentalChart[]>('/dental-charts'),
-          apiClient.get<ApiStudentIptr[]>('/student-iptrs'),
-          apiClient.get<ApiReferral[]>('/referrals'),
-        ]);
-        setTreatments(t);
-        setToothRecords(tr);
-        setDentalCharts(dc);
-        setIptrs(ip);
-        setReferrals(rf);
-      } catch (err) {
-        console.error('Reports extra data fetch failed:', err);
-      }
-    })();
-  }, []);
-
-  // ── Referral Tracking rows (Sprint 127) ─────────────────────────────────
-  // A referral hangs off an IPTR, so the student (and with them the school and
-  // the grade shown in this table) is reached through that year's record. A
-  // referral whose student is not in `realStudents` is simply absent — that is
-  // the school scope already applied to this page, not a silent drop.
-  const referralRows: ReferralRow[] = useMemo(() => {
-    const studentByIptr = new Map<string, string>();
-    for (const i of iptrs) studentByIptr.set(i._id, i.student_id);
-    const gradeByIptr = new Map<string, string>();
-    for (const i of iptrs) gradeByIptr.set(i._id, i.grade_level ?? '');
-    const studentById = new Map(realStudents.map((st) => [st.id, st]));
-
-    return referrals
-      .map((r) => {
-        const student = studentById.get(studentByIptr.get(r.iptr_id) ?? '');
-        if (!student) return null;
-        return {
-          student: student.name,
-          school: student.school,
-          // The IPTR's own grade is the grade AT THE TIME (Sprint 57a); the
-          // student's current grade would relabel last year's referrals.
-          grade: gradeByIptr.get(r.iptr_id) || student.grade,
-          // ⚠ Formatted here, not in the cell: `date_issued` serializes as a
-          // full ISO instant, so the raw value rendered as
-          // "2026-09-05T00:00:00.000Z" beside a trimmed Follow-up column.
-          // `sortKey` keeps the raw string for ordering — formatted dates do
-          // not sort.
-          sortKey: r.date_issued,
-          date: formatDate(r.date_issued),
-          facility: r.facility_name,
-          reason: REFERRAL_TYPE_LABELS[r.referral_type] + ' — ' + r.reason,
-          followUp: r.follow_up_date ? formatDate(r.follow_up_date) : '—',
-          status: r.status,
-        };
-      })
-      .filter((r) => r !== null)
-      .sort((a, b) => b.sortKey.localeCompare(a.sortKey));
-  }, [referrals, iptrs, realStudents]);
+  // ⚠ Sprint 143 replaced FIVE whole-collection reads (treatments, tooth
+  // records, dental charts, IPTRs, referrals) with one `/stats/reports-panels`
+  // request. The joins live in `shared/reportsPanels.ts` — see #24.
+  const [panels, setPanels] = useState<ReportsPanelsOutput>({
+    treatmentMatrix: {},
+    periodTreatmentCount: 0,
+    allTimeTreatmentCount: 0,
+    referralRows: [],
+  });
 
   const handleDownloadPdf = async () => {
     if (!dohReportRef.current) return;
@@ -433,6 +378,29 @@ export const Reports = () => {
     if (periodType === 'biannual')  { const h = m < 6 ? 0 : 6; return { start: new Date(y, h, 1), end: new Date(y, h + 6, 1) }; }
     return { start: new Date(y, 0, 1), end: new Date(y + 1, 0, 1) };
   }, [periodType, reportMonth, reportYear]);
+
+  // The period and school are applied SERVER-side; filtering afterwards would
+  // put the whole population back on the wire, which is the thing #24 is about.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const params = new URLSearchParams({
+          from: periodRange.start.toISOString(),
+          to: periodRange.end.toISOString(),
+        });
+        if (intSchoolFilter !== 'all') params.set('school', intSchoolFilter);
+        const data = await apiClient.get<ReportsPanelsOutput>(`/stats/reports-panels?${params.toString()}`);
+        if (!cancelled) setPanels(data);
+      } catch (err) {
+        console.error('Reports panels fetch failed:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [periodRange, intSchoolFilter]);
+
+  const referralRows = panels.referralRows;
+
   const periodLabel = periodType === 'monthly'
     ? `${MONTHS[reportMonth - 1]} ${reportYear}`
     : `${periodRange.start.toLocaleDateString('en-US', { month: 'short' })}–${new Date(periodRange.end.getFullYear(), periodRange.end.getMonth() - 1, 1).toLocaleDateString('en-US', { month: 'short' })} ${reportYear}`;
@@ -440,47 +408,23 @@ export const Reports = () => {
   // Real per-procedure counts from tooth-level treatment records. Tooth
   // records carry no date of their own, so each is dated by its chart's
   // date_charted (the closest real date the ERD provides — noted in the UI).
-  const TREATMENT_ROWS = useMemo(() => treatmentCodes.map((t) => t.label), []);
-  const realTreatmentMatrix = useMemo(() => {
-    const inPeriod = (d: string) => { const t = new Date(d); return t >= periodRange.start && t < periodRange.end; };
-    const chartById = new Map(dentalCharts.map((c) => [c._id, c]));
-    const iptrById = new Map(iptrs.map((i) => [i._id, i]));
-    const studentById = new Map(realStudents.map((s) => [s.id, s]));
-    const matrix: Record<string, GX> = {};
-    for (const tr of toothRecords) {
-      if (!tr.treatment_code) continue;
-      const chart = chartById.get(tr.chart_id);
-      if (!chart || !inPeriod(chart.date_charted)) continue;
-      const iptr = iptrById.get(chart.iptr_id);
-      const student = iptr ? studentById.get(iptr.student_id) : undefined;
-      if (!student) continue;
-      if (intSchoolFilter !== 'all' && student.school !== intSchoolFilter) continue;
-      const label = treatmentCodes.find((c) => c.code === tr.treatment_code)?.label ?? tr.treatment_code;
-      const sex: 'M' | 'F' = student.gender === 'Male' ? 'M' : 'F';
-      const row = (matrix[label] ??= {});
-      for (const g of [student.grade, 'all']) {
-        const cell = (row[g] ??= { M: 0, F: 0 });
-        cell[sex] += 1;
-      }
-    }
-    return matrix;
-  }, [toothRecords, dentalCharts, iptrs, realStudents, intSchoolFilter, periodRange]);
-
-  // Treatment entries (the Treatment model has real per-entry dates) within
-  // the same period + school filter, for the "Students Treated" card.
-  const periodTreatmentCount = useMemo(() => {
-    const inPeriod = (d: string) => { const t = new Date(d); return t >= periodRange.start && t < periodRange.end; };
-    const iptrById = new Map(iptrs.map((i) => [i._id, i]));
-    const studentById = new Map(realStudents.map((s) => [s.id, s]));
-    return treatments.filter((t) => {
-      if (!inPeriod(t.date)) return false;
-      if (intSchoolFilter === 'all') return true;
-      const iptr = iptrById.get(t.iptr_id);
-      const student = iptr ? studentById.get(iptr.student_id) : undefined;
-      return student?.school === intSchoolFilter;
-    }).length;
-  }, [treatments, iptrs, realStudents, intSchoolFilter, periodRange]);
-  const realTreatmentCount = treatments.length; // all-time, for the admin Overview tab
+  // ⚠ ROWS ARE CODES NOW, rendered with their label. The server keys the
+  // matrix by treatment CODE (Sprint 143) because labels carry the clinic's
+  // local terms and belong to the UI — keeping the rows on labels here would
+  // have looked up `matrix['Extraction']` against a map keyed `X` and printed
+  // a table of zeros, with a clean typecheck (Record<string, …> accepts any
+  // key). Caught by reading, not by tsc.
+  const TREATMENT_ROWS = useMemo(() => treatmentCodes.map((t) => t.code), []);
+  const labelForCode = useMemo(
+    () => new Map(treatmentCodes.map((t) => [t.code, t.label])),
+    [],
+  );
+  // ⚠ KEYED BY TREATMENT CODE now, not by label: labels carry the clinic's
+  // local terms ("Bunot", "Pasta") and belong to the UI, so the server never
+  // sends them. The rows below map code -> label at render time.
+  const realTreatmentMatrix = panels.treatmentMatrix;
+  const periodTreatmentCount = panels.periodTreatmentCount;
+  const realTreatmentCount = panels.allTimeTreatmentCount; // all-time, for the admin Overview tab
   const [expandedReferral, setExpandedReferral] = useState<number|null>(null);
 
   const AGE_TO_GRADES: Record<string,string[]> = {
@@ -967,7 +911,7 @@ export const Reports = () => {
                 // indexOf(max) would misleadingly point at PROCEDURES[0] as
                 // if it were genuinely "most common". Only claim a most-
                 // common procedure when there's real data behind it.
-                const mostCommon = grandTotal > 0 ? TREATMENT_ROWS[topIdx] : 'N/A';
+                const mostCommon = grandTotal > 0 ? (labelForCode.get(TREATMENT_ROWS[topIdx]) ?? TREATMENT_ROWS[topIdx]) : 'N/A';
                 return (
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     {[
@@ -993,7 +937,7 @@ export const Reports = () => {
               <div className="bg-card rounded-xl border border-border p-4">
                 <h3 className="text-sm font-bold text-foreground mb-3">Procedures Performed</h3>
                 <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={TREATMENT_ROWS.map(p => ({ name: p, count: cnt(realTreatmentMatrix, p, intGenderFilter) }))}
+                  <BarChart data={TREATMENT_ROWS.map(p => ({ name: labelForCode.get(p) ?? p, count: cnt(realTreatmentMatrix, p, intGenderFilter) }))}
                     margin={{top:4,right:8,bottom:40,left:0}}>
                     <CartesianGrid strokeDasharray="3 3" stroke={CHART.grid} vertical={false} />
                     <XAxis dataKey="name" tick={{fontSize:10}} angle={-25} textAnchor="end" interval={0} />
@@ -1029,7 +973,7 @@ export const Reports = () => {
                       const t = m + f;
                       return (
                         <tr key={p} className="hover:bg-gray-50">
-                          <td className="px-4 py-2.5 font-medium text-foreground">{p}</td>
+                          <td className="px-4 py-2.5 font-medium text-foreground">{labelForCode.get(p) ?? p}</td>
                           <td className="px-4 py-2.5 text-center text-blue-700">{m}</td>
                           <td className="px-4 py-2.5 text-center text-pink-700">{f}</td>
                           <td className="px-4 py-2.5 text-center font-bold text-foreground">{t}</td>

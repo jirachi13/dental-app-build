@@ -269,6 +269,20 @@ Chosen over server-side filters because filters do not scale: at 8,000 pupils th
 2. **Two endpoints return a row per pupil** (`risk-candidates`, `rpc-rows`) and still grow with the roll — paging them is separate.
 3. **The SERVER still reads whole collections** to build every aggregate. A `$lookup` pipeline is the next step if server memory becomes the constraint; nothing measured says it is yet.
 
+## Sprint 143 (the Reports page's own five reads) - DONE 2026-09-05, tsc + build clean, verified in the browser. **#24's CLIENT HALF IS COMPLETE.**
+`Reports.tsx` fetched five whole collections of its own — treatments, tooth records, dental charts, IPTRs, referrals — on top of the five hooks already moved. Now one `GET /stats/reports-panels?from=&to=&school=`, **1.4 KB**, serving the Treatment Summary matrix, the two treatment counts and the Referral Tracking rows.
+
+- **Logic MOVED to `shared/reportsPanels.ts`.** Period and school are applied SERVER-side; filtering afterwards would put the whole population back on the wire, which is the thing #24 is about.
+- **⚠ THE MATRIX IS KEYED BY TREATMENT CODE, NOT LABEL** — labels carry the clinic's local terms ("Bunot", "Pasta") and belong to the UI; sending them from an API would make a wording change a server change.
+- **⚠⚠ THAT KEY CHANGE ALMOST SHIPPED A TABLE OF ZEROS WITH A CLEAN TYPECHECK.** The rows were still built from labels, so the render looked up `matrix['Extraction']` against a map keyed `X`. `Record<string, …>` accepts any key, so **tsc passed**. Caught by reading the render after changing the shape — the same lesson as the hook-order crash: *the type checker cannot see a wrong string*. Rows are now codes, displayed through a `labelForCode` map.
+- **Verified in the browser:** with Annual selected the table reads **Fluoride Varnish 3 / 5 / 8 · Oral Prophylaxis 1 / 1 / 2 · Silver Diamine Fluoride 1 / 1 / 2 · TOTAL 5 / 7 / 12**, matching the endpoint for the same range, and the row names render as labels rather than codes.
+- ⚠ **A zero that is NOT a bug:** the default Monthly/September period genuinely contains no charting dates, so the table opens at zero — as it did before this sprint. Also **dev holds 0 TREATMENT rows** (`npm run seed:treatments` produced none), so "Students Treated" is honestly 0; the tooth-level procedure counts above come from TOOTH_RECORD and are unaffected.
+
+### #24 — client half DONE (Sprints 138-143). What is left, stated plainly:
+1. **Two endpoints return a row per pupil** (`risk-candidates`, `rpc-rows`) and still grow with the roll. Paging them is the next real step.
+2. **The SERVER still reads whole collections** to build every aggregate. A `$lookup` pipeline is the answer if server memory becomes the constraint; **nothing measured says it is yet** — the demo is 26 pupils.
+3. Six aggregates now share one shape and one gate (`scopeFilter`), so paging or pipelining them is a repeat of the same change, not six different ones.
+
 ## Open work (each needs approval; sprint loop applies)
 
 61. **~~THERE ARE TWO IPTR VERSIONS AND BOTH ARE VALID~~ — BUILT 2026-09-05 as Sprint 137.** Both forms are offered; the PDF button is now a choice. ⚠ The photo of Form 1 is NOT in the repo (real patient data - see that sprint). Original note:
