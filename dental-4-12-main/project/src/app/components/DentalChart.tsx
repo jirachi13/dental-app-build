@@ -20,6 +20,12 @@ import { useSchools } from '../hooks/useSchools';
 import { IptrForm, IptrFormPage2 } from './IptrForm';
 import { IptrFormV2 } from './IptrFormV2';
 import type { ReferralType } from '../api/types';
+import {
+  sectionBRows,
+  teethByTreatment as teethByTreatmentCode,
+  hasCaries,
+  type ChartedTooth,
+} from '../../../shared/iptrSectionB';
 
 // Sprint 127 — the referral kinds are the DOH Oral Health Program Report's own
 // printed rows, not a taxonomy of ours. Picking one here IS the report row the
@@ -356,6 +362,40 @@ export const DentalChart = () => {
   };
 
   const currentChart = draftChart;
+
+  // ── IPTR Section B + per-tooth treatment summary (Sprint 151) ───────────
+  //
+  // Design adopted from the collaborator's `majorUpdates` branch; the rows and
+  // the two readings of the form are hers. The derivation lives in
+  // `shared/iptrSectionB.ts` so this panel and the PRINTED Form 1 cannot
+  // disagree about the same pupil — they now compute from one function.
+  //
+  // ⚠ Reads the odontogram being EDITED, so the numbers move as the dentist
+  // charts. That is the point: a summary that only updated on save would be
+  // wrong for as long as the chart was open.
+  const chartedTeeth: ChartedTooth[] = useMemo(
+    () => Object.entries(currentChart).map(([tooth, entry]) => ({
+      tooth: Number(tooth),
+      condition: entry.condition,
+      treatment: entry.treatment,
+    })),
+    [currentChart],
+  );
+  const indicateNumberRows = useMemo(() => sectionBRows(chartedTeeth), [chartedTeeth]);
+  const treatmentTeeth = useMemo(() => teethByTreatmentCode(chartedTeeth), [chartedTeeth]);
+
+  // Whole-mouth findings. ⚠ Dental Caries is DERIVED from the teeth, never a
+  // separate tick — caries is recorded tooth by tooth, and a second source for
+  // one fact eventually disagrees with the first.
+  const presentOralConditions = useMemo(() => [
+    { label: 'Dental Caries', present: hasCaries(chartedTeeth) },
+    { label: 'Gingivitis', present: draftOral.gingivitis },
+    { label: 'Periodontal Disease', present: draftOral.periodontal },
+    { label: 'Debris', present: draftOral.debris },
+    { label: 'Calculus', present: draftOral.calculus },
+    { label: 'Abnormal Growth', present: draftOral.abnormalGrowth },
+    { label: 'Cleft Lip / Palate', present: draftOral.cleftLipPalate },
+  ], [chartedTeeth, draftOral]);
   const dmft = computeDMFT(currentChart);
   // Coloured by the SELECTED YEAR's grade, not the student's current one — a
   // 2025-2026 record tinted with this year's grade colour is the same quiet
@@ -1420,6 +1460,103 @@ export const DentalChart = () => {
         {activeTab === 'chart' && (
           <div className="p-0 space-y-0">
             <div className="p-4 space-y-4">
+            {/* ── DENTAL CONDITION / TREATMENT SUMMARY (Sprint 151) ──────────
+                Layout adopted from the collaborator's `majorUpdates` branch.
+                Bound to OUR data: the odontogram being edited, and the shared
+                Section B derivation the printed Form 1 also uses.
+
+                ⚠ Two tables because there are two kinds of answer — the
+                distinction is hers and it is right. A whole-mouth finding is
+                answered "is it present?"; a per-tooth treatment is only
+                meaningful WITH the teeth it was done to, which a count alone
+                never says. */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="bg-teal-50/70 rounded-xl border border-teal-200 p-4 space-y-4">
+                <div className="text-xs font-semibold text-teal-800 uppercase tracking-wide">Dental Condition Summary</div>
+
+                <table className="w-full table-fixed border-collapse text-xs">
+                  <colgroup><col className="w-[63%]" /><col className="w-[37%]" /></colgroup>
+                  <tbody>
+                    {presentOralConditions.map(({ label, present }) => (
+                      <tr key={label}>
+                        <td className="border-b border-teal-200/70 px-2 py-1.5 text-foreground">{label}</td>
+                        <td className="border-b border-teal-200/70 px-2 py-1.5 font-semibold text-teal-800">
+                          {present ? 'Yes' : ''}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {/* Section B of the paper IPTR, verbatim rows and order. Every
+                    figure is DERIVED from the teeth above — none of it is
+                    typed, so it cannot disagree with the odontogram. */}
+                <table className="w-full table-fixed border-collapse text-xs">
+                  <colgroup><col className="w-[45%]" /><col className="w-[18%]" /><col className="w-[37%]" /></colgroup>
+                  <thead>
+                    <tr className="text-left text-teal-800">
+                      <th className="border-b border-teal-200/70 px-2 py-1.5 font-semibold">Indicate Number</th>
+                      <th className="border-b border-teal-200/70 px-2 py-1.5 font-semibold">Tooth Count</th>
+                      <th className="border-b border-teal-200/70 px-2 py-1.5 font-semibold">Tooth Numbers</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {indicateNumberRows.map(({ label, teeth }) => (
+                      <tr key={label}>
+                        <td className="border-b border-teal-200/70 px-2 py-1.5 text-foreground">{label}</td>
+                        <td className="border-b border-teal-200/70 px-2 py-1.5 font-semibold text-foreground">
+                          {teeth.length ? teeth.length : ''}
+                        </td>
+                        <td className="border-b border-teal-200/70 px-2 py-1.5 font-mono text-foreground break-words">
+                          {teeth.join(', ')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="bg-blue-50/70 rounded-xl border border-blue-200 p-4 space-y-4">
+                <div className="text-xs font-semibold text-primary uppercase tracking-wide">Treatment Summary</div>
+                <table className="w-full table-fixed border-collapse text-xs">
+                  <colgroup><col className="w-[45%]" /><col className="w-[18%]" /><col className="w-[37%]" /></colgroup>
+                  <thead>
+                    <tr className="text-left text-primary">
+                      <th className="border-b border-blue-200/70 px-2 py-1.5 font-semibold">Treatment</th>
+                      <th className="border-b border-blue-200/70 px-2 py-1.5 font-semibold">Tooth Count</th>
+                      <th className="border-b border-blue-200/70 px-2 py-1.5 font-semibold">Tooth Numbers</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {treatmentCodes.map((t) => {
+                      const teeth = treatmentTeeth[t.code] ?? [];
+                      return (
+                        <tr key={t.code}>
+                          <td className="border-b border-blue-200/70 px-2 py-1.5 text-foreground">
+                            <span className="font-semibold mr-1">{t.code}</span>
+                            {t.label}
+                          </td>
+                          <td className="border-b border-blue-200/70 px-2 py-1.5 font-semibold text-foreground">
+                            {teeth.length ? teeth.length : ''}
+                          </td>
+                          <td className="border-b border-blue-200/70 px-2 py-1.5 font-mono text-foreground break-words">
+                            {teeth.join(', ')}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {/* ⚠ The collaborator's version also carried whole-mouth service
+                    rows here (oral examination, fluoride varnish, prophylaxis,
+                    consultation) backed by fields on DENTAL_CHART. They are NOT
+                    copied: Sprint 147 records those on PREVENTIVE_CARE_RECORD,
+                    against the visit, and the DOH report reads that. Two homes
+                    for "was fluoride varnish given" is how a filed return and a
+                    screen end up disagreeing. */}
+              </div>
+            </div>
+
             {/* Sprint 148 — one row per charting recorded this school year.
                 Hidden when there is only one: a picker with a single option is
                 noise. The dentist screens and treats at the same visit, so each
