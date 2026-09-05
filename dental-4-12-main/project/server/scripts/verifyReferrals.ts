@@ -4,8 +4,20 @@
 //
 // Every check STATES WHAT IT COMPARED and throws when a precondition is
 // missing, per the 2026-09-04 session lesson — a check that measures nothing
-// looks exactly like a check that passes. It writes 4 referrals and deletes
-// them again, so run it on DEV.
+// looks exactly like a check that passes.
+//
+// ⚠ IT WRITES 4 REAL REFERRALS and removes them again, so it REFUSES to run
+// against the production cluster (Sprint 129, from the code review): a run
+// against production would put fabricated referrals into real records, and if
+// it threw partway they would stay there and be counted on a form filed with
+// the City Health Office. `announceTarget` only PRINTS the target — printing is
+// not a guard.
+//
+// The rows it removes are its own fixtures, deleted by the ids it just created,
+// never by a query that could match anything else. CLAUDE.md's "never hard
+// delete" governs patient records in the app; this is a test fixture that
+// existed for four seconds, and leaving it behind would corrupt the very counts
+// the next run measures.
 import "../dnsFix.js";
 import "dotenv/config";
 import { connectDB } from "../config/db.js";
@@ -24,13 +36,30 @@ async function main() {
   // empty until the connection is open — calling it first prints "(unknown host)"
   // and silently tells you nothing about which database you are on.
   await connectDB();
-  announceTarget("verifyReferrals");
+  const { isProduction, host } = announceTarget("verifyReferrals");
+  if (isProduction) {
+    throw new Error(
+      `REFUSING TO RUN against the production database (${host}). This script writes 4 real ` +
+        `referrals. Point .env at the dev cluster and run it there.`,
+    );
+  }
 
   const iptrs = await StudentIptr.find({ isArchived: false }).limit(2);
   if (iptrs.length < 1) throw new Error("PRECONDITION FAILED: no StudentIptr rows to attach a referral to");
   const iptr = iptrs[0];
   const student = await Student.findById(iptr.student_id);
   if (!student) throw new Error("PRECONDITION FAILED: IPTR points at no student");
+  // ⚠ Stated, not assumed: the count checks below only mean anything if this
+  // pupil starts with no referrals. Once someone records one through the
+  // Referrals tab, an unasserted run would report a FALSE FAILURE on dirty
+  // state — which is exactly the scenario this script exists to survive.
+  const preExisting = await Referral.countDocuments({ iptr_id: iptr._id });
+  if (preExisting > 0) {
+    throw new Error(
+      `PRECONDITION FAILED: IPTR ${iptr._id} already has ${preExisting} referral(s). ` +
+        `The count checks assume a clean pupil. Pick another IPTR or archive those first.`,
+    );
+  }
   console.log(`Using IPTR ${iptr._id} (school_year ${iptr.school_year}, grade ${iptr.grade_level})`);
 
   const REASON = "Suspicious lesion on the lower left buccal mucosa";
@@ -103,9 +132,12 @@ async function main() {
   check("date_issued index built", names.some((n) => n.includes("date_issued")), names.join(" "));
 
   // Clean up — this is the DEV database, but a verifier must not leave rows.
-  await Referral.deleteMany({ _id: { $in: made.map((m) => m._id) } });
-  const left = await Referral.countDocuments({ iptr_id: iptr._id });
-  check("cleanup", left === 0, `${left} referrals left behind`);
+  const madeIds = made.map((m) => m._id);
+  await Referral.deleteMany({ _id: { $in: madeIds } });
+  // Counts ONLY the fixtures this run created — counting every referral on the
+  // IPTR would fail the moment a real one exists, which is a false failure.
+  const left = await Referral.countDocuments({ _id: { $in: madeIds } });
+  check("cleanup", left === 0, `${left} of this run's ${madeIds.length} fixtures left behind`);
 
   console.log("\n" + results.join("\n"));
   console.log(`\n${results.filter((r) => r.startsWith("PASS")).length}/${results.length} checks passed`);

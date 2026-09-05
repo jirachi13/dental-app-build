@@ -8,6 +8,7 @@ import {
   School, User, Dentist, DentalAide, Student, StudentIptr, MedicalHistory,
   DietarySocialHabits, OralHealthCondition, DentalChart, ToothRecord, Treatment,
   PreventiveCareRecord, RiskStratification, Appointment, DentistRotation, AuditTrail,
+  DayNote, Referral,
 } from "../models/index.js";
 import mongoose from "mongoose";
 
@@ -37,6 +38,58 @@ import mongoose from "mongoose";
  * never match; students are fetched and filtered in JS after mongoose decrypts
  * on read (same lesson as seedStudents.ts / seedRpcVisit2.ts).
  */
+/**
+ * Sprint 129 — the guard that would have caught Sprint 127.
+ *
+ * `Referral` was added on 2026-09-04 and NOT added to the plan below, so a
+ * purge before deployment would have deleted the demo students and their IPTRs
+ * and left every referral behind: orphaned rows pointing at `iptr_id`s that no
+ * longer exist, invisible in every report (the join drops them) and permanent,
+ * since nothing here is hard-deleted afterwards. A comment saying "remember to
+ * add new models" is the weak version of this; the script refusing to run is
+ * the strong one.
+ *
+ * Every registered Mongoose model must be either IN the plan or on the
+ * exclusion list below WITH A STATED REASON. A new model is therefore a
+ * decision — "purge it" or "leave it, because…" — instead of an omission.
+ *
+ * ⚠ It compares against `mongoose.models`, which only holds what this file
+ * IMPORTS. That is why every model is imported above even though several are
+ * not deleted: an unimported model is invisible here, and this check would
+ * then pass having compared nothing — the exact failure mode of 2026-09-04.
+ * `models/index.ts` is the full list; keep the import in step with it.
+ */
+const NOT_PURGED: Record<string, string> = {
+  School: "the three real schools are reference data, not demo data (Sprint 116 nearly deleted them)",
+  User: "demo staff accounts are handled separately below; the admin account must survive",
+  Dentist: "handled below, by demo user id",
+  DentalAide: "handled below, by demo user id",
+  DentistRotation: "handled below, by demo dentist id",
+  AuditTrail: "cleared separately below, by affected record id",
+  DayNote: "written against a DATE and often barangay-wide; not owned by any student, so no demo row can be identified by foreign key",
+};
+
+function assertPlanCoversEveryModel(planned: string[]) {
+  const registered = Object.keys(mongoose.models);
+  if (registered.length === 0) {
+    throw new Error("Coverage check compared NOTHING: no models are registered. Are the imports above intact?");
+  }
+  const missing = registered.filter((name) => !planned.includes(name) && !(name in NOT_PURGED));
+  console.log(
+    `Coverage: ${registered.length} models registered, ${planned.length} in the purge plan, ` +
+      `${Object.keys(NOT_PURGED).length} deliberately excluded.`
+  );
+  if (missing.length > 0) {
+    console.error(
+      `\nREFUSING TO RUN. ${missing.length} model(s) are neither purged nor explicitly excluded:\n` +
+        missing.map((m) => `  - ${m}`).join("\n") +
+        `\n\nAdd each to the plan in purgeDemoData.ts, or to NOT_PURGED with the reason it stays.\n` +
+        `A purge that silently skips a collection leaves orphaned rows pointing at deleted parents.`
+    );
+    process.exit(1);
+  }
+}
+
 const CONFIRM = process.argv.includes("--confirm");
 
 // Derived from the seeder's own roster -- NEVER hand-maintain this list. A
@@ -132,10 +185,13 @@ async function main() {
     ["DietarySocialHabits", DietarySocialHabits, { iptr_id: { $in: iptrIds } }],
     ["OralHealthCondition", OralHealthCondition, { iptr_id: { $in: iptrIds } }],
     ["Treatment",           Treatment,           { iptr_id: { $in: iptrIds } }],
+    ["Referral",            Referral,            { iptr_id: { $in: iptrIds } }],
     ["Appointment",         Appointment,         { student_id: { $in: studentIds } }],
     ["StudentIptr",         StudentIptr,         { _id: { $in: iptrIds } }],
     ["Student",             Student,             { _id: { $in: studentIds } }],
   ];
+
+  assertPlanCoversEveryModel(plan.map(([name]) => name));
 
   console.log(
     `Students: ${demoStudents.length} flagged is_demo=true to delete, ` +

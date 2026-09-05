@@ -771,8 +771,11 @@ export const DentalChart = () => {
       setReferralError('This student has no record for the selected school year.');
       return;
     }
-    if (!referralForm.facility.trim() || !referralForm.reason.trim()) {
-      setReferralError('Facility and reason are required.');
+    // `date_issued` is required on the model. Without this check, clearing the
+    // date posts an empty string, Mongoose casting fails, and the raw server
+    // validation string surfaces in the panel.
+    if (!referralForm.date || !referralForm.facility.trim() || !referralForm.reason.trim()) {
+      setReferralError('Date issued, facility and reason are required.');
       return;
     }
     setReferralSaving(true);
@@ -1739,7 +1742,7 @@ export const DentalChart = () => {
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
                 <p className="text-xs text-blue-700">Adding to school year: <strong>{currentYearData?.iptr.school_year}</strong></p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div><label className="block text-xs font-medium text-foreground mb-1">Date Issued</label>
+                  <div><label className="block text-xs font-medium text-foreground mb-1">Date Issued *</label>
                     <input type="date" value={referralForm.date} onChange={(e) => setReferralForm((f) => ({ ...f, date: e.target.value }))} className="w-full px-3 py-1.5 text-sm border border-border rounded-lg" /></div>
                   <div><label className="block text-xs font-medium text-foreground mb-1">Referred For</label>
                     <select value={referralForm.referralType} onChange={(e) => setReferralForm((f) => ({ ...f, referralType: e.target.value as ReferralType }))} className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-card">

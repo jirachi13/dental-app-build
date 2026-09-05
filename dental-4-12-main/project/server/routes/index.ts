@@ -461,13 +461,20 @@ router.use("/day-notes", createCrudRouter(DayNote, {
 
 // Sprint 127 — referrals. `dateField` bounds the reports' sweep the way
 // Sprint 56 did for appointments; `filterable: ["iptr_id"]` serves the student
-// record's Referrals tab. `archiveRoles` is set for the same reason Sprint 108
-// had to set it on day notes: it defaults to ADMIN_ONLY, and the tab shows the
-// dentist a remove button — a control that appears to work must work. Restore
-// stays admin-only per CLAUDE.md's soft-delete rule.
+// record's Referrals tab.
+//
+// ⚠ Sprint 129 corrected this block. It originally granted
+// `archiveRoles: CLINICAL_WRITE_ROLES`, justified by "the tab shows the dentist
+// a remove button" — copied from the DAY_NOTE reasoning above without checking,
+// and the Referrals tab has NO such button. The grant was dead code and the
+// comment would have told the next reader an archive path had been tested.
+// Archiving therefore stays at the ADMIN_ONLY default, which also matches
+// TREATMENT, the model a referral most resembles. If a dentist ever needs to
+// withdraw a referral she typed by mistake, add the button AND the grant
+// together — a control that appears to work must work, and so must its absence
+// be deliberate.
 router.use("/referrals", createCrudRouter(Referral, {
   writeRoles: CLINICAL_WRITE_ROLES,
-  archiveRoles: CLINICAL_WRITE_ROLES,
   filterable: ["iptr_id"],
   dateField: "date_issued",
 }));

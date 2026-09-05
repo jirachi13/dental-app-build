@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { FileSpreadsheet, FileText, Printer, Download, AlertTriangle, AlertCircle, CheckCircle, Users, Calendar, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ChartTooltip } from './ChartTooltip';
@@ -22,6 +22,7 @@ import { FhsisReport } from './FhsisReport';
 import { ConsentForm } from './ConsentForm';
 import { treatmentCodes } from './DentalChart';
 import { schoolYearLabel } from '../utils/schoolYear';
+import { formatDate } from '../utils/localDate';
 import { useSchools } from '../hooks/useSchools';
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -155,7 +156,7 @@ const DOH_ROWS: RowDef[] = [
 // Health Program Report already asks for referral counts (four rows, all
 // printing "—" for the same missing model). The captions now say so plainly.
 const NOT_TRACKED = 'Not tracked yet — no model exists';
-type ReferralRow = { student:string; school:string; grade:string; date:string; facility:string; reason:string; followUp:string; status:string };
+type ReferralRow = { student:string; school:string; grade:string; date:string; sortKey:string; facility:string; reason:string; followUp:string; status:string };
 
 // The same labels the student record's Referrals tab uses. Kept in words the
 // DOH form uses, because this table is read next to that form.
@@ -358,15 +359,21 @@ export const Reports = () => {
           // The IPTR's own grade is the grade AT THE TIME (Sprint 57a); the
           // student's current grade would relabel last year's referrals.
           grade: gradeByIptr.get(r.iptr_id) || student.grade,
-          date: r.date_issued,
+          // ⚠ Formatted here, not in the cell: `date_issued` serializes as a
+          // full ISO instant, so the raw value rendered as
+          // "2026-09-05T00:00:00.000Z" beside a trimmed Follow-up column.
+          // `sortKey` keeps the raw string for ordering — formatted dates do
+          // not sort.
+          sortKey: r.date_issued,
+          date: formatDate(r.date_issued),
           facility: r.facility_name,
           reason: REFERRAL_TYPE_LABELS[r.referral_type] + ' — ' + r.reason,
-          followUp: r.follow_up_date ? r.follow_up_date.slice(0, 10) : '—',
+          followUp: r.follow_up_date ? formatDate(r.follow_up_date) : '—',
           status: r.status,
         };
       })
       .filter((r) => r !== null)
-      .sort((a, b) => b.date.localeCompare(a.date));
+      .sort((a, b) => b.sortKey.localeCompare(a.sortKey));
   }, [referrals, iptrs, realStudents]);
 
   const handleDownloadPdf = async () => {
@@ -1282,8 +1289,10 @@ export const Reports = () => {
                           and are counted on the DOH Program Report from there.
                         </td></tr>
                       ) : referralRows.map((r, i) => (
-                        <>
-                        <tr key={i} {...activatable(() => setExpandedReferral(expandedReferral === i ? null : i))}
+                        // key on the FRAGMENT: with it on the inner <tr>, React
+                        // warns on every render now that this list is non-empty.
+                        <Fragment key={i}>
+                        <tr {...activatable(() => setExpandedReferral(expandedReferral === i ? null : i))}
                           className="hover:bg-orange-50/40 cursor-pointer select-none">
                           <td className="px-4 py-2.5 font-medium text-foreground whitespace-nowrap">{r.student}</td>
                           <td className="px-4 py-2.5 text-muted-foreground max-w-[120px] truncate">{getSchoolShortName(r.school)}</td>
@@ -1314,7 +1323,7 @@ export const Reports = () => {
                             </td>
                           </tr>
                         )}
-                        </>
+                        </Fragment>
                       ))}
                     </tbody>
                   </table>
