@@ -1185,8 +1185,14 @@ export const DentalChart = () => {
     }
   };
 
+  // ⚠ THE WIDTH. This wrapper carried `max-w-5xl mx-auto` — a 1024px cap with
+  // the leftover space split either side — which is why the record screen sat
+  // in a narrow column while every other screen in the app ran the full width
+  // of the content area. Hers is `w-full`, and hers is right here: the
+  // odontogram is 32 teeth across and the summaries are a two-column grid,
+  // both of which were being squeezed for no reason. Sprint 165.
   return (
-    <div className="space-y-4 max-w-5xl mx-auto">
+    <div className="space-y-4 w-full">
       {/* The printable form, off-screen. Kept mounted so the PDF button has a
           laid-out element to capture; `aria-hidden` so it is not read twice by
           a screen reader, and it carries `.form-print` so a browser print of
@@ -1650,18 +1656,24 @@ export const DentalChart = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <div className="text-xs font-bold text-foreground uppercase tracking-wide mb-2">Medical History</div>
-                <div className="space-y-1.5">
+                {/* ⚠ Sprint 165 — chips, not label-left/checkbox-right rows.
+                    Removing the record page's width cap stretched those rows to
+                    the full content width and left every checkbox a hand-span
+                    from the word it belonged to. Her chips keep the box against
+                    its label at any width, and they are already the pattern on
+                    the Oral Conditions card. */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {([
                     ['Hypertension / CVA', 'hypertension'], ['Diabetes Mellitus', 'diabetes'],
                     ['Cardiovascular / Heart Diseases', 'cardiovascular'], ['Thyroid Disorders', 'thyroid'],
                     ['Hepatitis', 'hepatitis'], ['Malignancy', 'malignancy'],
                     ['History of Hospitalization', 'hospitalization'], ['Blood Transfusion', 'bloodTransfusion'], ['Tattoo', 'tattoo'],
                   ] as [string, keyof MedicalHistoryDraft][]).map(([label, field]) => (
-                    <label key={field} className="flex items-center justify-between text-xs text-foreground py-1 border-b border-gray-100 last:border-0">
-                      {label}
+                    <label key={field} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors ${!!draftMed[field] ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-foreground'} ${editingHistory ? 'cursor-pointer hover:bg-canvas' : 'cursor-not-allowed opacity-70'}`}>
                       <input type="checkbox" disabled={!editingHistory} checked={!!draftMed[field]}
                         onChange={(e) => setDraftMed((p) => ({ ...p, [field]: e.target.checked }))}
-                        className="w-4 h-4 rounded accent-teal-600 disabled:cursor-not-allowed" />
+                        className="w-4 h-4 rounded accent-primary disabled:cursor-not-allowed" />
+                      {label}
                     </label>
                   ))}
                   <div className="pt-1">
@@ -1673,17 +1685,17 @@ export const DentalChart = () => {
               </div>
               <div>
                 <div className="text-xs font-bold text-foreground uppercase tracking-wide mb-2">Dietary Habits and Social History</div>
-                <div className="space-y-1.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {([
                     ['Sugar Sweetened Beverages/Food', 'sugarSweetened'], ['Alcohol Drinker', 'alcoholDrinker'],
                     ['Tobacco User', 'tobaccoUser'], ['Betel Nut Chewer', 'betelNut'],
                     ['Body Piercing', 'bodyPiercing'], ['Nail Biting', 'nailBiting'], ['Thumbsucking', 'thumbsucking'],
                   ] as [string, keyof DietDraft][]).map(([label, field]) => (
-                    <label key={field} className="flex items-center justify-between text-xs text-foreground py-1 border-b border-gray-100 last:border-0">
-                      {label}
+                    <label key={field} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors ${!!draftDiet[field] ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-foreground'} ${editingHistory ? 'cursor-pointer hover:bg-canvas' : 'cursor-not-allowed opacity-70'}`}>
                       <input type="checkbox" disabled={!editingHistory} checked={!!draftDiet[field]}
                         onChange={(e) => setDraftDiet((p) => ({ ...p, [field]: e.target.checked }))}
-                        className="w-4 h-4 rounded accent-teal-600 disabled:cursor-not-allowed" />
+                        className="w-4 h-4 rounded accent-primary disabled:cursor-not-allowed" />
+                      {label}
                     </label>
                   ))}
                 </div>
@@ -1694,16 +1706,16 @@ export const DentalChart = () => {
               <div className="text-xs font-bold text-foreground uppercase tracking-wide mb-2">
                 Oral Health Condition
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
                 {([
                   ['Gingivitis', 'gingivitis'], ['Periodontal Disease', 'periodontal'], ['Debris', 'debris'],
                   ['Calculus', 'calculus'], ['Abnormal Growth', 'abnormalGrowth'], ['Cleft Lip / Palate', 'cleftLipPalate'],
                 ] as [string, keyof OralDraft][]).map(([label, field]) => (
-                  <label key={field} className="flex items-center justify-between text-xs text-foreground py-1 border-b border-gray-100">
-                    {label}
+                  <label key={field} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors ${!!draftOral[field] ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-foreground'} ${editingHistory ? 'cursor-pointer hover:bg-canvas' : 'cursor-not-allowed opacity-70'}`}>
                     <input type="checkbox" disabled={!editingHistory} checked={!!draftOral[field]}
                       onChange={(e) => setDraftOral((p) => ({ ...p, [field]: e.target.checked }))}
-                      className="w-4 h-4 rounded accent-teal-600 disabled:cursor-not-allowed" />
+                      className="w-4 h-4 rounded accent-primary disabled:cursor-not-allowed" />
+                    {label}
                   </label>
                 ))}
               </div>
