@@ -10,47 +10,69 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ▶ RESUME HERE — 2026-09-06, on branch `adopt-design` at `97fe9009`
+## ▶ RESUME HERE — PARKED 2026-09-06, branch `adopt-design` at `192d5dcd`
 
-**`main` is UNTOUCHED. Ten commits on `adopt-design`, all pushed. Tag `pre-design-adoption` marks the last commit before any of it.** Nothing is merged; the user is reviewing.
+**`main` UNTOUCHED. 24 commits on `adopt-design`, all pushed. Tag `pre-design-adoption` marks the state before any of it.** Nothing merged. `main` auto-deploys to Vercel, so the merge is the one step to take with eyes open.
 
 ### What this branch is
-A classmate (`peanutbutterjelly03`, a real collaborator here) redesigned the app on her fork's `majorUpdates` branch and pressed for her design. **The whole point is to end up looking like hers while keeping our code, which is 115 commits ahead of the fork point (2026-09-03).**
+A classmate (`peanutbutterjelly03`, a real collaborator) redesigned the app on her fork's `majorUpdates`. **Goal: look like hers, keep our code**, which is 115 commits ahead of the fork point (2026-09-03).
 
-### ⚠ THE LESSON OF THIS BRANCH — READ BEFORE ADOPTING ANYTHING ELSE
-**Check which files actually COLLIDE before writing a line.** Her UI work is ~4,300 added lines across 26 files, and only **8** of them touch anything we changed since the fork. The other 18 we had never touched — they can be taken as FILES:
+### ⚠ THE METHOD — read this before adopting anything else
+**Check which files COLLIDE before writing a line.** Her UI work is ~4,300 added lines across 26 files; only **8** touch anything we changed. The other 18 are takeable as files:
 
-```
-git show classmate/majorUpdates:<path> > <path>
-```
+    git show classmate/majorUpdates:<path> > <path>
 
-Sprints 151–156 rebuilt her chart tab by hand, piece by piece, from reading her JSX. That was five sprints of slow, imperfect work to reproduce something that, for most files, needed no reproducing at all. The file-overlap check takes one command and should have been the first thing done.
+Sprints 151–156 rebuilt her chart tab BY HAND from reading her JSX — five sprints reproducing what mostly needed no reproducing. The overlap check is one command.
 
-| Commit | What |
+**Corollary, learned the hard way:** a component taken whole may call server routes we do not have. See `192d5dcd`.
+
+### Shipped this session (151–170)
+| | |
 |---|---|
-| 151–156 | The chart tab, rebuilt by hand: summary panels, Legend, Charting Mode, her card, her page order, her pill palette. All still valid work — `DentalChart.tsx` IS a collision file, so it genuinely needed merging. |
-| `471f647c` | **The shell, 17 files taken verbatim.** Root, App, routes, SchoolSelect, SyncStatus, Notifications, Login, Modal, Toast, Pagination, ListSearchInput, UpdateSchoolYear, useStudents, useNotifications, bmi, layout, schoolColors. Switch School button, the Online/school chips, the settings gear, the wider column, button shapes, type. |
-| `de94d180` | **Students** — hers whole; only `validateStudentValues` needed putting back. |
-| `7e817cdf` | **Appointments** — hers, plus our `DAY_NOTE` dialog and the Rotation tab. |
-| `97fe9009` | **Dashboard** header hers; **Promote/Assign** kept ours. |
+| 151–156 | Chart tab by hand: summary panels, Legend, Charting Mode, her conditions/services card, her page order, pill palette |
+| `471f647c` | **17 shell files verbatim** — Root, App, routes, SchoolSelect, SyncStatus, Notifications, Login, Modal, Toast, Pagination, ListSearchInput, UpdateSchoolYear, useStudents, useNotifications, bmi, layout, schoolColors |
+| `de94d180` | Students — hers whole + `validateStudentValues` back |
+| `7e817cdf` | Appointments — hers + our `DAY_NOTE` dialog + the Rotation tab she deleted |
+| `97fe9009` | Dashboard header hers; Promote/Assign kept ours |
+| `da0fe51b` | Dental Charts list on her card pattern (she never restyled it either) |
+| `626564f4` | Record tab strip: full width, her labels/order. **Consent tab kept — she has none** |
+| `84fbd498` | Header trimmed, year row buttons, view-mode palette (reversed Sprint 152) |
+| `3a3298e2` `e1f88090` | Patient card chips + collapse; then the collapsed state names itself |
+| `100b44d7` | **`max-w-5xl` removed — the whole "why is hers wide"**; History rows became chips |
+| `7f53f1ea` | **Consent moved to STUDENT_IPTR, per school year** + `npm run migrate:iptr-consent` |
+| `f8335dc2` `e6b578eb` | Consent tab on her card; confirmation dialog showing OUR verbatim form text |
+| `192d5dcd` | `/auth/verify-password` — the route her PatientList was calling into a 404 |
 
-### ⚠ WHAT WAS REFUSED, AND WHY — these will be asked about
-1. **Her day notes are `DENTIST_ROTATION` rows** with `week_start === week_end`; her own comment says the screen was "repurposed". We have a real `DAY_NOTE` model (108/109) and still use rotations for rotations. Taking her file whole would have deleted an ERD table's only UI and filed fake rotation rows. Her calendar + our model instead, and the calendar badges read `notesFor(day)` so badge and dialog cannot disagree.
-2. **She deleted the Rotation tab.** Restored with our real form (school, dentist, week start/end).
-3. **Her Dashboard reverts Sprint 105's empty state** to "will populate once monthly snapshots begin accumulating". Nothing accumulates them. Ours kept.
-4. **Her Promote/Assign** has none of Sprints 102/119/122/123. Ours kept whole.
-5. **Consultation / free-text Others** service chips — no field on `PREVENTIVE_CARE_RECORD`.
-6. **Orally Fit Child** renders blank and says "not recorded" — its DOH definition needs a judgement nothing we store holds.
-7. **Whole-mouth treatment codes** live behind "More (3)" rather than being dropped, or an FV already charted on a tooth becomes uneditable.
+### ⚠ TWO BUGS FOUND, BOTH INVISIBLE TO tsc
+1. **Infinite render loop** (pre-existing, Sprint 148): `currentYearData` spread a new object every render and the draft-sync effect depended on it. 6,656 DOM mutations in 2s on an idle page, and **every charting reached through the picker was silently read-only**. `useMemo` is the fix and is load-bearing.
+2. **`/auth/verify-password` 404** (mine, from taking her PatientList): bulk archive's password step-up failed on the RIGHT password exactly like the wrong one.
 
-### Left over
-- **`allow_school_year_override`** is on `ApiSchool` as optional but NOT on the SCHOOL model, so that dialog's manual-override section stays hidden. `SchoolManagement` is still ours for the same reason. Wiring it = a model field + a toggle.
-- **Her tab strip shows 2 tabs where ours shows 7** (Consent, Treatment History, DMFT History, Referrals, Risk Classification). NOT yet established whether she deleted them or hides them for `?context=dental-queue`. Do not drop five working screens on a guess.
-- **She never touched** RPC Tracking, Reports (+ FHSIS, Program Report, School Summary, TCL), Treatment, Risk Classification or the Dental Charts list. There is no design of hers to adopt there; her copies are the 3 September version of ours.
+### ⚠ REFUSED, and these will be questioned
+- Her **day notes are `DENTIST_ROTATION` rows** (`week_start === week_end`); we have `DAY_NOTE`. Taking hers would delete a model's only UI and file fake rotations.
+- She **deleted the Rotation tab**. Restored.
+- Her Dashboard **reverts Sprint 105's honest empty state**. Ours kept.
+- Her **Promote/Assign** has none of 102/119/122/123.
+- **Consultation / free-text Others** service chips — no field on `PREVENTIVE_CARE_RECORD`.
+- **Orally Fit Child** renders blank — its DOH definition needs a judgement nothing stores.
+- Whole-mouth treatment codes sit behind "More (3)" rather than dropped, or a charted FV becomes uneditable.
+- Her consent warning says "cannot be undone"; **ours can**, so the wording follows the behaviour.
+- Three of her five remaining dialogs confirm actions that change nothing (`confirmEditChart`, `confirmOpenEdit`, `confirmSaveInfo`) — skipped; they train people to click through.
 
-### For the dentist
-- What does **Consultation** mean for the DOH return?
-- How should **Orally Fit Child** be decided?
+### Next, in order
+1. **`pendingYearAction`** — her password step-up on Add/Edit/Delete school year. Worth taking: we delete a year on one confirm. (Her Edit also sets `date_opened`, which we lack.)
+2. **Finish the inventory** of the two MERGED files — `Appointments.tsx` and `DentalChart.tsx` — her state and handlers against ours, line by line, reported in one go. **The user should not have to spot differences one at a time; that is what made this session tiring.**
+3. Then merge, or keep going.
+
+### For the user / dentist
+- **`place_of_birth` + `guardian_occupation`**: she added both to STUDENT. The paper IPTR prints both and OCR skips Occupation *because* nothing stores it. Model + migration + form fields. **Their call.**
+- **Height/Weight/BMI**: hers live on History's Physical Measurements, ours on the patient card. Preference.
+- **On production, run `npm run migrate:iptr-consent` DRY first.** Everyone without a carried-over "complete" starts pending — which may mean re-collecting signatures already held on paper.
+- What does **Consultation** mean for the DOH return? How is **Orally Fit Child** decided?
+
+### ⚠ MACHINE STATE TO UNDO WHEN DONE
+- **`.env` line 25** gained `,http://localhost:5174` so her branch could reach the API. Local only, untracked. Remove when finished comparing.
+- **A git worktree of her branch** sits at `C:/Users/Jerald/AppData/Local/Temp/claude/hers` (detached at `67f2e64f`), `node_modules` junctioned to ours, `.env` copied. Serve with `npx vite --port 5174` from its project dir; remove with `git worktree remove` on that path.
+- **Dev data left exactly as found** — Castillo's services back to all-true, Aquino's consent back to pending, no stray day notes or tooth records.
 
 ---
 
