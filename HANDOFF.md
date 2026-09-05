@@ -364,6 +364,21 @@ User: *"record visit is also treatment, in rpc tracking"* — and the code agree
 - ⚠ **Step 3 is NOT done:** the reports still infer "1st / 2nd application" from chart dates. They can now read `preventive_id` instead, which is the point of the link.
 - ⚠ **Dev test data:** Castillo, Nico now has a Visit 2 (2026-04-20) and an empty charting attached to it. Left in place — dev is seeded and disposable — but it is the only chart carrying a `preventive_id`.
 
+## Sprint 150 (the DOH report's 1st/2nd application stopped being a guess) - DONE 2026-09-05, tsc + build clean, **filed numbers verified UNCHANGED on today's data**. #63 step 3 — the series is complete.
+`tallyIptrServices` used to ORDER CHARTS BY DATE and call the first one carrying a code the 1st application. Its own comment called that "an interpretation". Sprint 149's `preventive_id` means a linked charting STATES its visit, so the ordinal is now a lookup.
+
+- **⚠ LINKED AND UNLINKED CHARTINGS ARE COUNTED BY DIFFERENT RULES, deliberately.** A linked charting's codes go to the visit it names. Unlinked chartings keep the OLD per-code sittings rule exactly — one sitting is a 1st application, two or more adds a 2nd. A linked charting is excluded from the sittings tally so nothing is counted twice.
+- **⚠⚠ THE FIRST ATTEMPT SILENTLY CHANGED A FILED RETURN.** It filled "slot 1 then slot 2" per CHART, oldest first, and dropped everything after the second charting — but the old rule was per CODE, so a code appearing only in a pupil's THIRD charting still counted as a 1st application. **Diffing the report before and after caught it: `sdf_1st` fell 9 → 7 and `sdf_2nd` rose 0 → 2.** Both versions typechecked and built. **A refactor of a filed report is only done when the numbers are diffed, not when it compiles.**
+- **VERIFIED BOTH WAYS.** *Nothing lost:* **0 of the report's keys changed** against the pre-sprint baseline — today's data is entirely unlinked, so the old rule still governs it. *The link works:* adding an SDF tooth record to a chart **linked to Visit 2** moved `sdf_2nd` 0 → 1 and left `sdf_1st` at 9 — where the date rule would have called it a 1st application, because that charting is the 2nd of three by date.
+- The fabricated tooth record used for that proof was removed afterwards; Castillo's empty Visit-2 charting from Sprint 149 remains.
+
+### #63 IS COMPLETE (Sprints 148 → 150)
+1. **148** — the chart screen stopped hiding later chartings (22 of 26 IPTRs have more than one; one pupil was showing 3 of 4 tooth records).
+2. **149** — a charting belongs to a visit (`preventive_id`), and Record Visit can create it already attached.
+3. **150** — the report reads the link instead of inferring from dates, with the old rule kept as the fallback for every charting made before 149.
+
+**What this bought:** the user's observation — *"visit 1 is charting to treatment, same as visit 2"* — is now something the data model can actually say. Combined with Sprint 147's service ticks, an RPC visit records **what was done** and **which visit did it**, and three filed figures stopped being approximations.
+
 ## Open work (each needs approval; sprint loop applies)
 
 63. **⚠ A CHARTING BELONGS TO A VISIT, AND THE APP CANNOT SAY WHICH — user, 2026-09-05: *"visit 1 is charting to treatment, same as visit 2"*.** NOT scoped. **Contains a LIVE BUG, measured, that should be fixed first and separately.**

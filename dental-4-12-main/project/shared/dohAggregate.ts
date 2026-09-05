@@ -73,6 +73,10 @@ export interface AggChart {
   _id: string;
   iptr_id: string;
   date_charted: string;
+  /** The RPC visit this charting was done at, 1 or 2 (Sprint 150), or null for
+   *  a charting attached to no visit — every chart made before Sprint 149, and
+   *  any made from the chart screen rather than from Record Visit. */
+  visit_number?: 1 | 2 | null;
 }
 export interface AggTooth {
   chart_id: string;
@@ -205,28 +209,84 @@ function schoolYearStartDate(schoolYear: string): Date | null {
   return Number.isFinite(first) ? new Date(first, 5, 1) : null;
 }
 
-/** Per-IPTR service tallies: teeth treated per code, and how many SITTINGS
- *  (charts) carried each code. */
+/** Per-IPTR service tallies: teeth treated per code, and WHICH VISIT each code
+ *  was done at.
+ *
+ *  ⚠ SPRINT 150 CHANGED WHERE THE ORDINAL COMES FROM. It used to be inferred:
+ *  the charts were ordered by `date_charted` and the first chart carrying a
+ *  code was called the 1st application, the second the 2nd. That was an
+ *  interpretation — this file said so — because nothing recorded which visit a
+ *  charting belonged to. Sprint 149 gave DENTAL_CHART a `preventive_id`, so a
+ *  linked charting now STATES its visit and the ordinal is a lookup.
+ *
+ *  ⚠ THE OLD RULE REMAINS THE FALLBACK, and has to: every charting made before
+ *  Sprint 149 is unlinked, and ignoring them would erase services from returns
+ *  already filed. Unlinked chartings fill the visit slots no linked charting
+ *  claims, oldest first — so a database with no links produces exactly the
+ *  numbers it produced before.
+ *
+ *  Counting occurrences WITHIN one charting would be wrong either way: several
+ *  teeth varnished in one sitting is one application, not five. */
 export function tallyIptrServices(
   charts: AggChart[],
   toothByChart: Map<string, AggTooth[]>,
-): { teethByCode: Record<string, number>; sittingsByCode: Record<string, number> } {
+): { teethByCode: Record<string, number>; codesByVisit: Record<1 | 2, Set<string>> } {
   const teethByCode: Record<string, number> = {};
-  const sittingsByCode: Record<string, number> = {};
+  const codesByVisit: Record<1 | 2, Set<string>> = { 1: new Set(), 2: new Set() };
+
   const ordered = charts
     .slice()
     .sort((a, b) => new Date(a.date_charted).getTime() - new Date(b.date_charted).getTime());
-  for (const chart of ordered) {
-    const inThisChart = new Set<string>();
+
+  // Teeth are counted for EVERY charting, linked or not — a tooth count is not
+  // an ordinal and never depended on this.
+  const codesOf = (chart: AggChart) => {
+    const codes = new Set<string>();
     for (const tooth of toothByChart.get(chart._id) ?? []) {
       const code = tooth.treatment_code;
       if (!code) continue;
       teethByCode[code] = (teethByCode[code] ?? 0) + 1;
-      inThisChart.add(code);
+      codes.add(code);
     }
-    for (const code of inThisChart) sittingsByCode[code] = (sittingsByCode[code] ?? 0) + 1;
+    return codes;
+  };
+
+  // ⚠ LINKED AND UNLINKED CHARTINGS ARE COUNTED BY DIFFERENT RULES, ON PURPOSE.
+  //
+  // A linked charting STATES its visit, so its codes go to that visit and no
+  // date order can override them.
+  //
+  // Unlinked chartings keep the PRE-SPRINT-150 rule exactly: per CODE, how many
+  // sittings carried it — one sitting means a 1st application, two or more
+  // means a 2nd as well. That is per code, not per chart, which matters: a code
+  // appearing only in a pupil's THIRD charting still counted as a 1st
+  // application under the old rule, and a "fill the first two slots" rule
+  // silently dropped it. Caught by diffing the filed numbers before and after —
+  // sdf_1st fell 9 → 7 and sdf_2nd rose 0 → 2 on the first attempt.
+  //
+  // A linked charting is excluded from the sittings tally so its codes are
+  // never counted twice. With nothing linked — which is all real data today —
+  // this reproduces the old numbers exactly.
+  const linked: { visit: 1 | 2; codes: Set<string> }[] = [];
+  const unlinkedSittings: Record<string, number> = {};
+  for (const chart of ordered) {
+    const codes = codesOf(chart);
+    if (chart.visit_number === 1 || chart.visit_number === 2) {
+      linked.push({ visit: chart.visit_number, codes });
+    } else {
+      for (const code of codes) unlinkedSittings[code] = (unlinkedSittings[code] ?? 0) + 1;
+    }
   }
-  return { teethByCode, sittingsByCode };
+
+  for (const [code, sittings] of Object.entries(unlinkedSittings)) {
+    if (sittings >= 1) codesByVisit[1].add(code);
+    if (sittings >= 2) codesByVisit[2].add(code);
+  }
+  for (const { visit, codes } of linked) {
+    for (const code of codes) codesByVisit[visit].add(code);
+  }
+
+  return { teethByCode, codesByVisit };
 }
 
 export function aggregateDohReport(input: DohAggregateInput): DohAggregateResult {
@@ -376,13 +436,13 @@ export function aggregateDohReport(input: DohAggregateInput): DohAggregateResult
         if (visits.firstFacility === false) bump('visit_nonfacility_1st');
       }
 
-      const { teethByCode, sittingsByCode } = tallyIptrServices(chartsByIptr.get(iptrId) ?? [], toothByChart);
+      const { teethByCode, codesByVisit } = tallyIptrServices(chartsByIptr.get(iptrId) ?? [], toothByChart);
       for (const [code, field] of Object.entries(ORDINAL_TREATMENTS)) {
-        const sittings = sittingsByCode[code] ?? 0;
-        // A patient counts in BOTH rows when they had two applications — the
-        // form asks how many received a 1st and how many received a 2nd.
-        if (sittings >= 1) bump(`${field}_1st`);
-        if (sittings >= 2) bump(`${field}_2nd`);
+        // A patient counts in BOTH rows when they had the service at both
+        // visits — the form asks how many received a 1st and how many received
+        // a 2nd, not which was their last.
+        if (codesByVisit[1].has(code)) bump(`${field}_1st`);
+        if (codesByVisit[2].has(code)) bump(`${field}_2nd`);
       }
       for (const [code, field] of Object.entries(HEAD_TOOTH_TREATMENTS)) {
         const teeth = teethByCode[code] ?? 0;

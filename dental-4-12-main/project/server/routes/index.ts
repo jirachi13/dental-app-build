@@ -678,12 +678,18 @@ router.get("/stats/doh-report", requireAuth, asyncHandler(async (req, res) => {
       OralHealthCondition.find(active).lean(),
       PreventiveCareRecord.find(active).select("_id iptr_id visit_number visit_date facility_based").lean(),
       RiskStratification.find(active).select("preventive_id dmf_score dmf_index risk_level").lean(),
-      DentalChart.find(active).select("_id iptr_id date_charted").lean(),
+      DentalChart.find(active).select("_id iptr_id date_charted preventive_id").lean(),
       ToothRecord.find(active).select("chart_id treatment_code").lean(),
       Referral.find(active).select("iptr_id referral_type").lean(),
     ]);
 
   const str = (v: unknown) => String(v ?? "");
+  // Chart → visit, for the 1st/2nd application ordinal (Sprint 150).
+  const visitNumberByPreventive = new Map<string, 1 | 2>(
+    (preventives as any[])
+      .filter((p) => p.visit_number === 1 || p.visit_number === 2)
+      .map((p) => [String(p._id), p.visit_number as 1 | 2]),
+  );
   const out = aggregateDohReport({
     schools: (schools as any[]).map((s) => ({ _id: str(s._id), school_name: str(s.school_name) })),
     students: (students as any[]).map((s) => ({
@@ -718,6 +724,10 @@ router.get("/stats/doh-report", requireAuth, asyncHandler(async (req, res) => {
       _id: str(c._id),
       iptr_id: str(c.iptr_id),
       date_charted: c.date_charted ? new Date(c.date_charted).toISOString() : "",
+      // Sprint 150 — the visit this charting was done at, resolved through
+      // `preventive_id`. Null for every chart made before Sprint 149, which is
+      // why the aggregate keeps its date-order fallback.
+      visit_number: c.preventive_id ? visitNumberByPreventive.get(str(c.preventive_id)) ?? null : null,
     })),
     toothRecords: (toothRecords as any[]).map((t) => ({
       chart_id: str(t.chart_id),
