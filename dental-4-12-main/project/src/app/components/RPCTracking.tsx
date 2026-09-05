@@ -42,6 +42,21 @@ export const RPCTracking = () => {
   // not know stores null, which reads as "not recorded" on FHSIS, rather than
   // being pushed into a default that would invent the facility split.
   const [facilityBased, setFacilityBased] = useState<boolean | null>(null);
+  // Sprint 147 — what was DONE at the visit. Recording a visit IS recording
+  // treatment: CLAUDE.md's module 5 defines an RPC visit as exactly these
+  // services, and page 2 of the Target Client List prints them per visit.
+  //
+  // ⚠ Defaults are TRUE, not false, and that is a deliberate reading of the
+  // clinic's workflow rather than a shortcut: an RPC visit that happened
+  // performed the routine set. The dentist unticks what was skipped, which is
+  // the rarer action. Nothing is written as `false` unless it was unticked.
+  const [services, setServices] = useState({
+    oral_screening: true,
+    oral_prophylaxis: true,
+    fluoride_varnish: true,
+    oral_hygiene_instruction: true,
+  });
+  const [cariesRisk, setCariesRisk] = useState<'Low' | 'Moderate' | 'High' | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -80,9 +95,15 @@ export const RPCTracking = () => {
         visit_date: visitDate,
         visit_number: recording.nextVisitNumber,
         facility_based: facilityBased,
+        ...services,
+        caries_risk: cariesRisk,
       });
       toast.success(`Visit ${recording.nextVisitNumber} recorded for ${recording.studentName}.`);
       setRecording(null);
+      // ⚠ Reset, or the next pupil inherits this one's ticks — a service
+      // recorded on a form because a modal remembered it is a fabricated entry.
+      setServices({ oral_screening: true, oral_prophylaxis: true, fluoride_varnish: true, oral_hygiene_instruction: true });
+      setCariesRisk(null);
       await reload();
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to record the visit');
@@ -371,6 +392,49 @@ export const RPCTracking = () => {
               <p className="mt-1.5 text-xs text-muted-foreground">
                 Leave as “Not recorded” if unsure — the FHSIS report shows those separately rather than counting them in either row.
               </p>
+            </fieldset>
+
+            <fieldset>
+              <legend className="block text-sm font-medium text-foreground mb-1">Services performed</legend>
+              {/* These are the form's own per-visit columns, in its order. */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                {([
+                  ['oral_screening', 'Oral screening'],
+                  ['oral_prophylaxis', 'Oral prophylaxis'],
+                  ['fluoride_varnish', 'Fluoride varnish'],
+                  ['oral_hygiene_instruction', 'Oral hygiene instruction'],
+                ] as const).map(([key, label]) => (
+                  <label key={key} className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={services[key]}
+                      onChange={(e) => setServices((prev) => ({ ...prev, [key]: e.target.checked }))}
+                      className="w-4 h-4 rounded accent-primary"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Ticked by default — untick anything that was not done. These fill the Target Client List&apos;s
+                per-visit columns, which until now had to guess from the dental chart.
+              </p>
+            </fieldset>
+
+            <fieldset>
+              <legend className="block text-sm font-medium text-foreground mb-1">Caries risk assessed at this visit</legend>
+              {/* ⚠ "Moderate" is the FORM's word for the band the predictive
+                  module calls "Medium". On the form, the form wins. */}
+              <div className="flex flex-wrap gap-2">
+                {([['Low', 'Low'], ['Moderate', 'Moderate'], ['High', 'High'], [null, 'Not assessed']] as const).map(([val, label]) => (
+                  <button
+                    key={String(val)}
+                    type="button"
+                    onClick={() => setCariesRisk(val)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${cariesRisk === val ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-gray-50'}`}
+                  >{label}</button>
+                ))}
+              </div>
             </fieldset>
 
             {saveError && <p className="text-sm text-destructive">{saveError}</p>}

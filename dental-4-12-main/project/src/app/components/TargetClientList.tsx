@@ -4,6 +4,7 @@ import { apiClient } from '../api/client';
 import type { ApiStudent, ApiAppointment, ApiOralHealthCondition, ApiStudentIptr } from '../api/types';
 import { useStudents } from '../hooks/useStudents';
 import { useRPCTracking, SOUND_TEMPORARY, SOUND_PERMANENT } from '../hooks/useRPCTracking';
+import type { VisitServices } from '../../../shared/rpcTracking';
 import { SkeletonTable } from './Skeleton';
 import { formatDate, toLocalDateString } from '../utils/localDate';
 import { FORM_SECTION_BAND } from '../utils/dohFormStyle';
@@ -177,6 +178,11 @@ type Row = {
   risk: string | null;
   visit1Done: boolean;
   visit2Done: boolean;
+  /** What was recorded AS DONE at each visit (Sprint 147), or null when the
+   *  visit does not exist. ⚠ A null FIELD inside these means "not recorded" —
+   *  the cell stays blank, it does not become a "no". */
+  visit1Services: VisitServices | null;
+  visit2Services: VisitServices | null;
   treatments: string[];
   /** Tooth counts per treatment code, for the form's tooth-count columns. */
   toothCounts: Record<string, number>;
@@ -209,21 +215,48 @@ type ServiceCol = {
 // ⚠ 'Oral Hygiene Instruction' was REMOVED 2026-09-03: the workbook's FIRST
 // block is columns AH-AO, eight columns, and no Oral Hygiene Instruction is
 // among them. It was read into the app off the illegible Appendix E scan.
-const PREVENTIVE_SET = (visitDone: (r: Row) => boolean, isSecond: boolean): Omit<ServiceCol, 'group'>[] => [
-  { label: 'Oral screening', value: (r) => (visitDone(r) ? '✓' : '') },
-  { label: 'Caries Risk assessment - Low', value: (r) => (!isSecond && r.risk === 'Low' ? '✓' : '') },
-  { label: 'Caries Risk assessment - Moderate', value: (r) => (!isSecond && r.risk === 'Medium' ? '✓' : '') },
-  { label: 'Caries Risk assessment - High', value: (r) => (!isSecond && r.risk === 'High' ? '✓' : '') },
-  { label: 'Counseling' },
-  { label: 'Oral Prophylaxis', value: (r) => (!isSecond && r.treatments.includes('OP') ? '✓' : '') },
-  { label: 'Fluoride Varnish App', value: (r) => (r.treatments.includes('FV') ? '✓' : '') },
+/** ⚠ SPRINT 147 CHANGED WHERE THESE COLUMNS GET THEIR ANSWER.
+ *
+ *  They used to read the DENTAL CHART: "has this pupil ever had fluoride
+ *  varnish?" — where the form asks "was fluoride varnish done AT THIS VISIT?".
+ *  `PREVENTIVE_CARE_RECORD` stored no services at all, so there was nothing
+ *  better to read, and `useRPCTracking` said so in its own comment. The visit
+ *  now records what was done, so these read the visit.
+ *
+ *  ⚠ THREE STATES, NOT TWO. `null` on a service means NOT RECORDED — every
+ *  visit created before Sprint 147, and anything the dentist left unanswered —
+ *  and the cell stays BLANK. Only an explicit `false` is a "no", and the form
+ *  prints a blank for that too (it is a tick-if-done column). A tick is only
+ *  ever an explicit yes. */
+const svcMark = (v: boolean | null | undefined) => (v === true ? '✓' : '');
+
+const PREVENTIVE_SET = (visitDone: (r: Row) => boolean, isSecond: boolean): Omit<ServiceCol, 'group'>[] => {
+  const svc = (r: Row): VisitServices | null => (isSecond ? r.visit2Services : r.visit1Services);
+  return [
+  // Falls back to "the visit happened" for records that predate the service
+  // fields — an RPC visit always included a screening, and that is the one
+  // service the visit's own existence evidences.
+  { label: 'Oral screening', value: (r) => (svc(r)?.oralScreening === true || (svc(r)?.oralScreening == null && visitDone(r)) ? '✓' : '') },
+  // ⚠ The form says "Moderate" where RISK_STRATIFICATION says "Medium"; the
+  // visit stores the form's word. The `r.risk` fallback is the predictive
+  // module's latest assessment, used only where the visit recorded none, and
+  // only on the 1st visit as before.
+  { label: 'Caries Risk assessment - Low', value: (r) => (svc(r)?.cariesRisk === 'Low' || (svc(r)?.cariesRisk == null && !isSecond && r.risk === 'Low') ? '✓' : '') },
+  { label: 'Caries Risk assessment - Moderate', value: (r) => (svc(r)?.cariesRisk === 'Moderate' || (svc(r)?.cariesRisk == null && !isSecond && r.risk === 'Medium') ? '✓' : '') },
+  { label: 'Caries Risk assessment - High', value: (r) => (svc(r)?.cariesRisk === 'High' || (svc(r)?.cariesRisk == null && !isSecond && r.risk === 'High') ? '✓' : '') },
+  // The form's "Counseling" column IS the oral hygiene instruction — it had no
+  // source at all until the visit started recording one.
+  { label: 'Counseling', value: (r) => svcMark(svc(r)?.oralHygieneInstruction) },
+  { label: 'Oral Prophylaxis', value: (r) => (svc(r)?.oralProphylaxis === true || (svc(r)?.oralProphylaxis == null && !isSecond && r.treatments.includes('OP')) ? '✓' : '') },
+  { label: 'Fluoride Varnish App', value: (r) => (svc(r)?.fluorideVarnish === true || (svc(r)?.fluorideVarnish == null && r.treatments.includes('FV')) ? '✓' : '') },
   // Sprint 103: the `unverified` flag on the 2nd-visit caption is REMOVED. The
   // FILLED PAPER SCAN settles it — "Complete RPC for 2nd Visit" is correct, and
   // the duplicated "1st" is a typo in the WORKBOOK (sheet "0-8 Months (M)" is
   // the only one of 27 carrying the right text). The workbook stays
   // authoritative on the column SET, but not on this one label.
   { label: isSecond ? 'Complete RPC for 2nd Visit Routine Preventive Care' : 'Complete RPC for 1st Visit Routine Preventative Care' },
-];
+  ];
+};
 
 /** The left-hand identity columns. Data-driven so they can be hidden like the
  *  service ones — the dentist's note was "Column - puede mahide", and half a
@@ -423,6 +456,8 @@ export const TargetClientList = () => {
           risk: s.riskLevel,
           visit1Done: r?.visit1Status === 'Completed',
           visit2Done: r?.visit2Status === 'Completed',
+          visit1Services: r?.visit1Services ?? null,
+          visit2Services: r?.visit2Services ?? null,
           treatments: r?.treatmentCodes ?? [],
           toothCounts: r?.treatmentToothCounts ?? {},
           conditions: r?.conditionToothCounts ?? {},

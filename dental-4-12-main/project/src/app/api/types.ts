@@ -94,6 +94,16 @@ export interface ApiPreventiveCareRecord {
    *  null, and those stay out of both sub-rows rather than being guessed into
    *  one. See PreventiveCareRecord.ts for why the default is null, not false. */
   facility_based: boolean | null;
+  /** The services performed AT this visit (Sprint 147). ⚠ NULL means NOT
+   *  RECORDED, never "not done" — every visit created before that sprint has
+   *  no answer, and a form must not claim a service was withheld. */
+  oral_screening?: boolean | null;
+  oral_prophylaxis?: boolean | null;
+  fluoride_varnish?: boolean | null;
+  oral_hygiene_instruction?: boolean | null;
+  /** The form's own words — it prints Moderate where RISK_STRATIFICATION says
+   *  Medium. On the form, the form wins. */
+  caries_risk?: 'Low' | 'Moderate' | 'High' | null;
 }
 
 export interface ApiRiskStratification {

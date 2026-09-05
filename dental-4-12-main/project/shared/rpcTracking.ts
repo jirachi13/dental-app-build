@@ -33,6 +33,21 @@ export interface RpcPreventive {
   visit_date: string;
   visit_number: number;
   facility_based?: boolean | null;
+  oral_screening?: boolean | null;
+  oral_prophylaxis?: boolean | null;
+  fluoride_varnish?: boolean | null;
+  oral_hygiene_instruction?: boolean | null;
+  caries_risk?: 'Low' | 'Moderate' | 'High' | null;
+}
+
+/** What was done at ONE visit. ⚠ Every field is nullable and null means NOT
+ *  RECORDED — the Target Client List prints a blank for it, never a "no". */
+export interface VisitServices {
+  oralScreening: boolean | null;
+  oralProphylaxis: boolean | null;
+  fluorideVarnish: boolean | null;
+  oralHygieneInstruction: boolean | null;
+  cariesRisk: 'Low' | 'Moderate' | 'High' | null;
 }
 export interface RpcChart { _id: string; iptr_id: string }
 export interface RpcTooth {
@@ -115,6 +130,16 @@ export interface RPCRow {
    *  Distinct from `treatmentToothCounts`, which counts what was DONE; this
    *  counts what was FOUND. */
   conditionToothCounts: Record<string, number>;
+  /** Services recorded AT visit 1 and visit 2 (Sprint 147), or null when that
+   *  visit does not exist yet.
+   *
+   *  ⚠ THIS IS WHY THEY EXIST: before this, the Target Client List answered
+   *  "has this pupil EVER had fluoride varnish?" from the dental chart, where
+   *  the form asks "was it done at THIS visit?". `treatmentCodes` below still
+   *  answers the first question and is still the right source for the
+   *  chart-derived columns — these two answer the second. */
+  visit1Services: VisitServices | null;
+  visit2Services: VisitServices | null;
   /** `facility_based` of the FIRST recorded visit (Sprint 81) — the visit the
    *  TCL's "Date of consultation" column reports. Null = not recorded, which is
    *  every visit created before Sprint 81; it must NOT be shown as "No". */
@@ -218,6 +243,16 @@ const rows: RPCRow[] = students.map((s) => {
   const allVisits = studentIptrs.flatMap((iptr) => preventivesByIptr.get(iptr._id) ?? []);
   const visit1 = allVisits.find((v) => v.visit_number === 1) ?? null;
   const visit2 = allVisits.find((v) => v.visit_number === 2) ?? null;
+  const servicesOf = (v: RpcPreventive | null): VisitServices | null =>
+    v
+      ? {
+          oralScreening: v.oral_screening ?? null,
+          oralProphylaxis: v.oral_prophylaxis ?? null,
+          fluorideVarnish: v.fluoride_varnish ?? null,
+          oralHygieneInstruction: v.oral_hygiene_instruction ?? null,
+          cariesRisk: v.caries_risk ?? null,
+        }
+      : null;
 
   let status: RPCRow['status'] = 'not-started';
   let daysUntilDue = 0;
@@ -275,6 +310,8 @@ const rows: RPCRow[] = students.map((s) => {
       for (const [code, n] of Object.entries(condByIptr.get(iptr._id) ?? {})) acc[code] = (acc[code] ?? 0) + n;
       return acc;
     }, {}),
+    visit1Services: servicesOf(visit1),
+    visit2Services: servicesOf(visit2),
     visit1FacilityBased: visit1?.facility_based ?? null,
     iptrIdBySchoolYear: Object.fromEntries(studentIptrs.map((i) => [i.school_year, i._id])),
     nextVisitNumber: !visit1 ? 1 : !visit2 ? 2 : null,

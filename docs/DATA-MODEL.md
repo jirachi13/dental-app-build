@@ -32,6 +32,11 @@ Exact from ERD Chapter 3. **Read this before touching any schema, model, or migr
 **TREATMENT** — treatment_id, iptr_id (FK), dentist_id (FK), diagnosis (TEXT), treatment_done (TEXT), remarks (TEXT), date (DATE), created_at, isArchived, archivedAt, archivedBy
 
 **PREVENTIVE_CARE_RECORD** — preventive_id, iptr_id (FK), visit_date (DATE), visit_number (1 or 2), **facility_based (BOOLEAN, default null — added Sprint 81, not in original ERD; the FHSIS report splits every count into facility-based and school-based sub-rows (a/b), which cannot be derived from anything else. `null` means not recorded, and is deliberately distinct from `false`)**, created_at, isArchived, archivedAt, archivedBy
+- **Services performed AT the visit (Sprint 147) — ⚠ ERD DEVIATION:** `oral_screening`, `oral_prophylaxis`, `fluoride_varnish`, `oral_hygiene_instruction` (BOOLEAN, **default null**) and `caries_risk` (ENUM `Low` | `Moderate` | `High`, default null).
+- **Why:** until Sprint 147 this model had four fields and recorded that a pupil was SEEN, never what was DONE — while CLAUDE.md's module 5 defines an RPC visit as exactly these services and page 2 of the Target Client List prints them as per-visit tick columns. The TCL therefore answered *"has this pupil EVER had fluoride varnish?"* from the dental chart where the form asks *"was it done at THIS visit?"*.
+- **⚠ DEFAULT null, NEVER false** — the same rule `facility_based` follows. Every visit recorded before Sprint 147 has no answer, and `false` would claim on a filed form that a service was withheld. The TCL renders null as BLANK and only an explicit `true` as a tick.
+- **⚠ `caries_risk` stores the FORM's word:** the form prints **Moderate** where `RISK_STRATIFICATION.risk_level` says **Medium**. On the form, the form wins.
+
 
 **RISK_STRATIFICATION** — risk_id, preventive_id (FK), risk_level (VARCHAR 50: High/Medium/Low), recommendation (TEXT), dmf_score (FLOAT), dmf_index (VARCHAR 10: DMF or dmf), validated_by_dentist (BOOLEAN), validated_at (DATETIME)
 

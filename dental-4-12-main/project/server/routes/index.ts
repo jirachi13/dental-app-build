@@ -465,7 +465,9 @@ router.get("/stats/rpc-rows", requireAuth, asyncHandler(async (req, res) => {
     Student.find(studentFilter),
     School.find(active).select("_id school_name").lean(),
     StudentIptr.find(active).select("_id student_id school_year").lean(),
-    PreventiveCareRecord.find(active).select("_id iptr_id visit_date visit_number facility_based").lean(),
+    PreventiveCareRecord.find(active)
+      .select("_id iptr_id visit_date visit_number facility_based oral_screening oral_prophylaxis fluoride_varnish oral_hygiene_instruction caries_risk")
+      .lean(),
     DentalChart.find(active).select("_id iptr_id").lean(),
     ToothRecord.find(active).select("chart_id tooth_number condition treatment_code").lean(),
   ]);
@@ -492,6 +494,12 @@ router.get("/stats/rpc-rows", requireAuth, asyncHandler(async (req, res) => {
       visit_date: p.visit_date ? new Date(p.visit_date).toISOString() : "",
       visit_number: Number(p.visit_number ?? 0),
       facility_based: p.facility_based ?? null,
+      // Sprint 147 — what was DONE at the visit, not just that it happened.
+      oral_screening: p.oral_screening ?? null,
+      oral_prophylaxis: p.oral_prophylaxis ?? null,
+      fluoride_varnish: p.fluoride_varnish ?? null,
+      oral_hygiene_instruction: p.oral_hygiene_instruction ?? null,
+      caries_risk: p.caries_risk ?? null,
     })),
     charts: (charts as any[]).map((c) => ({ _id: str(c._id), iptr_id: str(c.iptr_id) })),
     toothRecords: (toothRecords as any[]).map((t) => ({

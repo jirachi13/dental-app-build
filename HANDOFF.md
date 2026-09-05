@@ -329,9 +329,23 @@ A repeat of Sprint 145 on the second list: **~5.5 MB at 8,000 pupils → one pag
 
 **The one honest caveat left:** the SERVER still reads whole collections to build each aggregate. Nothing measured says that hurts at 26 pupils; a `$lookup` pipeline is the answer when it does. That is the only #24 item still open.
 
+## Sprint 147 (recording an RPC visit now records the TREATMENT too) - DONE 2026-09-05, tsc + build clean, verified end to end. Closes #62.
+User: *"record visit is also treatment, in rpc tracking"* — and the code agreed with them in three of its own comments.
+
+- **`PREVENTIVE_CARE_RECORD` had FOUR fields** and recorded that a pupil was seen, never what was done. It now carries `oral_screening`, `oral_prophylaxis`, `fluoride_varnish`, `oral_hygiene_instruction` and `caries_risk` — **the form's own per-visit columns**, in its order.
+- **⚠ DEFAULT null, NEVER false**, matching `facility_based`. Every pre-Sprint-147 visit has no answer, and `false` would claim on a filed return that a service was withheld. The TCL renders null as BLANK; only an explicit `true` ticks.
+- **⚠ THE FIX THAT MATTERS: an explicit "not done" is no longer overridden by the chart.** The TCL's per-visit columns used to read the DENTAL CHART — *"has this pupil ever had FV?"* — where the form asks *"was FV done at this visit?"*. They now read the visit, falling back to the chart **only where the visit recorded nothing**, so old records keep their previous behaviour and new ones are fact.
+- **`Counseling` had NO source at all** before this. It is the oral hygiene instruction, and the visit now records it.
+- **Modal defaults are TICKED, deliberately:** an RPC visit that happened performed the routine set, so the dentist unticks the exception — the rarer action. ⚠ The ticks **reset after each save**, or the next pupil would inherit them, and a service on a form because a modal remembered it is a fabricated entry.
+- **⚠ `caries_risk` stores "Moderate"**, the FORM's word for the band the predictive module calls "Medium". On the form, the form wins.
+- **NOT routed through TREATMENT or TOOTH_RECORD**, deliberately: `TREATMENT` is free-text chairside notes, and a varnish or prophylaxis is whole-mouth, so a per-tooth record would invent data the dentist never gave.
+- **Verified end to end on dev:** recorded Visit 1 for Villanueva, Ivan on 2026-03-15 with **fluoride varnish deliberately UNTICKED** and risk Moderate. Stored: `{oralScreening:true, oralProphylaxis:true, fluorideVarnish:false, oralHygieneInstruction:true, cariesRisk:"Moderate"}`. The TCL row then read **Oral screening ✓ · Counseling ✓ · Oral Prophylaxis ✓ · Fluoride Varnish App BLANK · Caries Risk Moderate ✓ · Low blank** — the explicit "not done" survived, rather than being re-ticked from his chart history.
+- ⚠ **That test visit is still in the dev database** (Ivan now reads `overdue`). It is real, plausible demo data on a disposable seeded database, so it was left rather than deleted — but it is the only visit carrying services, which is worth knowing when reading dev.
+- **ERD deviation recorded in `docs/DATA-MODEL.md`; the Chapter 3 figure now owes SIX.**
+
 ## Open work (each needs approval; sprint loop applies)
 
-62. **⚠ RECORDING AN RPC VISIT IS ALSO RECORDING TREATMENT — user, 2026-09-05. `PREVENTIVE_CARE_RECORD` STORES NO SERVICES AT ALL.** NOT scoped; it is a model change, so it needs approval.
+62. **~~RECORDING AN RPC VISIT IS ALSO RECORDING TREATMENT~~ — BUILT 2026-09-05 as Sprint 147.** Original note:  **⚠ user, 2026-09-05. `PREVENTIVE_CARE_RECORD` STORES NO SERVICES AT ALL.** NOT scoped; it is a model change, so it needs approval.
     - **The model has four fields:** `iptr_id`, `visit_date`, `visit_number`, `facility_based`. That is it. **A visit records that someone was seen, never what was done to them.**
     - **The Record Visit modal saves exactly those** (`RPCTracking.tsx:78` → `POST /preventive-care-records` with date, number, facility flag). The dentist ticks nothing.
     - **But CLAUDE.md's own module 5 says an RPC visit IS a set of services:** *"oral screening, prophylaxis, fluoride varnish, hygiene instruction, caries risk assessment"* — and page 2 of the Target Client List prints exactly those as per-visit tick columns for FIRST and SECOND visit.
