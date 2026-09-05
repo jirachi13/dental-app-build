@@ -7,7 +7,7 @@ import { useRPCTracking, SOUND_TEMPORARY, SOUND_PERMANENT } from '../hooks/useRP
 import { SkeletonTable } from './Skeleton';
 import { formatDate, toLocalDateString } from '../utils/localDate';
 import { FORM_SECTION_BAND } from '../utils/dohFormStyle';
-import { exportToXlsx } from '../utils/exportXlsx';
+import { exportSheetsToXlsx } from '../utils/exportXlsx';
 import { FileSpreadsheet } from 'lucide-react';
 
 // ─── Target Client List for Oral Health Care and Services ────────────────────
@@ -525,25 +525,69 @@ export const TargetClientList = () => {
   // Writes the SAME cells the screen shows, "—" included, so the workbook makes
   // the identical claims as the report. Writing 0 where the screen says "—"
   // would turn "not recorded" into "none" the moment it left the app.
+  // ── The workbook is TWO SHEETS, because the form is TWO PAGES (Sprint 134) ──
+  //
+  // Read from the manuscript's own scans (Appendix E: `image16` = page 1,
+  // `image17` = page 2), not inferred:
+  //
+  //   PAGE 1  No. · Date of Consult · Facility Based · Family Serial Number ·
+  //           Barangay · PhilHealth No. · Name · Address · Contact · Date of
+  //           Birth · Age · Age Group · Sex, then the whole ORAL HEALTH STATUS
+  //           block, ending at "Caries Free" and "Orally Fit Child".
+  //   PAGE 2  a REPEATED `No.` column, then FIRST visit, SECOND visit and
+  //           OTHER SERVICES, ending in REMARKS (Specify other findings).
+  //
+  // The app renders both pages' columns as one continuous table on SCREEN,
+  // which is right for a screen — a 66-column sheet cannot be read any other
+  // way. The filed artifact is the workbook (TCL is Excel-only, decided
+  // 2026-09-03), so that is where the form's own pagination has to be
+  // reproduced: "a printout IS the form", and a two-page form filed as one
+  // 66-column sheet is a different document.
+  //
+  // ⚠ `No.` is repeated on sheet 2 ON PURPOSE. It is the form's own row link
+  // between the pages; without it sheet 2 is an unjoinable block of ticks.
+  //
+  // ⚠ ONE PLACEMENT IS UNVERIFIED: the scans are 540x375, and while ORAL
+  // HEALTH STATUS clearly ends page 1 and OTHER SERVICES clearly ends page 2,
+  // the DENTAL VISIT pair (Last / Next Dental Visit) could not be resolved on
+  // either scan. It is placed on page 2 with the services, which is where a
+  // visit date belongs — but if a sharper scan says otherwise, this is the
+  // line to change, and it is the only one.
+  const PAGE1_GROUPS = ['ORAL HEALTH STATUS', 'ORALLY FIT CHILD'];
+
   const onXlsx = async () => {
     setBusy('xlsx');
     try {
-      const cols = [
+      const svc = (c: (typeof visibleServices)[number]) => ({
+        label: `${c.group} — ${c.label}`,
+        value: (r: { row: Row; i: number }) => String(c.value ? c.value(r.row) : NO_SOURCE),
+      });
+      const numberCol = {
+        label: 'No.',
+        value: (r: { row: Row; i: number }) => String(r.i + 1),
+      };
+
+      const page1 = [
         ...visibleIdentity.map((c) => ({
           label: c.label,
           value: (r: { row: Row; i: number }) => String(c.value(r.row, r.i) ?? ''),
         })),
-        ...visibleServices.map((c) => ({
-          label: `${c.group} — ${c.label}`,
-          value: (r: { row: Row; i: number }) => String(c.value ? c.value(r.row) : NO_SOURCE),
-        })),
+        ...visibleServices.filter((c) => PAGE1_GROUPS.includes(c.group)).map(svc),
+      ];
+
+      const page2 = [
+        numberCol,
+        ...visibleServices.filter((c) => !PAGE1_GROUPS.includes(c.group)).map(svc),
         ...(remarksVisible ? [{ label: 'REMARKS (Specify other findings)', value: () => '' }] : []),
       ];
-      await exportToXlsx(
-        visible.map((row, i) => ({ row, i })),
-        cols,
+
+      const rows = visible.map((row, i) => ({ row, i }));
+      await exportSheetsToXlsx(
+        [
+          { name: 'Page 1', rows, columns: page1 },
+          { name: 'Page 2', rows, columns: page2 },
+        ],
         `${exportBaseName}.xlsx`,
-        'Target Client List',
       );
     } finally {
       setBusy(null);

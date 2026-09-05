@@ -142,6 +142,18 @@ Sprint 131 shipped with its schedule half unproven because **dev held 0 appointm
 - **Verified in the browser:** Today (4) / Upcoming (3) / Completed (2) / Missed (1) all populated, calendar chips on the right days, and the day dialog now showing session cards with their actions fully visible and the pupils nested underneath, each with Add note / Edit note and the seeded "Bring guardian" remark. **Sprint 131's unverified half is now verified.**
 - **Still unverified from Sprint 131:** the ~390px phone layout - `resize_window` reports success but the captured viewport does not change, so it remains reasoned from `grid-cols-1 md:grid-cols-2`, not seen.
 
+## Sprint 134 (the Target Client List is filed as TWO SHEETS, because the form is two pages) - DONE 2026-09-05, tsc + build clean. Closes the buildable half of #56.
+Read from the manuscript's own scans, which were on this machine all along: **`docs/Group404 - Manuscript.md` Appendix E embeds BOTH pages as base64 PNGs** - `image16` (page 1, the sheet the user photographed) and `image17` (page 2). Extract with base64 and read them; the workbook on the other laptop was never needed.
+
+- **The app was never short a column.** Page 2 holds a repeated `No.`, the FIRST and SECOND visit groups, OTHER SERVICES and REMARKS - and **every one of those is already in `TargetClientList.tsx`**. Page 1 ends at "Caries Free" / "Orally Fit Child", which the app also has. What was wrong was the OUTPUT: a two-page form filed as one 66-column sheet is a different document.
+- **New `exportSheetsToXlsx`** (a second function, not a flag on `exportToXlsx` - the single-sheet contract is used by other reports). The TCL now writes **Page 1** and **Page 2** into one workbook, same rows, same order.
+- **The split, by the scans:** Page 1 = 13 identity columns + the 21 ORAL HEALTH STATUS columns + the 2 ORALLY FIT CHILD columns (36). Page 2 = a **repeated `No.`** + FIRST (7) + SECOND (7) + OTHER SERVICES (12) + DENTAL VISIT (2) + REMARKS (30).
+- **⚠ `No.` is repeated on sheet 2 deliberately** - it is the form's own row link between pages; without it sheet 2 is an unjoinable block of ticks.
+- **The SCREEN table stays one continuous table, on purpose.** A 66-column sheet cannot be read any other way, and the filed artifact is the workbook (TCL is Excel-only, decided 2026-09-03). Form pagination belongs in the file, not in the browser.
+- **⚠ ONE PLACEMENT IS UNVERIFIED and is flagged in the code:** the scans are 540x375, and while ORAL HEALTH STATUS clearly ends page 1 and OTHER SERVICES clearly ends page 2, the **DENTAL VISIT pair (Last / Next Dental Visit) could not be resolved on either scan**. Placed on page 2 with the services. A sharper scan would settle it; it is a one-line change (`PAGE1_GROUPS`).
+- ⚠ **NOT VERIFIED: the workbook itself.** Producing it means downloading a file, which was not done. **Click Excel on the Target Client List and confirm two sheets named Page 1 / Page 2 with the column counts above.**
+- **A related find, for #37:** Appendix G ("Individual Patient Treatment Record") also embeds **TWO** images (`image19`, `image20`), and Appendix F one (`image18`). **The IPTR is a two-page form too** - worth checking our IPTR output against both pages before defense, exactly as this sprint did for the TCL.
+
 ## Open work (each needs approval; sprint loop applies)
 
 59. **Bulk upload of student records from Excel — ⚠ ALREADY BUILT (Sprint 23m). The request is really about the FORMAT.** User 2026-09-05: *"add a button bulk upload student records in students tab using excel, but i dont know the excel format yet or have excel files yet… this is also needed for data cleaning right? for prediction right"*.
