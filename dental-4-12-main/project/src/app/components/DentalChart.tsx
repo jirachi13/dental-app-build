@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router';
 import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, TrendingUp, FileText, Plus, Pencil, Trash2, Brain, Download } from 'lucide-react';
-import { exportDohReportToPdf } from '../utils/exportPdf';
+import { exportDohReportToPdf, exportPagesToPdf } from '../utils/exportPdf';
 import { getGradeColor } from '../utils/gradeColors';
 import { computeBmi, BMI_NOTE } from '../utils/bmi';
 import { useAuth } from '../context/AuthContext';
@@ -17,7 +17,7 @@ import { surnameFirst, surnameFirstWithInitial } from '../utils/studentName';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
 import { useSchools } from '../hooks/useSchools';
-import { IptrForm } from './IptrForm';
+import { IptrForm, IptrFormPage2 } from './IptrForm';
 import type { ReferralType } from '../api/types';
 
 // Sprint 127 — the referral kinds are the DOH Oral Health Program Report's own
@@ -32,10 +32,10 @@ const REFERRAL_TYPE_LABELS: Record<ReferralType, string> = {
 };
 
 // ─── FDI tooth layout ─────────────────────────────────────────────────────────
-const upperPermanent = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
-const lowerPermanent = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
-const upperTemporary = [55, 54, 53, 52, 51, 61, 62, 63, 64, 65];
-const lowerTemporary = [85, 84, 83, 82, 81, 71, 72, 73, 74, 75];
+export const upperPermanent = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
+export const lowerPermanent = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
+export const upperTemporary = [55, 54, 53, 52, 51, 61, 62, 63, 64, 65];
+export const lowerTemporary = [85, 84, 83, 82, 81, 71, 72, 73, 74, 75];
 const temporaryTeeth = new Set([...upperTemporary, ...lowerTemporary]);
 
 const conditionColors: Record<string, string> = {
@@ -118,7 +118,7 @@ const computeDMFT = (chart: Record<number, ChartEntry>) => {
 };
 
 // Base44-exact condition codes: uppercase=permanent, lowercase=temporary (auto-applied)
-const conditionCodes = [
+export const conditionCodes = [
   { code: '✓', label: 'Sound/Sealed', perm: '✓', temp: '✓' },
   { code: 'D', label: 'Decayed', perm: 'D', temp: 'd' },
   { code: 'M', label: 'Missing', perm: 'M', temp: 'm' },
@@ -252,6 +252,7 @@ export const DentalChart = () => {
   const recordRef = useRef<HTMLDivElement | null>(null);
   // The off-screen DOH form captured by the IPTR PDF button (Sprint 135).
   const iptrFormRef = useRef<HTMLDivElement | null>(null);
+  const iptrFormPage2Ref = useRef<HTMLDivElement | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const tabsRowRef = useRef<HTMLDivElement | null>(null);
   const [stickyOffsets, setStickyOffsets] = useState({ tabsTop: 0, yearTop: 0 });
@@ -887,7 +888,13 @@ export const DentalChart = () => {
     setPdfBusy(true);
     try {
       const who = surnameFirst(student).replace(/[^\w]+/g, '-');
-      await exportDohReportToPdf(iptrFormRef.current, `IPTR_${who}.pdf`);
+      // TWO PDF PAGES, because the IPTR is a two-page form (Sprint 136).
+      // Capturing both into one tall page would produce a document that is not
+      // the form.
+      await exportPagesToPdf(
+        [iptrFormRef.current, iptrFormPage2Ref.current].filter((el): el is HTMLDivElement => el !== null),
+        `IPTR_${who}.pdf`,
+      );
     } finally {
       setPdfBusy(false);
     }
@@ -899,8 +906,9 @@ export const DentalChart = () => {
           laid-out element to capture; `aria-hidden` so it is not read twice by
           a screen reader, and it carries `.form-print` so a browser print of
           this page produces the FORM, not the app. */}
-      <div aria-hidden className="fixed -left-[10000px] top-0" ref={iptrFormRef}>
-        <IptrForm student={student} years={years} dentists={dentists} />
+      <div aria-hidden className="fixed -left-[10000px] top-0">
+        <div ref={iptrFormRef}><IptrForm student={student} years={years} dentists={dentists} /></div>
+        <div ref={iptrFormPage2Ref}><IptrFormPage2 years={years} /></div>
       </div>
       {/* Sticky header row */}
       <div ref={headerRowRef} className="sticky top-0 z-40 bg-gray-50 pb-2">

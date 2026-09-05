@@ -166,6 +166,17 @@ The PDF button used to capture `recordRef`: the patient-info card, the tab strip
 - **Verified on screen against the scan:** header, personal information carrying the pupil's real values with Occupation blank, the Year 1-5 matrix with `2025-2026` in Year 1 and real ticks (Nail Biting, Debris), consent, both signature lines, and the visit table with its ruled rows.
 - ⚠ **NOT verified: the PDF file itself** - producing it means downloading. Click **PDF** on a pupil's record and confirm the file is the form.
 
+## Sprint 136 (IPTR page 2 - the five per-year dental charts) - DONE 2026-09-05, tsc + build clean, verified on screen. Completes the Appendix G form.
+Built to the second scan (`image20`). The PDF is now **two pages**, because the form is two pages.
+
+- **New `exportPagesToPdf`** - one PDF page per element, each sized to itself. Capturing both pages into a single tall page would have produced a document that is not the form. It shares the capture rules of `exportDohReportToPdf` (canvas cap, white JPEG ground, explicit width/height).
+- **`IptrFormPage2`:** the heading "Dental Charting", **five charts** in the paper's own 2-2-1 arrangement with the two legends beside the fifth, each chart carrying its own Date, four arcs (upper temporary · upper permanent · lower permanent · lower temporary) with Treatment and Condition rows, and the `d m f x` / `D M F X T` summary boxes. Ends in **Signature of Examining Dentist**.
+- **⚠ ONE DELIBERATE DEVIATION, stated in the code rather than hidden:** the paper draws each arc as one band with treatment and condition written above and below the numbers by hand, at an angle. That is not reproducible as a table, so each arc is three aligned rows carrying the same three facts per tooth in the form's own arc order. **Nothing added, removed or renamed - only the geometry differs.**
+- **⚠ THE TREATMENT LEGEND IS THE FORM'S SIX, NOT THE APP'S NINE.** The form prints FV · PFS · PF · TF · X · SDF. The app also uses OEX, OP and TR internally; printing those would put codes on a DOH form that the form does not define. **The Condition legend matched the app's nine exactly** - independent confirmation that those codes were right.
+- **Summary boxes count CONDITIONS, never treatment codes** - `X` is "indicated for extraction" as a condition and "extracted" as a treatment, and the form's boxes are a dentition tally. `T` is the form's total column and has no single code, so it stays blank rather than being invented.
+- **Verified on screen against the scan:** all five charts, Year 1 dated `2025-2026` with the rest blank as on paper, both legends, the signature line.
+- ⚠ **Still not verified: the PDF file** - producing it means downloading. **Click PDF on a pupil's record and confirm two pages.**
+
 ## Open work (each needs approval; sprint loop applies)
 
 61. **⚠ THERE ARE TWO IPTR VERSIONS AND BOTH ARE VALID — user, 2026-09-05. This changes #60/Sprint 135 from "the form" to "a form".**

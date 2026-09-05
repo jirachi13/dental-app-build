@@ -2,6 +2,13 @@ import type { ApiStudent, ApiDentist } from '../api/types';
 import type { IptrYearData } from '../hooks/useDentalChartData';
 import { formatDate } from '../utils/localDate';
 import { surnameFirst } from '../utils/studentName';
+import {
+  upperPermanent,
+  lowerPermanent,
+  upperTemporary,
+  lowerTemporary,
+  conditionCodes,
+} from './DentalChart';
 
 // ─── INDIVIDUAL PATIENT TREATMENT RECORD — page 1 (Sprint 135) ──────────────
 //
@@ -249,6 +256,176 @@ export function IptrForm({ student, years, dentists }: Props) {
 
       {/* On screen this explains the blanks; it must never reach paper. */}
       <p className="print-hide mt-2 text-[10px] leading-relaxed text-muted-foreground">{NO_SOURCE_NOTE}</p>
+    </div>
+  );
+}
+
+// ─── INDIVIDUAL PATIENT TREATMENT RECORD — page 2 (Sprint 136) ──────────────
+//
+// Built to Appendix G's second scan (`image20`): the heading "Dental Charting",
+// FIVE tooth charts (one per year, each with its own Date), the two printed
+// legends, and "Signature of Examining Dentist".
+//
+// ⚠ ONE DELIBERATE DEVIATION, stated rather than hidden. The paper chart draws
+// each arc as a single band with Treatment and Condition written above and
+// below the tooth numbers, by hand, at an angle. That is not reproducible as a
+// table, so each arc is rendered as three aligned rows — Treatment / Condition
+// / tooth number — carrying exactly the same three facts per tooth, in the
+// form's own arc order. Nothing is added, removed or renamed; only the
+// geometry differs.
+//
+// ⚠ THE TREATMENT LEGEND IS THE FORM'S SIX, NOT THE APP'S NINE. The form
+// prints FV, PFS, PF, TF, X, SDF. The app additionally uses OEX, OP and TR
+// internally — printing those in the legend would put codes on a DOH form that
+// the DOH form does not define.
+const FORM_TREATMENT_LEGEND = [
+  { code: 'FV', label: 'Fluoride Varnish' },
+  { code: 'PFS', label: 'Pit and Fissure Sealant' },
+  { code: 'PF', label: 'Permanent Filling' },
+  { code: 'TF', label: 'Temporary Filling' },
+  { code: 'X', label: 'Extraction' },
+  { code: 'SDF', label: 'Silver Diamine Fluoride' },
+];
+
+/** The summary boxes printed under each chart. */
+const TEMPORARY_SUMMARY = ['d', 'm', 'f', 'x'];
+const PERMANENT_SUMMARY = ['D', 'M', 'F', 'X', 'T'];
+
+function YearChart({ year, index }: { year: IptrYearData | null; index: number }) {
+  const byTooth = new Map<number, { condition?: string; treatment_code?: string }>();
+  for (const t of year?.toothRecords ?? []) byTooth.set(t.tooth_number, t);
+
+  const cell = 'border border-black text-[7px] text-center h-3 w-[13px] leading-3';
+  const rowLabel = 'text-[7px] pr-1 text-right whitespace-nowrap';
+
+  const arc = (teeth: number[], label: string) => (
+    <div className="mb-0.5">
+      <table className="border-collapse">
+        <tbody>
+          <tr>
+            <td className={rowLabel}>Treatment</td>
+            {teeth.map((n) => (
+              <td key={n} className={cell}>{byTooth.get(n)?.treatment_code ?? ''}</td>
+            ))}
+          </tr>
+          <tr>
+            <td className={rowLabel}>Condition</td>
+            {teeth.map((n) => (
+              <td key={n} className={cell}>{byTooth.get(n)?.condition ?? ''}</td>
+            ))}
+          </tr>
+          <tr>
+            <td className={`${rowLabel} italic`}>{label}</td>
+            {teeth.map((n) => (
+              <td key={n} className={`${cell} font-semibold bg-gray-100`}>{n}</td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+
+  // Counts for the summary boxes, from that year's CONDITIONS (never treatment
+  // codes — X is "indicated for extraction" as a condition and "extracted" as a
+  // treatment, and the form's boxes are a dentition tally, not a service one).
+  const count = (code: string) =>
+    (year?.toothRecords ?? []).filter((t) => t.condition === code).length || '';
+
+  return (
+    <div className="border border-black p-1.5">
+      <div className="flex items-center justify-between text-[8px] font-semibold">
+        <span>Year {index + 1}:</span>
+        <span>
+          Date: <span className="border-b border-black inline-block min-w-[70px] text-center font-normal">
+            {year ? year.iptr.school_year : ''}
+          </span>
+        </span>
+      </div>
+      <div className="mt-1">
+        {arc(upperTemporary, 'temporary')}
+        {arc(upperPermanent, 'permanent')}
+        {arc(lowerPermanent, 'permanent')}
+        {arc(lowerTemporary, 'temporary')}
+      </div>
+      <div className="mt-1 flex items-end gap-3">
+        <table className="border-collapse">
+          <tbody>
+            <tr>{TEMPORARY_SUMMARY.map((c) => <td key={c} className="text-[7px] text-center w-[15px]">{c}</td>)}</tr>
+            <tr>{TEMPORARY_SUMMARY.map((c) => (
+              <td key={c} className="border border-black text-[7px] text-center h-3 w-[15px]">{count(c)}</td>
+            ))}</tr>
+          </tbody>
+        </table>
+        <table className="border-collapse">
+          <tbody>
+            <tr>{PERMANENT_SUMMARY.map((c) => <td key={c} className="text-[7px] text-center w-[15px]">{c}</td>)}</tr>
+            <tr>{PERMANENT_SUMMARY.map((c) => (
+              // T is the form's total column; it has no single condition code.
+              <td key={c} className="border border-black text-[7px] text-center h-3 w-[15px]">{c === 'T' ? '' : count(c)}</td>
+            ))}</tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export function IptrFormPage2({ years }: { years: IptrYearData[] }) {
+  const shown = years.slice(-YEAR_COLUMNS);
+  const cols = Array.from({ length: YEAR_COLUMNS }, (_, i) => shown[i] ?? null);
+  const legendTh = 'border border-black px-1 py-0.5 text-[8px] font-semibold text-center';
+  const legendTd = 'border border-black px-1 py-0.5 text-[8px]';
+
+  return (
+    <div className="form-print bg-white text-black mx-auto p-6" style={{ width: 780 }}>
+      <div className="text-[11px] font-bold">Dental Charting</div>
+
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        {cols.map((y, i) => <YearChart key={i} year={y} index={i} />)}
+
+        {/* The fifth chart sits alone on the paper form, with the two legends
+            beside it — reproduced here rather than reflowed. */}
+        <div className="space-y-2">
+          <div>
+            <div className="text-[8px] font-semibold text-center">Legend: Condition</div>
+            <table className="w-full border-collapse mt-0.5">
+              <thead>
+                <tr>
+                  <th className={legendTh}>Permanent</th>
+                  <th className={legendTh}>Tooth Condition</th>
+                  <th className={legendTh}>Temporary</th>
+                </tr>
+              </thead>
+              <tbody>
+                {conditionCodes.map((c) => (
+                  <tr key={c.code}>
+                    <td className={`${legendTd} text-center`}>{c.perm}</td>
+                    <td className={legendTd}>{c.label}</td>
+                    <td className={`${legendTd} text-center`}>{c.temp}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <div className="text-[8px] font-semibold text-center">Legend: Treatment</div>
+            <table className="w-full border-collapse mt-0.5">
+              <tbody>
+                {FORM_TREATMENT_LEGEND.map((t) => (
+                  <tr key={t.code}>
+                    <td className={`${legendTd} text-center w-[40px]`}>{t.code}</td>
+                    <td className={legendTd}>{t.label}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 w-1/2 text-center text-[9px]">
+        <div className="border-t border-black pt-0.5">Signature of Examining Dentist</div>
+      </div>
     </div>
   );
 }
