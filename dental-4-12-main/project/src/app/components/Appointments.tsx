@@ -397,9 +397,15 @@ export const Appointments = () => {
     const gc = getGradeColor(a.grade);
     const sc = getSchoolColor(a.school);
     const status = getStatus(a);
+    // ⚠ The row below wraps and its left side is min-w-0, rather than being a
+    // bare `items-center justify-between` (CLAUDE.md). Sprint 131 put this card
+    // inside the day dialog's half-width column and the status badge and action
+    // buttons were clipped off the right edge — a control you cannot reach.
+    // Wrapping drops the action cluster onto its own line in a narrow
+    // container, which is also what a phone is.
     return (
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+        <div className="flex items-center gap-3 min-w-0">
           <div style={{ backgroundColor: gc.light, color: gc.solid }} className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0">
             {a.grade.replace('Grade ', 'G')}
           </div>

@@ -25,7 +25,8 @@
     "backup:raw": "tsx server/scripts/backupRaw.ts",
     "verify:indexes": "tsx server/scripts/verifySprint91Indexes.ts",
     "verify:referrals": "tsx server/scripts/verifyReferrals.ts",
-    "seed:treatments": "tsx server/scripts/seedTreatments.ts"
+    "seed:treatments": "tsx server/scripts/seedTreatments.ts",
+    "seed:appointments": "tsx server/scripts/seedAppointments.ts"
   },
   "overrides": {
     "exceljs": {
