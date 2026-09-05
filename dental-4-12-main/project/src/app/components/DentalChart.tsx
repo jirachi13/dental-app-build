@@ -255,11 +255,31 @@ export const DentalChart = () => {
   const iptrFormRef = useRef<HTMLDivElement | null>(null);
   const iptrFormPage2Ref = useRef<HTMLDivElement | null>(null);
   const iptrFormV2Ref = useRef<HTMLDivElement | null>(null);
+  // Sprint 148 — WHICH charting of the year is being viewed. Null means "the
+  // latest", which is what the hook already hands over.
+  //
+  // ⚠ Until now the screen rendered the OLDEST charting of the year and hid
+  // every later one: 22 of 26 IPTRs on dev have two or more, and a pupil with
+  // three showed 3 of their 4 tooth records. A dentist looking at August's
+  // findings while January's existed is reading a stale mouth.
+  const [selectedChartId, setSelectedChartId] = useState<string | null>(null);
+  // A chart id belongs to one school year; keeping it across a year switch
+  // would leave the screen showing a chart that is not in the year on display.
+  useEffect(() => { setSelectedChartId(null); }, [selectedYear]);
   const [pdfBusy, setPdfBusy] = useState(false);
   const tabsRowRef = useRef<HTMLDivElement | null>(null);
   const [stickyOffsets, setStickyOffsets] = useState({ tabsTop: 0, yearTop: 0 });
 
-  const currentYearData = years[selectedYear];
+  const currentYearDataRaw = years[selectedYear];
+  // The hook defaults to the latest charting; this swaps in whichever one the
+  // dentist picked, with its own tooth records.
+  const currentYearData = currentYearDataRaw && selectedChartId
+    ? {
+        ...currentYearDataRaw,
+        dentalChart: currentYearDataRaw.charts.find((c) => c._id === selectedChartId) ?? currentYearDataRaw.dentalChart,
+        toothRecords: currentYearDataRaw.toothRecordsByChart[selectedChartId] ?? currentYearDataRaw.toothRecords,
+      }
+    : currentYearDataRaw;
 
   // Draft (editable) copies of the current year's real data -- initialized
   // from real records when the selected year changes, persisted for real on
@@ -1390,6 +1410,34 @@ export const DentalChart = () => {
         {activeTab === 'chart' && (
           <div className="p-0 space-y-0">
             <div className="p-4 space-y-4">
+            {/* Sprint 148 — one row per charting recorded this school year.
+                Hidden when there is only one: a picker with a single option is
+                noise. The dentist screens and treats at the same visit, so each
+                charting is that visit's findings AND treatments, read on its
+                own — they are never merged. */}
+            {currentYearData && currentYearData.charts.length > 1 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground">Charting:</span>
+                {currentYearData.charts.map((c, i) => {
+                  const isOn = currentYearData.dentalChart?._id === c._id;
+                  const teeth = currentYearData.toothRecordsByChart[c._id]?.length ?? 0;
+                  return (
+                    <button
+                      key={c._id}
+                      onClick={() => setSelectedChartId(c._id)}
+                      className={`px-2.5 py-1 text-xs rounded-lg border transition-colors ${isOn ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:bg-gray-50'}`}
+                      title={`${teeth} tooth record${teeth === 1 ? '' : 's'}`}
+                    >
+                      {formatDate(c.date_charted)}
+                      {i === currentYearData.charts.length - 1 && <span className="ml-1 opacity-70">· latest</span>}
+                    </button>
+                  );
+                })}
+                <span className="text-xs text-muted-foreground">
+                  {currentYearData.charts.length} chartings this school year
+                </span>
+              </div>
+            )}
             <div className={`bg-blue-50 rounded-xl p-4 ${!editingChart ? 'opacity-50 pointer-events-none select-none' : ''}`}>
               {!canEdit && <p className="text-xs text-muted-foreground mb-2 italic">View only — editing restricted to Dentist</p>}
               {canEdit && !editMode && <p className="text-xs text-muted-foreground mb-2 italic">View mode — click "Edit Chart" to record conditions/treatments</p>}

@@ -20,8 +20,26 @@ export interface IptrYearData {
   medicalHistory: ApiMedicalHistory | null;
   dietaryHabits: ApiDietarySocialHabits | null;
   oralCondition: ApiOralHealthCondition | null;
+  /** EVERY charting recorded for this school year, oldest first (Sprint 148).
+   *
+   *  ⚠ There is usually more than one: measured on dev 2026-09-05, **22 of 26
+   *  IPTRs have two or more**, one has three. The screen used to render
+   *  `charts[0]` and silently hide the rest — a pupil with three chartings
+   *  showed 3 of their 4 tooth records.
+   *
+   *  The dentist screens and treats at the SAME visit (user, 2026-09-05), so
+   *  each charting is self-contained: that visit's findings and the treatments
+   *  done at it. They are read one at a time, never merged. */
+  charts: ApiDentalChart[];
+  /** The charting currently being viewed — **the LATEST by date**, which is
+   *  the current state of the mouth. It used to be the OLDEST, which is what
+   *  made later work invisible. */
   dentalChart: ApiDentalChart | null;
+  /** Tooth records of `dentalChart` alone — one charting is one visit. */
   toothRecords: ApiToothRecord[];
+  /** Tooth records of EVERY charting, keyed by chart id, so the screen can
+   *  switch between chartings without another round trip. */
+  toothRecordsByChart: Record<string, ApiToothRecord[]>;
   treatments: ApiTreatment[];
   referrals: ApiReferral[];
 }
@@ -82,14 +100,25 @@ export function useDentalChartData(studentId: string | undefined) {
         : [];
 
       const yearData: IptrYearData[] = myIptrs.map((iptr) => {
-        const dentalChart = myCharts.find((c) => c.iptr_id === iptr._id) ?? null;
+        // ⚠ ALL of them, oldest first — `.find()` here is what hid every
+        // charting after the first (Sprint 148).
+        const charts = myCharts
+          .filter((c) => c.iptr_id === iptr._id)
+          .sort((a, b) => a.date_charted.localeCompare(b.date_charted));
+        // The latest is the current state of the mouth. The old code took the
+        // first, so a pupil charted again in January showed August's findings.
+        const dentalChart = charts.length ? charts[charts.length - 1] : null;
         return {
+          charts,
           iptr,
           medicalHistory: allMedical.find((m) => m.iptr_id === iptr._id) ?? null,
           dietaryHabits: allDiet.find((d) => d.iptr_id === iptr._id) ?? null,
           oralCondition: allOral.find((o) => o.iptr_id === iptr._id) ?? null,
           dentalChart,
           toothRecords: dentalChart ? allToothRecords.filter((t) => t.chart_id === dentalChart._id) : [],
+          toothRecordsByChart: Object.fromEntries(
+            charts.map((c) => [c._id, allToothRecords.filter((t) => t.chart_id === c._id)]),
+          ),
           treatments: allTreatments.filter((t) => t.iptr_id === iptr._id),
           referrals: allReferrals.filter((r) => r.iptr_id === iptr._id),
         };

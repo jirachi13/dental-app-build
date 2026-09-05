@@ -343,6 +343,17 @@ User: *"record visit is also treatment, in rpc tracking"* — and the code agree
 - ⚠ **That test visit is still in the dev database** (Ivan now reads `overdue`). It is real, plausible demo data on a disposable seeded database, so it was left rather than deleted — but it is the only visit carrying services, which is worth knowing when reading dev.
 - **ERD deviation recorded in `docs/DATA-MODEL.md`; the Chapter 3 figure now owes SIX.**
 
+## Sprint 148 (the chart screen stopped hiding later chartings) - DONE 2026-09-05, tsc + build clean, verified in the browser. #63 step 1.
+**A live bug with measured data loss**, found while answering the user's question about visit-1 vs visit-2 charting.
+
+- **The screen rendered `charts[0]` — the OLDEST charting of the school year — and hid every later one.** `useDentalChartData` did `.find()`; there was no picker, so nothing said another existed. **Measured on dev: 22 of 26 IPTRs have two or more chartings.**
+- **Now: every charting is listed and selectable, and the LATEST is the default** — that is the current state of the mouth, where the old code showed the oldest.
+- **Verified on a pupil with three** (Aug 15 2025 · Jan 20 2026 · Jul 9 2026): the picker reads *"3 chartings this school year"*, and switching between them renders **12 / 10 / 9** marks respectively. Only the first was ever reachable before.
+- **The picker hides itself at one charting** — a control with a single option is noise.
+- **Each charting is read ALONE, never merged**, per the user's answer that the dentist screens and treats at the same visit: a charting is that visit's findings and its treatments.
+- ⚠ **Editing follows the selection**, because `handleSaveChart` writes to `currentYearData.dentalChart`. **So selecting an old charting and editing it edits history.** That is arguably right — a typo from January should be fixable — but it is now possible where it was not, and the only guard is that the picker shows which date is selected and flags the latest. **If the dentist wants past chartings read-only, say so and it is a one-line condition.**
+- ⚠ **Creating a NEW charting from this screen is still not possible** — unchanged from before. That is #63 step 2's job: Record Visit will create the charting already attached to the visit.
+
 ## Open work (each needs approval; sprint loop applies)
 
 63. **⚠ A CHARTING BELONGS TO A VISIT, AND THE APP CANNOT SAY WHICH — user, 2026-09-05: *"visit 1 is charting to treatment, same as visit 2"*.** NOT scoped. **Contains a LIVE BUG, measured, that should be fixed first and separately.**
