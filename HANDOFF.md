@@ -345,6 +345,18 @@ User: *"record visit is also treatment, in rpc tracking"* — and the code agree
 
 ## Open work (each needs approval; sprint loop applies)
 
+63. **⚠ A CHARTING BELONGS TO A VISIT, AND THE APP CANNOT SAY WHICH — user, 2026-09-05: *"visit 1 is charting to treatment, same as visit 2"*.** NOT scoped. **Contains a LIVE BUG, measured, that should be fixed first and separately.**
+    - **⚠ THE LIVE BUG: the Dental Chart page shows only the FIRST charting of a school year and hides the rest.** `useDentalChartData:85` does `myCharts.find(c => c.iptr_id === iptr._id)` — the first match — and chart creation only fires `if (!chartId)`, so a second charting can never be made from the UI either. **Measured on dev 2026-09-05: 22 of 26 IPTRs have MORE THAN ONE chart.** One pupil has three (2025-08-14, 2026-01-19, 2026-07-09) and the page shows **3 of their 4 tooth records** — the January finding is invisible.
+    - **⚠ THE APP CONTRADICTS ITSELF ABOUT THIS.** `tallyIptrServices` deliberately orders MULTIPLE charts per IPTR by date and treats each as a SITTING — that is how the DOH report derives "1st / 2nd application". So the reporting layer assumes several chartings a year while the chart screen assumes one. Both cannot be right.
+    - **WHY THE USER'S POINT LANDS HERE:** if Visit 1 and Visit 2 each involve charting, today they collide in one chart and the second overwrites the first, invisibly.
+    - **RECOMMENDED ORDER — three steps, and the first is worth doing alone:**
+      1. **Make the chart screen year-complete.** Show every charting for the year with its date, not silently the first, and let a new one be created. This is a data-visibility bug independent of any visit link, and it is what a dentist would notice first.
+      2. **Link the charting to the visit:** nullable `preventive_id` on `DENTAL_CHART`. Then a charting BELONGS to Visit 1 or Visit 2 instead of being guessed at by date, and Record Visit can offer *"chart now"*, creating the chart already attached.
+      3. **Let the reports read the link.** `useDohReportData`'s 1st/2nd application stops being **inferred from chart dates** — its own comment calls that "an interpretation worth understanding" — and the TCL's per-visit tooth counts become fact, the same move Sprint 147 made for the service ticks.
+    - **⚠ `TREATMENT` is NOT the right home for this and should stay where it is.** The user's phrase is *charting to treatment*: what a visit DOES to teeth is `TOOTH_RECORD.treatment_code` on that visit's chart. `TREATMENT` is the free-text chairside note (diagnosis / treatment_done) and answers a different question.
+    - **⚠ Existing charts have no visit.** `preventive_id` must be nullable and old rows stay null — the date-based inference remains the fallback for them, exactly as Sprint 147 kept the chart fallback for visits recorded before it.
+
+
 62. **~~RECORDING AN RPC VISIT IS ALSO RECORDING TREATMENT~~ — BUILT 2026-09-05 as Sprint 147.** Original note:  **⚠ user, 2026-09-05. `PREVENTIVE_CARE_RECORD` STORES NO SERVICES AT ALL.** NOT scoped; it is a model change, so it needs approval.
     - **The model has four fields:** `iptr_id`, `visit_date`, `visit_number`, `facility_based`. That is it. **A visit records that someone was seen, never what was done to them.**
     - **The Record Visit modal saves exactly those** (`RPCTracking.tsx:78` → `POST /preventive-care-records` with date, number, facility flag). The dentist ticks nothing.
