@@ -231,6 +231,22 @@ Chosen over server-side filters because filters do not scale: at 8,000 pupils th
 - **⚠ A wasted round trip worth remembering:** the route is `/rpc`, not `/rpc-tracking`. The sidebar label and the path differ.
 - **Left of #24:** `useSchoolSummary` (6 reads), `useFhsisData` (4), `Reports.tsx`'s own five, plus paging the two row-per-pupil endpoints.
 
+## Sprint 141 (the per-school summary sheet tallies on the server) - DONE 2026-09-05, tsc + build clean, numbers verified unchanged.
+- **SIX whole collections (~72 KB) → 483 BYTES.** The biggest ratio of the four: like `/stats/doh-report` the output is COUNTS, so the response is **flat — it does not grow with the roll at all**. New `GET /stats/school-summary?school=&school_year=`, same `scopeFilter` gate.
+- **Logic MOVED to `shared/schoolSummary.ts`.** The **MALE/FEMALE count STUDENTS while each TOTAL counts TEETH** rule is the whole meaning of this sheet (confirmed with the user 2026-09-03); a second copy would eventually disagree with the filed one.
+- **⚠ `.lean()` IS safe on Student here** — it reads only `sex` and `school_id`. It would NOT be safe if the sheet ever needed a name (Sprint 118).
+- **VERIFIED THE NUMBERS DID NOT MOVE**, on screen and at the endpoint: Dental Caries `6 | 8 | 11 | 15` · Gingivitis `3 | — | 4 | —` · Debris `6 | — | 9 | —` · Calculus `3 | — | 4 | —` · No Flouride `1 | — | 2 | —` — identical to the Sprint 130 screenshot. Endpoint: students M10/F16, examined M10/F16, unsexed 0.
+- **#24 SCORECARD after four sprints (138-141):**
+
+| Hook | Before | After |
+|---|---|---|
+| `useDohReportData` | 11 collections, ~108 KB | 1 request, **12.2 KB — flat** |
+| `useRiskClassification` | 9, ~95 KB | 1, 16 KB (row per pupil) |
+| `useRPCTracking` | 6, ~72 KB | 1, 16.3 KB (row per pupil) |
+| `useSchoolSummary` | 6, ~72 KB | 1, **483 B — flat** |
+
+- **Left:** `useFhsisData` (4 reads), `Reports.tsx`'s own five, and paging the two row-per-pupil endpoints. ⚠ Also still true: **the SERVER reads whole collections** to build every one of these; a `$lookup` pipeline is the next step if server memory becomes the constraint.
+
 ## Open work (each needs approval; sprint loop applies)
 
 61. **~~THERE ARE TWO IPTR VERSIONS AND BOTH ARE VALID~~ — BUILT 2026-09-05 as Sprint 137.** Both forms are offered; the PDF button is now a choice. ⚠ The photo of Form 1 is NOT in the repo (real patient data - see that sprint). Original note:

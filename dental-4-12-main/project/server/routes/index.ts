@@ -12,6 +12,7 @@ import { ADMIN_ONLY, CLINICAL_WRITE_ROLES } from "../middleware/roleGroups.js";
 import { aggregateDohReport } from "../../shared/dohAggregate.js";
 import { buildRiskCandidates } from "../../shared/riskCandidates.js";
 import { buildRpcRows } from "../../shared/rpcTracking.js";
+import { buildSchoolSummary } from "../../shared/schoolSummary.js";
 import { findDuplicateStudents } from "../utils/studentDuplicates.js";
 import {
   School,
@@ -301,6 +302,51 @@ router.get("/stats/notifications", requireAuth, asyncHandler(async (req, res) =>
 // ⚠ `Student.find()` has no .lean() and no .select(): the row carries the
 // pupil's NAME, and either would return `<iv>:<ciphertext>` silently with a
 // 200 (Sprint 118).
+// Sprint 141 — the per-school summary sheet, tallied HERE instead of in the
+// browser (six whole collections before). Like /stats/doh-report the OUTPUT IS
+// COUNTS, so this response is flat: it does not grow with the roll.
+//
+// ⚠ `.lean()` is safe on Student here and would NOT be if this endpoint needed
+// a name: it reads only `sex` and `school_id`. A lean read of an encrypted
+// field returns `<iv>:<ciphertext>` silently with a 200 (Sprint 118).
+router.get("/stats/school-summary", requireAuth, asyncHandler(async (req, res) => {
+  const scope = await scopeFilter("Student", req);
+  const studentFilter = scope ? { isArchived: false, ...scope } : { isArchived: false };
+  const active = { isArchived: false };
+
+  const [schools, students, iptrs, orals, charts, toothRecords] = await Promise.all([
+    School.find(active).select("_id school_name").lean(),
+    Student.find(studentFilter).select("_id school_id sex").lean(),
+    StudentIptr.find(active).select("_id student_id school_year").lean(),
+    OralHealthCondition.find(active).select("iptr_id gingivitis debris calculus").lean(),
+    DentalChart.find(active).select("_id iptr_id").lean(),
+    ToothRecord.find(active).select("chart_id condition treatment_code").lean(),
+  ]);
+
+  const str = (v: unknown) => String(v ?? "");
+  const out = buildSchoolSummary({
+    schools: (schools as any[]).map((s) => ({ _id: str(s._id), school_name: str(s.school_name) })),
+    students: (students as any[]).map((s) => ({ _id: str(s._id), school_id: str(s.school_id), sex: str(s.sex) })),
+    iptrs: (iptrs as any[]).map((i) => ({ _id: str(i._id), student_id: str(i.student_id), school_year: str(i.school_year) })),
+    orals: (orals as any[]).map((o) => ({
+      iptr_id: str(o.iptr_id),
+      gingivitis: o.gingivitis,
+      debris: o.debris,
+      calculus: o.calculus,
+    })),
+    charts: (charts as any[]).map((c) => ({ _id: str(c._id), iptr_id: str(c.iptr_id) })),
+    toothRecords: (toothRecords as any[]).map((t) => ({
+      chart_id: str(t.chart_id),
+      condition: t.condition ?? null,
+      treatment_code: t.treatment_code ?? null,
+    })),
+    schoolName: typeof req.query.school === "string" && req.query.school ? req.query.school : null,
+    schoolYear: typeof req.query.school_year === "string" && req.query.school_year ? req.query.school_year : null,
+  });
+
+  res.json(out);
+}));
+
 router.get("/stats/rpc-rows", requireAuth, asyncHandler(async (req, res) => {
   const scope = await scopeFilter("Student", req);
   const studentFilter = scope ? { isArchived: false, ...scope } : { isArchived: false };
