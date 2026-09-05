@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router';
-import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, TrendingUp, FileText, Plus, Pencil, Trash2, Brain, Download, X, Maximize2, Minimize2, Check, ChevronUp, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, TrendingUp, FileText, Plus, Pencil, Trash2, Brain, Download, X, Maximize2, Minimize2, Check, ChevronUp, ChevronDown, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { exportDohReportToPdf, exportPagesToPdf } from '../utils/exportPdf';
 import { getGradeColor } from '../utils/gradeColors';
 import { computeBmi, BMI_NOTE } from '../utils/bmi';
@@ -420,6 +420,9 @@ export const DentalChart = () => {
   const [draftVisitDate, setDraftVisitDate] = useState('');
   const [draftChartDate, setDraftChartDate] = useState('');
   const [othersOralOpen, setOthersOralOpen] = useState(false);
+  // Her card collapses (Sprint 164). Identity is checked once on arrival and
+  // then only gets in the way of the tab below it.
+  const [basicInfoExpanded, setBasicInfoExpanded] = useState(true);
   const [rareConditionsOpen, setRareConditionsOpen] = useState(false);
   const [rareTreatmentsOpen, setRareTreatmentsOpen] = useState(false);
 
@@ -1441,15 +1444,45 @@ export const DentalChart = () => {
                   </div>
                 </div>
               </div>
-              {canEditInfo && (
-                <button onClick={openEditInfo} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded-lg text-muted-foreground hover:bg-gray-50">
-                  <Pencil className="w-3 h-3" /> Edit
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {/* Her chips. ⚠ READ-ONLY here on purpose — consent has its own
+                    tab and its own toggle, and editing student info must never
+                    reach it. */}
+                <span
+                  title={`${student.consent_status === 'complete' ? 'Consent obtained' : 'Consent pending'} for ${yearIptr?.school_year ?? 'this year'}`}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${student.consent_status === 'complete' ? 'bg-success-surface text-success' : 'bg-warning-surface text-warning'}`}
+                >
+                  {student.consent_status === 'complete' ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldAlert className="w-3.5 h-3.5" />}
+                  {student.consent_status === 'complete' ? 'Consent Complete' : 'Consent Pending'}
+                </span>
+                {/* Colour rather than neutral grey, so sex reads at a glance —
+                    and it stays visible while the card is collapsed. */}
+                {student.sex && (
+                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${student.sex === 'Male' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'}`}>
+                    {student.sex}
+                  </span>
+                )}
+                {canEditInfo && (
+                  <button onClick={openEditInfo} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded-lg text-muted-foreground hover:bg-gray-50">
+                    <Pencil className="w-3 h-3" /> Edit
+                  </button>
+                )}
+                <button
+                  onClick={() => setBasicInfoExpanded((v) => !v)}
+                  title={basicInfoExpanded ? 'Hide basic information' : 'Show basic information'}
+                  aria-label={basicInfoExpanded ? 'Hide basic information' : 'Show basic information'}
+                  className="flex items-center gap-1.5 px-2 py-1.5 text-xs border border-border rounded-lg text-muted-foreground hover:bg-gray-50"
+                >
+                  {basicInfoExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                 </button>
-              )}
+              </div>
             </div>
+            {basicInfoExpanded && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
               {[
-                ['Birthday', student.birthday?.slice(0, 10)],
+                // "May 30, 2013", not 2013-05-30 — hers, and it is what a person
+                // reads a birthday as.
+                ['Birthday', student.birthday ? formatDate(student.birthday) : '—'],
                 ['Age', `${patientAge} years`],
                 ['Sex', student.sex],
                 ['Contact', student.contact_number || '—'],
@@ -1469,6 +1502,7 @@ export const DentalChart = () => {
                 </div>
               ))}
             </div>
+            )}
           </>
         )}
       </div>
