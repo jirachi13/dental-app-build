@@ -10,25 +10,47 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ▶ RESUME HERE — 2026-09-05 (9th session), on branch `adopt-design` at `fe36d1a1`
+## ▶ RESUME HERE — 2026-09-06, on branch `adopt-design` at `97fe9009`
 
-**`main` is UNTOUCHED. The adoption work is on `adopt-design`, four commits, pushed. Checkpoint tag `pre-design-adoption` marks the last commit before any of it.** Nothing here is merged; the user is reviewing the branch before deciding.
+**`main` is UNTOUCHED. Ten commits on `adopt-design`, all pushed. Tag `pre-design-adoption` marks the last commit before any of it.** Nothing is merged; the user is reviewing.
 
-### Why the branch exists
-A classmate (`peanutbutterjelly03`, a real collaborator on this repo) redesigned the Dental Chart tab on her fork's `majorUpdates` branch and pressed for her design. Her work is **not** on her own `main` — it sits in an open pull request, and the owner's branch ruleset on `main` ("changes must be made through a pull request", "required status check build") is bypassed on every push, which is why her pushes never landed. **We adopted her LAYOUT and kept OUR code, which is further along.** Each commit states what was taken and what was deliberately refused.
+### What this branch is
+A classmate (`peanutbutterjelly03`, a real collaborator here) redesigned the app on her fork's `majorUpdates` branch and pressed for her design. **The whole point is to end up looking like hers while keeping our code, which is 115 commits ahead of the fork point (2026-09-03).**
 
-| Sprint | Adopted | The bit worth remembering |
-|---|---|---|
-| 151 | Dental Condition / Treatment Summary panels, with Tooth Count and Tooth Numbers | Two of her readings of the form are right and were followed exactly: **"present" excludes missing and unerupted**, and the temporary block is **dfx, not dmfx** — the form has no primary "missing" row. The derivation moved to `shared/iptrSectionB.ts` and **`IptrFormV2` now calls it too**; it had its own copy of the same arithmetic, which is how a screen and a sheet filed with the City Health Office disagree about one pupil. **Refused:** her whole-mouth service rows here — Sprint 147 records those on `PREVENTIVE_CARE_RECORD`, against the visit, and the DOH return reads that. |
-| 152 | Legend button; the code palette leaves view mode | The palette was already `pointer-events-none` when not editing — it held the top of the screen doing nothing above the summaries a dentist reads. It now appears only in edit mode. The Legend renders OUR `conditionCodes`/`treatmentCodes`, so it cannot drift from the palette. |
-| 152b | — | Deleted the static reference card below the odontogram. **It had already drifted: six treatment codes against the nine in `treatmentCodes`** — OEX, OP and TR were missing. Its one unique thing was the colour key, so the Legend chips now read `conditionColors`, the same map the tooth cells render from. |
-| 153 | Charting Mode | Full-screen chairside surface: chart a mouth, save, next child. The chart tab's own container goes `fixed inset-0 z-[75]` — the **same JSX** in both states, never a second odontogram. **The mode lives in a module-level memo, not `useState`: `routes.tsx` keys this component by `:id`, so Next student remounts it and state would drop you out of full screen on every child.** Escape exits. **Refused:** hiding the DMFT card — one compact row, and a running DMFT is worth seeing while charting. |
+### ⚠ THE LESSON OF THIS BRANCH — READ BEFORE ADOPTING ANYTHING ELSE
+**Check which files actually COLLIDE before writing a line.** Her UI work is ~4,300 added lines across 26 files, and only **8** of them touch anything we changed since the fork. The other 18 we had never touched — they can be taken as FILES:
 
-### ⚠ A real bug found on the way, fixed in 153
-**Stepping to another student while editing discarded the draft chart silently** — nothing is written until Save Chart. The hole already existed on the header's prev/next buttons; charting mode makes stepping the main loop. Both paths now route through one guard that names the student it would move to.
+```
+git show classmate/majorUpdates:<path> > <path>
+```
 
-### What is left of the adoption queue
-Only her **status strip / school chip**, which is app-wide chrome rather than the IPTR work that was actually wanted. **Recommended: leave it.** If the branch reviews well the next move is a PR to `main`, not more adoption.
+Sprints 151–156 rebuilt her chart tab by hand, piece by piece, from reading her JSX. That was five sprints of slow, imperfect work to reproduce something that, for most files, needed no reproducing at all. The file-overlap check takes one command and should have been the first thing done.
+
+| Commit | What |
+|---|---|
+| 151–156 | The chart tab, rebuilt by hand: summary panels, Legend, Charting Mode, her card, her page order, her pill palette. All still valid work — `DentalChart.tsx` IS a collision file, so it genuinely needed merging. |
+| `471f647c` | **The shell, 17 files taken verbatim.** Root, App, routes, SchoolSelect, SyncStatus, Notifications, Login, Modal, Toast, Pagination, ListSearchInput, UpdateSchoolYear, useStudents, useNotifications, bmi, layout, schoolColors. Switch School button, the Online/school chips, the settings gear, the wider column, button shapes, type. |
+| `de94d180` | **Students** — hers whole; only `validateStudentValues` needed putting back. |
+| `7e817cdf` | **Appointments** — hers, plus our `DAY_NOTE` dialog and the Rotation tab. |
+| `97fe9009` | **Dashboard** header hers; **Promote/Assign** kept ours. |
+
+### ⚠ WHAT WAS REFUSED, AND WHY — these will be asked about
+1. **Her day notes are `DENTIST_ROTATION` rows** with `week_start === week_end`; her own comment says the screen was "repurposed". We have a real `DAY_NOTE` model (108/109) and still use rotations for rotations. Taking her file whole would have deleted an ERD table's only UI and filed fake rotation rows. Her calendar + our model instead, and the calendar badges read `notesFor(day)` so badge and dialog cannot disagree.
+2. **She deleted the Rotation tab.** Restored with our real form (school, dentist, week start/end).
+3. **Her Dashboard reverts Sprint 105's empty state** to "will populate once monthly snapshots begin accumulating". Nothing accumulates them. Ours kept.
+4. **Her Promote/Assign** has none of Sprints 102/119/122/123. Ours kept whole.
+5. **Consultation / free-text Others** service chips — no field on `PREVENTIVE_CARE_RECORD`.
+6. **Orally Fit Child** renders blank and says "not recorded" — its DOH definition needs a judgement nothing we store holds.
+7. **Whole-mouth treatment codes** live behind "More (3)" rather than being dropped, or an FV already charted on a tooth becomes uneditable.
+
+### Left over
+- **`allow_school_year_override`** is on `ApiSchool` as optional but NOT on the SCHOOL model, so that dialog's manual-override section stays hidden. `SchoolManagement` is still ours for the same reason. Wiring it = a model field + a toggle.
+- **Her tab strip shows 2 tabs where ours shows 7** (Consent, Treatment History, DMFT History, Referrals, Risk Classification). NOT yet established whether she deleted them or hides them for `?context=dental-queue`. Do not drop five working screens on a guess.
+- **She never touched** RPC Tracking, Reports (+ FHSIS, Program Report, School Summary, TCL), Treatment, Risk Classification or the Dental Charts list. There is no design of hers to adopt there; her copies are the 3 September version of ours.
+
+### For the dentist
+- What does **Consultation** mean for the DOH return?
+- How should **Orally Fit Child** be decided?
 
 ---
 
