@@ -285,14 +285,22 @@ export const DentalChart = () => {
   // dentist arrives at the next child on History with the mode still on.
   const initialTab = (searchParams.get('tab') as TabKey) || (chartingModeMemo ? 'chart' : 'history');
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
+  // Her labels and her order (Sprint 162). "Caries Risk Assessment" says what
+  // the tab actually holds where "Risk Classification" only named the output,
+  // and it moves up because a dentist reads risk before treatment history.
+  //
+  // ⚠ CONSENT IS OURS AND STAYS. Her branch has no Consent tab at all — six
+  // tabs to our seven — but the tab holds the signed Pahintulot and the consent
+  // status, which is a real screen with real data behind it. Adopting a tab
+  // ORDER is not a reason to delete a feature, so it keeps the slot it had.
   const allTabs: { key: TabKey; label: string }[] = [
-    { key: 'history', label: 'History & Oral' },
+    { key: 'history', label: 'History' },
     { key: 'chart', label: 'Dental Chart' },
     { key: 'appointments', label: 'Consent' },
+    { key: 'ai', label: 'Caries Risk Assessment' },
     { key: 'treatments', label: 'Treatment History' },
     { key: 'records', label: 'DMFT History' },
     { key: 'referrals', label: 'Referrals' },
-    { key: 'ai', label: 'Risk Classification' },
   ];
   const visibleTabs = (
     iptrContext === 'dental-queue'
@@ -1478,15 +1486,24 @@ export const DentalChart = () => {
         <div className="bg-card rounded-xl border border-border">
           <div ref={tabsRowRef} className="rounded-t-xl border-b border-border bg-card">
             <div className="flex items-center">
-              <div className="min-w-0 flex-1 overflow-x-auto">
-              <div className="flex min-w-max">
+              {/* Her strip: every tab takes an equal share of the card's
+                  width and its label is centred, instead of the tabs hugging
+                  their text at the left edge. The active tab is BOLD with the
+                  underline and no blue fill — the fill made the strip read as
+                  two different controls.
+
+                  ⚠ `whitespace-nowrap` + the scroller: a two-line "Caries Risk
+                  Assessment" makes the whole strip taller and knocks every
+                  other label off the baseline. Labels stay on one line and the
+                  strip scrolls inside itself once they stop fitting, which is
+                  the house rule for tab strips at phone width. */}
+              <div className="flex flex-1 min-w-0 overflow-x-auto">
               {visibleTabs.map((tab) => (
                 <button key={tab.key} onClick={() => setActiveTab(tab.key as TabKey)}
-                  className={`flex-shrink-0 px-4 py-3 text-sm font-medium transition-colors ${activeTab === tab.key ? 'border-b-2 border-blue-700 text-blue-700 bg-blue-50' : 'text-muted-foreground hover:text-foreground hover:bg-gray-50'}`}>
+                  className={`flex-1 whitespace-nowrap px-3 py-3 text-sm text-center transition-colors focus:outline-none focus-visible:outline-none ${activeTab === tab.key ? 'font-bold border-b-2 border-blue-700 text-blue-700' : 'font-medium text-muted-foreground hover:text-foreground hover:bg-gray-50'}`}>
                   {tab.label}
                 </button>
               ))}
-              </div>
               </div>
               {canEditHistory && currentYearData && (editMode || activeTab === 'history' || (canEdit && activeTab === 'chart')) && (
                 <div className="flex shrink-0 items-center gap-2 px-3">
