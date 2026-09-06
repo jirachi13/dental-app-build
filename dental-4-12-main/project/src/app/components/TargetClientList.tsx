@@ -663,6 +663,101 @@ export const TargetClientList = () => {
   }, []);
   const hiddenCount = hiddenCols.size;
 
+  // The form's own page split. `visibleServiceGroups` is still computed above
+  // for nothing else now, so it is derived per page instead.
+  const page1Services = visibleServices.filter((c) => PAGE1_GROUPS.includes(c.group));
+  const page2Services = visibleServices.filter((c) => !PAGE1_GROUPS.includes(c.group));
+  /** Page 2 opens with a repeated `No.`, exactly as the paper form does — it is
+   *  the only thing joining a row of ticks back to the pupil named on page 1.
+   *  Not subject to the column picker for that reason. */
+  const NUMBER_COLUMN: IdentityCol = { key: 'no', label: 'No.', value: (_r, i) => i + 1 };
+  const groupBands = (cols: typeof visibleServices) =>
+    cols.reduce<{ label: string; span: number }[]>((acc, c) => {
+      const last = acc[acc.length - 1];
+      if (last && last.label === c.group) last.span += 1;
+      else acc.push({ label: c.group, span: 1 });
+      return acc;
+    }, []);
+
+  /** One PAGE of the paper form: its own group band, its own tall caption
+   *  band, its own rows, in its own horizontal scroller.
+   *
+   *  Confirmed against the filed sample (Bagong Tanyag Grade 1, 8-5-25):
+   *  page 1 ends at "Caries Free" / "Orally Fit Child", and page 2 opens with a
+   *  repeated `No.` before ROUTINE PREVENTIVE CARE. */
+  const formPage = (
+    page: 1 | 2,
+    identity: IdentityCol[],
+    services: typeof visibleServices,
+    withRemarks: boolean,
+  ) => {
+    const bands = groupBands(services);
+    const span = identity.length + services.length + (withRemarks ? 1 : 0);
+    return (
+      <div className={`bg-card rounded-xl border border-border overflow-x-auto ${page === 2 ? 'form-page-break' : ''}`}>
+        {/* Screen-only. The paper form has no such caption, and .print-hide is
+            how a note lives inside a printable root without reaching paper. */}
+        <div className="print-hide px-3 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Page {page} of 2
+        </div>
+        <table className="border-collapse">
+          <thead className="bg-gray-50">
+            {/* Group band — thin, above the tall caption band, exactly as the
+                paper form runs ROUTINE PREVENTIVE CARE / OTHER SERVICES across
+                the top. Spans are computed from the VISIBLE columns. */}
+            <tr>
+              {identity.length > 0 && <th className={th} colSpan={identity.length} />}
+              {bands.map((g) => (
+                <th key={g.label} colSpan={g.span}
+                    className={`${th} ${g.label === 'OTHER SERVICES' ? FORM_SECTION_BAND : 'bg-blue-50'}`}>
+                  {g.label}
+                </th>
+              ))}
+              {withRemarks && <th className={th} />}
+            </tr>
+            <tr className={HEADER_H}>
+              {identity.map((c) => (
+                c.rotate
+                  ? <RotHead key={c.key} label={c.label} />
+                  : <th key={c.key} className={thFlat}>{c.head ?? c.label}</th>
+              ))}
+              {services.map((c, i) => (
+                <RotHead
+                  key={`${c.group}-${c.label}-${i}`}
+                  label={c.label}
+                  tone={c.group === 'OTHER SERVICES' ? FORM_SECTION_BAND : 'bg-blue-50'}
+                  unverified={c.unverified}
+                />
+              ))}
+              {withRemarks && <th className={thFlat}>Remarks</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {visible.length === 0 ? (
+              <tr><td className={`${td} text-center text-muted-foreground`} colSpan={span}>No clients consulted in this period.</td></tr>
+            ) : visible.map((r, i) => (
+              <tr key={r.id} className="hover:bg-gray-50">
+                {identity.map((c) => (
+                  <td key={c.key} className={`${td} ${c.cls ?? ''}`}
+                      title={c.key === 'address' ? r.address : undefined}>
+                    {c.value(r, i)}
+                  </td>
+                ))}
+                {services.map((c, n) => (
+                  <td key={`${c.group}-${c.label}-${n}`}
+                      className={`${td} text-center ${c.value ? '' : 'text-muted-foreground'}`}>
+                    {c.value ? c.value(r) : NO_SOURCE}
+                  </td>
+                ))}
+                {withRemarks && <td className={td} />}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   const tick = (on: boolean) => (on ? '✓' : '');
   const hasCode = (codes: string[], code: string) => (codes.includes(code) ? '✓' : '');
 
@@ -813,66 +908,24 @@ export const TargetClientList = () => {
         </div>
       )}
 
-      {/* Scrolls inside its own container, like the DOH table — the form is far
-          wider than any screen and the page itself must never scroll sideways. */}
-      <div className="form-print bg-card rounded-xl border border-border overflow-x-auto">
-        <table className="border-collapse">
-          <thead className="bg-gray-50">
-            {/* Group band — thin, above the tall caption band, exactly as the
-                paper form runs FIRST / SECOND / OTHER SERVICES across the top.
-                Spans are computed from the VISIBLE columns (Sprint 72). */}
-            <tr>
-              {visibleIdentity.length > 0 && <th className={th} colSpan={visibleIdentity.length} />}
-              {visibleServiceGroups.map((g) => (
-                <th key={g.label} colSpan={g.span}
-                    // Group bands carry the printed form's amber (Sprint 83);
-                    // the identity block keeps its cooler tone so the two
-                    // halves of the sheet stay distinguishable.
-                    className={`${th} ${g.label === 'OTHER SERVICES' ? FORM_SECTION_BAND : 'bg-blue-50'}`}>
-                  {g.label}
-                </th>
-              ))}
-              {remarksVisible && <th className={th} />}
-            </tr>
-            <tr className={HEADER_H}>
-              {visibleIdentity.map((c) => (
-                c.rotate
-                  ? <RotHead key={c.key} label={c.label} />
-                  : <th key={c.key} className={thFlat}>{c.head ?? c.label}</th>
-              ))}
-              {visibleServices.map((c, i) => (
-                <RotHead
-                  key={`${c.group}-${c.label}-${i}`}
-                  label={c.label}
-                  tone={c.group === 'OTHER SERVICES' ? FORM_SECTION_BAND : 'bg-blue-50'}
-                  unverified={c.unverified}
-                />
-              ))}
-              {remarksVisible && <th className={thFlat}>Remarks</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {visible.length === 0 ? (
-              <tr><td className={`${td} text-center text-muted-foreground`} colSpan={visibleIdentity.length + visibleServices.length + (remarksVisible ? 1 : 0)}>No clients consulted in this period.</td></tr>
-            ) : visible.map((r, i) => (
-              <tr key={r.id} className="hover:bg-gray-50">
-                {visibleIdentity.map((c) => (
-                  <td key={c.key} className={`${td} ${c.cls ?? ''}`}
-                      title={c.key === 'address' ? r.address : undefined}>
-                    {c.value(r, i)}
-                  </td>
-                ))}
-                {visibleServices.map((c, n) => (
-                  <td key={`${c.group}-${c.label}-${n}`}
-                      className={`${td} text-center ${c.value ? '' : 'text-muted-foreground'}`}>
-                    {c.value ? c.value(r) : NO_SOURCE}
-                  </td>
-                ))}
-                {remarksVisible && <td className={td} />}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* ⚠ TWO PAGES, NOT ONE LONG SHEET (user-reported 2026-09-06).
+          The form IS two pages — Sprint 134 established the split and the Excel
+          export has produced two sheets ever since, but the screen still ran all
+          66 columns into a single 2,850px table. That put the columns in an
+          order the form does not have: ORALLY FIT CHILD closes page 1 on paper
+          and was rendering after OTHER SERVICES here, so anyone reading the
+          screen was reading a different document from the one they file.
+
+          Same split as the workbook export below, from one constant, so the two
+          can never disagree: PAGE1_GROUPS ends page 1 at ORAL HEALTH STATUS +
+          ORALLY FIT CHILD; everything else is page 2, which repeats `No.` as
+          the form's own row link between the pages.
+
+          Each page scrolls inside its own container — the form is wider than any
+          screen and the page itself must never scroll sideways. */}
+      <div className="form-print space-y-4">
+        {formPage(1, visibleIdentity, page1Services, false)}
+        {formPage(2, [NUMBER_COLUMN], page2Services, remarksVisible)}
       </div>
     </div>
   );

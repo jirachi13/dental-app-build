@@ -173,6 +173,15 @@ input::-ms-clear {
     border: 0 !important;
   }
 
+  /* A form that is TWO PAGES on paper starts its second page on a new sheet
+     (Sprint 185, Target Client List). Without this the two tables print one
+     after the other on whatever sheet they land on, which is the same wrong
+     document the single long table was. */
+  .form-page-break {
+    break-before: page;
+    page-break-before: always;
+  }
+
   /* Hide navigation and UI chrome */
   aside,
   header,
