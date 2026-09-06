@@ -202,15 +202,31 @@ const getCount = (matrix: Record<string,GX>, key: string, grade: string, gender:
 };
 
 export const Reports = () => {
-  const { selectedSchool } = useAuth();
+  const { selectedSchool, user } = useAuth();
   // The DOH report covers a school year — this year's report is not next
   // year's (Sprint 57b). It used to count every record ever created, so it
   // could not answer "what did we do this year?" at all.
   // Declared here, above the hook call that consumes it — it used to sit
   // further down, which is fine until something above needs it.
-  const [reportSchool, setReportSchool] = useState<string|null>(null);
+  // ⚠ A user pinned to ONE school starts on that school, not on "All
+  //   Schools". A school_admin holds exactly one, and the server scopes their
+  //   data to it — so the old `null` default printed the caption
+  //   "SCHOOL: All Schools" above figures that were only ever their own school's.
+  //   A wrong school name on a DOH return is a different document.
+  const [reportSchool, setReportSchool] = useState<string|null>(
+    () => (user && user.schools.length === 1 ? user.schools[0] : null),
+  );
   // School list comes from the DB now, not a hardcoded array (Sprint 60).
-  const { schoolNames } = useSchools();
+  const { schoolNames: allSchoolNames } = useSchools();
+  // ⚠ ...but only the ones this user actually holds. Offering the other two
+  //   to a school_admin was a control that did nothing: the server scopes every
+  //   query by assignment, so picking another school changed the caption and
+  //   left the numbers alone.
+  const schoolNames = useMemo(
+    () => (user && user.schools.length ? allSchoolNames.filter((n) => user.schools.includes(n)) : allSchoolNames),
+    [allSchoolNames, user],
+  );
+  const isPinnedToOneSchool = !!user && user.schools.length === 1;
   const [dohSchoolYear, setDohSchoolYear] = useState<string | null>(() => schoolYearLabel());
   const { getRealCount, years: dohYears, unplacedCount, loading: dohLoading, lastUpdated: dohLastUpdated } = useDohReportData(dohSchoolYear, reportSchool);
 
@@ -286,6 +302,16 @@ export const Reports = () => {
       return s;
     }, 0);
   const [activeReportTab, setActiveReportTab] = useState<'doh'|'internal'|'tcl'|'ohprf'|'fhsis'|'summary'|'consent'>('doh');
+  // ⚠ NAMED LINE LISTS ARE NOT FOR THE SCHOOL ADMINISTRATOR.
+  //   The Target Client List and the Consent Form print one row per identified
+  //   child — name, complete address, contact number, date of birth,
+  //   PhilHealth number, and caries experience beside it. CLAUDE.md defines
+  //   school_admin as "view school reports + dashboards only, NO CLINICAL
+  //   RECORDS", and the manuscript is narrower still: the School Administrator
+  //   is an external entity who "receives the School Dental Health Status and
+  //   Service Report" (Ch. 3), an aggregate. The other four tabs are aggregates
+  //   and stay. Found 2026-09-06 while auditing the role.
+  const canSeeNamedClientLists = user?.role !== 'school_admin';
   const [reportMonth, setReportMonth] = useState(new Date().getMonth() + 1);
   const [reportYear,  setReportYear]  = useState(new Date().getFullYear());
   // Local school override — defaults to All Schools regardless of global context
@@ -361,7 +387,8 @@ export const Reports = () => {
   };
   const [internalSection, setInternalSection] = useState<'treatment'|'conditions'|'admin'>('treatment');
   const [periodType, setPeriodType] = useState<'monthly'|'quarterly'|'biannual'|'annual'>('monthly');
-  const [intSchoolFilter, setIntSchoolFilter] = useState('all');
+  // Same rule as the DOH tab above: pinned to their own school when they hold one.
+  const [intSchoolFilter, setIntSchoolFilter] = useState(() => (user && user.schools.length === 1 ? user.schools[0] : 'all'));
   const [intGradeFilter, setIntGradeFilter] = useState('all');
   const [intGenderFilter, setIntGenderFilter] = useState('all');
   const [intAgeFilter, setIntAgeFilter] = useState('all');
@@ -526,10 +553,12 @@ export const Reports = () => {
           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeReportTab==='internal' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
           <FileText className="w-4 h-4" /> Internal Reports
         </button>
+        {canSeeNamedClientLists && (
         <button onClick={() => setActiveReportTab('tcl')}
           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeReportTab==='tcl' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
           <Users className="w-4 h-4" /> Target Client List
         </button>
+        )}
         <button onClick={() => setActiveReportTab('ohprf')}
           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeReportTab==='ohprf' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
           <FileSpreadsheet className="w-4 h-4" /> Program Report
@@ -542,10 +571,12 @@ export const Reports = () => {
           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${activeReportTab==='summary' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
           <FileSpreadsheet className="w-4 h-4" /> School Summary
         </button>
+        {canSeeNamedClientLists && (
         <button onClick={() => setActiveReportTab('consent')}
           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${activeReportTab==='consent' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
           <FileText className="w-4 h-4" /> Consent Form
         </button>
+        )}
       </div>
 
       {/* ── DOH CONSOLIDATED ── */}
@@ -556,7 +587,7 @@ export const Reports = () => {
             <label className="text-sm text-muted-foreground whitespace-nowrap" htmlFor="doh-school">School:</label>
             <select id="doh-school" aria-label="School" value={reportSchool ?? ''} onChange={e => setReportSchool(e.target.value || null)}
               className="text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring">
-              <option value="">All Schools</option>
+              {!isPinnedToOneSchool && <option value="">All Schools</option>}
               {schoolNames.map(s => <option key={s} value={s}>{getSchoolShortName(s)}</option>)}
             </select>
 
@@ -870,7 +901,7 @@ export const Reports = () => {
                 </div>
                 <select value={intSchoolFilter} onChange={e => setIntSchoolFilter(e.target.value)}
                   className="text-sm border border-border rounded-lg px-3 py-1.5 bg-card focus:outline-none focus:ring-2 focus:ring-ring">
-                  <option value="all">All Schools</option>
+                  {!isPinnedToOneSchool && <option value="all">All Schools</option>}
                   {schoolNames.map(s => <option key={s} value={s}>{getSchoolShortName(s)}</option>)}
                 </select>
                 <select value={intAgeFilter} onChange={e => { setIntAgeFilter(e.target.value); setIntGradeFilter('all'); }}
@@ -1279,7 +1310,7 @@ export const Reports = () => {
       )}
 
       {/* ── TARGET CLIENT LIST (Appendix E) ── */}
-      {activeReportTab === 'tcl' && <TargetClientList />}
+      {activeReportTab === 'tcl' && canSeeNamedClientLists && <TargetClientList />}
 
       {/* ── ORAL HEALTH PROGRAM REPORTING FORM (Appendix F) ── */}
       {activeReportTab === 'ohprf' && <OralHealthProgramReport schoolYear={dohSchoolYear} schoolName={reportSchool} />}
@@ -1288,7 +1319,7 @@ export const Reports = () => {
           like the Program Report (Sprint 57b). */}
       {activeReportTab === 'summary' && <SchoolSummaryReport schoolYear={dohSchoolYear} schoolName={reportSchool} />}
       {/* No school/year props: the consent form is blank by design. */}
-      {activeReportTab === 'consent' && <ConsentForm />}
+      {activeReportTab === 'consent' && canSeeNamedClientLists && <ConsentForm />}
     </div>
   );
 };

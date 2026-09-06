@@ -30,6 +30,17 @@ function decryptForResponse(doc: any) {
 interface CrudOptions {
   readOnly?: boolean;
   readRoles?: string[];
+  /** Blank these fields out of every response for these roles.
+   *
+   *  ⚠ Read access is not all-or-nothing. A SCHOOL ADMINISTRATOR needs the
+   *  pupil ROWS to draw their dashboard (counts by grade, sex, age bracket) but
+   *  has no business with the pupil's name, address, guardian, contact number
+   *  or PhilHealth number — CLAUDE.md gives that role "school reports +
+   *  dashboards only, no clinical records", and the manuscript has them
+   *  receiving one aggregate report. Before this (found 2026-09-06) a plain
+   *  GET /api/students handed them fully identified records for every pupil in
+   *  their school. Hiding the screens is not enough; the API is the door. */
+  redact?: { roles: string[]; fields: string[] };
   writeRoles?: string[];
   archiveRoles?: string[];
   /** Who may un-archive. Split from archiveRoles so a model can let clinical
@@ -131,6 +142,15 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
   const hasSoftDelete = !!model.schema.path("isArchived");
   const readOnly = options.readOnly === true;
   const readRoles = options.readRoles ?? ALL_ROLES;
+  /** Blanks `options.redact.fields` when the caller holds one of its roles.
+   *  Blanks rather than deletes: the client types expect the keys to exist, and
+   *  a missing key reads as "not recorded yet" instead of "not yours to see". */
+  const redactFor = (role: string, doc: any) => {
+    if (!options.redact || !options.redact.roles.includes(role)) return doc;
+    const plain = doc && typeof doc.toObject === "function" ? doc.toObject() : { ...doc };
+    for (const f of options.redact.fields) if (f in plain) plain[f] = "";
+    return plain;
+  };
   const writeRoles = options.writeRoles ?? ADMIN_ONLY;
   const archiveRoles = options.archiveRoles ?? ADMIN_ONLY;
   const restoreRoles = options.restoreRoles ?? ADMIN_ONLY;
@@ -196,7 +216,7 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
       // pupil's — one child's record rendered under another's name.
       const scope = await scopeFilter(modelName, req);
       const docs = await model.find(scope ? { $and: [filter, scope] } : filter);
-      res.json(docs);
+      res.json(docs.map((d) => redactFor(req.user!.role, d)));
     }),
   );
 
@@ -226,7 +246,7 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
         res.status(404).json({ error: "Not found" });
         return;
       }
-      res.json(doc);
+      res.json(redactFor(req.user!.role, doc));
     }),
   );
 

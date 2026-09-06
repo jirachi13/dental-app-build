@@ -910,6 +910,17 @@ router.use("/students", createCrudRouter(Student, {
   },
   filterable: ["_id", "school_id"],
   filterableText: ["grade_level", "section"],
+  // A school_admin's two screens need the ROWS (counts by grade, sex and age
+  // bracket) and none of the identity on them. See CrudOptions.redact.
+  // `birthday` stays: the DOH age brackets are computed from it.
+  redact: {
+    roles: ["school_admin"],
+    fields: [
+      "full_name", "first_name", "last_name", "middle_name",
+      "address", "contact_number", "guardian_name", "guardian_contact",
+      "philhealth_number", "fourps_id", "place_of_birth", "guardian_occupation",
+    ],
+  },
 }));
 // archiveRoles: the chart's "Edit Years → remove year" button is shown to the
 // dentist, but archive defaulted to System Admin only, so every click 403'd and
