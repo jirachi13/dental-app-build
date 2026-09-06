@@ -359,6 +359,13 @@ export const PatientList = () => {
   // dense, and it leaves the toolbar room for whatever gets added next.
   const [selectMode, setSelectMode] = useState(false);
   const [showListMenu, setShowListMenu] = useState(false);
+  const listMenuBtnRef = useRef<HTMLButtonElement | null>(null);
+  const [listMenuAt, setListMenuAt] = useState<{ top: number; right: number } | null>(null);
+  const toggleListMenu = () => {
+    const r = listMenuBtnRef.current?.getBoundingClientRect();
+    if (r) setListMenuAt({ top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) });
+    setShowListMenu((v) => !v);
+  };
   const [tickedIds, setTickedIds] = useState<Set<string>>(new Set());
   const [confirmArchiveTicked, setConfirmArchiveTicked] = useState(false);
   const [archivingTicked, setArchivingTicked] = useState(false);
@@ -1013,7 +1020,8 @@ export const PatientList = () => {
               ) : (
                 <div className="relative">
                   <button
-                    onClick={() => setShowListMenu(v => !v)}
+                    ref={listMenuBtnRef}
+                    onClick={toggleListMenu}
                     className="p-2 rounded-full text-muted-foreground hover:bg-canvas hover:text-foreground"
                     title="More options"
                   >
@@ -1022,7 +1030,15 @@ export const PatientList = () => {
                   {showListMenu && (
                     <>
                       <div className="fixed inset-0 z-10" onClick={() => setShowListMenu(false)} />
-                      <div className="absolute right-0 top-full mt-1 z-20 bg-card border border-border rounded-xl shadow-md py-1 w-44">
+                      {/* ⚠ FIXED, not absolute. This card is `overflow-hidden`,
+                          and a clipping ancestor cuts an absolutely positioned
+                          menu off at its edge — the school-year menu looked like
+                          a dead button for exactly that reason. Positioned from
+                          the trigger's own rect so no ancestor can clip it. */}
+                      <div
+                        style={listMenuAt ? { top: listMenuAt.top, right: listMenuAt.right } : undefined}
+                        className="fixed z-50 bg-card border border-border rounded-xl shadow-md py-1 w-44"
+                      >
                         <button
                           onClick={() => { setSelectMode(true); setShowListMenu(false); }}
                           className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-canvas flex items-center gap-2"

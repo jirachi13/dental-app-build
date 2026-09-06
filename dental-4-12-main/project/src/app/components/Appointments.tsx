@@ -485,6 +485,7 @@ export const Appointments = () => {
   // at a time — kept generic (tabKey-driven) so a second menu item can be
   // added later without a new state variable per tab.
   const [openTabMenu, setOpenTabMenu] = useState<string | null>(null);
+  const [tabMenuAt, setTabMenuAt] = useState<{ top: number; right: number } | null>(null);
   const [deleteModeTab, setDeleteModeTab] = useState<string | null>(null);
 
   useEffect(() => { setDeleteModeTab(null); setOpenTabMenu(null); }, [activeTab]);
@@ -497,14 +498,26 @@ export const Appointments = () => {
       </button>
     ) : (
       <div className="relative">
-        <button onClick={() => setOpenTabMenu(v => v === tabKey ? null : tabKey)}
+        <button onClick={(e) => {
+            const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            setTabMenuAt({ top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) });
+            setOpenTabMenu(v => v === tabKey ? null : tabKey);
+          }}
           className="p-1.5 rounded-lg text-muted-foreground hover:bg-gray-100 hover:text-foreground" title="More options">
           <MoreVertical className="w-4 h-4" />
         </button>
         {openTabMenu === tabKey && (
           <>
             <div className="fixed inset-0 z-10" onClick={() => setOpenTabMenu(null)} />
-            <div className="absolute right-0 top-full mt-1 z-20 bg-card border border-border rounded-lg shadow-md py-1 w-40">
+            {/* ⚠ FIXED, not absolute. This card is `overflow-hidden`,
+                and a clipping ancestor cuts an absolutely positioned
+                menu off at its edge — the school-year menu looked like
+                a dead button for exactly that reason. Positioned from
+                the trigger's own rect so no ancestor can clip it. */}
+            <div
+              style={tabMenuAt ? { top: tabMenuAt.top, right: tabMenuAt.right } : undefined}
+              className="fixed z-50 bg-card border border-border rounded-lg shadow-md py-1 w-40"
+            >
               <button
                 onClick={() => { setDeleteModeTab(tabKey); setOpenTabMenu(null); }}
                 className="w-full text-left px-3 py-2 text-sm text-destructive hover:bg-danger-surface flex items-center gap-2"
