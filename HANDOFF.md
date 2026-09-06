@@ -75,6 +75,14 @@ already honest — it filters to pupils who have one and correctly showed 0.)
    for all 26. Tell-tale: the row printed exactly the same figures as "No. Orally Examined".
    Hydrating the query fixes it. **This is the Sprint 118 trap on a filed government form** —
    check every `.lean()` that touches an encrypted field.
+   ⚠ **PRODUCTION WAS NEVER AFFECTED, checked 2026-09-06.** Its consolidated report prints that
+   row — and most other indicator rows — BLANK, because the demo records are purged before
+   deployment and there is almost no clinical data there yet (the consent migration the same day
+   touched 2 rows, 7 complete in total). No inflated figure was ever filed. It also means the fix
+   cannot be OBSERVED on production; use something data-independent to confirm a deploy, e.g. the
+   Target Client List showing "PAGE 1 OF 2" and 25 numbered rows.
+   ⚠ One production IPTR is dated **2028-2029**, so a report scoped to 2025-2026 hides it — check
+   "All years to date" before concluding a row is empty.
 2. **"Orally fit" was a clinical claim nothing supports.** The tile is `risk === "Low"` and
    nothing else. "Orally Fit Child" is a DOH indicator needing a judgement this system does not
    store — the same reason the IPTR row is deliberately blank — and it was on the screen of the
