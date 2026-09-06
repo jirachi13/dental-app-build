@@ -16,7 +16,6 @@ import { AccountManagement } from "./components/AccountManagement";
 import { AuditTrail } from "./components/AuditTrail";
 import { SchoolManagement } from './components/SchoolManagement';
 import { ArchiveManagement } from './components/ArchiveManagement';
-import { Notifications } from './components/Notifications';
 import { UpdateSchoolYear } from './components/UpdateSchoolYear';
 
 const DentalChartKeyed = () => { const { id } = useParams(); return <DentalChart key={id} />; };
@@ -44,7 +43,6 @@ export const router = createBrowserRouter([
       { path: "schools", Component: SchoolManagement },
       { path: "archive", Component: ArchiveManagement },
       { path: "audit", Component: AuditTrail },
-      { path: "notifications", Component: Notifications },
     ],
   },
 ]);
