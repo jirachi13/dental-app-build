@@ -1596,10 +1596,14 @@ export const DentalChart = () => {
                   other label off the baseline. Labels stay on one line and the
                   strip scrolls inside itself once they stop fitting, which is
                   the house rule for tab strips at phone width. */}
+              {/* ⚠ `flex-1` only when there is more than one tab. The risk
+                  context renders a SINGLE tab, and stretched across the whole
+                  card it stops reading as a tab and starts reading as a
+                  heading — an underlined title nobody would think to press. */}
               <div className="flex flex-1 min-w-0 overflow-x-auto">
               {visibleTabs.map((tab) => (
                 <button key={tab.key} onClick={() => setActiveTab(tab.key as TabKey)}
-                  className={`flex-1 whitespace-nowrap px-3 py-3 text-sm text-center transition-colors focus:outline-none focus-visible:outline-none ${activeTab === tab.key ? 'font-bold border-b-2 border-blue-700 text-blue-700' : 'font-medium text-muted-foreground hover:text-foreground hover:bg-gray-50'}`}>
+                  className={`${visibleTabs.length > 1 ? 'flex-1' : 'px-6'} whitespace-nowrap px-3 py-3 text-sm text-center transition-colors focus:outline-none focus-visible:outline-none ${activeTab === tab.key ? 'font-bold border-b-2 border-blue-700 text-blue-700' : 'font-medium text-muted-foreground hover:text-foreground hover:bg-gray-50'}`}>
                   {tab.label}
                 </button>
               ))}
