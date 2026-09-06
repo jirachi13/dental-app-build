@@ -340,7 +340,12 @@ router.get("/stats/reports-panels", requireAuth, asyncHandler(async (req, res) =
     DentalChart.find(active).select("_id iptr_id date_charted").lean(),
     ToothRecord.find(active).select("chart_id treatment_code").lean(),
     Treatment.find(active).select("iptr_id date").lean(),
-    Referral.find(active).lean(),
+    // ⚠ NOT `.lean()` — REFERRAL.reason is ENCRYPTED and this panel PRINTS it.
+    // Lean would hand the Referral Tracking table `<iv>:<ciphertext>` with a
+    // 200 and no error, exactly as it did to the DOH allergies row (fixed the
+    // same day in 4bd5deb0). Not observable on dev, which holds zero
+    // referrals — it would have appeared the first time one was issued.
+    Referral.find(active),
   ]);
 
   const str = (v: unknown) => String(v ?? "");
