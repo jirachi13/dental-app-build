@@ -542,7 +542,14 @@ export const Appointments = () => {
     return map[status] || 'bg-gray-100 text-muted-foreground';
   };
 
-  const AppointmentCard = ({ a, showActions = false, deleteMode = false }: { a: AppointmentSession; showActions?: boolean; deleteMode?: boolean }) => {
+  // ⚠ `compact` exists because this card is ALSO rendered inside the day
+  // dialog's left half — roughly 340px, against the ~1300px list it was drawn
+  // for. At that width the chips wrap one per line, the section name truncates
+  // to "Del Pi…", and a tidy row becomes four ragged ones. Compact drops the
+  // date (the dialog's title IS the date) and the pupil count (the pupils are
+  // listed directly underneath), which are the two chips that say nothing new
+  // in that context.
+  const AppointmentCard = ({ a, showActions = false, deleteMode = false, compact = false }: { a: AppointmentSession; showActions?: boolean; deleteMode?: boolean; compact?: boolean }) => {
     const gc = getGradeColor(a.grade);
     const status = getStatus(a);
     // The common case now that appointments are booked by searching a
@@ -595,16 +602,18 @@ export const Appointments = () => {
                   {a.grade} <span className="opacity-70 font-normal">· {a.section}</span>
                 </span>
               )}
-              <span className={chip}>
-                <CalendarIcon className="w-3 h-3 text-muted-foreground" /> {shortDate}
-              </span>
+              {!compact && (
+                <span className={chip}>
+                  <CalendarIcon className="w-3 h-3 text-muted-foreground" /> {shortDate}
+                </span>
+              )}
               <span className={chip}>
                 <Clock className="w-3 h-3 text-muted-foreground" /> {a.time}
               </span>
               <span className={chip}>
                 <ClipboardList className="w-3 h-3 text-muted-foreground" /> {a.type}
               </span>
-              {!soleStudent && (
+              {!soleStudent && !compact && (
                 <span className={chip}>
                   <Users className="w-3 h-3 text-muted-foreground" /> {a.studentCount} students
                 </span>
@@ -897,12 +906,16 @@ export const Appointments = () => {
 
       {/* ── CREATE APPOINTMENT MODAL ── */}
       {noteDay && (
-        <Modal onClose={() => setNoteDay(null)} maxWidth="max-w-3xl" closeDisabled={noteSaving}>
+        <Modal onClose={() => setNoteDay(null)} maxWidth="max-w-4xl" closeDisabled={noteSaving}>
           <div className="flex items-center justify-between p-5 border-b border-gray-100">
             <h2 className="text-lg font-bold text-foreground">{formatDateWithWeekday(toLocalDateString(noteDay))}</h2>
             <button onClick={() => setNoteDay(null)} className="p-2 hover:bg-gray-100 rounded-lg" aria-label="Close"><X className="w-4 h-4"/></button>
           </div>
-          <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* ⚠ NOT an even split. The left half carries session cards, pupil
+              rows and their notes; the right is one textarea and a button. An
+              even split starved the side with all the content — the section
+              name truncated and every chip wrapped. */}
+          <div className="p-5 grid grid-cols-1 md:grid-cols-[3fr_2fr] gap-5">
 
             {/* ── READ HALF ─────────────────────────────────────────────── */}
             <div className="space-y-4 md:max-h-[60vh] md:overflow-y-auto md:pr-1">
@@ -919,7 +932,7 @@ export const Appointments = () => {
                             completed, mark missed, re-open. It was already in
                             scope here; this dialog just never used it and
                             offered a note editor and nothing else. */}
-                        <AppointmentCard a={a} showActions />
+                        <AppointmentCard a={a} showActions compact />
                         {/* Student rows stay NESTED under the card. The card is
                             per SESSION (time + grade + section) while these are
                             the individual pupils in it, so replacing them with
