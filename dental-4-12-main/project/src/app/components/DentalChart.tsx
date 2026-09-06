@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router';
 import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, FileText, Plus, Pencil, Trash2, Brain, Download, X, Maximize2, Minimize2, Check, ChevronUp, ChevronDown, ShieldCheck, ShieldAlert, Shield as ShieldIcon, MoreVertical } from 'lucide-react';
-import { exportDohReportToPdf, exportPagesToPdf } from '../utils/exportPdf';
+import { exportPagesToPdf } from '../utils/exportPdf';
 import { getGradeColor } from '../utils/gradeColors';
 import { computeBmi, BMI_NOTE, classifyNutritionalStatus } from '../utils/bmi';
 import { useAuth } from '../context/AuthContext';
@@ -1027,10 +1027,6 @@ export const DentalChart = () => {
     setConfirmClear(null);
   };
 
-  const treatmentCodeCounts = treatmentCodes.reduce<Record<string, number>>((acc, code) => {
-    acc[code.code] = Object.values(currentChart).filter((entry) => entry.treatment === code.code).length;
-    return acc;
-  }, {});
 
   // Treatment History tab -- combined across all school years, most recent first.
   const allTreatments = useMemo(
@@ -2419,19 +2415,12 @@ export const DentalChart = () => {
               </div>
             </div>
 
-            {!chartingMode && (
-            <div className="bg-gray-50 rounded-xl border border-border p-4">
-              <div className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">Treatment Code Counter (Auto-computed)</div>
-              <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2">
-                {treatmentCodes.map((code) => (
-                  <div key={code.code} className="rounded border border-border bg-card p-2 text-center">
-                    <div className="text-[10px] text-muted-foreground">{code.code}</div>
-                    <div className="text-sm font-bold text-foreground">{treatmentCodeCounts[code.code]}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            )}
+            {/* ⚠ The Treatment Code Counter is GONE (Sprint 177). Hers has no
+                such block, and it was showing the same numbers twice: the
+                Treatment Summary below carries a Tooth Count column per code,
+                with the tooth NUMBERS beside it, which is the counter plus the
+                part a dentist actually needs. Two read-outs of one figure is a
+                chance for them to disagree and nothing more. */}
             {/* ── SUMMARIES (Sprint 151, moved to the foot of the tab in 155) ──
                 Her page order, and it is the right one: these are READ-OUTS.
                 They are read after the mouth is charted, so they follow the
