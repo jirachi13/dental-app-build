@@ -45,7 +45,14 @@ export function useNotifications(enabled: boolean, schoolName: string | null) {
     setLoading(true);
     try {
       const q = schoolName ? `?school=${encodeURIComponent(schoolName)}` : '';
-      setCounts(await apiClient.get<NotificationCounts>(`/stats/notifications${q}`));
+      // ⚠ MERGED OVER `EMPTY`, never assigned raw. /stats/notifications does
+      // not return `remindersToday` — the field is declared in this file and on
+      // no server response — so assigning the payload straight in left it
+      // `undefined`, and every sum touching it became NaN. `NaN > 0` is false,
+      // which is why the sidebar badge silently stopped rendering while the
+      // counts themselves were correct.
+      const fresh = await apiClient.get<Partial<NotificationCounts>>(`/stats/notifications${q}`);
+      setCounts({ ...EMPTY, ...fresh });
       setError(null);
     } catch (err) {
       // A failed badge must not blank the sidebar or shout: it is ambient.

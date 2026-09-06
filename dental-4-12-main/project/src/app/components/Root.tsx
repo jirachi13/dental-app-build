@@ -405,30 +405,11 @@ export const Root = () => {
           ))}
         </nav>
 
-        {/* User info + settings + notifications + logout */}
-        <div className="border-t border-border p-4">
-          <div className={`flex items-center justify-between gap-2 mb-3 ${collapsed ? 'md:justify-center' : ''}`}>
-            <div className={`min-w-0 ${labelCls}`}>
-              <div className="text-sm font-medium text-foreground truncate">{user.name}</div>
-              <div className="mt-1">
-                <span className="inline-block px-2 py-0.5 text-xs bg-primary-surface text-primary rounded capitalize">
-                  {user.role.replace('_', ' ')}
-                </span>
-              </div>
-            </div>
-            {/* Profile settings — currently just Change Password, the one
-                self-service profile action that exists. Not a menu of
-                invented options (CLAUDE.md: nothing cosmetic). */}
-            <button
-              onClick={openChangePassword}
-              title="Profile settings"
-              aria-label="Profile settings"
-              className="flex-shrink-0 p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
-          </div>
-
+        {/* ⚠ Notifications sits ABOVE the account block, where it was
+            before the adoption (user, Sprint 186). Hers put it under the
+            name, between the account and Logout; the bell belongs with the
+            app, not with the person. Its own bordered strip, as before. */}
+        <div className="border-t border-border px-4 pt-3">
           {/* Notifications — ABOVE Logout, as the P2 doc asked ("notifications
               above ng log out"). Hidden entirely for School Admin and BHO
               staff: they view reports, never clinical records, so every count
@@ -487,6 +468,32 @@ export const Root = () => {
             )}
             </>
           )}
+        </div>
+
+        {/* User info + settings + notifications + logout */}
+        <div className="border-t border-border p-4">
+          <div className={`flex items-center justify-between gap-2 mb-3 ${collapsed ? 'md:justify-center' : ''}`}>
+            <div className={`min-w-0 ${labelCls}`}>
+              <div className="text-sm font-medium text-foreground truncate">{user.name}</div>
+              <div className="mt-1">
+                <span className="inline-block px-2 py-0.5 text-xs bg-primary-surface text-primary rounded capitalize">
+                  {user.role.replace('_', ' ')}
+                </span>
+              </div>
+            </div>
+            {/* Profile settings — currently just Change Password, the one
+                self-service profile action that exists. Not a menu of
+                invented options (CLAUDE.md: nothing cosmetic). */}
+            <button
+              onClick={openChangePassword}
+              title="Profile settings"
+              aria-label="Profile settings"
+              className="flex-shrink-0 p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          </div>
+
           <button
             onClick={handleLogout}
             title={collapsed ? 'Logout' : undefined}
