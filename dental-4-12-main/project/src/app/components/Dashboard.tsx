@@ -59,7 +59,11 @@ export const Dashboard = () => {
     return { from, to };
   }, []);
   const { sessions: allSessions, loading: appointmentsLoading } = useAppointments(weekWindow);
-  const { records: rpcRecords, loading: rpcLoading } = useRPCTracking();
+  // ⚠ SCOPED, and `status: 'all'`. Without the school the funnel counted every
+  // school while every other tile on this page counted one; without status the
+  // endpoint defaults to "outstanding" and the completed pupils never arrive.
+  const { records: rpcRecords, funnel: rpcFunnel, loading: rpcLoading } =
+    useRPCTracking({ school: selectedSchool ?? '', status: 'all' });
   const [users, setUsers] = useState<ApiUser[]>([]);
   const [treatmentCount, setTreatmentCount] = useState(0);
   const [iptrsByStudent, setIptrsByStudent] = useState<Map<string, string[]>>(new Map());
@@ -142,7 +146,7 @@ export const Dashboard = () => {
   const mediumRiskCount = allStudents.filter((s) => s.riskLevel === 'Medium').length;
   const lowRiskCount = allStudents.filter((s) => s.riskLevel === 'Low').length;
   const screenedCount = allStudents.filter((s) => s.riskLevel !== null).length;
-  const rpcCompletionRate = scopedRpc.length ? Math.round((scopedRpc.filter((r) => r.status === 'complete').length / scopedRpc.length) * 100) : 0;
+  const rpcCompletionRate = rpcFunnel.enrolled ? Math.round((rpcFunnel.complete / rpcFunnel.enrolled) * 100) : 0;
   const pendingChartsCount = allStudents.filter((s) => {
     const iptrIds = iptrsByStudent.get(s.id) ?? [];
     return iptrIds.length > 0 && !iptrIds.some((id) => chartedIptrIds.has(id));
@@ -154,9 +158,10 @@ export const Dashboard = () => {
   // scopedRpc (RPC records), NOT allStudents -- a student with no RPC record is
   // absent from this denominator, so these must never be captioned as a share
   // of enrolled patients.
-  const rpcBothVisitsCount = scopedRpc.filter((r) => r.status === 'complete').length;
-  const rpcVisit1Count = scopedRpc.filter((r) => r.visit1Status === 'Completed').length;
-  const rpcVisit1Rate = scopedRpc.length ? Math.round((rpcVisit1Count / scopedRpc.length) * 100) : 0;
+  // All three read the server's population counts, not the delivered rows.
+  const rpcBothVisitsCount = rpcFunnel.complete;
+  const rpcVisit1Count = rpcFunnel.visit1;
+  const rpcVisit1Rate = rpcFunnel.enrolled ? Math.round((rpcVisit1Count / rpcFunnel.enrolled) * 100) : 0;
 
   // School lookup for records that reach a student via chart→iptr or preventive→iptr chains
   const studentSchoolById = useMemo(
@@ -529,7 +534,7 @@ export const Dashboard = () => {
               // Blue = operational state, per the v4 color rule: amber already
               // means "medium caries risk" on this same screen.
               valueClass="text-primary"
-              trailing={`${rpcBothVisitsCount} of ${scopedRpc.length}`}
+              trailing={`${rpcBothVisitsCount} of ${rpcFunnel.enrolled}`}
               context="Both visits completed"
               linkTo="/rpc"
               loading={rpcLoading}
@@ -550,7 +555,7 @@ export const Dashboard = () => {
                 </span>
               )}
               {mostOverdueDays !== null && ' · '}
-              Visit 1 done for {rpcVisit1Count} of {scopedRpc.length} ({rpcVisit1Rate}%) · target 100% by end of school year
+              Visit 1 done for {rpcVisit1Count} of {rpcFunnel.enrolled} ({rpcVisit1Rate}%) · target 100% by end of school year
             </div>
           )}
         </div>
@@ -623,15 +628,21 @@ export const Dashboard = () => {
                     darkest = widest. Count sits inside the bar when it fits,
                     beside it in ink when the bar is too short. */}
                 {[
-                  { label: 'Enrolled', value: scopedRpc.length, ...FUNNEL_RAMP[0] },
-                  { label: 'Visit 1 completed', value: scopedRpc.filter((r) => r.visit1Status === 'Completed').length, ...FUNNEL_RAMP[1] },
-                  { label: 'Both visits completed', value: scopedRpc.filter((r) => r.visit2Status === 'Completed').length, ...FUNNEL_RAMP[2] },
+                  // ⚠ From the SERVER's population counts, not from the rows
+                  // this page received. /stats/rpc-rows defaults its status
+                  // filter to "outstanding", which excludes by definition every
+                  // pupil who finished — so counting the delivered rows made
+                  // "Both visits completed" permanently 0, and RPC Completion
+                  // permanently 0%. Two pupils had both visits the whole time.
+                  { label: 'Enrolled', value: rpcFunnel.enrolled, ...FUNNEL_RAMP[0] },
+                  { label: 'Visit 1 completed', value: rpcFunnel.visit1, ...FUNNEL_RAMP[1] },
+                  { label: 'Both visits completed', value: rpcFunnel.both, ...FUNNEL_RAMP[2] },
                 ].map((step) => (
                   <BarRow
                     key={step.label}
                     label={step.label}
                     value={step.value}
-                    pct={Math.round((step.value / scopedRpc.length) * 100)}
+                    pct={rpcFunnel.enrolled ? Math.round((step.value / rpcFunnel.enrolled) * 100) : 0}
                     color={step.color}
                   />
                 ))}

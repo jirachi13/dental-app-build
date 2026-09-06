@@ -362,6 +362,8 @@ export interface RpcListPage {
    *  computed over the POPULATION, never the page, or the dropdown would hide
    *  the section you need to pick next. */
   sectionOptions: string[];
+  /** Population-wide counts for the dashboard funnel — never page-scoped. */
+  funnel: { enrolled: number; visit1: number; both: number; overdue: number; complete: number };
 }
 
 export function filterRpcRows(all: RPCRow[], query: RpcListQuery): RpcListPage {
@@ -390,6 +392,19 @@ export function filterRpcRows(all: RPCRow[], query: RpcListQuery): RpcListPage {
     rows: rows.slice(offset, offset + limit),
     total: rows.length,
     schoolTotal: inSchool.length,
+    // ⚠ Computed over `inSchool` — the whole school population — NOT over
+    // `rows` and NOT over the page. The dashboard's two-visit funnel needs
+    // counts for everyone, and it used to derive them by counting the rows it
+    // received: an endpoint whose status filter defaults to "outstanding",
+    // which excludes by definition every pupil who finished. "Both visits
+    // completed: 0" was therefore structurally impossible to beat.
+    funnel: {
+      enrolled: inSchool.length,
+      visit1: inSchool.filter((r) => r.visit1Status === 'Completed').length,
+      both: inSchool.filter((r) => r.visit2Status === 'Completed').length,
+      overdue: inSchool.filter((r) => r.status === 'overdue').length,
+      complete: inSchool.filter((r) => r.status === 'complete').length,
+    },
     sectionOptions: [...new Set(
       inSchool.filter((r) => !query.grade || query.grade === 'all' || r.grade === query.grade).map((r) => r.section),
     )].filter(Boolean).sort(),
