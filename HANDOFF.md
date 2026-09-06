@@ -10,55 +10,59 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ▶ RESUME HERE — PARKED 2026-09-06, branch `adopt-design` at `9cb1ef1a`
+## ▶ RESUME HERE — 2026-09-06, `adopt-design` MERGED TO `main` AND DEPLOYED
 
-**`main` UNTOUCHED. 38 commits on `adopt-design`, all pushed. Tag `pre-design-adoption` marks the state before any of it.** Nothing merged. `main` auto-deploys to Vercel, so the merge is the one step to take with eyes open.
+**41 commits merged. `main` auto-deploys to Vercel, so this is live.** Tag `pre-design-adoption` still marks the state before any of it; every commit is separately revertible.
 
-**THE WORKFLOW QUEUE IS CLOSED.** All four items done — integrity audit, the three partial `?context=` views, the two merged files inventoried, the password step-up on removing a school year.
+### ⚠ ONE THING TO DO ON PRODUCTION, BEFORE ANYONE LOOKS AT CONSENT
+Consent moved from a single lifetime flag on STUDENT to a **per school year** field on STUDENT_IPTR (`7f53f1ea`). Production has NOT been migrated, so every pupil there will read **Consent Pending** until it is:
 
-### What this branch is
-A classmate (`peanutbutterjelly03`, a real collaborator) redesigned the app on her fork's `majorUpdates`. **Goal, in the user's words: her design, our code.** Ours is 115 commits ahead of the fork point (2026-09-03).
+    npm run migrate:iptr-consent            # DRY RUN, prints its target first
+    npm run migrate:iptr-consent -- --confirm
 
-### ⚠ THE TWO METHODS THAT WORK — use these, not the ones I started with
-1. **Check which files COLLIDE before writing a line.** Only 8 of her 26 UI files touch anything we changed; the other 18 are takeable whole with `git show classmate/majorUpdates:<path> > <path>`. Sprints 151–156 rebuilt her chart tab by hand from reading her JSX — five sprints reproducing what mostly needed no reproducing.
-2. **Compare RENDERED screens, scrolled end to end — not JSX, and not just the top.** The "why is hers wide" answer was one `max-w-5xl`; the Physical Measurements box was only visible after scrolling hers. Best tool: extract the section outline from both DOMs in document order and diff those.
+⚠ Confirm the banner says the PRODUCTION cluster (`floral-cluster.edqpjtu`), not dev. It backfills only the LATEST year, and only where the old flag said complete — everyone else legitimately starts pending, which may mean re-collecting signatures already held on paper.
 
-⚠ **And a component taken whole may call server routes we do not have** (`/auth/verify-password` was answering 404), or write fields our models lack (Mongoose drops them SILENTLY).
+### What shipped
+Her design, our code. The record screen matches hers section for section (both tabs diffed by DOM outline); the shell, Students, Appointments, Dashboard header, Dental Charts list and Consent flow are hers; our data model, reports and server work are intact.
 
-### The record screen now matches hers, section for section
-Both the History and Dental Chart tabs were diffed by DOM outline and agree. Remaining differences are deliberate and each has a stated reason in its commit:
-- **Consent** is a banner on History plus a chip on the patient card; her Consent TAB does not exist and ours was deleted to match her six tabs.
-- **Charting picker** stays — hers has one chart per school year, ours records several (Sprint 148); 22 of 26 dev IPTRs have two or more.
-- **Whole-mouth treatment codes** sit behind "More (3)" rather than being dropped, or an FV already charted on a tooth becomes uneditable.
-- **Rotation tab** restored — she deleted the only UI for an ERD model.
-- **Day notes** stay on `DAY_NOTE`; hers writes them as one-day `DENTIST_ROTATION` rows.
-- **Adding** a school year is not password-gated, though hers gates it; adding is harmless and undone by removing.
+**Bugs found and fixed on the way — every one invisible to `tsc` and `npm run build`:**
+1. **Infinite render loop** (pre-existing, Sprint 148) — every charting reached through the picker was silently read-only.
+2. **Hook after an early return** (mine) — blanked the whole record page.
+3. **`/auth/verify-password` 404** (mine) — bulk archive's step-up failed on the RIGHT password exactly like the wrong one.
+4. **Two form fields written into nothing** (mine) — her Add Student posts `place_of_birth` and `guardian_occupation`; the model had neither, so Mongoose dropped them with a success toast.
+5. **Two editors for one record** (mine) — Oral Health Condition on History AND on the Dental Chart tab.
+6. **RPC completion could never be non-zero** (pre-existing) — the dashboard counted rows from an endpoint whose status filter defaults to "outstanding", so a pupil completing both visits removed themselves from the only data the tile could see.
+7. **"10 appointments total" for a school with 14** — a session is not an appointment.
+8. **"All schools" unreachable** (mine) — her Switch School page replaced the dropdown that offered it; the BHO STAFF ROLE EXISTS FOR THAT VIEW.
+9. **A dental aide could not reach edit mode** on the tab now holding their own fields.
+10. **"Grade Grade 8-Mabini"** on every Risk Classification row.
 
-### ⚠ BUGS FOUND THIS SESSION — all invisible to tsc and the build
-1. **Infinite render loop** (pre-existing, Sprint 148): every charting reached through the picker was silently read-only. 6,656 DOM mutations in 2s on an idle page.
-2. **Hook after an early return** (mine, `c0ce442b`): blanked the whole record page. Shipped because I could not log in and committed anyway.
-3. **`/auth/verify-password` 404** (mine): the bulk-archive step-up failed on the RIGHT password exactly like the wrong one.
-4. **Two form fields written into nothing** (mine): her Add Student posts `place_of_birth` and `guardian_occupation`; our model had neither, so Mongoose dropped them with a success toast.
-5. **Two editors for one record** (mine): Oral Health Condition sat on History AND on the Dental Chart tab — the exact thing I quoted her comment about while building the second one.
+**The rule that would have caught most of them: open the browser BEFORE committing.**
 
-**The rule that would have caught all five: open the browser BEFORE committing, not after.** `tsc` and `npm run build` were clean for every one of them.
+### ⚠ NOT TESTED — the honest gap
+Everything was exercised as **DENTIST only**. Nothing has been opened as System Admin, Dental Aide, School Administrator or BHO Staff since the redesign. Finding 8 shows what that class of bug looks like: a role whose entire purpose was unreachable, invisible from the dentist's account.
 
-⚠ Also: `apiClient` refreshes a 15-minute token on 401 and retries; **raw `fetch('/api/...')` in a verification script does not**, and reports a false "session expired". That cost the user two needless logins.
+Cheapest useful check: **School Admin and BHO Staff see only Dashboard + Reports** — two screens each, five minutes. Dental Aide sees everything except Risk Classification.
 
-### Left to decide (nothing blocking)
-- **Merge to `main`?** Recommended path: walk 5173 against 5174 once, History and Dental Chart tabs especially, then merge. It auto-deploys.
-- **`allow_school_year_override`** is on `ApiSchool` as optional but NOT on the SCHOOL model, so that dialog's manual-override section stays hidden. `SchoolManagement` is still ours for the same reason.
-- **`noUnusedLocals` is OFF** in tsconfig — turning it on is what would have caught this session's dead code automatically. Likely flags older files too, so it is its own small sprint.
+### Dev demo accounts
+All five are now **`12345678`** (`admin` / `dentist` / `aide` / `schooladmin` / `bho` @floral.com), applied with `npm run apply:seed-passwords` and verified against the stored hashes. Previous values are in `.env.bak-before-simple-passwords`.
+⚠ The app enforces a minimum of 8 characters in four server-side places, so "12345" is not possible without weakening a real control. ⚠ Login is rate-limited to 10 attempts per 15 minutes per IP — restart `dev:server` to clear it, the counter is in memory.
+⚠ **Production `SEED_BHO_PASSWORD` is still 7 chars** and will refuse a production re-seed until lengthened.
+
+### Left open, none of it blocking
+- **`allow_school_year_override`** is on `ApiSchool` but NOT on the SCHOOL model, so that dialog's manual-override section stays hidden. `SchoolManagement` is still ours for the same reason.
+- **`noUnusedLocals` is OFF** in tsconfig — turning it on is what would have caught this session's dead code automatically. Its own small sprint.
+- **Counter audit unfinished**: Dashboard and Appointments were wrong and are fixed; Students verified correct; **Dental Charts and Treatment not yet checked**.
+- Screens she never touched and that still use the old page shell: **RPC Tracking, Reports, Treatment, Risk Classification**. No file to copy — the patterns are established (see `da0fe51b` for how the Dental Charts list was done).
 
 ### For the dentist
-- What does **Consultation** mean for the DOH return? It has no field on `PREVENTIVE_CARE_RECORD`, so her chip is not copied.
+- What does **Consultation** mean for the DOH return? No field on `PREVENTIVE_CARE_RECORD`, so her chip is not copied.
 - How is **Orally Fit Child** decided? Its DOH definition needs a judgement nothing stores; the row renders blank and says "not recorded".
-- **On production, run `npm run migrate:iptr-consent` DRY FIRST.** Consent is per school year now; everyone without a carried-over "complete" starts pending, which may mean re-collecting signatures already held on paper.
 
-### ⚠ MACHINE STATE TO UNDO WHEN DONE
+### ⚠ MACHINE STATE TO UNDO
 - **`.env` line 25** gained `,http://localhost:5174` so her branch could reach the API. Local only, untracked.
-- **A git worktree of her branch** at `C:/Users/Jerald/AppData/Local/Temp/claude/hers` (detached at `67f2e64f`), `node_modules` junctioned, `.env` copied. Serve with `npx vite --port 5174` from its project dir; remove with `git worktree remove`.
-- **Dev data:** restored everywhere it was touched, with ONE exception stated honestly — testing the year-removal guard needed a pupil with two school years, so one was created and then ARCHIVED (soft delete is the rule). **Castillo, Nico now has an archived 2026-2027 IPTR**, restorable by a System Admin.
+- **A git worktree of her branch** at `C:/Users/Jerald/AppData/Local/Temp/claude/hers` (detached at `67f2e64f`). `git worktree remove` that path.
+- **Dev data** restored everywhere touched, with one stated exception: **Castillo, Nico has an ARCHIVED 2026-2027 IPTR** created to test the year-removal guard. Soft delete; a System Admin can restore or leave it.
 
 ---
 
