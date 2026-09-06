@@ -10,9 +10,46 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ▶ RESUME HERE — 2026-09-06, `adopt-design` MERGED TO `main` AND DEPLOYED
+## ▶ RESUME HERE — PARKED 2026-09-06 (9th session), at `290a7e8f`, all pushed and deployed
 
-**41 commits merged. `main` auto-deploys to Vercel, so this is live.** Tag `pre-design-adoption` still marks the state before any of it; every commit is separately revertible.
+**Nothing is in progress.** Working tree clean, `main` level with origin. `main` auto-deploys to
+Vercel, so everything below is live and confirmed live. Tag `pre-design-adoption` still marks the
+state before the design adoption; every commit is separately revertible.
+
+### What this session did, after the merge
+1. **The role audit — FINISHED.** All five roles opened and walked. Seven bugs, four of them on
+   documents filed with the City Health Office. Detail in the ROLE AUDIT section below.
+2. **The Target Client List reconciled to the FILED form** the user supplied — two pages, the
+   right columns in the right order, 25 ruled rows. See the TWO EDITIONS section below; that
+   sample is now the authority, not the workbook.
+3. **Printing is per-form** — long bond, landscape or portrait per document, TCL measured to the
+   sheet. **User confirmed a real print of the TCL is correct**, which closes the one thing CSS
+   could not prove.
+4. **Production verified by the user**, not assumed: allergies row blank while other rows carry
+   numbers on "All years to date" — which is only possible with the fix in place — and the TCL
+   shows "PAGE 1 OF 2" with 25 rows, so the whole deploy landed.
+
+### ⚠ NEXT WORK NEEDS THE DENTIST, NOT THE CODEBASE
+- **How is "Orally Fit Child" decided?** This now blocks THREE surfaces that render blank or
+  relabelled because nothing stores the judgement: the IPTR row, the barangay dashboard
+  (says "Low caries risk"), and the Target Client List's column.
+- **What does "Consultation" mean for the DOH return?** No field on PREVENTIVE_CARE_RECORD.
+
+### ⚠ A PROCESS FAILURE WORTH REMEMBERING
+One commit was pushed on a build that had not actually run: `npm run build 2>&1 | tail -2` reports
+TAIL's exit status, so a failing build read as success. The commit was fine, but the check was not.
+**Never let a verification command end in a pipe** — capture to a file and echo `$?`.
+(`node_modules/.bin` had gone missing, most likely collateral from recursively deleting the
+worktree folder; `npm install` restored it.)
+
+### Machine state
+- ⚠ **An empty folder at `C:/Users/Jerald/AppData/Local/Temp/claude/hers`** — the worktree is
+  deregistered (`git worktree list` is clean); the directory would not delete because the :5174
+  dev server still holds it. Stop that terminal and remove it.
+- ⚠ **Stray `package.json` + `package-lock.json` + `node_modules` at the REPO ROOT**, holding only
+  `@vercel/speed-insights`. Nothing imports it, `vercel.json` lives in the project dir, and it is
+  untracked so it never reaches the deploy. Safe to delete.
+- `.env`'s `ALLOWED_ORIGINS` has had `,http://localhost:5174` removed again; 5173 verified working.
 
 ### ✅ THE PRODUCTION CONSENT MIGRATION IS DONE — do not run it again
 Applied 2026-09-06 to `floral-cluster.edqpjtu`: 2 latest IPTRs set to complete. An independent re-read afterwards showed **7** IPTRs complete in total — the script only inspects each pupil's LATEST year, so five pre-existing completes on older years were never in its counts. 3 of the 7 have `consent_given_at` NULL (they predate the field; the hook only stamps rows it writes), and only 13 of 42 IPTRs carry the field at all — the rest predate it and read as pending, which is correct.
