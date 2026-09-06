@@ -1556,14 +1556,20 @@ export const DentalChart = () => {
               {[
                 // "May 30, 2013", not 2013-05-30 — hers, and it is what a person
                 // reads a birthday as.
+                // Her field ORDER, not just her fields: Birthday, Age, Place of
+                // Birth, Sex — then Address, Occupation, Contact.
                 ['Birthday', student.birthday ? formatDate(student.birthday) : '—'],
                 ['Age', `${patientAge} years`],
+                ['Place of Birth', student.place_of_birth || '—'],
                 ['Sex', student.sex],
-                ['Contact', student.contact_number || '—'],
                 ['Address', student.address],
-                ['PhilHealth', `${student.philhealth_number || '—'} (${student.philhealth_status || 'None'})`],
+                // Guardian's occupation — the label is "Occupation" on the paper
+                // IPTR and on her card, so it stays that word here too.
+                ['Occupation', student.guardian_occupation || '—'],
+                ['Contact', student.contact_number || '—'],
                 ['Guardian', student.guardian_name || '—'],
                 ['Guardian Contact', student.guardian_contact || '—'],
+                ['PhilHealth', `${student.philhealth_number || '—'} (${student.philhealth_status || 'None'})`],
                 // ⚠ Height, Weight and BMI are NOT here any more (Sprint 173,
                 // hers). This card is identity and contact facts; a clinical
                 // measurement belongs with the rest of the measurements, on
@@ -1836,7 +1842,10 @@ export const DentalChart = () => {
                 somewhere else entirely (the Edit Student Info panel). Two
                 places for one record is how a screen ends up disagreeing with
                 itself, so both of those are gone and this is the one editor. */}
-            <div className="bg-card rounded-xl border border-border p-4">
+            {/* ⚠ NO CARD OF ITS OWN. Hers is the first section INSIDE the tab's
+                card, not a box floating in it — the tab content is already a
+                card, and nesting another one boxed the same content twice. */}
+            <div>
               <div className="text-base font-bold text-foreground mb-3">Physical Measurements</div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
@@ -1907,8 +1916,11 @@ export const DentalChart = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <div className="text-xs font-bold text-foreground uppercase tracking-wide mb-2">Medical History</div>
+              <div className="bg-card rounded-xl border border-border p-4">
+                {/* Her heading: sentence case at text-base with the instruction
+                    under it, not a small uppercase label. */}
+                <div className="text-base font-bold text-foreground">Medical History</div>
+                <p className="text-xs text-muted-foreground mb-3">Select all applicable conditions.</p>
                 {/* ⚠ Sprint 165 — chips, not label-left/checkbox-right rows.
                     Removing the record page's width cap stretched those rows to
                     the full content width and left every checkbox a hand-span
@@ -1936,8 +1948,9 @@ export const DentalChart = () => {
                   </div>
                 </div>
               </div>
-              <div>
-                <div className="text-xs font-bold text-foreground uppercase tracking-wide mb-2">Dietary Habits and Social History</div>
+              <div className="bg-card rounded-xl border border-border p-4">
+                <div className="text-base font-bold text-foreground">Dietary Habits and Social History</div>
+                <p className="text-xs text-muted-foreground mb-3">Select all applicable conditions.</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {([
                     ['Sugar Sweetened Beverages/Food', 'sugarSweetened'], ['Alcohol Drinker', 'alcoholDrinker'],
@@ -1955,36 +1968,14 @@ export const DentalChart = () => {
               </div>
             </div>
 
-            <div>
-              <div className="text-xs font-bold text-foreground uppercase tracking-wide mb-2">
-                Oral Health Condition
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
-                {([
-                  ['Gingivitis', 'gingivitis'], ['Periodontal Disease', 'periodontal'], ['Debris', 'debris'],
-                  ['Calculus', 'calculus'], ['Abnormal Growth', 'abnormalGrowth'], ['Cleft Lip / Palate', 'cleftLipPalate'],
-                ] as [string, keyof OralDraft][]).map(([label, field]) => (
-                  <label key={field} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors ${!!draftOral[field] ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-foreground'} ${editingHistory ? 'cursor-pointer hover:bg-canvas' : 'cursor-not-allowed opacity-70'}`}>
-                    <input type="checkbox" disabled={!editingHistory} checked={!!draftOral[field]}
-                      onChange={(e) => setDraftOral((p) => ({ ...p, [field]: e.target.checked }))}
-                      className="w-4 h-4 rounded accent-primary disabled:cursor-not-allowed" />
-                    {label}
-                  </label>
-                ))}
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                <div>
-                  <label className="block text-xs text-muted-foreground mb-1">Oral Hygiene</label>
-                  <input type="text" disabled={!editingHistory} value={draftOral.oralHygiene} onChange={(e) => setDraftOral((p) => ({ ...p, oralHygiene: e.target.value }))}
-                    placeholder="e.g. Good, Fair, Poor" className="w-full text-xs border border-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed" />
-                </div>
-                <div>
-                  <label className="block text-xs text-muted-foreground mb-1">Others</label>
-                  <input type="text" disabled={!editingHistory} value={draftOral.others} onChange={(e) => setDraftOral((p) => ({ ...p, others: e.target.value }))}
-                    placeholder="—" className="w-full text-xs border border-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed" />
-                </div>
-              </div>
-            </div>
+            {/* ⚠ ORAL HEALTH CONDITION IS NOT HERE ANY MORE (Sprint 176, hers).
+                It is the same ORAL_HEALTH_CONDITION record the Oral Conditions
+                card on the Dental Chart tab edits (Sprint 154) — two editors
+                for one record, on adjacent tabs, which is how a screen ends up
+                disagreeing with itself. It lives beside the odontogram now,
+                because that is where a clinician is looking when they notice
+                calculus. Her reasoning, and it applies to us harder: we had
+                BOTH, and I built the second one. */}
             {/* ⚠ Both kept from the Consent tab deleted in Sprint 171, because
                 neither has another home. The RA 10173 notice appears NOWHERE
                 else — not even on the printed consent form — and deleting a
