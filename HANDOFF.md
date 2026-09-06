@@ -10,9 +10,9 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ▶ RESUME HERE — PARKED 2026-09-06, branch `adopt-design` at `192d5dcd`
+## ▶ RESUME HERE — 2026-09-06, branch `adopt-design` at `8dfe4c7d`
 
-**`main` UNTOUCHED. 24 commits on `adopt-design`, all pushed. Tag `pre-design-adoption` marks the state before any of it.** Nothing merged. `main` auto-deploys to Vercel, so the merge is the one step to take with eyes open.
+**`main` UNTOUCHED. 27 commits on `adopt-design`, all pushed. Tag `pre-design-adoption` marks the state before any of it.** Nothing merged. `main` auto-deploys to Vercel, so the merge is the one step to take with eyes open.
 
 ### What this branch is
 A classmate (`peanutbutterjelly03`, a real collaborator) redesigned the app on her fork's `majorUpdates`. **Goal: look like hers, keep our code**, which is 115 commits ahead of the fork point (2026-09-03).
@@ -42,6 +42,7 @@ Sprints 151–156 rebuilt her chart tab BY HAND from reading her JSX — five sp
 | `7f53f1ea` | **Consent moved to STUDENT_IPTR, per school year** + `npm run migrate:iptr-consent` |
 | `f8335dc2` `e6b578eb` | Consent tab on her card; confirmation dialog showing OUR verbatim form text |
 | `192d5dcd` | `/auth/verify-password` — the route her PatientList was calling into a 404 |
+| `8dfe4c7d` | **Consent tab deleted — six tabs, hers.** RA 10173 notice + Upcoming Appointments moved to History; banner tick works both ways or the revert path died with the tab. **Her ⋮ year menu** replaces the "Edit Years" mode |
 
 ### ⚠ TWO BUGS FOUND, BOTH INVISIBLE TO tsc
 1. **Infinite render loop** (pre-existing, Sprint 148): `currentYearData` spread a new object every render and the draft-sync effect depended on it. 6,656 DOM mutations in 2s on an idle page, and **every charting reached through the picker was silently read-only**. `useMemo` is the fix and is load-bearing.
@@ -58,10 +59,23 @@ Sprints 151–156 rebuilt her chart tab BY HAND from reading her JSX — five sp
 - Her consent warning says "cannot be undone"; **ours can**, so the wording follows the behaviour.
 - Three of her five remaining dialogs confirm actions that change nothing (`confirmEditChart`, `confirmOpenEdit`, `confirmSaveInfo`) — skipped; they train people to click through.
 
-### Next, in order
-1. **`pendingYearAction`** — her password step-up on Add/Edit/Delete school year. Worth taking: we delete a year on one confirm. (Her Edit also sets `date_opened`, which we lack.)
-2. **Finish the inventory** of the two MERGED files — `Appointments.tsx` and `DentalChart.tsx` — her state and handlers against ours, line by line, reported in one go. **The user should not have to spot differences one at a time; that is what made this session tiring.**
-3. Then merge, or keep going.
+### Next, in order — THE QUEUE
+
+**1. CODE + VARIABLE INTEGRITY AUDIT after the redesign (user-requested, top priority).**
+The rule for the whole branch, in the user's words: *design from her, code from our earlier fixes as much as possible.* Adopting 20+ files by copy and by merge can quietly lose our logic or leave dead/renamed state. Sweep every adopted file and check:
+- our behaviour still present (the way `validateStudentValues` had to be put back into her PatientList, and `DAY_NOTE` + the Rotation tab into her Appointments);
+- **server routes her components call that we may not have** — this already bit once, `/auth/verify-password` was answering 404 for the bulk-archive step-up (`192d5dcd`);
+- orphaned state and handlers left behind by a replaced block (e.g. `isManagingYears` after the year menu went in);
+- variables her file references that mean something different in ours (`consent_status` moved from STUDENT to STUDENT_IPTR in `7f53f1ea`);
+- anything typechecking but not *working* — `tsc` has been blind to every real bug this session.
+
+**2. Record view under the OTHER contexts (user-requested).** `?context=` renders partial versions of the same record: `dental-queue` (History + Dental Chart), `treatment` (Dental Chart + Treatment History), `risk` (Caries Risk Assessment). Reached from Dental Charts, Treatment and Risk Classification. **They were never opened during the redesign** — check each looks right now the tab strip, width, patient card and palette have all changed.
+
+**3. Finish the inventory of the two MERGED files** — `Appointments.tsx` and `DentalChart.tsx` — her state and handlers against ours, line by line, reported in ONE message. **The user should not have to spot differences one at a time; that is what made this session tiring.**
+
+**4. `pendingYearAction`'s password step-up.** Hers re-verifies the signed-in user's password before Add/Edit/Delete of a school year, via `/auth/verify-password` (which now exists). Ours removes a year on one confirm. The menu shape is already adopted (`8dfe4c7d`); only the step-up is missing.
+
+**5. Then merge, or keep going.**
 
 ### For the user / dentist
 - **`place_of_birth` + `guardian_occupation`**: she added both to STUDENT. The paper IPTR prints both and OCR skips Occupation *because* nothing stores it. Model + migration + form fields. **Their call.**
