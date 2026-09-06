@@ -1630,7 +1630,8 @@ export const DentalChart = () => {
               <div className="flex flex-1 min-w-0 overflow-x-auto">
               {visibleTabs.map((tab) => (
                 <button key={tab.key} onClick={() => setActiveTab(tab.key as TabKey)}
-                  className={`${visibleTabs.length > 1 ? 'flex-1' : 'px-6'} whitespace-nowrap px-3 py-3 text-sm text-center transition-colors focus:outline-none focus-visible:outline-none ${activeTab === tab.key ? 'font-bold border-b-2 border-blue-700 text-blue-700' : 'font-medium text-muted-foreground hover:text-foreground hover:bg-gray-50'}`}>
+                  aria-current={activeTab === tab.key ? 'page' : undefined}
+                  className={`${visibleTabs.length > 1 ? 'flex-1' : 'px-6'} whitespace-nowrap px-3 py-3 text-sm text-center transition-colors focus:outline-none focus-visible:outline-none ${activeTab === tab.key ? 'font-bold border-b-[3px] border-blue-700 text-blue-700 bg-blue-50/60' : 'font-medium text-muted-foreground hover:text-foreground hover:bg-gray-50'}`}>
                   {tab.label}
                 </button>
               ))}
@@ -1719,8 +1720,8 @@ export const DentalChart = () => {
                 <div className="relative ml-2 flex-shrink-0 py-2">
                   <button type="button" onClick={() => setYearMenuOpen((v) => !v)}
                     title="School year options" aria-label="School year options" aria-expanded={yearMenuOpen}
-                    className="flex items-center justify-center rounded-lg border border-border bg-card p-1.5 text-muted-foreground hover:bg-gray-50">
-                    <MoreVertical className="w-4 h-4" />
+                    className="flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-gray-50">
+                    School year <MoreVertical className="w-3.5 h-3.5" />
                   </button>
                   {yearMenuOpen && (
                     <>
