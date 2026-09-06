@@ -14,13 +14,15 @@
 
 **41 commits merged. `main` auto-deploys to Vercel, so this is live.** Tag `pre-design-adoption` still marks the state before any of it; every commit is separately revertible.
 
-### ⚠ ONE THING TO DO ON PRODUCTION, BEFORE ANYONE LOOKS AT CONSENT
-Consent moved from a single lifetime flag on STUDENT to a **per school year** field on STUDENT_IPTR (`7f53f1ea`). Production has NOT been migrated, so every pupil there will read **Consent Pending** until it is:
+### ✅ THE PRODUCTION CONSENT MIGRATION IS DONE — do not run it again
+Applied 2026-09-06 to `floral-cluster.edqpjtu`: 2 latest IPTRs set to complete. An independent re-read afterwards showed **7** IPTRs complete in total — the script only inspects each pupil's LATEST year, so five pre-existing completes on older years were never in its counts. 3 of the 7 have `consent_given_at` NULL (they predate the field; the hook only stamps rows it writes), and only 13 of 42 IPTRs carry the field at all — the rest predate it and read as pending, which is correct.
 
-    npm run migrate:iptr-consent            # DRY RUN, prints its target first
-    npm run migrate:iptr-consent -- --confirm
+⚠ Two things found while doing it:
+- **The log was printing `<iv>:<ciphertext>`.** Her version logged last_name/first_name, which are encrypted, through a `.lean()` read. Fixed in `021467c6` to print the student id. That was the SECOND time a claim in one of my commit messages did not match the file (the first: announceTarget, `873a9300`) — both in this one script. **Check the file, not the message.**
+- **One production record is school year 2028-2029**, two years ahead, and is now consent-complete. Real or mis-created, it is there.
 
-⚠ Confirm the banner says the PRODUCTION cluster (`floral-cluster.edqpjtu`), not dev. It backfills only the LATEST year, and only where the old flag said complete — everyone else legitimately starts pending, which may mean re-collecting signatures already held on paper.
+### ⚠ THAT CLUSTER IS DEPLOYED, NOT SACRED (user, 2026-09-06)
+`floral-cluster.edqpjtu` holds SEEDED demo records — no real patient history. Treat it as the database the live site reads: check the target banner, dry-run a write, and mind that its `FIELD_ENCRYPTION_SECRET` differs from dev's. Do not wrap it in patient-data ceremony; that cost the user several round-trips.
 
 ### What shipped
 Her design, our code. The record screen matches hers section for section (both tabs diffed by DOM outline); the shell, Students, Appointments, Dashboard header, Dental Charts list and Consent flow are hers; our data model, reports and server work are intact.
