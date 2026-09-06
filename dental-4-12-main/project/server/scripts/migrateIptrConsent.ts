@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import { connectDB } from "../config/db.js";
 import Student from "../models/Student.js";
 import StudentIptr from "../models/StudentIptr.js";
+import { announceTarget } from "./announceTarget.js";
 
 // One-off migration: carry STUDENT.consent_status (removed from the schema,
 // but still sitting in existing MongoDB documents) onto STUDENT_IPTR, the
@@ -34,6 +35,9 @@ const CONFIRM = process.argv.includes("--confirm");
 
 async function run() {
   await connectDB();
+  // ⚠ AFTER connectDB, never before: it prints "(unknown host)" otherwise
+  // and tells you nothing, which is worse than not printing at all.
+  announceTarget("migrate:iptr-consent");
 
   // .lean() reads the raw MongoDB document regardless of what the current
   // schema declares, so the old consent_status is still readable even though

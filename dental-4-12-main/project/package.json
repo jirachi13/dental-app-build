@@ -19,6 +19,7 @@
     "migrate:iptr-grades": "tsx server/scripts/migrateIptrGrades.ts",
     "migrate:user-schools": "tsx server/scripts/migrateUserSchools.ts",
     "migrate:iptr-consent": "tsx server/scripts/migrateIptrConsent.ts",
+    "verify:student-fields": "tsx server/scripts/verifyStudentFields.ts",
     "assign:demo-schools": "tsx server/scripts/assignDemoSchools.ts",
     "apply:seed-passwords": "tsx server/scripts/applySeedPasswords.ts",
     "purge:demo": "tsx server/scripts/purgeDemoData.ts",
