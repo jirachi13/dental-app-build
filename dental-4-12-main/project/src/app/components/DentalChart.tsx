@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router';
-import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, TrendingUp, FileText, Plus, Pencil, Trash2, Brain, Download, X, Maximize2, Minimize2, Check, ChevronUp, ChevronDown, ShieldCheck, ShieldAlert, Shield as ShieldIcon } from 'lucide-react';
+import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, TrendingUp, FileText, Plus, Pencil, Trash2, Brain, Download, X, Maximize2, Minimize2, Check, ChevronUp, ChevronDown, ShieldCheck, ShieldAlert, Shield as ShieldIcon, MoreVertical } from 'lucide-react';
 import { exportDohReportToPdf, exportPagesToPdf } from '../utils/exportPdf';
 import { getGradeColor } from '../utils/gradeColors';
 import { computeBmi, BMI_NOTE } from '../utils/bmi';
@@ -13,6 +13,7 @@ import { useAppointments } from '../hooks/useAppointments';
 import { useDentalChartData } from '../hooks/useDentalChartData';
 import { apiClient, ApiError } from '../api/client';
 import { toLocalDateString, formatDate } from '../utils/localDate';
+import { schoolYearLabel } from '../utils/schoolYear';
 import { surnameFirst, surnameFirstWithInitial } from '../utils/studentName';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -283,7 +284,9 @@ export const DentalChart = () => {
   const prevPatient = navIndex > 0 ? navList[navIndex - 1] : null;
   const nextPatient = navIndex >= 0 && navIndex < navList.length - 1 ? navList[navIndex + 1] : null;
 
-  type TabKey = 'history' | 'chart' | 'appointments' | 'records' | 'treatments' | 'referrals' | 'ai';
+  // ⚠ 'appointments' (the Consent tab) is gone as of Sprint 171 — six tabs,
+  // hers. Consent lives on the History banner, which is where she put it.
+  type TabKey = 'history' | 'chart' | 'records' | 'treatments' | 'referrals' | 'ai';
   type IptrContext = 'default' | 'dental-queue' | 'risk' | 'treatment';
   const iptrContext = (searchParams.get('context') as IptrContext) || 'default';
   const [chartingMode, setChartingModeState] = useState(chartingModeMemo);
@@ -304,7 +307,6 @@ export const DentalChart = () => {
   const allTabs: { key: TabKey; label: string }[] = [
     { key: 'history', label: 'History' },
     { key: 'chart', label: 'Dental Chart' },
-    { key: 'appointments', label: 'Consent' },
     { key: 'ai', label: 'Caries Risk Assessment' },
     { key: 'treatments', label: 'Treatment History' },
     { key: 'records', label: 'DMFT History' },
@@ -344,7 +346,7 @@ export const DentalChart = () => {
   const [draftYear, setDraftYear] = useState<{ height_cm: string; weight_kg: string; grade_level: string; section: string }>({ height_cm: '', weight_kg: '', grade_level: '', section: '' });
   const [infoSaving, setInfoSaving] = useState(false);
   const [infoError, setInfoError] = useState<string | null>(null);
-  const [isManagingYears, setIsManagingYears] = useState(false);
+  const [yearMenuOpen, setYearMenuOpen] = useState(false);
   const headerRowRef = useRef<HTMLDivElement | null>(null);
   // Wraps the record body for the PDF export, excluding the sticky toolbar —
   // a downloaded patient record should not carry Edit/Save buttons.
@@ -686,8 +688,11 @@ export const DentalChart = () => {
   // student_id + school_year); this stops the second request being sent at all.
   const [addingYear, setAddingYear] = useState(false);
 
-  const handleAddYear = async () => {
-    const nextYear = getNextSchoolYear();
+  const handleAddYear = async (target?: string) => {
+    // ⚠ Takes a TARGET now (Sprint 172). A pupil with a gap — last record
+    // 2024-2025 while today is 2026-2027 — needs to jump to the ACTUAL current
+    // year, not merely the one after their last. Her menu offers both.
+    const nextYear = target ?? getNextSchoolYear();
     if (!nextYear || !id || addingYear) return;
     setAddingYear(true);
     try {
@@ -738,7 +743,7 @@ export const DentalChart = () => {
   };
 
   useEffect(() => {
-    if (!canEdit) setIsManagingYears(false);
+    if (!canEdit) setYearMenuOpen(false);
   }, [canEdit]);
 
   // Persists the current year's chart + medical/diet/oral history for real.
@@ -1621,7 +1626,7 @@ export const DentalChart = () => {
                         {formatDateStamp(y.dentalChart?.date_charted)}
                       </div>
                     </button>
-                    {canEdit && isManagingYears && years.length > 1 && (
+                    {false && (
                       <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmDeleteYear(idx); }} className="border-l border-border px-2 text-muted-foreground transition-colors hover:bg-card hover:text-destructive" title={`Remove ${y.iptr.school_year}`}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -1629,16 +1634,71 @@ export const DentalChart = () => {
                   </div>
                 );
               })}
+              {/* ⚠ Her ⋮ menu, replacing "Edit Years" (Sprint 172). The old
+                  control was a MODE: press it, trash icons appear on every
+                  year chip, press again to leave. A mode that arms a
+                  destructive action on every row is a worse shape than a menu
+                  that names one thing and does it.
+
+                  Delete now acts on the SELECTED year, which is the one whose
+                  data is on screen — you cannot arm a delete for a year you
+                  are not looking at.
+
+                  NOT copied: her "Edit <year>'s date" item. It writes
+                  `date_opened`, which her STUDENT_IPTR has and ours does not.
+                  A menu item that saves nowhere is the placeholder CLAUDE.md
+                  forbids, so it is left out rather than stubbed. */}
               {canEdit && (
-                <div className="ml-2 flex flex-shrink-0 items-center gap-2 py-2">
-                  <button type="button" onClick={() => setIsManagingYears((prev) => !prev)}
-                    className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors ${isManagingYears ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' : 'border border-border bg-card text-muted-foreground hover:bg-gray-50'}`}>
-                    {isManagingYears ? 'Done' : 'Edit Years'}
+                <div className="relative ml-2 flex-shrink-0 py-2">
+                  <button type="button" onClick={() => setYearMenuOpen((v) => !v)}
+                    title="School year options" aria-label="School year options" aria-expanded={yearMenuOpen}
+                    className="flex items-center justify-center rounded-lg border border-border bg-card p-1.5 text-muted-foreground hover:bg-gray-50">
+                    <MoreVertical className="w-4 h-4" />
                   </button>
-                  {isManagingYears && !!getNextSchoolYear() && (
-                    <button type="button" onClick={handleAddYear} disabled={addingYear} className="flex-shrink-0 px-3 py-2 text-xs text-muted-foreground hover:text-blue-600 border-b-2 border-transparent hover:border-blue-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                      + Add Year
-                    </button>
+                  {yearMenuOpen && (
+                    <>
+                      {/* Click-away sheet, under the menu and over everything
+                          else — without it the menu only closes by re-pressing
+                          the button, which nobody does. */}
+                      <div className="fixed inset-0 z-10" onClick={() => setYearMenuOpen(false)} />
+                      <div className="absolute right-0 top-full mt-1 z-20 w-52 rounded-xl border border-border bg-card shadow-md py-1">
+                        {(() => {
+                          const nextYear = getNextSchoolYear();
+                          const currentYear = schoolYearLabel();
+                          const existing = new Set(years.map((y) => y.iptr.school_year));
+                          const showCurrent = !existing.has(currentYear);
+                          const showNext = !!nextYear && nextYear !== currentYear && !existing.has(nextYear);
+                          return (
+                            <>
+                              {showCurrent && (
+                                <button type="button" disabled={addingYear}
+                                  onClick={() => { setYearMenuOpen(false); handleAddYear(currentYear); }}
+                                  className="block w-full text-left px-3 py-2 text-xs text-foreground hover:bg-canvas disabled:opacity-50">
+                                  Add {currentYear} <span className="text-muted-foreground">(current)</span>
+                                </button>
+                              )}
+                              {showNext && (
+                                <button type="button" disabled={addingYear}
+                                  onClick={() => { setYearMenuOpen(false); handleAddYear(nextYear); }}
+                                  className="block w-full text-left px-3 py-2 text-xs text-foreground hover:bg-canvas disabled:opacity-50">
+                                  Add {nextYear} <span className="text-muted-foreground">(next)</span>
+                                </button>
+                              )}
+                              {!showCurrent && !showNext && (
+                                <div className="px-3 py-2 text-xs text-muted-foreground">Current and next year already recorded</div>
+                              )}
+                            </>
+                          );
+                        })()}
+                        {years.length > 1 && (
+                          <button type="button"
+                            onClick={() => { setYearMenuOpen(false); setConfirmDeleteYear(selectedYear); }}
+                            className="block w-full text-left px-3 py-2 text-xs text-destructive hover:bg-danger-surface">
+                            Remove {years[selectedYear]?.iptr.school_year}
+                          </button>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
               )}
@@ -1708,18 +1768,22 @@ export const DentalChart = () => {
               </div>
             </div>
           </div>
-          {!consentComplete && (
-            <label className={`flex items-center gap-2 mt-2 ${canEdit ? 'cursor-pointer' : 'cursor-default'}`}>
-              <input
-                type="checkbox"
-                checked={false}
-                onChange={(e) => { if (canEdit && e.target.checked) setConfirmConsent({ schoolYear: yearIptr.school_year, revert: false }); }}
-                disabled={!canEdit}
-                className="w-4 h-4 rounded accent-primary disabled:opacity-60 disabled:cursor-not-allowed"
-              />
-              <span className="text-xs font-medium text-foreground">Consent has been obtained (Nakumpleto na ang pahintulot)</span>
-            </label>
-          )}
+          {/* ⚠ SHOWN IN BOTH STATES, unlike hers. Her banner hides this once
+              consent is complete, which works on her branch because she treats
+              the tick as final. Ours can be reverted — and the Consent TAB that
+              offered that is gone as of this sprint, so if the box vanished
+              when ticked, a mis-tick would be unfixable outside the database.
+              Both directions open the confirmation. */}
+          <label className={`flex items-center gap-2 mt-2 ${canEdit ? 'cursor-pointer' : 'cursor-default'}`}>
+            <input
+              type="checkbox"
+              checked={consentComplete}
+              onChange={(e) => { if (canEdit) setConfirmConsent({ schoolYear: yearIptr.school_year, revert: !e.target.checked }); }}
+              disabled={!canEdit}
+              className="w-4 h-4 rounded accent-primary disabled:opacity-60 disabled:cursor-not-allowed"
+            />
+            <span className="text-xs font-medium text-foreground">Consent has been obtained (Nakumpleto na ang pahintulot)</span>
+          </label>
         </div>
       )}
 
@@ -1729,7 +1793,7 @@ export const DentalChart = () => {
         {years.length === 0 ? (
           <div className="p-12 text-center text-muted-foreground">
             <p className="text-sm">No IPTR school-year records yet for this student.</p>
-            {canEdit && <button onClick={handleAddYear} disabled={addingYear} className="mt-3 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed">+ Start {getNextSchoolYear()}</button>}
+            {canEdit && <button onClick={() => handleAddYear()} disabled={addingYear} className="mt-3 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed">+ Start {getNextSchoolYear()}</button>}
           </div>
         ) : (
         <>
@@ -1815,6 +1879,50 @@ export const DentalChart = () => {
                 </div>
               </div>
             </div>
+            {/* ⚠ Both kept from the Consent tab deleted in Sprint 171, because
+                neither has another home. The RA 10173 notice appears NOWHERE
+                else — not even on the printed consent form — and deleting a
+                legal notice to match a tab count is not a design decision.
+                Upcoming Appointments is real data read from this pupil's
+                schedule.
+
+                NOT kept: the on-screen signature rules. Consent is signed on
+                the printed form (Reports → Consent Form), which carries the
+                real PANGALAN NG MAGULANG/GUARDIAN block; ruled lines on a
+                screen were never signable. */}
+          <div className="bg-blue-50 rounded-xl border border-blue-200 p-4">
+            <div className="flex items-start gap-3">
+              <Shield className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <div className="text-xs font-bold text-blue-900 mb-1">Republic Act No. 10173 — Data Privacy Act of 2012</div>
+                <p className="text-xs text-blue-700 leading-relaxed">
+                  Ang impormasyong nakolekta sa form na ito ay gagamitin lamang para sa mga layuning pangkalusugan ng Dental Health Program ng Barangay Tanyag, Lungsod ng Taguig. Ang inyong personal na impormasyon ay protektado ng Batas Republika Blg. 10173 o ang Data Privacy Act ng 2012. Ang inyong datos ay hindi ibabahagi sa anumang partido na walang pahintulot maliban kung kinakailangan ng batas.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-card rounded-xl border border-border p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-semibold text-foreground">Upcoming Appointments</div>
+              <Link to="/appointments" className="text-xs text-blue-600 hover:underline">View all →</Link>
+            </div>
+            {studentAppointments.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">No upcoming appointments scheduled.</p>
+            ) : (
+              <div className="space-y-2">
+                {studentAppointments.map((apt) => (
+                  <div key={apt.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                    <div>
+                      <div className="text-xs font-medium text-foreground">{apt.type}</div>
+                      <div className="text-xs text-muted-foreground">{apt.date} at {apt.time}</div>
+                    </div>
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{apt.status}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           </div>
         )}
 
@@ -2376,98 +2484,6 @@ export const DentalChart = () => {
             </div>
             )}
 
-            </div>
-          </div>
-        )}
-
-        {/* ── TAB 3: Consent & Appointments ── */}
-        {activeTab === 'appointments' && (
-          <div className="p-4 space-y-4">
-            {/* ⚠ The lone "Consent Status" box is gone (Sprint 168). It was a
-                third place saying the same word: the patient card's chip says
-                it on every tab, and the History banner says it with the school
-                year attached. Its own status now sits in this card's header,
-                where the text it refers to actually is.
-
-                Card, header rule and status chip follow her Student Records
-                pattern, the same one the Dental Charts list took, so this tab
-                stops being the last screen in its own style. */}
-            <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-5">
-                <div className="min-w-0">
-                  <h2 className="text-base font-bold text-foreground">Pahintulot ng Pasyente / Magulang o Guardian</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Consent for {yearIptr?.school_year ?? 'this school year'} — a guardian signs once per school year.
-                  </p>
-                </div>
-                <span
-                  className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${consentComplete ? 'bg-success-surface text-success' : 'bg-warning-surface text-warning'}`}
-                >
-                  {consentComplete ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldAlert className="w-3.5 h-3.5" />}
-                  {consentComplete ? 'Consent Complete' : 'Consent Pending'}
-                </span>
-              </div>
-              <div className="p-5">
-              <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-                Pinahihintulutan ko ang Dentista na gawin ang mga kinakailangang Dental Procedure/Treatment sa aking ngipin at bibig o ngipin ng aking anak/kapatid/apo/pamangkin gaya ng ipinaliwanag sa akin at ng aking pagpayag dito. Nauunawaan ko rin na ang anumang impormasyong nakolekta ay gagamitin para sa mga layuning pangkalusugan lamang.
-              </p>
-              {/* ⚠ The signature rules stay, and stay EMPTY. Consent is given on
-                  paper — the tick below records that the physical copy exists,
-                  it is not itself a signature. Two columns down to one below
-                  `sm`, or each rule ends up too short to sign on a phone. */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div>
-                  <div className="text-xs text-muted-foreground mb-2">Lagda ng Pasyente</div>
-                  <div className="border-b-2 border-border h-10 mb-1" />
-                  <div className="text-xs text-muted-foreground">Pirma sa itaas ng pangalan</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground mb-2">Lagda ng Magulang o Guardian</div>
-                  <div className="border-b-2 border-border h-10 mb-1" />
-                  <div className="text-xs text-muted-foreground">Pirma sa itaas ng pangalan</div>
-                </div>
-              </div>
-              <label className={`flex items-center gap-2 mt-4 ${canEdit ? 'cursor-pointer' : 'cursor-default'}`}>
-                <input type="checkbox" checked={consentComplete}
-                  onChange={(e) => { if (canEdit && yearIptr) setConfirmConsent({ schoolYear: yearIptr.school_year, revert: !e.target.checked }); }}
-                  disabled={!canEdit} className="w-4 h-4 rounded accent-primary disabled:opacity-60 disabled:cursor-not-allowed" />
-                <span className="text-xs font-medium text-foreground">Nakumpleto na ang pahintulot / Consent has been obtained</span>
-              </label>
-              </div>
-            </div>
-
-            <div className="bg-blue-50 rounded-xl border border-blue-200 p-4">
-              <div className="flex items-start gap-3">
-                <Shield className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-xs font-bold text-blue-900 mb-1">Republic Act No. 10173 — Data Privacy Act of 2012</div>
-                  <p className="text-xs text-blue-700 leading-relaxed">
-                    Ang impormasyong nakolekta sa form na ito ay gagamitin lamang para sa mga layuning pangkalusugan ng Dental Health Program ng Barangay Tanyag, Lungsod ng Taguig. Ang inyong personal na impormasyon ay protektado ng Batas Republika Blg. 10173 o ang Data Privacy Act ng 2012. Ang inyong datos ay hindi ibabahagi sa anumang partido na walang pahintulot maliban kung kinakailangan ng batas.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-card rounded-xl border border-border p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-sm font-semibold text-foreground">Upcoming Appointments</div>
-                <Link to="/appointments" className="text-xs text-blue-600 hover:underline">View all →</Link>
-              </div>
-              {studentAppointments.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-4">No upcoming appointments scheduled.</p>
-              ) : (
-                <div className="space-y-2">
-                  {studentAppointments.map((apt) => (
-                    <div key={apt.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                      <div>
-                        <div className="text-xs font-medium text-foreground">{apt.type}</div>
-                        <div className="text-xs text-muted-foreground">{apt.date} at {apt.time}</div>
-                      </div>
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{apt.status}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         )}
