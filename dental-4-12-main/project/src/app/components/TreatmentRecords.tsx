@@ -115,7 +115,12 @@ export const TreatmentRecords = () => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Treatment</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{filtered.length} record{filtered.length !== 1 ? 's' : ''} found</p>
+          {/* ⚠ STUDENTS, not treatment records. The rows come from
+              `useStudents()` — this is the picker you choose a pupil from.
+              TREATMENT held ZERO rows on dev when this was checked
+              (2026-09-06) while the page announced "26 records found", which
+              is a fabricated figure on a clinical screen. */}
+          <p className="text-sm text-muted-foreground mt-0.5">{filtered.length} student{filtered.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
           <button onClick={() => setViewMode('treatment')} className={`px-3 py-1.5 rounded-md text-sm font-medium ${viewMode === 'treatment' ? 'bg-white text-[#1E40AF] shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Treatment List</button>
@@ -173,7 +178,7 @@ export const TreatmentRecords = () => {
               {...pager}
               onPage={pager.setPage}
               onPageSize={pager.changePageSize}
-              noun="records"
+              noun="students"
               detail={filtered.length !== sourcePatients.length ? `(filtered from ${sourcePatients.length})` : ''}
             />
           </div>

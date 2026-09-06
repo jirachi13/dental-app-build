@@ -128,7 +128,12 @@ export const DentalChartNav = () => {
               <p className="text-sm text-muted-foreground mt-0.5">
                 {viewMode === 'queued'
                   ? `${filtered.length} queued student${filtered.length !== 1 ? 's' : ''}`
-                  : `${filtered.length} chart${filtered.length !== 1 ? 's' : ''} found`}
+                  // ⚠ STUDENTS, not charts. This list is one row per pupil,
+                  // drawn from `useStudents()`; DENTAL_CHART held 54 rows for
+                  // these 26 pupils when this was checked (2026-09-06), and a
+                  // pupil with no chart at all is still a row here. "charts
+                  // found" named a number the page never counted.
+                  : `${filtered.length} student${filtered.length !== 1 ? 's' : ''}`}
               </p>
             </div>
             <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 shrink-0">
@@ -227,7 +232,7 @@ export const DentalChartNav = () => {
               {...pager}
               onPage={pager.setPage}
               onPageSize={pager.changePageSize}
-              noun={viewMode === 'queued' ? 'queued students' : 'charts'}
+              noun={viewMode === 'queued' ? 'queued students' : 'students'}
               detail={filtered.length !== sourcePatients.length ? `(filtered from ${sourcePatients.length})` : ''}
             />
           </div>
