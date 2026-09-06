@@ -1155,6 +1155,32 @@ export const DentalChart = () => {
   const showStickyYearBar = activeTab === 'history' || activeTab === 'chart';
   const backPath = iptrContext === 'risk' ? '/ai-analytics' : iptrContext === 'treatment' ? '/treatment-records' : '/dental-charts';
 
+  // ⚠ ABOVE THE EARLY RETURNS ON PURPOSE. This is a HOOK, and the
+  // `if (loading)` / `if (error)` guards below return before the rest of the
+  // component runs — a useMemo placed after them runs on some renders and
+  // not others, which is exactly the "Rendered more hooks than during the
+  // previous render" crash that blanked this page in c0ce442b. tsc and the
+  // build were clean for it; only opening the screen showed it.
+  // ⚠ Consent is per SCHOOL YEAR (Sprint 167). Reading STUDENT.consent_status
+  // said a pupil who consented once had consented forever — a 2023 signature
+  // authorising 2026 treatment.
+  // ⚠ Age in MONTHS at this year's measurement anchor, not today — the
+  // DOH/DepEd BMI-for-Age table is banded by month, and a pupil measured in
+  // August is not the age they are in June. Same reasoning as patientAge
+  // (Sprint 57b).
+  const patientAgeMonths = useMemo(() => {
+    // Reads the year off `years[selectedYear]` rather than the `yearIptr`
+    // const, which is declared further down — a hook cannot depend on a
+    // binding that does not exist yet at this point in the component.
+    const schoolYear = years[selectedYear]?.iptr.school_year;
+    if (!student?.birthday || !schoolYear) return null;
+    const born = new Date(student.birthday);
+    if (Number.isNaN(born.getTime())) return null;
+    // End of the school year: June 30 of its second half.
+    const anchor = new Date(Number(String(schoolYear).slice(0, 4)) + 1, 5, 30);
+    return (anchor.getFullYear() - born.getFullYear()) * 12 + (anchor.getMonth() - born.getMonth());
+  }, [student?.birthday, years, selectedYear]);
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -1188,20 +1214,6 @@ export const DentalChart = () => {
   // fallback to the student's current grade: that fallback IS the bug. They
   // render as "not recorded", which is honest about what the system knows.
   const yearIptr = years[selectedYear]?.iptr;
-  // ⚠ Consent is per SCHOOL YEAR (Sprint 167). Reading STUDENT.consent_status
-  // said a pupil who consented once had consented forever — a 2023 signature
-  // authorising 2026 treatment.
-  // ⚠ Age in MONTHS at this year's measurement anchor, not today — the
-  // DOH/DepEd BMI-for-Age table is banded by month, and a pupil measured in
-  // August is not the age they are in June. Same reasoning as patientAge
-  // (Sprint 57b).
-  const patientAgeMonths = useMemo(() => {
-    if (!student?.birthday || !yearIptr?.school_year) return null;
-    const born = new Date(student.birthday);
-    const anchor = new Date(Number(String(yearIptr.school_year).slice(0, 4)) + 1, 5, 30);
-    if (Number.isNaN(born.getTime())) return null;
-    return (anchor.getFullYear() - born.getFullYear()) * 12 + (anchor.getMonth() - born.getMonth());
-  }, [student?.birthday, yearIptr?.school_year]);
   const consentComplete = yearIptr?.consent_status === 'complete';
   const yearGrade = yearIptr?.grade_level ?? null;
   const yearSection = yearIptr?.section ?? null;
