@@ -5,7 +5,6 @@ import { GradePill } from './GradePill';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
 import { getGradeColor } from '../utils/gradeColors';
 import { ListSearchInput } from './ListSearchInput';
-import { studentListTableStyles } from './StudentListTableStyles';
 import { getQueuedStudentIds } from '../utils/queueStorage';
 import { useStudents } from '../hooks/useStudents';
 import { useAuth } from '../context/AuthContext';

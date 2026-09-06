@@ -15,7 +15,6 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { SkeletonBlock } from './Skeleton';
-import { getGradeColor } from '../utils/gradeColors';
 import { CHART, RISK_COLORS, FUNNEL_RAMP } from '../utils/chartColors';
 import { getSchoolShortName } from '../utils/schoolColors';
 import { toLocalDateString, formatDateWithWeekday } from '../utils/localDate';

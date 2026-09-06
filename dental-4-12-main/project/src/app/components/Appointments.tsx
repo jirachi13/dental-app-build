@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate, Link, useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, X, Check, Clock, Users, FileText, Mars, Venus, MoreVertical, Trash2, ClipboardList, StickyNote, Pencil, Stethoscope } from 'lucide-react';
 import { getGradeColor } from '../utils/gradeColors';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
@@ -34,16 +34,17 @@ const shortenDate = (dateStr: string) =>
 
 export const Appointments = () => {
   const { user, selectedSchool } = useAuth();
-  const navigate = useNavigate();
   const toast = useToast();
 
   // Tabs
   const [activeTab, setActiveTab] = useState<'today' | 'upcoming' | 'completed' | 'missed' | 'all' | 'calendar' | 'rotation'>('today');
   // Filters
-  const [gradeFilter, setGradeFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
+  // ⚠ The grade/status/type/search filters that used to sit here are gone
+  // (Sprint 175). Their setters were never called — not on her branch and NOT
+  // on ours either, so this is dead code the audit found, not something the
+  // redesign lost. `filteredAppointments` read them at their constant defaults
+  // and filtered nothing. Leaving them in implied a feature that does not
+  // exist; if appointment filtering is wanted, it needs real controls.
 
   // Modals — ?new=1 (e.g. the dashboard's New Appointment CTA) opens the create
   // form directly; the param is stripped below so refresh/back doesn't reopen it.
@@ -104,8 +105,6 @@ export const Appointments = () => {
   // and dentist are automatic, same as the create-appointment form.
   /** An aide books and schedules too; the field is not always a dentist. */
   const staffNameLabel = user?.role === 'dental_aide' ? 'Dental Aide' : 'Dentist';
-  const [noteDate, setNoteDate] = useState('');
-  const [editingRotationId, setEditingRotationId] = useState<string | null>(null);
   const [rotSchool, setRotSchool] = useState('');
   const [rotDentistId, setRotDentistId] = useState('');
   const [rotWeekStart, setRotWeekStart] = useState('');
@@ -204,15 +203,6 @@ export const Appointments = () => {
 
   /** Opens the note modal for one calendar day, pre-filled if this school
    *  already has a note there. */
-  const openNoteModal = (dateStr: string) => {
-    const existing = rotations.find(r => r.school === selectedSchool && r.weekStart === dateStr && r.weekEnd === dateStr);
-    setNoteDate(dateStr);
-    setRotNotes(existing?.notes ?? '');
-    setEditingRotationId(existing?.id ?? null);
-    setRotError(null);
-    setShowRotationModal(true);
-  };
-
   const handleCreateAppointment = async () => {
     setCreateError(null);
     // Date is the only field the user must fill in by hand — school and
@@ -280,22 +270,6 @@ export const Appointments = () => {
   };
 
 
-  const handleDeleteRotation = async () => {
-    if (!editingRotationId) return;
-    setRotSaving(true);
-    try {
-      await apiClient.patch(`/dentist-rotations/${editingRotationId}/archive`);
-      await reloadRotations();
-      toast.success('Note deleted.');
-      resetRotationForm();
-      setShowRotationModal(false);
-    } catch (err) {
-      setRotError(err instanceof Error ? err.message : 'Failed to delete note');
-    } finally {
-      setRotSaving(false);
-    }
-  };
-
   // Search results for the create-appointment picker: this school's active,
   // synced roster, name-matched. Kinder and Grades 7-10 are reachable here —
   // the old grade dropdown was hardcoded to Grade 1-6 and could not book an
@@ -350,11 +324,6 @@ export const Appointments = () => {
   );
 
   const filteredAppointments = appointments.filter(a => {
-    if (gradeFilter !== 'all' && a.grade !== gradeFilter) return false;
-    if (statusFilter !== 'all' && getStatus(a) !== statusFilter) return false;
-    if (typeFilter !== 'all' && a.type !== typeFilter) return false;
-    if (searchTerm && !a.grade.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !a.section.toLowerCase().includes(searchTerm.toLowerCase())) return false;
     return true;
   });
 
@@ -472,11 +441,6 @@ export const Appointments = () => {
   // both the normal single-day note (weekStart === weekEnd) and any older
   // multi-day rotation rows already in the database from before this screen
   // was repurposed.
-  const getNotesForDay = (date: Date | null) => {
-    if (!date || !selectedSchool) return [];
-    const ds = toLocalDateString(date);
-    return rotations.filter(r => r.school === selectedSchool && r.weekStart <= ds && r.weekEnd >= ds);
-  };
   const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth()-1, 1));
   const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth()+1, 1));
   const monthName = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
