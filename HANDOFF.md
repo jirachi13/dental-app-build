@@ -41,25 +41,79 @@ Her design, our code. The record screen matches hers section for section (both t
 
 **The rule that would have caught most of them: open the browser BEFORE committing.**
 
-### ⚠ NOT TESTED — the honest gap
-Everything was exercised as **DENTIST only**. Nothing has been opened as System Admin, Dental Aide, School Administrator or BHO Staff since the redesign. Finding 8 shows what that class of bug looks like: a role whose entire purpose was unreachable, invisible from the dentist's account.
+### ROLE AUDIT — DONE 2026-09-06. All five roles opened. Five bugs, all fixed and pushed.
+The redesign had been exercised as DENTIST only. Every other role has now been logged into and
+walked screen by screen. What that found, newest commit first:
 
-Cheapest useful check: **School Admin and BHO Staff see only Dashboard + Reports** — two screens each, five minutes. Dental Aide sees everything except Risk Classification.
+**`83f37543` — two list headers counted students and called them something else.**
+Dental Charts said "14 charts found" and Treatment's Full List "14 records found". Both lists are
+one row per PUPIL. DENTAL_CHART held 54 rows for 26 pupils and TREATMENT held none, so neither
+number was ever the noun beside it. Both say "N students" now. (Treatment's DEFAULT view was
+already honest — it filters to pupils who have one and correctly showed 0.)
+
+**`9aff3e60` — the school_admin role, three findings.**
+1. Their Reports school selector offered all three schools and "All Schools" while the server
+   scopes their data to one. Picking another school changed the CAPTION and not the figures — the
+   DOH form printed "SCHOOL: All Schools" over Annex A's numbers. Confirmed by cycling all three
+   options and watching the row stay identical. The selector now lists only schools the user
+   holds; one school means no "All Schools" option and the caption names their school.
+   ⚠ Verified NOT a regression for multi-school users: as the aide, picking a school changes both
+   caption and data.
+2. **Target Client List and Consent Form print one row per identified child** — name, complete
+   address, contact number, birthday, PhilHealth number, caries experience. CLAUDE.md gives that
+   role "no clinical records"; the manuscript has the School Administrator receiving one aggregate
+   report (Ch. 3 external entities). Both tabs hidden for the role, panels included.
+3. Hiding tabs is not the fix. **`GET /api/students` handed a school_admin fully identified
+   records** for every pupil in their school. `crudFactory` gained a `redact` option — named
+   fields return blank for named roles. Their dashboard needs rows, not identities, and renders
+   the same 6 / 5 / 83% with them blanked.
+
+**`4bd5deb0` — the BHO role, two findings.**
+1. **The DOH consolidated return said 26 pupils had allergies. Three do.** `/stats/doh-report`
+   read MEDICAL_HISTORY with `.lean()`; `allergies` is ENCRYPTED, so every row came back as
+   `<iv>:<ciphertext>` — and the plugin encrypts the empty string too, so `!!allergies` was true
+   for all 26. Tell-tale: the row printed exactly the same figures as "No. Orally Examined".
+   Hydrating the query fixes it. **This is the Sprint 118 trap on a filed government form** —
+   check every `.lean()` that touches an encrypted field.
+2. **"Orally fit" was a clinical claim nothing supports.** The tile is `risk === "Low"` and
+   nothing else. "Orally Fit Child" is a DOH indicator needing a judgement this system does not
+   store — the same reason the IPTR row is deliberately blank — and it was on the screen of the
+   role that files City Health Office returns. Relabelled "Low caries risk" on the tile, the
+   age-bracket table and the status chart. Numbers unchanged.
+
+**Roles that came back clean:**
+- **Dental Aide** — all seven screens walked (Dashboard, Appointments incl. calendar + the date
+  panel, Students, Dental Charts, Treatment, RPC Tracking, Reports). Nav correctly excludes Risk
+  Classification, notification badge renders, record screen shows six sub-tabs, and **Edit mode
+  opens and cancels cleanly** (the fix for old finding 9 holds). Nothing found.
+- **BHO staff** — both screens. The "All schools" card is offered (the `d037ad57` fix working for
+  the role it had blocked); counts correct.
+- **school_admin scoping itself was sound**: `?school=` for another school still returned only
+  their own pupils, and `/api/users` 403s.
 
 ### Dev demo accounts
 All five are now **`12345678`** (`admin` / `dentist` / `aide` / `schooladmin` / `bho` @floral.com), applied with `npm run apply:seed-passwords` and verified against the stored hashes. Previous values are in `.env.bak-before-simple-passwords`.
 ⚠ The app enforces a minimum of 8 characters in four server-side places, so "12345" is not possible without weakening a real control. ⚠ Login is rate-limited to 10 attempts per 15 minutes per IP — restart `dev:server` to clear it, the counter is in memory.
 ⚠ **Production `SEED_BHO_PASSWORD` is still 7 chars** and will refuse a production re-seed until lengthened.
 
+### Worth a sprint, found while auditing
+- **Audit every `.lean()` that reads an encrypted field.** `4bd5deb0` was one instance; the same
+  shape can exist anywhere STUDENT, MEDICAL_HISTORY, TREATMENT or DENTAL_AIDE is read lean and a
+  value tested for truthiness or compared. `grep -rn "\.lean()" server/` and check each against
+  `fieldEncryptionOptions`. Only `/stats/doh-report` was found this pass; the rest of the route
+  file's lean reads select non-encrypted fields, but that was checked by eye, not exhaustively.
+- **`redact` applies to STUDENT only.** Other roles reading other models were not re-examined for
+  the same over-disclosure. The mechanism is now there if a second case turns up.
+
 ### Left open, none of it blocking
 - **`allow_school_year_override`** is on `ApiSchool` but NOT on the SCHOOL model, so that dialog's manual-override section stays hidden. `SchoolManagement` is still ours for the same reason.
 - **`noUnusedLocals` is OFF** in tsconfig — turning it on is what would have caught this session's dead code automatically. Its own small sprint.
-- **Counter audit unfinished**: Dashboard and Appointments were wrong and are fixed; Students verified correct; **Dental Charts and Treatment not yet checked**.
+- **Counter audit CLOSED 2026-09-06**: Dashboard, Appointments, Students, Dental Charts and Treatment all checked against the database. The last two were mislabelled, not miscounted (`83f37543`).
 - Screens she never touched and that still use the old page shell: **RPC Tracking, Reports, Treatment, Risk Classification**. No file to copy — the patterns are established (see `da0fe51b` for how the Dental Charts list was done).
 
 ### For the dentist
 - What does **Consultation** mean for the DOH return? No field on `PREVENTIVE_CARE_RECORD`, so her chip is not copied.
-- How is **Orally Fit Child** decided? Its DOH definition needs a judgement nothing stores; the row renders blank and says "not recorded".
+- How is **Orally Fit Child** decided? Its DOH definition needs a judgement nothing stores; the row renders blank and says "not recorded". The barangay dashboard no longer uses the term at all (`4bd5deb0`) — it says "Low caries risk", which is what the number actually is.
 
 ### ⚠ MACHINE STATE TO UNDO
 - **`.env` line 25** gained `,http://localhost:5174` so her branch could reach the API. Local only, untracked.
