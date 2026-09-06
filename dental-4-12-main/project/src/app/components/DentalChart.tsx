@@ -347,6 +347,18 @@ export const DentalChart = () => {
   const [infoSaving, setInfoSaving] = useState(false);
   const [infoError, setInfoError] = useState<string | null>(null);
   const [yearMenuOpen, setYearMenuOpen] = useState(false);
+  // ⚠ The menu is rendered FIXED, positioned from the button, because the year
+  // strip is `overflow-x-auto` — and once overflow applies on one axis the
+  // browser clips the other too. An absolutely positioned dropdown opened
+  // inside it rendered at full size and was cut off by the strip, which looked
+  // exactly like the button doing nothing.
+  const yearMenuBtnRef = useRef<HTMLButtonElement | null>(null);
+  const [yearMenuAt, setYearMenuAt] = useState<{ top: number; right: number } | null>(null);
+  const openYearMenu = () => {
+    const r = yearMenuBtnRef.current?.getBoundingClientRect();
+    if (r) setYearMenuAt({ top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) });
+    setYearMenuOpen((v) => !v);
+  };
   const headerRowRef = useRef<HTMLDivElement | null>(null);
   // Wraps the record body for the PDF export, excluding the sticky toolbar —
   // a downloaded patient record should not carry Edit/Save buttons.
@@ -1718,7 +1730,7 @@ export const DentalChart = () => {
                   forbids, so it is left out rather than stubbed. */}
               {canEdit && (
                 <div className="relative ml-2 flex-shrink-0 py-2">
-                  <button type="button" onClick={() => setYearMenuOpen((v) => !v)}
+                  <button type="button" ref={yearMenuBtnRef} onClick={openYearMenu}
                     title="School year options" aria-label="School year options" aria-expanded={yearMenuOpen}
                     className="flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-gray-50">
                     School year <MoreVertical className="w-3.5 h-3.5" />
@@ -1729,7 +1741,10 @@ export const DentalChart = () => {
                           else — without it the menu only closes by re-pressing
                           the button, which nobody does. */}
                       <div className="fixed inset-0 z-10" onClick={() => setYearMenuOpen(false)} />
-                      <div className="absolute right-0 top-full mt-1 z-20 w-52 rounded-xl border border-border bg-card shadow-md py-1">
+                      <div
+                        style={yearMenuAt ? { top: yearMenuAt.top, right: yearMenuAt.right } : undefined}
+                        className="fixed z-50 w-52 rounded-xl border border-border bg-card shadow-md py-1"
+                      >
                         {(() => {
                           const nextYear = getNextSchoolYear();
                           const currentYear = schoolYearLabel();
