@@ -1635,7 +1635,16 @@ export const DentalChart = () => {
                 </button>
               ))}
               </div>
-              {canEditHistory && currentYearData && (editMode || activeTab === 'history' || (canEdit && activeTab === 'chart')) && (
+              {/* ⚠ The chart tab no longer belongs to the dentist alone. Sprint
+                  176 moved Oral Health Condition here, and Sprint 154 put the
+                  Oral Conditions and Treatments Given card here — both are
+                  `editingHistory` data, which a DENTAL AIDE may edit. The old
+                  condition only offered the pencil on this tab to `canEdit`
+                  (dentist), so an aide stood in front of fields they are
+                  allowed to change with no way to start changing them: they
+                  had to go to History, press the pencil there, then come back.
+                  Teeth remain dentist-only through `editingChart`. */}
+              {canEditHistory && currentYearData && (editMode || activeTab === 'history' || activeTab === 'chart') && (
                 <div className="flex shrink-0 items-center gap-2 px-3">
                   {!editMode ? (
                     /* Icon only, at the right end of the tab strip — her
