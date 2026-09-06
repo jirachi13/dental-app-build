@@ -96,6 +96,42 @@ All five are now **`12345678`** (`admin` / `dentist` / `aide` / `schooladmin` / 
 ⚠ The app enforces a minimum of 8 characters in four server-side places, so "12345" is not possible without weakening a real control. ⚠ Login is rate-limited to 10 attempts per 15 minutes per IP — restart `dev:server` to clear it, the counter is in memory.
 ⚠ **Production `SEED_BHO_PASSWORD` is still 7 chars** and will refuse a production re-seed until lengthened.
 
+### ⚠ TWO EDITIONS OF THE TARGET CLIENT LIST EXIST — the FILED one now governs (2026-09-06)
+The user supplied a **filed sample** (Bagong Tanyag, Grade 1, dated 8-5-25 — the sheet this
+barangay actually submits). It disagrees with `TCLForm2andFHSISReport.xlsx`, the workbook this
+table was transcribed from in Sprints 82/84. They are different editions of the form. `08251b27`
+reconciled the app to the FILED one, because that is the document that leaves the building.
+
+**Dropped** (workbook has them, filed form does not): Facility Based, Family Serial Number,
+Barangay, "5 Year Old with Permanent Dentition", the second Orally Fit Child column, the second
+Gum Treatment column, and the whole DENTAL VISIT group — which also removed the `/appointments`
+fetch that existed only to fill those two cells.
+**Restored**: "Oral hygiene Instruction". Removing it on 2026-09-03 also made "Counseling" print
+the oral-hygiene answer, so one recorded service was filed under another service's name.
+**Corrected**: ROUTINE PREVENTIVE CARE is a band ABOVE FIRST/SECOND; Gum Treatment sits between
+Extraction and the sealant; several captions.
+
+⚠ If the workbook edition turns out to govern instead, `08251b27` is one revert.
+
+⚠ **"Orally Fit Child" was printing a ✓ derived from `risk === "Low"`** on this filed form — the
+third place that false claim turned up in one day (dashboard tile, age table, TCL). It is blank
+now. Anywhere else that reads `oralStatus === 'Orally Fit'` deserves the same look.
+
+### PRINTING: paper is per-form now, and the TCL is measured to the sheet (2026-09-06, `e18ca7ea`)
+- `@page` cannot be selected by a class, so ONE rule in index.css forced `size: landscape` on every
+  printable in the app — the IPTR and the consent letter printed on landscape sheets. Forms now own
+  their own rule while mounted, via `usePrintOrientation()`.
+- Paper default is **8.5 × 13in Philippine long bond**, not A4 (the sample scans at a 1.50 ratio;
+  Folio is 1.53, A4 is 1.41). One constant in that hook if the clinic prints A4.
+- The TCL print rules are **measured**: long bond landscape less 6mm margins is 1203 × 771px, and
+  the two pages now come to 1201 × 686 and 1201 × 729. Before them page 1 was 1540px wide and would
+  have been CUT OFF at the right edge. Changing any value there means re-measuring — the browser
+  simulation used is a `<style>` with the print rules un-gated plus a 1203px-wide `.form-print`.
+- ⚠ UNVERIFIED ON PAPER: Chrome's print dialog can override `@page size`. Nobody has run a real
+  print yet.
+- The form is **25 ruled rows** and they are part of the form; the table pads to them, and rounds up
+  to whole sheets past 25 clients.
+
 ### Worth a sprint, found while auditing
 - **The `.lean()` sweep is DONE, not pending** (`ef5bd5af`). Every `.lean()` in `server/` was
   checked against the four encrypted models (STUDENT is not among them — the plugin is on
