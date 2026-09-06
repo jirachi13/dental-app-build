@@ -75,9 +75,14 @@ async function run() {
       continue;
     }
     willWrite++;
+    // ⚠ NO NAMES. `last_name`/`first_name` are ENCRYPTED on STUDENT and this
+    // read is `.lean()`, which returns the raw `<iv>:<ciphertext>` — silently,
+    // with a 200 and no error (the Sprint 118 trap). Printing them produced
+    // lines like "d100a362…:355fa4e0…, ca9a1fe9…:8c277708…", which identify
+    // nothing and cannot be checked against a pupil. The id is not encrypted
+    // and is what you would grep for.
     console.log(
-      `  ${String(s.last_name ?? "").trim()}, ${String(s.first_name ?? "").trim()}  ` +
-        `${latest.school_year} → complete` +
+      `  student ${String(s._id)}  ${latest.school_year} → complete` +
         (sorted.length > 1 ? `   (${sorted.length - 1} older year(s) left "pending")` : ""),
     );
     if (CONFIRM) {
