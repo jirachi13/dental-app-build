@@ -662,7 +662,19 @@ export const Appointments = () => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Appointments</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{appointments.length} appointment{appointments.length !== 1 ? 's' : ''} total</p>
+          {/* ⚠ A SESSION IS NOT AN APPOINTMENT. `appointments` here is the
+              session list — one scheduled slot holding several pupils, which is
+              what each card below shows — so this line read "10 appointments
+              total" for a school with 14 appointment rows. The tab counts are
+              session counts and are right, because the cards are sessions; only
+              this total claimed to be something it was not. Both units now,
+              named. */}
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {appointments.length} session{appointments.length !== 1 ? 's' : ''}
+            {' · '}
+            {appointments.reduce((n, a) => n + a.appointmentIds.length, 0)} appointment
+            {appointments.reduce((n, a) => n + a.appointmentIds.length, 0) !== 1 ? 's' : ''}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {/* No export by design (2026-09-02) — see PatientList for the
