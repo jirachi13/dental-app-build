@@ -1888,10 +1888,14 @@ export const DentalChart = () => {
                 somewhere else entirely (the Edit Student Info panel). Two
                 places for one record is how a screen ends up disagreeing with
                 itself, so both of those are gone and this is the one editor. */}
-            {/* ⚠ NO CARD OF ITS OWN. Hers is the first section INSIDE the tab's
-                card, not a box floating in it — the tab content is already a
-                card, and nesting another one boxed the same content twice. */}
-            <div>
+            {/* ⚠ A CARD, like every other section on this tab. An earlier pass
+                stripped it on the reasoning that the tab body is already a card
+                — true, but its four siblings (Medical History, Dietary Habits,
+                the Data Privacy notice, Upcoming Appointments) are all nested
+                cards inside it, so this was the one section sitting bare. Hers
+                boxes it too: `bg-card rounded-xl border border-border p-4` at
+                DentalChart.tsx:1702 on classmate/majorUpdates. */}
+            <div className="bg-card rounded-xl border border-border p-4">
               <div className="text-base font-bold text-foreground mb-3">Physical Measurements</div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
