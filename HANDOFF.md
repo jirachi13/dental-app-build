@@ -97,11 +97,15 @@ All five are now **`12345678`** (`admin` / `dentist` / `aide` / `schooladmin` / 
 ⚠ **Production `SEED_BHO_PASSWORD` is still 7 chars** and will refuse a production re-seed until lengthened.
 
 ### Worth a sprint, found while auditing
-- **Audit every `.lean()` that reads an encrypted field.** `4bd5deb0` was one instance; the same
-  shape can exist anywhere STUDENT, MEDICAL_HISTORY, TREATMENT or DENTAL_AIDE is read lean and a
-  value tested for truthiness or compared. `grep -rn "\.lean()" server/` and check each against
-  `fieldEncryptionOptions`. Only `/stats/doh-report` was found this pass; the rest of the route
-  file's lean reads select non-encrypted fields, but that was checked by eye, not exhaustively.
+- **The `.lean()` sweep is DONE, not pending** (`ef5bd5af`). Every `.lean()` in `server/` was
+  checked against the four encrypted models (STUDENT is not among them — the plugin is on
+  DENTAL_AIDE, MEDICAL_HISTORY, REFERRAL, TREATMENT). Two instances existed: the DOH allergies row
+  and `/stats/reports-panels` reading REFERRAL, which would have printed `<iv>:<ciphertext>` as the
+  referral reason the first time one was issued. Both hydrate now. Everything else selects
+  non-encrypted fields; `crudFactory`'s lean reads serve scope checks and a `uniqueBy` that keys on
+  student_id + school_year.
+  ⚠ The durable rule: **`.lean()` on an encrypted model returns ciphertext with a 200 and no
+  error.** It is silent by construction, so it is caught by reading the query, never by testing.
 - **`redact` applies to STUDENT only.** Other roles reading other models were not re-examined for
   the same over-disclosure. The mechanism is now there if a second case turns up.
 
