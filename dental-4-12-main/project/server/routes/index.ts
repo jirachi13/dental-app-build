@@ -673,7 +673,13 @@ router.get("/stats/doh-report", requireAuth, asyncHandler(async (req, res) => {
       School.find(active).select("_id school_name").lean(),
       Student.find(studentFilter).select("_id school_id sex birthday").lean(),
       StudentIptr.find(active).select("_id student_id school_year grade_level").lean(),
-      MedicalHistory.find(active).lean(),
+      // ⚠ NOT `.lean()` — MEDICAL_HISTORY.allergies is ENCRYPTED, and the DOH
+      // return counts it by truthiness. Under `.lean()` every row comes back as
+      // `<iv>:<ciphertext>` (the Sprint 118 trap), and the plugin encrypts the
+      // empty string too — so EVERY pupil looked like they had an allergy.
+      // Measured on dev 2026-09-06: the form printed 26 where the truth was 3.
+      // Hydrating decrypts; the other medical fields are plain booleans.
+      MedicalHistory.find(active),
       DietarySocialHabits.find(active).lean(),
       OralHealthCondition.find(active).lean(),
       PreventiveCareRecord.find(active).select("_id iptr_id visit_number visit_date facility_based").lean(),
@@ -704,7 +710,12 @@ router.get("/stats/doh-report", requireAuth, asyncHandler(async (req, res) => {
       school_year: str(i.school_year),
       grade_level: i.grade_level ?? null,
     })),
-    medicals: (medicals as any[]).map((m) => ({ ...m, iptr_id: str(m.iptr_id) })),
+    medicals: (medicals as any[]).map((m) => ({
+      ...(m.toObject ? m.toObject() : m),
+      iptr_id: str(m.iptr_id),
+      // Decrypted above; trimmed here so "" and " " both read as "no allergy".
+      allergies: String(m.allergies ?? "").trim(),
+    })),
     dietaries: (dietaries as any[]).map((d) => ({ ...d, iptr_id: str(d.iptr_id) })),
     orals: (orals as any[]).map((o) => ({ ...o, iptr_id: str(o.iptr_id) })),
     preventives: (preventives as any[]).map((p) => ({

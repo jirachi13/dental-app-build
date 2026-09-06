@@ -903,7 +903,13 @@ export const Dashboard = () => {
     const oralHealthStatusData = [
       // semantic status colors (Sprint 23o): good=green, needs-care=red,
       // in-progress=brand blue, no-data-yet=neutral gray (not warning-amber)
-      { name: 'Orally Fit', value: schoolStudents.filter((s) => s.oralStatus === 'Orally Fit').length, color: CHART.success },
+      // ⚠ Label only. The VALUE is `oralStatus === 'Orally Fit'`, which
+      // `deriveOralStatus` sets purely from a Low risk stratification — it is
+      // not the DOH "Orally Fit Child" indicator, whose definition (caries-free
+      // or treated, no debris, no gum pathology) needs a judgement nothing in
+      // this system stores. Printing the DOH term here would put a clinical
+      // claim on a screen the barangay files returns from.
+      { name: 'Low caries risk', value: schoolStudents.filter((s) => s.oralStatus === 'Orally Fit').length, color: CHART.success },
       { name: 'Needs Treatment', value: schoolStudents.filter((s) => s.oralStatus === 'Needs Treatment').length, color: CHART.danger },
       { name: 'Under Treatment', value: schoolStudents.filter((s) => s.oralStatus === 'Under Treatment').length, color: CHART.brand },
       { name: 'Not Yet Screened', value: schoolStudents.filter((s) => s.oralStatus === 'Not Yet Screened').length, color: CHART.neutral },
@@ -1182,9 +1188,19 @@ export const Dashboard = () => {
               linkTo="/reports"
               loading={studentsLoading}
             />
+            {/* ⚠ "Low caries risk", NOT "Orally fit". This figure is derived
+                from RISK_STRATIFICATION — `risk === 'Low'` — and nothing else.
+                "Orally Fit Child" is a DOH indicator with a clinical definition
+                (caries-free or treated, no debris, no gum pathology), and the
+                IPTR deliberately leaves that row blank because nothing we store
+                can decide it. Showing a risk band under the DOH term, on the
+                dashboard of the role that files City Health Office returns, is
+                how an approximation gets copied onto a form as the real thing.
+                Same reasoning, same day, same indicator — now the same answer
+                in both places. */}
             <SummaryCell
               icon={CheckCircle}
-              label="Orally fit"
+              label="Low caries risk"
               value={`${orallyFitPct}%`}
               valueClass="text-success"
               trailing={`${orallyFitCount} of ${totalStudents}`}
@@ -1250,9 +1266,9 @@ export const Dashboard = () => {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-foreground">Age Bracket</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-foreground">Total Students</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-foreground">Orally Fit</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-foreground">Low caries risk</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-foreground">Needs Treatment</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-foreground">Fitness Rate</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-foreground">Low-risk rate</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
