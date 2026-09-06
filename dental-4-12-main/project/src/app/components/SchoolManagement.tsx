@@ -32,6 +32,7 @@ const emptyForm = {
   street_address: '',
   barangay: 'Tanyag',
   city: 'Taguig City',
+  allow_school_year_override: false,
 };
 
 export const SchoolManagement = () => {
@@ -62,6 +63,7 @@ export const SchoolManagement = () => {
       street_address: s.street_address ?? '',
       barangay: s.barangay ?? '',
       city: s.city ?? '',
+      allow_school_year_override: s.allow_school_year_override ?? false,
     });
     setFormError(null);
     setShowForm(true);
@@ -226,6 +228,25 @@ export const SchoolManagement = () => {
                   onChange={(e) => setForm({ ...form, city: e.target.value })} />
               </div>
             </div>
+            {/* ⚠ The one control that can enable "Start New School Year"
+                outside March–August. Her UpdateSchoolYear page has pointed at
+                it since the shell adoption, but the field did not exist on our
+                SCHOOL model, so the button it governs was permanently dead and
+                the instruction on screen pointed nowhere (Sprint 183). */}
+            <label className="flex items-start gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={form.allow_school_year_override}
+                onChange={(e) => setForm({ ...form, allow_school_year_override: e.target.checked })}
+                className="w-4 h-4 mt-0.5 accent-primary"
+              />
+              <span>
+                Allow school-year rollover anytime
+                <span className="block text-xs text-muted-foreground mt-0.5">
+                  "Start New School Year" on Update School Year is normally only clickable March–August. Checking this lets the dentist or dental aide run it for this school outside that window.
+                </span>
+              </span>
+            </label>
             {formError && <Notice variant="error">{formError}</Notice>}
             <div className="flex gap-3 pt-1">
               <button onClick={() => setShowForm(false)} disabled={submitting}

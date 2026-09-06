@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { ArrowLeft, GraduationCap, Repeat, Archive as ArchiveIcon } from 'lucide-react';
+import { ArrowLeft, GraduationCap, Repeat, Archive as ArchiveIcon, School as SchoolIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useStudents } from '../hooks/useStudents';
 import { apiClient, ApiError } from '../api/client';
@@ -253,7 +253,20 @@ export const UpdateSchoolYear = () => {
         <Link to="/patients" aria-label="Back to Students" title="Back to Students" className="inline-flex items-center justify-center w-9 h-9 rounded-full text-muted-foreground hover:text-foreground hover:bg-gray-100">
           <ArrowLeft className="w-5 h-5" />
         </Link>
-        <Notice variant="warning">Pick a specific school from the Students page first — this runs one school at a time.</Notice>
+        {/* ⚠ The old text said "from the Students page", which is where the
+            school USED to be chosen — a dropdown in the sidebar. It is picked
+            on Switch School now, so the instruction sent people somewhere that
+            cannot do it, and the screen looked broken rather than gated.
+            The way out is a button, not a sentence. */}
+        <Notice variant="warning">
+          This runs one school at a time, and you are viewing <strong>All schools</strong>. Choose a school to continue.
+        </Notice>
+        <Link
+          to="/select-school"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-medium text-white hover:bg-primary-hover"
+        >
+          <SchoolIcon className="w-4 h-4" /> Switch School
+        </Link>
       </div>
     );
   }
