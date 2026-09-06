@@ -1,4 +1,5 @@
 import { useMemo, useState, useRef, Fragment } from 'react';
+import { usePrintOrientation } from '../hooks/usePrintOrientation';
 import { useDohReportData } from '../hooks/useDohReportData';
 import { SkeletonTable } from './Skeleton';
 import { FORM_SECTION_BAND, BLOCKED_CELL, BLOCKED_TITLE, FORM_SUBROW_LABEL } from '../utils/dohFormStyle';
@@ -306,6 +307,8 @@ function loadSet(key: string): Set<string> {
 }
 
 export const OralHealthProgramReport = ({ schoolYear = null, schoolName = null }: { schoolYear?: string | null; schoolName?: string | null }) => {
+  // → A wide banded grid, like the consolidated report.
+  usePrintOrientation('landscape');
   // Scoped to the SAME school the DOH tab's picker selects, not the sidebar's
   // current school — the two are different controls and this form is read
   // beside the consolidated report.

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { usePrintOrientation } from '../hooks/usePrintOrientation';
 import { Download } from 'lucide-react';
 import { exportDohReportToPdf } from '../utils/exportPdf';
 
@@ -59,6 +60,8 @@ const Line = ({ w = 'flex-1' }: { w?: string }) => (
 );
 
 export const ConsentForm = () => {
+  // → A one-page letter with a signature block, built at 780px — portrait.
+  usePrintOrientation('portrait');
   const printableRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
 

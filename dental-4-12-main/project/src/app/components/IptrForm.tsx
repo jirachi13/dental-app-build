@@ -1,4 +1,5 @@
 import type { ApiStudent, ApiDentist } from '../api/types';
+import { usePrintOrientation } from '../hooks/usePrintOrientation';
 import type { IptrYearData } from '../hooks/useDentalChartData';
 import { formatDate } from '../utils/localDate';
 import { surnameFirst } from '../utils/studentName';
@@ -112,6 +113,8 @@ interface Props {
 }
 
 export function IptrForm({ student, years, dentists }: Props) {
+  // → The DOH IPTR is a portrait sheet; this renders at a fixed 780px, which is A4 portrait's width.
+  usePrintOrientation('portrait');
   const dentistNameById = new Map(dentists.map((d) => [d._id, `Dr. ${d.first_name} ${d.last_name}`]));
 
   // The form has five year columns. More than five school years is a real

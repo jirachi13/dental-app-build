@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { usePrintOrientation } from '../hooks/usePrintOrientation';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../api/client';
 import type { ApiStudent, ApiOralHealthCondition, ApiStudentIptr } from '../api/types';
@@ -368,6 +369,8 @@ const TCL_UNVERIFIED = SERVICE_COLUMNS.filter((c) => c.unverified).length;
 // constant that was now also wrong.
 
 export const TargetClientList = () => {
+  // → The filed sample is a wide landscape sheet: 30 columns on page 1, 31 on page 2.
+  usePrintOrientation('landscape');
   const { selectedSchool } = useAuth();
   const { students, loading: studentsLoading } = useStudents();
   const { records: rpcRecords, loading: rpcLoading } = useRPCTracking();
@@ -566,22 +569,38 @@ export const TargetClientList = () => {
   // line to change, and it is the only one.
   const PAGE1_GROUPS = ['ORAL HEALTH STATUS', 'ORALLY FIT CHILD'];
 
+  // ⚠ THE FORM IS 25 RULED ROWS, and they are part of the form.
+  //
+  // Counted on the filed sample the user supplied: both pages are numbered 1
+  // to 25, and that sheet was submitted with 21 filled and rows 22-25 blank.
+  // This table used to stop after the last client — four rows on a 25-row
+  // form — which is the same class of error as a missing column: "a blank cell
+  // on a DOH form is meaningful; a MISSING one is a different form" (CLAUDE.md).
+  //
+  // Over 25 clients the paper form runs to a second sheet, so the count rounds
+  // UP to whole sheets rather than stopping mid-block.
+  const FORM_ROWS = 25;
+  const ruledRows = Math.max(FORM_ROWS, Math.ceil(visible.length / FORM_ROWS) * FORM_ROWS);
+  const blankRowIndexes = Array.from({ length: ruledRows - visible.length }, (_, n) => visible.length + n);
+
   const onXlsx = async () => {
     setBusy('xlsx');
     try {
+      // `row: null` is one of the form's blank ruled rows — numbered, empty.
+      type XlsxRow = { row: Row | null; i: number };
       const svc = (c: (typeof visibleServices)[number]) => ({
         label: `${c.group} — ${c.label}`,
-        value: (r: { row: Row; i: number }) => String(c.value ? c.value(r.row) : NO_SOURCE),
+        value: (r: XlsxRow) => (r.row ? String(c.value ? c.value(r.row) : NO_SOURCE) : ''),
       });
       const numberCol = {
         label: 'No.',
-        value: (r: { row: Row; i: number }) => String(r.i + 1),
+        value: (r: XlsxRow) => String(r.i + 1),
       };
 
       const page1 = [
         ...visibleIdentity.map((c) => ({
           label: c.label,
-          value: (r: { row: Row; i: number }) => String(c.value(r.row, r.i) ?? ''),
+          value: (r: XlsxRow) => (r.row ? String(c.value(r.row, r.i) ?? '') : c.key === 'no' ? String(r.i + 1) : ''),
         })),
         ...visibleServices.filter((c) => PAGE1_GROUPS.includes(c.group)).map(svc),
       ];
@@ -592,7 +611,12 @@ export const TargetClientList = () => {
         ...(remarksVisible ? [{ label: 'REMARKS (Specify other findings)', value: () => '' }] : []),
       ];
 
-      const rows = visible.map((row, i) => ({ row, i }));
+      // The workbook is the artifact that gets filed, so it carries the form's
+      // blank ruled rows too — same count as the screen.
+      const rows: XlsxRow[] = [
+        ...visible.map((row, i) => ({ row: row as Row | null, i })),
+        ...blankRowIndexes.map((i) => ({ row: null, i })),
+      ];
       await exportSheetsToXlsx(
         [
           { name: 'Page 1', rows, columns: page1 },
@@ -681,7 +705,7 @@ export const TargetClientList = () => {
         <div className="print-hide px-3 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           Page {page} of 2
         </div>
-        <table className="border-collapse">
+        <table className="tcl-table border-collapse">
           <thead className="bg-gray-50">
             {/* ⚠ SUPER-BAND, page 2 only. On the paper form FIRST and SECOND are
                 not top-level headings — they sit UNDER one band reading ROUTINE
@@ -731,9 +755,7 @@ export const TargetClientList = () => {
             </tr>
           </thead>
           <tbody>
-            {visible.length === 0 ? (
-              <tr><td className={`${td} text-center text-muted-foreground`} colSpan={span}>No clients consulted in this period.</td></tr>
-            ) : visible.map((r, i) => (
+            {visible.map((r, i) => (
               <tr key={r.id} className="hover:bg-gray-50">
                 {identity.map((c) => (
                   <td key={c.key} className={`${td} ${c.cls ?? ''}`}
@@ -747,6 +769,18 @@ export const TargetClientList = () => {
                     {c.value ? c.value(r) : NO_SOURCE}
                   </td>
                 ))}
+                {withRemarks && <td className={td} />}
+              </tr>
+            ))}
+            {/* The form's remaining ruled rows. Numbered, because the paper
+                form numbers them — that is what lets page 2 be joined to page
+                1 — and otherwise empty. */}
+            {blankRowIndexes.map((n) => (
+              <tr key={`blank-${n}`}>
+                {identity.map((c) => (
+                  <td key={c.key} className={td}>{c.key === 'no' ? n + 1 : ''}</td>
+                ))}
+                {services.map((c, k) => <td key={`b-${c.group}-${c.label}-${k}`} className={td} />)}
                 {withRemarks && <td className={td} />}
               </tr>
             ))}

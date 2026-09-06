@@ -1,4 +1,5 @@
 import type { ApiStudent } from '../api/types';
+import { usePrintOrientation } from '../hooks/usePrintOrientation';
 import type { IptrYearData } from '../hooks/useDentalChartData';
 import { formatDate } from '../utils/localDate';
 import { sectionBRows, type ChartedTooth } from '../../../shared/iptrSectionB';
@@ -109,6 +110,8 @@ interface Props {
 }
 
 export function IptrFormV2({ student, schoolName, years }: Props) {
+  // → Built at a fixed 1040px — wider than any portrait sheet.
+  usePrintOrientation('landscape');
   /** That year's saved tooth records in the shared derivation's shape. */
   const chartedFor = (y: IptrYearData | null): ChartedTooth[] =>
     (y?.toothRecords ?? []).map((t) => ({

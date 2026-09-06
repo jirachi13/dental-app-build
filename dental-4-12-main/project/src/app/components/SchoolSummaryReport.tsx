@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { usePrintOrientation } from '../hooks/usePrintOrientation';
 import { useSchoolSummary, type BySex, type SchoolSummaryTally } from '../hooks/useSchoolSummary';
 import { SkeletonTable } from './Skeleton';
 import { FORM_SECTION_BAND } from '../utils/dohFormStyle';
@@ -98,6 +99,8 @@ interface Props {
 }
 
 export function SchoolSummaryReport({ schoolName, schoolYear }: Props) {
+  // → A short summary sheet, not a wide grid.
+  usePrintOrientation('portrait');
   const { tally, unsexedCount, loading, error } = useSchoolSummary(schoolName, schoolYear);
   const printableRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState<'pdf' | 'xlsx' | null>(null);

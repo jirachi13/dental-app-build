@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { usePrintOrientation } from '../hooks/usePrintOrientation';
 import { Download, FileSpreadsheet } from 'lucide-react';
 import { useFhsisData, FHSIS_BANDS, type FhsisBandKey, type Measure } from '../hooks/useFhsisData';
 import { exportDohReportToPdf } from '../utils/exportPdf';
@@ -69,6 +70,8 @@ const thisMonth = () => {
 };
 
 export const FhsisReport = ({ schoolName }: { schoolName: string }) => {
+  // → A wide age-bracket × sex grid, like the other DOH tables.
+  usePrintOrientation('landscape');
   const [month, setMonth] = useState(thisMonth);
   const { counts, monthsWithData, loading, error } = useFhsisData(month, schoolName);
   const printableRef = useRef<HTMLDivElement>(null);
