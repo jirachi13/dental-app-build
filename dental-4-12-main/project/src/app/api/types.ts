@@ -72,6 +72,8 @@ export interface ApiStudentIptr {
   height_cm: number | null;
   weight_kg: number | null;
   isArchived: boolean;
+  temperature_c?: number | null;
+  blood_pressure?: string | null;
   /** Consent for THIS school year (Sprint 167). A guardian signs each year. */
   consent_status: 'pending' | 'complete';
   /** Server-set when consent_status becomes 'complete'; null while pending. */

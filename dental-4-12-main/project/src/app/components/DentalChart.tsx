@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate, useSearchParams } from 'react-router';
 import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, TrendingUp, FileText, Plus, Pencil, Trash2, Brain, Download, X, Maximize2, Minimize2, Check, ChevronUp, ChevronDown, ShieldCheck, ShieldAlert, Shield as ShieldIcon, MoreVertical } from 'lucide-react';
 import { exportDohReportToPdf, exportPagesToPdf } from '../utils/exportPdf';
 import { getGradeColor } from '../utils/gradeColors';
-import { computeBmi, BMI_NOTE } from '../utils/bmi';
+import { computeBmi, BMI_NOTE, classifyNutritionalStatus } from '../utils/bmi';
 import { useAuth } from '../context/AuthContext';
 import { GradePill } from './GradePill';
 import { useToast } from './Toast';
@@ -424,6 +424,10 @@ export const DentalChart = () => {
   // Health Office that a service was WITHHELD, where null reads "not
   // recorded". A checkbox is binary, so unticking writes null back — never
   // false. "Explicitly not done" has no tick on the paper form either.
+  // Her Physical Measurements block owns these (Sprint 173). They used to be
+  // typed inside the Edit Student Info panel and read back as three grey rows
+  // on the patient card — two different places for one record. One editor now.
+  const [draftMeasure, setDraftMeasure] = useState({ height_cm: '', weight_kg: '', temperature_c: '', blood_pressure: '' });
   const [draftServices, setDraftServices] = useState<Record<ServiceField, boolean | null>>({
     oral_screening: null, oral_prophylaxis: null, fluoride_varnish: null, oral_hygiene_instruction: null,
   });
@@ -452,6 +456,7 @@ export const DentalChart = () => {
       setDraftMed(emptyMed());
       setDraftDiet(emptyDiet());
       setDraftOral(emptyOral());
+      setDraftMeasure({ height_cm: '', weight_kg: '', temperature_c: '', blood_pressure: '' });
       setDraftServices({ oral_screening: null, oral_prophylaxis: null, fluoride_varnish: null, oral_hygiene_instruction: null });
       setDraftVisitDate('');
       setDraftChartDate('');
@@ -485,6 +490,12 @@ export const DentalChart = () => {
     const visit = selectedChartRec ? currentYearData.preventiveByChart[selectedChartRec._id] : undefined;
     setDraftChartDate(selectedChartRec ? new Date(selectedChartRec.date_charted).toISOString().slice(0, 10) : '');
     setDraftVisitDate(visit ? new Date(visit.visit_date).toISOString().slice(0, 10) : '');
+    setDraftMeasure({
+      height_cm: currentYearData.iptr.height_cm != null ? String(currentYearData.iptr.height_cm) : '',
+      weight_kg: currentYearData.iptr.weight_kg != null ? String(currentYearData.iptr.weight_kg) : '',
+      temperature_c: currentYearData.iptr.temperature_c != null ? String(currentYearData.iptr.temperature_c) : '',
+      blood_pressure: currentYearData.iptr.blood_pressure ?? '',
+    });
     setDraftServices({
       oral_screening: visit?.oral_screening ?? null,
       oral_prophylaxis: visit?.oral_prophylaxis ?? null,
@@ -829,6 +840,16 @@ export const DentalChart = () => {
         ? currentYearData.preventiveByChart[currentYearData.dentalChart._id]
         : undefined;
       const extraWrites: Promise<unknown>[] = [];
+      // Measurements belong to the YEAR's record. Blank clears back to null
+      // rather than storing 0, which would read as "measured at zero" and feed
+      // a nonsense BMI.
+      const num = (v: string) => (v.trim() === '' ? null : Number(v));
+      extraWrites.push(apiClient.put(`/student-iptrs/${currentYearData.iptr._id}`, {
+        height_cm: num(draftMeasure.height_cm),
+        weight_kg: num(draftMeasure.weight_kg),
+        temperature_c: num(draftMeasure.temperature_c),
+        blood_pressure: draftMeasure.blood_pressure.trim(),
+      }));
       if (linkedVisit) {
         extraWrites.push(apiClient.put(`/preventive-care-records/${linkedVisit._id}`, {
           ...draftServices,
@@ -930,8 +951,10 @@ export const DentalChart = () => {
       const iptrId = years[selectedYear]?.iptr._id;
       if (iptrId) {
         await apiClient.put(`/student-iptrs/${iptrId}`, {
-          height_cm: draftYear.height_cm.trim() === '' ? null : Number(draftYear.height_cm),
-          weight_kg: draftYear.weight_kg.trim() === '' ? null : Number(draftYear.weight_kg),
+          // ⚠ height_cm/weight_kg deliberately NOT written here (Sprint 173).
+          // Physical Measurements on the History tab owns them now; sending
+          // them from this panel too would let a stale draft overwrite a fresh
+          // measurement depending on which save ran last.
           // Editable so a RETAINED pupil, or a section moved mid-year, can be
           // corrected on the year it belongs to — the dentist's own example.
           // Blank clears back to "not recorded" rather than writing "".
@@ -1168,6 +1191,17 @@ export const DentalChart = () => {
   // ⚠ Consent is per SCHOOL YEAR (Sprint 167). Reading STUDENT.consent_status
   // said a pupil who consented once had consented forever — a 2023 signature
   // authorising 2026 treatment.
+  // ⚠ Age in MONTHS at this year's measurement anchor, not today — the
+  // DOH/DepEd BMI-for-Age table is banded by month, and a pupil measured in
+  // August is not the age they are in June. Same reasoning as patientAge
+  // (Sprint 57b).
+  const patientAgeMonths = useMemo(() => {
+    if (!student?.birthday || !yearIptr?.school_year) return null;
+    const born = new Date(student.birthday);
+    const anchor = new Date(Number(String(yearIptr.school_year).slice(0, 4)) + 1, 5, 30);
+    if (Number.isNaN(born.getTime())) return null;
+    return (anchor.getFullYear() - born.getFullYear()) * 12 + (anchor.getMonth() - born.getMonth());
+  }, [student?.birthday, yearIptr?.school_year]);
   const consentComplete = yearIptr?.consent_status === 'complete';
   const yearGrade = yearIptr?.grade_level ?? null;
   const yearSection = yearIptr?.section ?? null;
@@ -1380,33 +1414,15 @@ export const DentalChart = () => {
                   onChange={(e) => setDraftYear((p) => ({ ...p, section: e.target.value }))}
                   className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs" />
               </div>
-              {/* Measured per school year, saved to the IPTR — the label says so,
-                  because everything else in this panel edits the student. */}
-              <div>
-                <label className="block text-muted-foreground font-medium mb-0.5">
-                  Height (cm) <span className="font-normal">· {years[selectedYear]?.iptr.school_year}</span>
-                </label>
-                <input type="number" min="0" max="300" step="0.1" inputMode="decimal"
-                  value={draftYear.height_cm}
-                  onChange={(e) => setDraftYear((p) => ({ ...p, height_cm: e.target.value }))}
-                  className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs" />
-              </div>
-              <div>
-                <label className="block text-muted-foreground font-medium mb-0.5">
-                  Weight (kg) <span className="font-normal">· {years[selectedYear]?.iptr.school_year}</span>
-                </label>
-                <input type="number" min="0" max="500" step="0.1" inputMode="decimal"
-                  value={draftYear.weight_kg}
-                  onChange={(e) => setDraftYear((p) => ({ ...p, weight_kg: e.target.value }))}
-                  className="w-full px-2 py-1.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-xs" />
-              </div>
-              <div>
-                <label className="block text-muted-foreground font-medium mb-0.5">BMI</label>
-                <div className="px-2 py-1.5 text-xs tabular-nums text-foreground" title={BMI_NOTE}>
-                  {computeBmi(Number(draftYear.height_cm) || null, Number(draftYear.weight_kg) || null)
-                    ?? <span className="text-muted-foreground">enter both</span>}
-                </div>
-              </div>
+              {/* ⚠ Height, Weight and the BMI preview are NOT edited here any
+                  more (Sprint 173). They moved to Physical Measurements on the
+                  History tab, alongside temperature and blood pressure, which
+                  is where hers are and where the BMI they feed is read. Two
+                  panels writing one field is how they drift.
+
+                  Grade and Section stay: those are enrolment, not measurements,
+                  and this panel is where a retained pupil's year is corrected
+                  (Sprint 70). */}
               <div>
                 <label className="block text-muted-foreground font-medium mb-0.5">PhilHealth No.</label>
                 <input type="text" value={draftInfo.philhealth_number ?? ''} onChange={(e) => setDraftInfo((p) => ({ ...p, philhealth_number: e.target.value }))}
@@ -1536,11 +1552,10 @@ export const DentalChart = () => {
                 ['PhilHealth', `${student.philhealth_number || '—'} (${student.philhealth_status || 'None'})`],
                 ['Guardian', student.guardian_name || '—'],
                 ['Guardian Contact', student.guardian_contact || '—'],
-                // Year-scoped, like grade and age above — these belong to the
-                // selected school year's record, not to the student.
-                ['Height', yearIptr?.height_cm != null ? `${yearIptr.height_cm} cm` : 'not measured'],
-                ['Weight', yearIptr?.weight_kg != null ? `${yearIptr.weight_kg} kg` : 'not measured'],
-                ['BMI', computeBmi(yearIptr?.height_cm, yearIptr?.weight_kg) ?? 'not measured'],
+                // ⚠ Height, Weight and BMI are NOT here any more (Sprint 173,
+                // hers). This card is identity and contact facts; a clinical
+                // measurement belongs with the rest of the measurements, on
+                // History, where it is also entered.
               ].map(([label, val]) => (
                 <div key={label}>
                   <div className="text-muted-foreground font-medium">{label}</div>
@@ -1800,6 +1815,81 @@ export const DentalChart = () => {
         {/* ── TAB 1: History ── */}
         {activeTab === 'history' && (
           <div className="p-4 space-y-4">
+            {/* Physical Measurements — first on the tab, hers (Sprint 173).
+                These were three grey read-only rows on the patient card, typed
+                somewhere else entirely (the Edit Student Info panel). Two
+                places for one record is how a screen ends up disagreeing with
+                itself, so both of those are gone and this is the one editor. */}
+            <div className="bg-card rounded-xl border border-border p-4">
+              <div className="text-base font-bold text-foreground mb-3">Physical Measurements</div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Height (cm)</label>
+                  <input type="number" min="0" max="300" step="0.1" inputMode="decimal" disabled={!editingHistory}
+                    value={draftMeasure.height_cm}
+                    onChange={(e) => setDraftMeasure((p) => ({ ...p, height_cm: e.target.value }))}
+                    placeholder="e.g. 120" className="w-full text-xs border border-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed" />
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Weight (kg)</label>
+                  <input type="number" min="0" max="500" step="0.1" inputMode="decimal" disabled={!editingHistory}
+                    value={draftMeasure.weight_kg}
+                    onChange={(e) => setDraftMeasure((p) => ({ ...p, weight_kg: e.target.value }))}
+                    placeholder="e.g. 25" className="w-full text-xs border border-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed" />
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Temperature (°C)</label>
+                  <input type="number" min="0" max="45" step="0.1" inputMode="decimal" disabled={!editingHistory}
+                    value={draftMeasure.temperature_c}
+                    onChange={(e) => setDraftMeasure((p) => ({ ...p, temperature_c: e.target.value }))}
+                    placeholder="e.g. 36.5" className="w-full text-xs border border-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed" />
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Blood Pressure</label>
+                  {/* Text, not two numbers: read and written as one pair, and
+                      nothing here queries systolic alone. */}
+                  <input type="text" disabled={!editingHistory}
+                    value={draftMeasure.blood_pressure}
+                    onChange={(e) => setDraftMeasure((p) => ({ ...p, blood_pressure: e.target.value }))}
+                    placeholder="e.g. 110/70" className="w-full text-xs border border-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed" />
+                </div>
+                {(() => {
+                  const bmiValue = computeBmi(Number(draftMeasure.height_cm) || null, Number(draftMeasure.weight_kg) || null);
+                  const status = classifyNutritionalStatus(bmiValue, patientAgeMonths, student.sex);
+                  const statusColor =
+                    status === 'Normal' ? 'bg-success-surface text-success'
+                    : status === 'Overweight' || status === 'Obese' ? 'bg-warning-surface text-warning'
+                    : status === 'Wasted' || status === 'Severely Wasted' ? 'bg-danger-surface text-destructive'
+                    : 'bg-muted text-muted-foreground';
+                  // ⚠ Say WHY it is blank. "Nothing measured yet" and "no
+                  // reference exists for this age" look identical as a dash,
+                  // and only one of them is the user's to fix.
+                  const statusFallback = bmiValue == null
+                    ? 'Automatic'
+                    : (patientAgeMonths ?? 0) < 72
+                    ? 'No reference below age 6'
+                    : 'No reference above age 19';
+                  return (
+                    <>
+                      <div>
+                        <label className="block text-xs text-muted-foreground mb-1">BMI</label>
+                        <div className="w-full text-xs border border-border rounded px-2 py-1 bg-muted text-muted-foreground" title={BMI_NOTE}>
+                          {bmiValue ?? 'Automatic'}
+                        </div>
+                      </div>
+                      <div className="col-span-2 sm:col-span-1">
+                        <label className="block text-xs text-muted-foreground mb-1">Nutritional Status</label>
+                        <div className={`w-full text-xs border border-border rounded px-2 py-1 ${statusColor}`}
+                          title="DOH/DepEd BMI-for-Age classification, 6-19 years old — blank outside that range.">
+                          {status ?? statusFallback}
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <div className="text-xs font-bold text-foreground uppercase tracking-wide mb-2">Medical History</div>

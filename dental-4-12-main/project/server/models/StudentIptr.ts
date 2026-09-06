@@ -33,6 +33,11 @@ const studentIptrSchema = new mongoose.Schema(
     // recorded either, so no migration accompanies this.
     height_cm: { type: Number, default: null, min: 0, max: 300 },
     weight_kg: { type: Number, default: null, min: 0, max: 500 },
+    // Vitals taken at the same sitting as height and weight (Sprint 173, hers).
+    // ⚠ Blood pressure is a STRING, not two numbers: it is read and written as
+    // one pair ("110/70"), and nothing in the app queries systolic alone.
+    temperature_c: { type: Number, default: null, min: 0, max: 45 },
+    blood_pressure: { type: String, default: null, trim: true },
 
     // ── Consent, PER SCHOOL YEAR (Sprint 167, adopted from the collaborator) ─
     //
