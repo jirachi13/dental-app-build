@@ -95,7 +95,8 @@ export const Root = () => {
   // Sidebar bell (Sprint 97). One server aggregate, same pattern as the badge
   // above — the sidebar renders on every screen, so it must not mount the
   // six-collection hooks these counts come from.
-  const { counts: notifCounts } = useNotifications(NOTIFIED_ROLES.includes(user?.role ?? ''), selectedSchool);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const { counts: notifCounts, error: notifError } = useNotifications(NOTIFIED_ROLES.includes(user?.role ?? ''), selectedSchool);
 
   // ⚠ THE BADGE COUNTS ONLY THE ROWS THIS ROLE CAN SEE. Risk validation is
   // dentist-only (nav tab 5), so for an aide or admin that row is hidden — and
@@ -433,10 +434,17 @@ export const Root = () => {
               staff: they view reports, never clinical records, so every count
               would be both zero and none of their business. Links straight to
               the full notifications page rather than an inline dropdown. */}
+          {/* ⚠ RESTORED to the inline popover we had before the adoption
+              (Sprint 184, the user's call). Hers navigated to a full
+              /notifications page; the popover reads in place, which is what a
+              notification is for — glance, act, carry on, without losing the
+              screen you were on. */}
           {NOTIFIED_ROLES.includes(user.role) && (
-            <Link
-              to="/notifications"
-              onClick={() => setDrawerOpen(false)}
+            <>
+            <button
+              type="button"
+              onClick={() => setShowNotifications((v) => !v)}
+              aria-expanded={showNotifications}
               title={collapsed ? `Notifications${notifTotal ? ` (${notifTotal})` : ''}` : undefined}
               className={`w-full flex items-center gap-3 px-3 py-2 text-muted-foreground hover:bg-muted rounded-lg transition-colors mb-1 justify-start ${collapsed ? 'md:justify-center' : 'md:justify-start'}`}
             >
@@ -449,7 +457,35 @@ export const Root = () => {
                 )}
               </span>
               <span className={`${labelCls} text-sm font-medium`}>Notifications</span>
-            </Link>
+            </button>
+            {showNotifications && !collapsed && (
+              <div className="mt-1 mb-2 rounded-lg bg-muted/60 p-2 space-y-1">
+                {notifTotal === 0 && (
+                  <p className="text-xs text-muted-foreground px-1 py-1">
+                    {notifError ? 'Counts unavailable right now.' : 'Nothing needs attention.'}
+                  </p>
+                )}
+                {notifCounts.overdueRpc > 0 && (
+                  <Link to="/rpc" onClick={() => setShowNotifications(false)}
+                    className="block text-xs px-2 py-1.5 rounded hover:bg-card text-foreground">
+                    <span className="font-semibold text-destructive">{notifCounts.overdueRpc}</span> overdue RPC visit{notifCounts.overdueRpc === 1 ? '' : 's'}
+                  </Link>
+                )}
+                {notifCounts.appointmentsToday > 0 && (
+                  <Link to="/appointments" onClick={() => setShowNotifications(false)}
+                    className="block text-xs px-2 py-1.5 rounded hover:bg-card text-foreground">
+                    <span className="font-semibold text-primary">{notifCounts.appointmentsToday}</span> appointment{notifCounts.appointmentsToday === 1 ? '' : 's'} today
+                  </Link>
+                )}
+                {notifCounts.awaitingValidation > 0 && canValidateRisk && (
+                  <Link to="/ai-analytics" onClick={() => setShowNotifications(false)}
+                    className="block text-xs px-2 py-1.5 rounded hover:bg-card text-foreground">
+                    <span className="font-semibold text-warning">{notifCounts.awaitingValidation}</span> risk assessment{notifCounts.awaitingValidation === 1 ? '' : 's'} awaiting validation
+                  </Link>
+                )}
+              </div>
+            )}
+            </>
           )}
           <button
             onClick={handleLogout}
