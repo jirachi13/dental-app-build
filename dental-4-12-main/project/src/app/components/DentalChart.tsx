@@ -727,6 +727,13 @@ export const DentalChart = () => {
   };
 
   const [confirmDeleteYear, setConfirmDeleteYear] = useState<number | null>(null);
+  // Step-up check before removing a school year (Sprint 178, hers). ⚠ A random
+  // field name: the literal string "password" in a name or id is what several
+  // autofill engines key off, even with autocomplete overridden, and this must
+  // never be filled for you.
+  const [yearPassword, setYearPassword] = useState('');
+  const [yearPasswordError, setYearPasswordError] = useState<string | null>(null);
+  const yearPasswordField = useRef(`confirm-${Math.random().toString(36).slice(2)}`).current;
   const [deletingYear, setDeletingYear] = useState(false);
 
   const handleDeleteYear = async (yearIndex: number) => {
@@ -744,10 +751,28 @@ export const DentalChart = () => {
   };
   const confirmDeleteYearNow = async () => {
     if (confirmDeleteYear === null) return;
+    if (!yearPassword) {
+      setYearPasswordError('Enter your password to confirm.');
+      return;
+    }
     setDeletingYear(true);
+    // ⚠ Re-verify the SIGNED-IN user's own password first — hers does this for
+    // every year action, and removing a year archives that year's whole record:
+    // its chart, tooth records, medical, dietary and oral history. A second
+    // click is not a check; a shared machine at a school clinic makes that
+    // difference real.
+    try {
+      await apiClient.post('/auth/verify-password', { password: yearPassword });
+    } catch (err) {
+      setDeletingYear(false);
+      setYearPasswordError(err instanceof ApiError ? err.message : 'Could not verify password.');
+      return;
+    }
     try {
       await handleDeleteYear(confirmDeleteYear);
       setConfirmDeleteYear(null);
+      setYearPassword('');
+      setYearPasswordError(null);
     } finally {
       setDeletingYear(false);
     }
@@ -2905,11 +2930,31 @@ export const DentalChart = () => {
       <ConfirmDialog
         open={confirmDeleteYear !== null}
         title={`Remove ${confirmDeleteYear !== null ? years[confirmDeleteYear]?.iptr.school_year ?? 'school year' : 'school year'}?`}
-        message="This archives the entire school year — its dental chart and medical, dietary, and oral-health records. A System Admin can restore it from the archive."
+        message={
+          <div className="space-y-3">
+            <p>This archives the entire school year — its dental chart and medical, dietary, and oral-health records. A System Admin can restore it from the archive.</p>
+            <div>
+              <label htmlFor={yearPasswordField} className="block text-xs font-medium text-foreground mb-1">
+                Confirm with your password
+              </label>
+              <input
+                id={yearPasswordField}
+                name={yearPasswordField}
+                type="password"
+                autoComplete="new-password"
+                value={yearPassword}
+                onChange={(e) => { setYearPassword(e.target.value); setYearPasswordError(null); }}
+                disabled={deletingYear}
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+              />
+              {yearPasswordError && <p className="mt-1 text-xs text-destructive">{yearPasswordError}</p>}
+            </div>
+          </div>
+        }
         confirmLabel="Remove year"
         busy={deletingYear}
         onConfirm={confirmDeleteYearNow}
-        onCancel={() => setConfirmDeleteYear(null)}
+        onCancel={() => { setConfirmDeleteYear(null); setYearPassword(''); setYearPasswordError(null); }}
       />
       {/* ── CONSENT CONFIRMATION (Sprint 169, hers) ────────────────────────
           Her dialog, and the reason for it is right: ticking "consent
