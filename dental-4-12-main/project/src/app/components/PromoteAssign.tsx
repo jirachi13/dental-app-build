@@ -33,7 +33,7 @@ import { surnameFirst } from '../utils/studentName';
 // The user's standing constraint applies: no per-record prompts or badges
 // across thousands of students. One preview, one confirm, one summary.
 
-const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
+export const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 
 /** The grade after `g`, or null for the exit year (Grade 10 leaves). */
 const nextGrade = (g: string): string | null => {

@@ -10,8 +10,64 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ▶ RESUME HERE — PARKED 2026-09-05 (8th session), everything pushed at `bb2965ad`
-Tree clean apart from the two untracked root strays (`package.json`, `package-lock.json`), which predate this session. **Twenty-four sprints shipped (127-150)**, every one verified in the browser or at the endpoint.
+## ▶ RESUME HERE — 2026-09-06, `adopt-design` MERGED TO `main` AND DEPLOYED
+
+**41 commits merged. `main` auto-deploys to Vercel, so this is live.** Tag `pre-design-adoption` still marks the state before any of it; every commit is separately revertible.
+
+### ⚠ ONE THING TO DO ON PRODUCTION, BEFORE ANYONE LOOKS AT CONSENT
+Consent moved from a single lifetime flag on STUDENT to a **per school year** field on STUDENT_IPTR (`7f53f1ea`). Production has NOT been migrated, so every pupil there will read **Consent Pending** until it is:
+
+    npm run migrate:iptr-consent            # DRY RUN, prints its target first
+    npm run migrate:iptr-consent -- --confirm
+
+⚠ Confirm the banner says the PRODUCTION cluster (`floral-cluster.edqpjtu`), not dev. It backfills only the LATEST year, and only where the old flag said complete — everyone else legitimately starts pending, which may mean re-collecting signatures already held on paper.
+
+### What shipped
+Her design, our code. The record screen matches hers section for section (both tabs diffed by DOM outline); the shell, Students, Appointments, Dashboard header, Dental Charts list and Consent flow are hers; our data model, reports and server work are intact.
+
+**Bugs found and fixed on the way — every one invisible to `tsc` and `npm run build`:**
+1. **Infinite render loop** (pre-existing, Sprint 148) — every charting reached through the picker was silently read-only.
+2. **Hook after an early return** (mine) — blanked the whole record page.
+3. **`/auth/verify-password` 404** (mine) — bulk archive's step-up failed on the RIGHT password exactly like the wrong one.
+4. **Two form fields written into nothing** (mine) — her Add Student posts `place_of_birth` and `guardian_occupation`; the model had neither, so Mongoose dropped them with a success toast.
+5. **Two editors for one record** (mine) — Oral Health Condition on History AND on the Dental Chart tab.
+6. **RPC completion could never be non-zero** (pre-existing) — the dashboard counted rows from an endpoint whose status filter defaults to "outstanding", so a pupil completing both visits removed themselves from the only data the tile could see.
+7. **"10 appointments total" for a school with 14** — a session is not an appointment.
+8. **"All schools" unreachable** (mine) — her Switch School page replaced the dropdown that offered it; the BHO STAFF ROLE EXISTS FOR THAT VIEW.
+9. **A dental aide could not reach edit mode** on the tab now holding their own fields.
+10. **"Grade Grade 8-Mabini"** on every Risk Classification row.
+
+**The rule that would have caught most of them: open the browser BEFORE committing.**
+
+### ⚠ NOT TESTED — the honest gap
+Everything was exercised as **DENTIST only**. Nothing has been opened as System Admin, Dental Aide, School Administrator or BHO Staff since the redesign. Finding 8 shows what that class of bug looks like: a role whose entire purpose was unreachable, invisible from the dentist's account.
+
+Cheapest useful check: **School Admin and BHO Staff see only Dashboard + Reports** — two screens each, five minutes. Dental Aide sees everything except Risk Classification.
+
+### Dev demo accounts
+All five are now **`12345678`** (`admin` / `dentist` / `aide` / `schooladmin` / `bho` @floral.com), applied with `npm run apply:seed-passwords` and verified against the stored hashes. Previous values are in `.env.bak-before-simple-passwords`.
+⚠ The app enforces a minimum of 8 characters in four server-side places, so "12345" is not possible without weakening a real control. ⚠ Login is rate-limited to 10 attempts per 15 minutes per IP — restart `dev:server` to clear it, the counter is in memory.
+⚠ **Production `SEED_BHO_PASSWORD` is still 7 chars** and will refuse a production re-seed until lengthened.
+
+### Left open, none of it blocking
+- **`allow_school_year_override`** is on `ApiSchool` but NOT on the SCHOOL model, so that dialog's manual-override section stays hidden. `SchoolManagement` is still ours for the same reason.
+- **`noUnusedLocals` is OFF** in tsconfig — turning it on is what would have caught this session's dead code automatically. Its own small sprint.
+- **Counter audit unfinished**: Dashboard and Appointments were wrong and are fixed; Students verified correct; **Dental Charts and Treatment not yet checked**.
+- Screens she never touched and that still use the old page shell: **RPC Tracking, Reports, Treatment, Risk Classification**. No file to copy — the patterns are established (see `da0fe51b` for how the Dental Charts list was done).
+
+### For the dentist
+- What does **Consultation** mean for the DOH return? No field on `PREVENTIVE_CARE_RECORD`, so her chip is not copied.
+- How is **Orally Fit Child** decided? Its DOH definition needs a judgement nothing stores; the row renders blank and says "not recorded".
+
+### ⚠ MACHINE STATE TO UNDO
+- **`.env` line 25** gained `,http://localhost:5174` so her branch could reach the API. Local only, untracked.
+- **A git worktree of her branch** at `C:/Users/Jerald/AppData/Local/Temp/claude/hers` (detached at `67f2e64f`). `git worktree remove` that path.
+- **Dev data** restored everywhere touched, with one stated exception: **Castillo, Nico has an ARCHIVED 2026-2027 IPTR** created to test the year-removal guard. Soft delete; a System Admin can restore or leave it.
+
+---
+
+## Parked 2026-09-05 (8th session), pushed at `bb2965ad`
+**Twenty-four sprints shipped (127-150)**, every one verified in the browser or at the endpoint.
 
 | # | Theme | The bit worth remembering |
 |---|---|---|

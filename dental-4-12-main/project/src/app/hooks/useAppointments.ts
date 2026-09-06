@@ -210,5 +210,15 @@ export function useAppointments(window: AppointmentWindow) {
     await reload();
   }, [reload]);
 
-  return { sessions, dentists, loading, error, reload, updateSessionStatus };
+  /** Removes an appointment session, which her screen offers from the session
+   *  kebab. ⚠ ARCHIVE, not delete — CLAUDE.md's never-hard-delete rule holds,
+   *  and a session is SEVERAL appointment rows, so every one is archived or the
+   *  session returns half-present on the next read. Hers already did it this
+   *  way; taken unchanged. */
+  const deleteSession = useCallback(async (session: AppointmentSession) => {
+    await Promise.all(session.appointmentIds.map((id) => apiClient.patch(`/appointments/${id}/archive`)));
+    await reload();
+  }, [reload]);
+
+  return { sessions, dentists, loading, error, reload, updateSessionStatus, deleteSession };
 }

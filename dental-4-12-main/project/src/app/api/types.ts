@@ -17,6 +17,12 @@ export interface ApiSchool {
   _id: string;
   school_name: string;
   school_type: string;
+  /** Her feature, carried across with UpdateSchoolYear (Sprint 157). ⚠ NOT on
+   *  our SCHOOL model yet, so it reads undefined and the dialog's manual
+   *  override section stays hidden — the dialog's real job, rolling the year
+   *  forward, is unaffected. Wiring it needs a model field AND a toggle in
+   *  School Management; until then nothing on screen claims it works. */
+  allow_school_year_override?: boolean;
   /** All required by the School model; the admin registry form writes them.
    *  Optional here only because older callers select a subset of fields. */
   principal_name?: string;
@@ -40,6 +46,8 @@ export interface ApiStudent {
   contact_number?: string;
   grade_level: string;
   section: string;
+  place_of_birth?: string;
+  guardian_occupation?: string;
   guardian_name?: string;
   guardian_contact?: string;
   philhealth_number?: string;
@@ -66,6 +74,12 @@ export interface ApiStudentIptr {
   height_cm: number | null;
   weight_kg: number | null;
   isArchived: boolean;
+  temperature_c?: number | null;
+  blood_pressure?: string | null;
+  /** Consent for THIS school year (Sprint 167). A guardian signs each year. */
+  consent_status: 'pending' | 'complete';
+  /** Server-set when consent_status becomes 'complete'; null while pending. */
+  consent_given_at?: string | null;
 }
 
 export interface ApiDentalChart {

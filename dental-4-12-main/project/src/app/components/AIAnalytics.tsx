@@ -546,7 +546,12 @@ export const AIAnalytics = () => {
                       <div className="min-w-0">
                         <div className="text-sm font-medium text-foreground truncate">{c.name}</div>
                         <div className="text-xs text-muted-foreground truncate">
-                          {c.school} · Grade {c.grade}-{c.section}
+                          {/* ⚠ NO "Grade " prefix. `c.grade` already reads
+                              "Grade 8" — the label printed "Grade Grade
+                              8-Mabini" on every row. Grade and section are
+                              joined with a space, as they are on every other
+                              screen; the hyphen made one field of two. */}
+                          {c.school} · {c.grade}{c.section ? ` ${c.section}` : ''}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0 ml-2">

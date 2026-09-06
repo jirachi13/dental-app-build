@@ -26,11 +26,27 @@ const studentSchema = new mongoose.Schema(
     // registration data, not UI-invented (same rationale as Sprint 11's
     // appointment_type addition).
     guardian_name: { type: String, default: "" },
+    // ⚠ ADDED Sprint 174 because her Add Student form (taken whole in
+    // 471f647c/de94d180) already had inputs for both, posting to /students —
+    // and with no schema path Mongoose DROPPED them silently. An encoder typed
+    // a place of birth, pressed Save, and it vanished with no error: exactly
+    // the "control that appears to work must work" rule broken.
+    //
+    // Keeping the inputs rather than deleting them, because the PAPER IPTR
+    // prints both, and the OCR module skips Occupation for the stated reason
+    // that no model stores it — this closes that too.
+    place_of_birth: { type: String, default: "" },
+    guardian_occupation: { type: String, default: "" },
     guardian_contact: { type: String, default: "" },
     philhealth_number: { type: String, default: "" },
     philhealth_status: { type: String, enum: ["None", "Principal", "Dependent"], default: "None" },
     is_4ps: { type: Boolean, default: false },
     fourps_id: { type: String, default: "" },
+    // ⚠ LEGACY as of Sprint 167 — consent is per school year now and lives on
+    // STUDENT_IPTR. Nothing reads or writes this any more. The FIELD IS KEPT so
+    // the existing values stay readable (never hard delete), and so
+    // migrateIptrConsent.ts can carry them forward on any database that has not
+    // been migrated yet. Do not start reading it again.
     consent_status: { type: String, enum: ["pending", "complete"], default: "pending" },
     // Marks a record created by a seeder rather than by a real encoding
     // session. Defaults to false, so anything a person creates — the Add
@@ -68,7 +84,7 @@ studentSchema.plugin(
   // The name parts are patient PII exactly as full_name is, so they carry the
   // same encryption. Sprint 26 random-IV rule applies: plaintext equality
   // queries on these fields NEVER match — fetch and filter in JS instead.
-  fieldEncryptionOptions(["full_name", "last_name", "first_name", "middle_name", "address", "contact_number", "guardian_name", "guardian_contact", "philhealth_number", "fourps_id"]),
+  fieldEncryptionOptions(["full_name", "last_name", "first_name", "middle_name", "address", "contact_number", "guardian_name", "guardian_contact", "philhealth_number", "fourps_id", "place_of_birth", "guardian_occupation"]),
 );
 
 // Sprint 56. Both indexes lead with isArchived because every GET filters on it.

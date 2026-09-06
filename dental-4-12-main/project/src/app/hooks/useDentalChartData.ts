@@ -36,6 +36,13 @@ export interface IptrYearData {
    *  means the charting is attached to no visit — every chart made before that
    *  sprint, and any made from the chart screen rather than from Record Visit. */
   visitNumberByChart: Record<string, 1 | 2>;
+  /** The RPC visit each charting is attached to, keyed by chart id (Sprint 154).
+   *  The chart screen needs the record itself, not only its ordinal, because
+   *  the services given at a visit — screening, prophylaxis, varnish, hygiene
+   *  instruction — live on it and are edited there. Same absence rule as
+   *  `visitNumberByChart`: no entry means the charting is attached to no visit,
+   *  and there is therefore nowhere to record a service against. */
+  preventiveByChart: Record<string, ApiPreventiveCareRecord>;
   /** The charting currently being viewed — **the LATEST by date**, which is
    *  the current state of the mouth. It used to be the OLDEST, which is what
    *  made later work invisible. */
@@ -117,14 +124,19 @@ export function useDentalChartData(studentId: string | undefined) {
         // first, so a pupil charted again in January showed August's findings.
         const dentalChart = charts.length ? charts[charts.length - 1] : null;
         const visitNumberByChart: Record<string, 1 | 2> = {};
+        const preventiveByChart: Record<string, ApiPreventiveCareRecord> = {};
         for (const c of charts) {
           const visit = c.preventive_id
             ? allPreventives.find((v) => v._id === c.preventive_id)
             : undefined;
-          if (visit) visitNumberByChart[c._id] = visit.visit_number;
+          if (visit) {
+            visitNumberByChart[c._id] = visit.visit_number;
+            preventiveByChart[c._id] = visit;
+          }
         }
         return {
           visitNumberByChart,
+          preventiveByChart,
           charts,
           iptr,
           medicalHistory: allMedical.find((m) => m.iptr_id === iptr._id) ?? null,

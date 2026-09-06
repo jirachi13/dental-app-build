@@ -1,6 +1,6 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-import { login, refresh, logout, me, changePassword, verifyOtp, forgotPassword, resetPassword } from "../controllers/authController.js";
+import { login, refresh, logout, me, changePassword, verifyOtp, forgotPassword, resetPassword, verifyPassword } from "../controllers/authController.js";
 import { requireAuth } from "../middleware/auth.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
@@ -30,5 +30,8 @@ router.post("/refresh", asyncHandler(refresh));
 router.post("/logout", logout);
 router.get("/me", requireAuth, asyncHandler(me));
 router.patch("/change-password", requireAuth, asyncHandler(changePassword));
+// Step-up for bulk/structural actions. Rate-limited like every other
+// password path — an unlimited yes/no on a password is an oracle.
+router.post("/verify-password", makeAuthLimiter(), requireAuth, asyncHandler(verifyPassword));
 
 export default router;

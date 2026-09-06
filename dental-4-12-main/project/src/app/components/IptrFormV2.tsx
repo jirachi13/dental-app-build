@@ -1,6 +1,7 @@
 import type { ApiStudent } from '../api/types';
 import type { IptrYearData } from '../hooks/useDentalChartData';
 import { formatDate } from '../utils/localDate';
+import { sectionBRows, type ChartedTooth } from '../../../shared/iptrSectionB';
 
 // ─── FORM 1 — INDIVIDUAL TREATMENT RECORD (Sprint 137) ─────────────────────
 //
@@ -26,6 +27,25 @@ import { formatDate } from '../utils/localDate';
 //   · its services table is a per-visit tick grid, not Diagnosis/Treatment text
 
 const AGE_COLUMNS = 5;
+
+/** Section B's labels AS THIS FORM PRINTS THEM — lower-case "teeth", "present",
+ *  "dfx". The shared derivation supplies the numbers and its own labels; the
+ *  form supplies the wording, and the form wins on the form. Same order. */
+const FORM1_SECTION_B_LABELS = [
+  'No. of Permanent Teeth present',
+  'No. of Permanent Sound Teeth',
+  'No. of Decayed teeth (D)',
+  'No. of Missing Teeth (M)',
+  'No. of Filled Teeth (F)',
+  'No. of Teeth for Extraction (X)',
+  'No. of DMFX Teeth',
+  'No. of Temporary Teeth Present',
+  'No. of Temporary Sound Teeth',
+  'No. of decayed teeth (d)',
+  'No. of filled teeth (f)',
+  'No. of Teeth for Extraction (x)',
+  'No. of dfx teeth',
+];
 
 /** The 16 printed questions, verbatim including the sheet's own spelling.
  *  `source` maps one to a stored field; null means the system holds no answer
@@ -89,6 +109,14 @@ interface Props {
 }
 
 export function IptrFormV2({ student, schoolName, years }: Props) {
+  /** That year's saved tooth records in the shared derivation's shape. */
+  const chartedFor = (y: IptrYearData | null): ChartedTooth[] =>
+    (y?.toothRecords ?? []).map((t) => ({
+      tooth: t.tooth_number,
+      condition: t.condition,
+      treatment: t.treatment_code,
+    }));
+
   const shown = years.slice(-AGE_COLUMNS);
   const cols = Array.from({ length: AGE_COLUMNS }, (_, i) => shown[i] ?? null);
 
@@ -343,19 +371,27 @@ export function IptrFormV2({ student, schoolName, years }: Props) {
               <tr>
                 <td className={`${cell} font-semibold text-center`} colSpan={AGE_COLUMNS + 1}>B. Indicate Number</td>
               </tr>
-              {statusRow('No. of Permanent Teeth present', (y) => presentCount(y, true))}
-              {statusRow('No. of Permanent Sound Teeth', (y) => soundCount(y, true))}
-              {statusRow('No. of Decayed teeth (D)', (y) => conditionCount(y, 'D'))}
-              {statusRow('No. of Missing Teeth (M)', (y) => conditionCount(y, 'M'))}
-              {statusRow('No. of Filled Teeth (F)', (y) => conditionCount(y, 'F'))}
-              {statusRow('No. of Teeth for Extraction (X)', (y) => conditionCount(y, 'X'))}
-              {statusRow('No. of DMFX Teeth', (y) => sumCounts(y, ['D', 'M', 'F', 'X']))}
-              {statusRow('No. of Temporary Teeth Present', (y) => presentCount(y, false))}
-              {statusRow('No. of Temporary Sound Teeth', (y) => soundCount(y, false))}
-              {statusRow('No. of decayed teeth (d)', (y) => conditionCount(y, 'd'))}
-              {statusRow('No. of filled teeth (f)', (y) => conditionCount(y, 'f'))}
-              {statusRow('No. of Teeth for Extraction (x)', (y) => conditionCount(y, 'x'))}
-              {statusRow('No. of dfx teeth', (y) => sumCounts(y, ['d', 'f', 'x']))}
+              {/* ⚠ Sprint 151 — these rows come from `shared/iptrSectionB.ts`, the
+                  SAME derivation the Dental Chart tab's summary panel uses. They
+                  were computed separately here before, which is two
+                  implementations of one official form's arithmetic: the screen
+                  and the sheet filed with the City Health Office could disagree
+                  about the same pupil. Row labels stay exactly as this form
+                  prints them, which is why they are listed rather than taken
+                  from the shared row set. */}
+              {sectionBRows(chartedFor(cols[0])).map((row, i) => (
+                <tr key={row.label}>
+                  <td className={cell}>{FORM1_SECTION_B_LABELS[i] ?? row.label}</td>
+                  {cols.map((y, ci) => {
+                    const rows = sectionBRows(chartedFor(y));
+                    return (
+                      <td key={ci} className={`${cell} text-center`}>
+                        {y && y.dentalChart ? String(rows[i]?.teeth.length ?? 0) : ''}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

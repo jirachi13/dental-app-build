@@ -4,8 +4,7 @@ import {
   AlertCircle,
   Calendar,
   Shield,
-  Plus,
-  FileText,
+    FileText,
   TrendingUp,
   Activity,
   Eye,
@@ -16,7 +15,6 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { SkeletonBlock } from './Skeleton';
-import { getGradeColor } from '../utils/gradeColors';
 import { CHART, RISK_COLORS, FUNNEL_RAMP } from '../utils/chartColors';
 import { getSchoolShortName } from '../utils/schoolColors';
 import { toLocalDateString, formatDateWithWeekday } from '../utils/localDate';
@@ -61,7 +59,11 @@ export const Dashboard = () => {
     return { from, to };
   }, []);
   const { sessions: allSessions, loading: appointmentsLoading } = useAppointments(weekWindow);
-  const { records: rpcRecords, loading: rpcLoading } = useRPCTracking();
+  // ⚠ SCOPED, and `status: 'all'`. Without the school the funnel counted every
+  // school while every other tile on this page counted one; without status the
+  // endpoint defaults to "outstanding" and the completed pupils never arrive.
+  const { records: rpcRecords, funnel: rpcFunnel, loading: rpcLoading } =
+    useRPCTracking({ school: selectedSchool ?? '', status: 'all' });
   const [users, setUsers] = useState<ApiUser[]>([]);
   const [treatmentCount, setTreatmentCount] = useState(0);
   const [iptrsByStudent, setIptrsByStudent] = useState<Map<string, string[]>>(new Map());
@@ -144,7 +146,7 @@ export const Dashboard = () => {
   const mediumRiskCount = allStudents.filter((s) => s.riskLevel === 'Medium').length;
   const lowRiskCount = allStudents.filter((s) => s.riskLevel === 'Low').length;
   const screenedCount = allStudents.filter((s) => s.riskLevel !== null).length;
-  const rpcCompletionRate = scopedRpc.length ? Math.round((scopedRpc.filter((r) => r.status === 'complete').length / scopedRpc.length) * 100) : 0;
+  const rpcCompletionRate = rpcFunnel.enrolled ? Math.round((rpcFunnel.complete / rpcFunnel.enrolled) * 100) : 0;
   const pendingChartsCount = allStudents.filter((s) => {
     const iptrIds = iptrsByStudent.get(s.id) ?? [];
     return iptrIds.length > 0 && !iptrIds.some((id) => chartedIptrIds.has(id));
@@ -156,9 +158,10 @@ export const Dashboard = () => {
   // scopedRpc (RPC records), NOT allStudents -- a student with no RPC record is
   // absent from this denominator, so these must never be captioned as a share
   // of enrolled patients.
-  const rpcBothVisitsCount = scopedRpc.filter((r) => r.status === 'complete').length;
-  const rpcVisit1Count = scopedRpc.filter((r) => r.visit1Status === 'Completed').length;
-  const rpcVisit1Rate = scopedRpc.length ? Math.round((rpcVisit1Count / scopedRpc.length) * 100) : 0;
+  // All three read the server's population counts, not the delivered rows.
+  const rpcBothVisitsCount = rpcFunnel.complete;
+  const rpcVisit1Count = rpcFunnel.visit1;
+  const rpcVisit1Rate = rpcFunnel.enrolled ? Math.round((rpcVisit1Count / rpcFunnel.enrolled) * 100) : 0;
 
   // School lookup for records that reach a student via chart→iptr or preventive→iptr chains
   const studentSchoolById = useMemo(
@@ -475,18 +478,12 @@ export const Dashboard = () => {
         <div className="flex flex-wrap items-end gap-4 rise">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Dentist Dashboard</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Welcome back, {user?.name} — {selectedSchool ? getSchoolShortName(selectedSchool) : 'All Schools'}</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Welcome back, {user?.name}!</p>
           </div>
-          {/* The date moved into the clinic summary title bar (Sprint A) and the
-              appointment count is now cell 2, so this header block is gone --
-              both would otherwise appear twice on the same screen. */}
-          <Link
-            to="/appointments?new=1"
-            className="ml-auto inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            New Appointment
-          </Link>
+          {/* No "New Appointment" button here on purpose — removed on request.
+              Booking lives on the Appointments page; the dashboard reports. The
+              date and appointment count moved into the clinic summary strip
+              (Sprints A/D) for the same reason. */}
         </div>
 
         {/* Clinic summary (Sprint A, direction 3a) — replaces the four KPI tiles */}
@@ -537,7 +534,7 @@ export const Dashboard = () => {
               // Blue = operational state, per the v4 color rule: amber already
               // means "medium caries risk" on this same screen.
               valueClass="text-primary"
-              trailing={`${rpcBothVisitsCount} of ${scopedRpc.length}`}
+              trailing={`${rpcBothVisitsCount} of ${rpcFunnel.enrolled}`}
               context="Both visits completed"
               linkTo="/rpc"
               loading={rpcLoading}
@@ -558,7 +555,7 @@ export const Dashboard = () => {
                 </span>
               )}
               {mostOverdueDays !== null && ' · '}
-              Visit 1 done for {rpcVisit1Count} of {scopedRpc.length} ({rpcVisit1Rate}%) · target 100% by end of school year
+              Visit 1 done for {rpcVisit1Count} of {rpcFunnel.enrolled} ({rpcVisit1Rate}%) · target 100% by end of school year
             </div>
           )}
         </div>
@@ -601,13 +598,13 @@ export const Dashboard = () => {
           <div className="bg-card p-4 rounded-xl border border-border">
             <h2 className="text-sm font-bold text-foreground">Oral Health Trend</h2>
             <p className="text-[11px] text-muted-foreground mb-3">Mean DMFT index · last 6 months</p>
-            {/* ⚠ Sprint 105: this used to say the chart "will populate once
-                monthly snapshots begin accumulating". NOTHING ACCUMULATES THEM
-                — grep confirms no snapshot mechanism exists anywhere in the app
-                or server. So that sentence promised a feature that will never
+            {/* ⚠ Sprint 105, KEPT over her version. Hers reads "will populate
+                once monthly snapshots begin accumulating" — NOTHING ACCUMULATES
+                THEM. There is no snapshot mechanism anywhere in the app or the
+                server, so that sentence promises a feature that will never
                 arrive on its own, which is worse than an empty chart: it tells
-                the reader it is working and merely needs time. Building it
-                needs a scheduled job and a place to keep the series. */}
+                the reader it works and merely needs time. Building it needs a
+                scheduled job and somewhere to keep the series. */}
             <NoDataYet message="Not built yet — nothing records the monthly DMFT snapshots this trend would be drawn from, so it will stay empty until that is added." />
           </div>
         </div>
@@ -631,15 +628,21 @@ export const Dashboard = () => {
                     darkest = widest. Count sits inside the bar when it fits,
                     beside it in ink when the bar is too short. */}
                 {[
-                  { label: 'Enrolled', value: scopedRpc.length, ...FUNNEL_RAMP[0] },
-                  { label: 'Visit 1 completed', value: scopedRpc.filter((r) => r.visit1Status === 'Completed').length, ...FUNNEL_RAMP[1] },
-                  { label: 'Both visits completed', value: scopedRpc.filter((r) => r.visit2Status === 'Completed').length, ...FUNNEL_RAMP[2] },
+                  // ⚠ From the SERVER's population counts, not from the rows
+                  // this page received. /stats/rpc-rows defaults its status
+                  // filter to "outstanding", which excludes by definition every
+                  // pupil who finished — so counting the delivered rows made
+                  // "Both visits completed" permanently 0, and RPC Completion
+                  // permanently 0%. Two pupils had both visits the whole time.
+                  { label: 'Enrolled', value: rpcFunnel.enrolled, ...FUNNEL_RAMP[0] },
+                  { label: 'Visit 1 completed', value: rpcFunnel.visit1, ...FUNNEL_RAMP[1] },
+                  { label: 'Both visits completed', value: rpcFunnel.both, ...FUNNEL_RAMP[2] },
                 ].map((step) => (
                   <BarRow
                     key={step.label}
                     label={step.label}
                     value={step.value}
-                    pct={Math.round((step.value / scopedRpc.length) * 100)}
+                    pct={rpcFunnel.enrolled ? Math.round((step.value / rpcFunnel.enrolled) * 100) : 0}
                     color={step.color}
                   />
                 ))}
@@ -764,17 +767,12 @@ export const Dashboard = () => {
         <div className="flex flex-wrap items-end gap-4 rise">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Dental Aide Dashboard</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Welcome back, {user?.name}{selectedSchool ? ` — ${getSchoolShortName(selectedSchool)}` : ''}</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Welcome back, {user?.name}!</p>
           </div>
-          {/* Date + appointment count moved into the clinic summary (Sprint D),
-              same as the dentist branch. */}
-          <Link
-            to="/appointments?new=1"
-            className="ml-auto inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            New Appointment
-          </Link>
+          {/* No "New Appointment" button here on purpose — removed on request.
+              Booking lives on the Appointments page; the dashboard reports. The
+              date and appointment count moved into the clinic summary strip
+              (Sprints A/D) for the same reason. */}
         </div>
 
         {/* Clinic summary (Sprint D) — same strip as the dentist branch */}
