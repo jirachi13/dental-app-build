@@ -191,6 +191,32 @@ now. Anywhere else that reads `oralStatus === 'Orally Fit'` deserves the same lo
 - **`redact` applies to STUDENT only.** Other roles reading other models were not re-examined for
   the same over-disclosure. The mechanism is now there if a second case turns up.
 
+### ⏸ PARKED — THE ROTATION TAB (noted 2026-09-06, deliberately NOT built)
+Looked at while parking; not touched. Three things are true of it at once, which is why it needs a
+decision rather than a tweak:
+
+1. **It renders "No rotation schedule set" for every school** — nothing has ever been saved. An
+   "Add Rotation" button sits above it, so by CLAUDE.md's rule it is a control that looks like a
+   feature and currently is not one.
+2. **It is scoped to the selected school** (`schoolNames.filter(s => !selectedSchool || s === school)`),
+   so from inside a school you see that school's rotation only. A rotation is the answer to
+   "which school is the dentist at this week?" — the cross-school view IS the feature, and it is
+   reachable only from "All schools".
+3. **The file contradicts itself.** The Calendar block says "Rotation-by-school scheduling is gone:
+   with one dentist covering three schools, a per-day note here is more useful", while the Rotation
+   tab and its Add button are still there.
+
+**The improvement, when it is picked up:** decide the question first — either make Rotation a real
+cross-school week view (one row per school, weeks across, ignoring the school switcher, which is
+what one dentist covering three schools actually needs), or delete the tab and let the calendar's
+day notes carry it. Building a better version of a tab that should not exist is the waste to avoid.
+
+⚠ **Stale comment to fix either way** (`Appointments.tsx`, above the rotation form state): it says
+the calendar reminder form is "Backed by the DentistRotation collection — repurposed rather than
+adding a new model". That was superseded — day notes have their own `DayNote` model and post to
+`/day-notes`. Only the rotation form still posts to `/dentist-rotations`. The comment misleads
+anyone who reads it before touching either feature.
+
 ### Left open, none of it blocking
 - **`allow_school_year_override`** is on `ApiSchool` but NOT on the SCHOOL model, so that dialog's manual-override section stays hidden. `SchoolManagement` is still ours for the same reason.
 - **`noUnusedLocals` is OFF** in tsconfig — turning it on is what would have caught this session's dead code automatically. Its own small sprint.
