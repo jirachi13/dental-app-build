@@ -2,7 +2,7 @@
 
 **Compressed 2026-09-04 (hygiene pass; previous one 2026-07-11).** Completed-sprint history → `docs/BUILD-LOG.md`; pre-2026-07-11 narratives → git history (`git show 73bc4e47:HANDOFF.md`). **This file keeps ONLY live state: current status, the resume note, unresolved findings, open work, user-only items, warnings and durable gotchas. A finished sprint belongs in BUILD-LOG the moment it is finished — do not let them accumulate here again.**
 
-## Current status (2026-09-05)
+## Current status (2026-09-07)
 - **Phase 1 + 2 DONE and deployed**: https://dental-app-build.vercel.app (Vercel; **push to main auto-deploys** — verified across the 23h–27b sprints; older notes saying CLI-only are superseded). ML service live on Render free tier at `https://floral-ml-service.onrender.com` (sleeps after ~15min idle; first request 30–60s, may 503 once — retry works).
 - **Phase 3 built end-to-end on SYNTHETIC data** (21a–21g); re-run against real data BLOCKED — **not on locating files: there are none.** Barangay Tanyag's dental records are paper IPTR forms, so real data exists only once hand-encoded (n = 50, decided 2026-09-01). The current blocker is the dentist's DOH risk-classification source, which Section 4 of `docs/iptr-encoding-brief.md` needs before encoding can start — see Open work 3. Once encoded: `clean_excel.py data/raw` → `build_features.py` → `run_experiments.py` → regenerate `algo-results.md`/`model-selection-rationale.md` → `train.py` → commit new `active/model.pkl` (Render auto-deploys) → UI's synthetic-data banner clears itself.
 - **Last sprints**: 102 (Promote/Assign re-runnable — the screen could not fix its own mistakes, 09-04), 101 (school gate enforced SERVER-side — `school_ids` was in the JWT and nothing read it, 09-04), 100 (users hold MULTIPLE schools; `school_id` → `school_ids[]`, 09-04), 99 (**the API runs in `sin1` — the ~500 ms per request was geography, ~4.2x faster**, 09-04), then 98 (demo treatments seeded — Services Rendered now has real numbers, 09-03), 97 (notification bell — three real sources, counts only, server-side aggregate, 09-03), 96 (accent contrast — every visible text node on 8 screens now passes WCAG AA, 09-03), 95 (school switcher restored on a collapsed sidebar — user-reported, 09-03), 94 (150 hardcoded greys → tokens; muted-foreground darkened after measuring it fails AA on the CANVAS background, 09-03), 93 (appointment date prefills today; the one real contrast failure fixed — and the finding that the grey sprawl is a TOKEN problem, not a contrast one, 09-03), 92 (the audit trail read is bounded — and the fetch now follows the screen's date filter so a filter cannot lie, 09-03), 91 (the missing indexes — evidence-driven, and the finding that AuditTrail's unbounded read is the real scale risk, 09-03), 90 (Services Rendered wired to real numbers — and the finding that NO tooth record carries a treatment_code, so the section honestly reads 0, 09-03), 89 (Program Report section C rebuilt against the FILED January 2026 return — and the finding that the DOH workbook is a DIFFERENT form, 09-03), 88 (per-school summary sheet — the last supplied form with no output at all, 09-03), 87 (OCR corrections — and the upside-down-page bug that reported 31 phantom findings on a blank form, 09-03), 86 (OCR reads the IPTR checkbox grid — ink density, not character recognition; findings shown never applied, 09-03), 85 (official output — TCL Excel-only, Program Report PDF+Excel, IPTR PDF, blank consent form; formats are decisions, see that section, 09-03), 84 (Target Client List reconciled against the SOURCE WORKBOOK — now 66 columns, incl. the 20-column ORAL HEALTH STATUS group the app never had, 09-03), 83 (Program Report gains the form's missing section A + rows; DOH tables adopt the printed forms' amber band and blocked-cell grey, 09-03), 82 (Target Client List 40 → 50 columns; still short of the real 66 — the workbook is on the OTHER laptop, 09-03), 81 (RECORDING an RPC visit — `PREVENTIVE_CARE_RECORD` had no write path anywhere in the app until now; plus `facility_based` for the FHSIS a/b sub-rows, 09-03), 76 (archiving no longer blocks re-creation; restore guards the uniqueness instead — found by running sprint74's suite on dirty state, 09-02), 75 (`apply:seed-passwords` — `seed:demo` skips existing accounts, so `.env` edits never reached them, 09-02), 74 (Promote/Assign bulk rollover — **now 14/14**, 09-02), 73 (Consolidated rows/grades picker + export handling, 09-02), 72 (TCL column picker, 09-02), 71 (hideable rows/columns + ART sub-rows, 09-02), 70 (IPTR grade/section editable — retained pupils, 09-02), 69 (adding a student opens the school-year record, 09-02), 68 (height/weight + derived BMI per school year, 09-02), 67 (inline school switcher + local treatment terms, 09-02), 66 (archive UI — view + restore, 09-02), 65 (all student lists alphabetical by surname, 09-02), 64b (Target Client List full column set, 09-02), 64 (Program Report full column set, 09-02), 63 (System Admin gets the operational screens, 09-02), 62 (required fields on Add Student, 09-02), 61 (split login layout, 09-02), 60 (schools registry; dropdowns read the DB, 09-02), 59 (DOH School filter made real — it was cosmetic, 09-02), 58 (shared pagination on all four lists + prominent save toast, 09-02), 57b (DOH reports scoped to a school year; age at examination, 09-02), 57a (IPTR carries grade/section; migration run, 09-02), 56b (patient-list row joins server-side; useStudents stops pulling 6 collections, 09-02), 56 (bounded appointment reads + the first indexes in the codebase, 09-02), 55 (Oral Health Program Reporting Form, 09-02), 54 (Target Client List, 09-02), 53 (students-list pagination — CLIENT-side only, 09-02). All pushed and deployed. Per-sprint detail in the sections below.
@@ -10,7 +10,52 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ▶ RESUME HERE — PARKED 2026-09-06 (9th session), at `290a7e8f`, all pushed and deployed
+## ▶ RESUME HERE — PARKED 2026-09-07 (10th session), at `be138a7e`, all pushed and deployed
+
+**Nothing is in progress.** Working tree clean, `main` level with origin, three commits this session.
+Short session: no sprint was planned — this was a catch-up pull that turned up two config faults and
+closed one parked decision.
+
+### What this session did
+1. **Pulled 214 commits.** The PC was that far behind — Sprints ~103–150 plus the whole role audit
+   and the design adoption. Nothing was lost; the pull was clean.
+2. **`SEED_BHO_PASSWORD` lengthened to 8** (`abf1f44b`). ⚠ The FILE is fixed, the ACCOUNT is not —
+   see Dev demo accounts.
+3. **`PRODUCTION_DB_HOST` was unset on the PC, so the production guards were silently off**
+   (`03c3dd26`). This is the one to remember — detail under READ BEFORE TOUCHING THE DATABASE.
+4. **The Rotation tab deleted** (`be138a7e`), with CLAUDE.md's model list corrected. Full reasoning
+   in the rotation section below.
+
+### ⚠ THE FINDING THAT OUTRANKS THE REST
+**This PC's `.env` points at PRODUCTION**, and HANDOFF said it pointed at dev — that line was the
+laptop's state, and `.env` is per-device. There is no dev database on this machine at all, so every
+script and every local dev-server run hits live data by default. `PRODUCTION_DB_HOST` was also unset
+here, which meant `announceTarget` could not label the cluster and `requireConfirmOnProduction`
+never refused. Both halves of the Sprint 126 safety net were off on the one machine that needed them.
+**The fix applied is the label, not the separation.** Getting a dev `.env` onto the PC (whole file
+from the laptop — never one line, the `FIELD_ENCRYPTION_SECRET`s differ) is the real remedy and is
+the single most useful thing to do here next.
+
+### ▶ THREE THINGS FOR YOU
+1. **Appointments at phone width** — the only unverified claim from the rotation sprint.
+   `resize_window` reported success but never moved the viewport, so 768px and 390px were never
+   actually seen. Ten seconds in devtools.
+2. **`npm run verify:referrals`** — read-only, and if the guard now works it will REFUSE to run,
+   which proves the banner and the refusal in one command. Nobody has watched it fire.
+3. **Decide on `apply:seed-passwords -- --confirm`** against production, or leave `bho@floral.com`
+   on its old 7-char password. Deliberately not run.
+
+### Machine state left behind
+- **Two dev servers still running** from this session: `dev:server` on :4000, `dev` on :5173. Kill
+  them if the ports are wanted.
+- `.env` gained two backups: `.env.bak-before-bho-lengthen`, `.env.bak-before-prodhost` (untracked).
+- ⚠ **Git Bash cannot write into the project directory on this PC** — `cp`, `touch` and `sed -i` all
+  fail with "No such file or directory" on paths that plainly exist, sandboxed or not. PowerShell
+  works. Use PowerShell (or the edit tools) for file writes here; do not waste a cycle re-diagnosing.
+
+---
+
+## Parked 2026-09-06 (9th session), at `290a7e8f`, all pushed and deployed
 
 **Nothing is in progress.** Working tree clean, `main` level with origin. `main` auto-deploys to
 Vercel, so everything below is live and confirmed live. Tag `pre-design-adoption` still marks the
