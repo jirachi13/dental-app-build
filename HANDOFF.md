@@ -42,7 +42,11 @@ TAIL's exit status, so a failing build read as success. The commit was fine, but
 (`node_modules/.bin` had gone missing, most likely collateral from recursively deleting the
 worktree folder; `npm install` restored it.)
 
-### Machine state
+### Machine state — ⚠ THIS SECTION IS PER-DEVICE, and it describes the LAPTOP, not the PC
+Checked on the PC 2026-09-07 after the 214-commit pull: **all three items below are absent here.**
+No `package.json`/`node_modules` at the repo root, `git worktree list` shows only the main
+checkout, and `AppData/Local/Temp/claude/hers` does not exist. They remain to do **on the laptop**.
+Do not re-verify them from this device; `ls` proving nothing is there is not the same as fixed.
 - ⚠ **An empty folder at `C:/Users/Jerald/AppData/Local/Temp/claude/hers`** — the worktree is
   deregistered (`git worktree list` is clean); the directory would not delete because the :5174
   dev server still holds it. Stop that terminal and remove it.
@@ -140,7 +144,9 @@ already honest — it filters to pupils who have one and correctly showed 0.)
 ### Dev demo accounts
 All five are now **`12345678`** (`admin` / `dentist` / `aide` / `schooladmin` / `bho` @floral.com), applied with `npm run apply:seed-passwords` and verified against the stored hashes. Previous values are in `.env.bak-before-simple-passwords`.
 ⚠ The app enforces a minimum of 8 characters in four server-side places, so "12345" is not possible without weakening a real control. ⚠ Login is rate-limited to 10 attempts per 15 minutes per IP — restart `dev:server` to clear it, the counter is in memory.
-⚠ **Production `SEED_BHO_PASSWORD` is still 7 chars** and will refuse a production re-seed until lengthened.
+✅ **`SEED_BHO_PASSWORD` lengthened to 8 chars (`12345678`, matching the other four) on the PC, 2026-09-07.** `requireSecretEnvAll` was then run standalone over all four seed vars — no DB connection — and passes. Backup of the previous file: `.env.bak-before-bho-lengthen` (untracked, PC only).
+⚠ **The FILE was fixed, the ACCOUNT was not.** `seedDemo`'s `ensureUser` skips existing accounts, so `bho@floral.com` on `floral-cluster.edqpjtu` still holds the old 7-char hash. `npm run apply:seed-passwords -- --confirm` is what writes it; deliberately NOT run — it changes a live login. What is unblocked is the seed GUARD, which used to exit 1 before reaching the database at all.
+⚠ **Whether the laptop's `.env` also needs this depends on which cluster it points at** — see the per-device `.env` warning under READ BEFORE TOUCHING THE DATABASE.
 
 ### ⚠ TWO EDITIONS OF THE TARGET CLIENT LIST EXIST — the FILED one now governs (2026-09-06)
 The user supplied a **filed sample** (Bagong Tanyag, Grade 1, dated 8-5-25 — the sheet this
@@ -259,11 +265,15 @@ anyone who reads it before touching either feature.
 1. **Click `IPTR` and `Form 1`** on a pupil's record → closes Sprints 135-137 (producing a PDF means downloading, which I do not do).
 2. **Click `Excel` on the Target Client List** → confirm two sheets, `Page 1` / `Page 2` → closes Sprint 134 / #56.
 3. **Ctrl+P on the report tabs** → confirm the sheet is the form and nothing else → closes #57. Only pagination, landscape and the `zoom: 0.45` still need a real preview.
-4. **`SEED_BHO_PASSWORD` is 7 chars in the production backup** — a re-seed there is refused by the Sprint 120 guard until it is lengthened.
+4. ✅ **DONE on the PC 2026-09-07** — `SEED_BHO_PASSWORD` lengthened to 8, guard verified passing. See Dev demo accounts above for the part that is still open (the live `bho@floral.com` hash).
 5. **The Chapter 3 ERD figure** — now owes **eight** deviations: `school_ids[]`, `DAY_NOTE`, the name split, `REFERRAL`, the two IPTR forms' reading, `PREVENTIVE_CARE_RECORD`'s services, and `DENTAL_CHART.preventive_id`. A redraw, not a patch.
 
 ### ⚠ READ BEFORE TOUCHING THE DATABASE
-- **`.env` points at DEV** (`cluster0.o7e3c5o`). Production is `floral-cluster.edqpjtu` and lives **only in Vercel**.
+- ⚠⚠ **`.env` DOES NOT POINT AT THE SAME CLUSTER ON BOTH DEVICES — check it, never assume it** (found on the PC, 2026-09-07). `.env` is untracked and per-device, so this line was only ever true of the machine that wrote it.
+  - **Laptop:** DEV (`cluster0.o7e3c5o`) — the state this note originally described.
+  - **PC:** **PRODUCTION** (`floral-cluster.edqpjtu`), and so is `.env.bak-20260903`. There is no dev config on the PC at all. **Any script run there hits the live database by default**, including `seed:demo`, `purge:demo` and `apply:seed-passwords`. `.env.production.bak-20260904-222928` is not on the PC either.
+  - The one-line check before any script: `grep -o 'mongodb+srv://[^:]*:[^@]*@[^/]*' .env | sed 's/:[^:@]*@/:***@/'` — or just read `announceTarget`'s banner, which every script prints.
+- Production also lives in Vercel's env vars; the PC's `.env` is a second copy of it, not the source of truth.
 - **`.env.production.bak-20260904-222928`** holds the old config. **Restore the WHOLE FILE, never one line** — different `FIELD_ENCRYPTION_SECRET`s.
 - Every script prints its target (`announceTarget.ts`). ⚠ Call it **after** `connectDB()`, or it prints `(unknown host)` and tells you nothing.
 - **Dev test data left in place, all plausible:** Ivan has a Visit 1 with services (2026-03-15); Castillo has a Visit 2 (2026-04-20) with an **empty charting attached** — the only chart carrying a `preventive_id`. Dev also holds **0 TREATMENT rows** and 0 referrals.
@@ -315,7 +325,7 @@ Re-verified against the code on 2026-09-05, counting properly this time (the WOR
 - **New `server/scripts/announceTarget.ts`, wired into all 19 scripts that connect.** Every one prints script / cluster / database before doing anything, and shouts when the target matches `PRODUCTION_DB_HOST`. **Before this, 13 of 21 scripts wrote to the database and only 5 said which one.**
 - **Dev seeded from scratch** (`seed:admin` → `demo` → `students` → `rpc-visit2` → `iptr-details` → `treatments`): 26 students, names decrypting with the DEV key, `ciphertext leaking? no`.
 - ⚠ **A 401 after seeding is EXPECTED and is not a broken database.** `seed:admin`/`seed:demo` skip accounts that already exist, so the dev admin kept the *rehearsal* password. `npm run apply:seed-passwords -- --confirm` fixes it (5 accounts updated). Now in the README, because it will happen to the next person.
-- ⚠ **The Sprint 120 guard caught a REAL config fault while doing this: `SEED_BHO_PASSWORD` was only 7 characters.** Regenerated for dev. **The same value is still in the production backup**, so a re-seed against production would be refused until it is lengthened there too - worth fixing when convenient.
+- ⚠ **The Sprint 120 guard caught a REAL config fault while doing this: `SEED_BHO_PASSWORD` was only 7 characters.** Regenerated for dev. ✅ **Lengthened in the production config too, on the PC, 2026-09-07** — the guard no longer refuses. (Sprint 126's note above says the local `.env` points at dev; that is the LAPTOP. See the per-device warning under READ BEFORE TOUCHING THE DATABASE.)
 - ⚠ **Dev data is SEEDED, never a copy of production.** Copying real records to a laptop is the thing this separation exists to prevent.
 - **Still true and unchanged:** production still holds the user's test input, untouched. `purge:demo` there still will not clear person-typed records - see the test-input section.
 
