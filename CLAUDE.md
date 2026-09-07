@@ -52,7 +52,11 @@ Capstone Thesis — Build Phase — Group 404 — AY 2025-2026
 - **Barangay Health Office Staff** — consolidated reports across all schools, City Health Office report submission
 
 ## MONGODB MODELS (exact from ERD Chapter 3)
-Full field-level specs for all 16 models live in **`/docs/DATA-MODEL.md`** — READ IT before touching any schema, model, or migration (moved out of CLAUDE.md to keep per-session context small; that doc is authoritative for field details). Models: SCHOOL, USER, DENTIST, DENTAL_AIDE, STUDENT, STUDENT_IPTR, MEDICAL_HISTORY, DIETARY_SOCIAL_HABITS, ORAL_HEALTH_CONDITION, DENTAL_CHART, TOOTH_RECORD, TREATMENT, PREVENTIVE_CARE_RECORD, RISK_STRATIFICATION, APPOINTMENT, DENTIST_ROTATION, AUDIT_TRAIL.
+Full field-level specs for all 19 models live in **`/docs/DATA-MODEL.md`** — READ IT before touching any schema, model, or migration (moved out of CLAUDE.md to keep per-session context small; that doc is authoritative for field details).
+
+**16 models ARE the Chapter 3 ERD:** SCHOOL, USER, DENTIST, DENTAL_AIDE, STUDENT, STUDENT_IPTR, MEDICAL_HISTORY, DIETARY_SOCIAL_HABITS, ORAL_HEALTH_CONDITION, DENTAL_CHART, TOOTH_RECORD, TREATMENT, PREVENTIVE_CARE_RECORD, RISK_STRATIFICATION, APPOINTMENT, AUDIT_TRAIL.
+
+**3 are ERD DEVIATIONS — do not cite them as ERD entities:** DAY_NOTE (Sprint 108), REFERRAL (Sprint 127), DENTIST_ROTATION (Sprint 11). ⚠ This line previously listed DENTIST_ROTATION among the ERD models; it is not in the ERD, not in the manuscript, and not in any Specific Objective (corrected 2026-09-07, after that false claim was used to justify keeping a UI feature). Its Rotation tab was removed the same day — the model and route remain, unread by the UI.
 
 ## SOFT DELETE RULES
 - ALL models include: isArchived BOOLEAN default false, archivedAt DATETIME default null, archivedBy user_id default null

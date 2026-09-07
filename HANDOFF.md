@@ -197,31 +197,72 @@ now. Anywhere else that reads `oralStatus === 'Orally Fit'` deserves the same lo
 - **`redact` applies to STUDENT only.** Other roles reading other models were not re-examined for
   the same over-disclosure. The mechanism is now there if a second case turns up.
 
-### ⏸ PARKED — THE ROTATION TAB (noted 2026-09-06, deliberately NOT built)
-Looked at while parking; not touched. Three things are true of it at once, which is why it needs a
-decision rather than a tweak:
+### ✅ THE ROTATION TAB IS GONE — DECIDED AND REMOVED 2026-09-07
+Parked 2026-09-06 needing a decision; the decision was **delete**, taken on evidence, not taste.
+Four independent sources agree the feature had no requirement behind it:
 
-1. **It renders "No rotation schedule set" for every school** — nothing has ever been saved. An
-   "Add Rotation" button sits above it, so by CLAUDE.md's rule it is a control that looks like a
-   feature and currently is not one.
-2. **It is scoped to the selected school** (`schoolNames.filter(s => !selectedSchool || s === school)`),
-   so from inside a school you see that school's rotation only. A rotation is the answer to
-   "which school is the dentist at this week?" — the cross-school view IS the feature, and it is
-   reachable only from "All schools".
-3. **The file contradicts itself.** The Calendar block says "Rotation-by-school scheduling is gone:
-   with one dentist covering three schools, a per-day note here is more useful", while the Rotation
-   tab and its Add button are still there.
+1. **Not in any Specific Objective.** All five were read (manuscript 113–126). The closest, #2, says
+   "appointment scheduling and monitoring" — rotation is named in none of them, nor in the General
+   Objective.
+2. **Not an ERD entity.** `DATA-MODEL.md:57` — "NEW — not in original ERD, added Sprint 11" — and the
+   model file's own comment agree. CLAUDE.md's model list claimed otherwise and is now corrected.
+3. **Not in the manuscript at all** except line 102, Chapter 1 background, citing DOH policy that
+   deploys dentists "on a rotational basis". That is the study's JUSTIFICATION, not a feature spec.
+4. **Her design deleted it.** `7e817cdf` — "Her branch also DELETED the Rotation tab. It is restored
+   with our real form … because that tab is the only way a dentist rotation gets created." The
+   seven-tab strip was her six plus our restored one.
 
-**The improvement, when it is picked up:** decide the question first — either make Rotation a real
-cross-school week view (one row per school, weeks across, ignoring the school switcher, which is
-what one dentist covering three schools actually needs), or delete the tab and let the calendar's
-day notes carry it. Building a better version of a tab that should not exist is the waste to avoid.
+⚠ **The restoration rested on a false premise.** That same commit message says taking her file whole
+would have "started filing fake rotation rows into a table **that is in the Chapter 3 ERD**". It is
+not in the ERD. A feature was kept to protect an entity that does not exist — which is why the
+CLAUDE.md line was fixed in the same commit rather than left for later.
 
-⚠ **Stale comment to fix either way** (`Appointments.tsx`, above the rotation form state): it says
-the calendar reminder form is "Backed by the DentistRotation collection — repurposed rather than
-adding a new model". That was superseded — day notes have their own `DayNote` model and post to
-`/day-notes`. Only the rotation form still posts to `/dentist-rotations`. The comment misleads
-anyone who reads it before touching either feature.
+**Two corrections to the parked note, both worth keeping:**
+- **It was NOT a dead control.** The note said it "looks like a feature and currently is not one".
+  Wrong — `handleSaveRotation` posted a complete record to `/dentist-rotations` and that route
+  exists. It saved. The list was empty because nobody used it. CLAUDE.md's "a control that appears
+  to work must work" rule never applied here.
+- **The real defect the note missed:** the row chip was a hardcoded `bg-green-100 … Active` on every
+  rotation regardless of its dates. A rotation that ended in March still read **Active**. That IS a
+  NOTHING COSMETIC violation — same shape as the "Orally Fit Child" ✓.
+
+**What was removed** (`Appointments.tsx`, `useDentistRotations.ts` deleted, `ApiDentistRotation`
+dropped from `types.ts`): the tab, its render block, the modal, seven `rot*` state vars,
+`resetRotationForm`, `handleSaveRotation`, `staffNameLabel`, `schoolNames`, and two now-orphaned
+imports (`Stethoscope`, `getSchoolColor`).
+**What was NOT touched:** `server/models/DentistRotation.ts`, the `/dentist-rotations` route,
+`schoolScope`, `purgeDemoData`, and any saved rows. Nothing was deleted from the database.
+One `git revert` restores the UI.
+
+⚠ **Three stale comments were fossils of her REJECTED approach**, not decisions anyone made — her
+branch repurposed `DENTIST_ROTATION` as the day-notes table before `DAY_NOTE` won:
+(a) the "Backed by the DentistRotation collection — repurposed" comment the parked note flagged;
+(b) a comment claiming the day-note lookup had a range check covering "older multi-day rotation
+rows" — `useDayNotes` matches a single `date` field and has no such check, and the comment sat
+orphaned above `prevMonth` describing a function that no longer existed;
+(c) the rotation modal was labelled `{/* ── ADD/EDIT CALENDAR NOTE MODAL ── */}`.
+`useNotifications.ts`'s `remindersToday` doc comment said the same thing and is corrected; the field
+itself is still served by nothing and is therefore always 0 (pre-existing, left alone).
+
+**If rotation is ever wanted back**, the answer is the cross-school week view — one row per school,
+weeks across, ignoring the school switcher — not this tab. Re-derive `ApiDentistRotation` from the
+model, which is still there.
+
+**Verified in the browser, as dentist, against PRODUCTION data** (there is no dev database on the
+PC): Appointments renders; six tabs — Today (0) / Upcoming (1) / Completed (0) / Missed (1) /
+All (2) / Calendar — with no Rotation and no gap; the Calendar month grid draws both demo
+appointments; a day dialog opens with its two halves intact (appointments left, day notes right,
+"This school only"). Nothing was written — the note box was left empty and the dialog closed.
+tsc exit 0, `npm run build` exit 0, no console errors.
+
+⚠ **NOT verified: the 768px and 390px widths.** `resize_window` reported success but the viewport
+never changed, so both screenshots came back at 1536px — the check did not happen and is not being
+claimed. Low risk on this change specifically (the strip is `max-w-full overflow-x-auto`, untouched,
+and REMOVING a tab can only reduce overflow) but unproven. **Eyeball the tab strip on a phone.**
+
+⚠ **`tsc` caught exactly one missed reference** — `setRotDentistId` survived in the "default the
+dentist pickers" effect, well outside the blocks being deleted. Worth remembering that the grep for
+`rotation|Rotation` did not find it: the setter is named `setRot…`, and it sat in shared code.
 
 ### Left open, none of it blocking
 - **`allow_school_year_override`** is on `ApiSchool` but NOT on the SCHOOL model, so that dialog's manual-override section stays hidden. `SchoolManagement` is still ours for the same reason.

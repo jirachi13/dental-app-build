@@ -234,14 +234,10 @@ export interface ApiAppointment {
   isArchived: boolean;
 }
 
-export interface ApiDentistRotation {
-  _id: string;
-  school_id: string;
-  dentist_id: string;
-  week_start: string;
-  week_end: string;
-  notes: string;
-}
+// ApiDentistRotation was removed 2026-09-07 with the Rotation tab. The
+// DENTIST_ROTATION model and `/dentist-rotations` still exist server-side and
+// any saved rows are untouched — nothing in the UI reads them. Re-derive this
+// type from `server/models/DentistRotation.ts` if the schedule is ever built.
 
 export interface ApiAuditTrail {
   _id: string;

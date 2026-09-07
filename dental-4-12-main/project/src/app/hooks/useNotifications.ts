@@ -17,8 +17,11 @@ export interface NotificationCounts {
   appointmentsToday: number;
   /** Risk assessments the dentist has not validated. */
   awaitingValidation: number;
-  /** Calendar reminders/notes (stored as DentistRotation rows) whose date
-   *  range covers today. */
+  /** Day notes (DAY_NOTE) falling on today. ⚠ ALWAYS 0 IN PRACTICE:
+   *  `/stats/notifications` does not return this field — see the merge-over-
+   *  EMPTY note in `reload` below. The older comment here said these were
+   *  "stored as DentistRotation rows", which was true only on the design
+   *  branch whose repurposing was rejected in favour of DAY_NOTE (`7e817cdf`). */
   remindersToday: number;
 }
 
