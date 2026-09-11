@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLoadPhase } from './useLoadPhase';
 import { apiClient } from '../api/client';
 import type {
@@ -63,8 +63,22 @@ export function useDentalChartData(studentId: string | undefined) {
   const [dentists, setDentists] = useState<ApiDentist[]>([]);
   const { loading, beginLoad, endLoad } = useLoadPhase();
   const [error, setError] = useState<string | null>(null);
+  // BUG-07. Only the most recently started run may commit. The same guard
+  // useDohReportData uses — this hook simply never had it, while useStudentNav,
+  // which drives the prev/next buttons on the very same screen, did.
+  //
+  // ⚠ THIS HOOK NEEDS THE CHECK IN TWO PLACES, WHICH IS WHY THE BUG WAS WORSE
+  // THAN ORDINARY STALENESS. It commits identity (student, school, dentists)
+  // after the FIRST round of requests and the chart years after the SECOND, so
+  // with two runs in flight the interleaving A-first, B-first, A-second left
+  // pupil B's name and school sitting above pupil A's chart years — a
+  // clinically wrong record with no error and no empty state to give it away.
+  // Guarding only the last commit would still allow exactly that.
+  const runIdRef = useRef(0);
 
   const reload = useCallback(async () => {
+    const runId = ++runIdRef.current;
+    const isStale = () => runId !== runIdRef.current;
     if (!studentId) {
       endLoad();
       return;
@@ -84,6 +98,10 @@ export function useDentalChartData(studentId: string | undefined) {
         apiClient.get<ApiDentist[]>('/dentists'),
       ]);
 
+      // COMMIT POINT 1 of 2 — identity. A newer run has started, so this one
+      // must not put its pupil's name on screen, and must not fall through to
+      // the second round either.
+      if (isStale()) return;
       setStudent(studentDoc);
       setSchoolName(schools.find((s) => s._id === studentDoc.school_id)?.school_name ?? 'Unknown School');
       setDentists(dentistList);
@@ -152,17 +170,28 @@ export function useDentalChartData(studentId: string | undefined) {
         };
       });
 
+      // COMMIT POINT 2 of 2 — the chart years.
+      if (isStale()) return;
       setYears(yearData);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load dental chart data');
+      // A superseded run's failure is not this screen's failure: showing "Failed
+      // to load" for a pupil the user already navigated away from would be a
+      // second way to mislead.
+      if (!isStale()) setError(err instanceof Error ? err.message : 'Failed to load dental chart data');
     } finally {
-      endLoad();
+      // ⚠ Only the newest run may clear the spinner. Without this an abandoned
+      // run finishing first would report the screen ready while the run whose
+      // data is actually wanted is still in flight.
+      if (!isStale()) endLoad();
     }
   }, [studentId]);
 
   useEffect(() => {
     reload();
+    // Bump the run id on unmount so an in-flight fetch can never commit —
+    // matching useDohReportData.
+    return () => { runIdRef.current++; };
   }, [reload]);
 
   return { student, schoolName, years, dentists, loading, error, reload };

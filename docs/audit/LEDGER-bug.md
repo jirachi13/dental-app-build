@@ -248,7 +248,43 @@ per-file check, not a truncated grep.
 - `useAppointments` uses `pendingWrites.length` as an effect dependency — the correct defensive form
   for an array whose identity changes every render.
 
-### BUG-07 · `src/app/hooks/useDentalChartData.ts:162` · HIGH · OPEN
+### BUG-07 · `src/app/hooks/useDentalChartData.ts:162` · HIGH · FIXED (Sprint 160a)
+**Fixed 2026-09-11.** Adopted the in-house `runIdRef` / `isStale()` pattern from `useDohReportData`
+rather than inventing a third variant — the codebase already had two.
+
+**Guarded at five points, not one**, which is the whole reason this bug was worse than staleness:
+- `:104` **commit point 1** — identity (`setStudent`, `setSchoolName`, `setDentists`). Returns rather
+  than falling through, so a superseded run also stops issuing its second round of requests.
+- `:174` **commit point 2** — `setYears`.
+- `:181` the error path, so a superseded run's failure does not raise "Failed to load" over a pupil
+  the user has already navigated past.
+- `:186` `endLoad`, so an abandoned run finishing first cannot report the screen ready while the run
+  whose data is actually wanted is still in flight.
+- `:194` effect cleanup bumps the id on unmount, matching `useDohReportData`.
+
+⚠ **Checked before writing it: `useLoadPhase` is idempotent, not a counter** (`beginLoad` sets a
+flag, `endLoad` clears it unconditionally), so gating `endLoad` cannot unbalance anything and leave a
+stuck spinner. The newest run always clears it.
+
+⚠ **Not unit-tested**, for the same reason as BUG-04: this is a React hook over `apiClient`, and
+Sprint 158's harness is pure functions only. Testing it needs `@testing-library/react` + jsdom, which
+is a new dependency and a scope decision, not something to slip into a fix. Verified by `tsc` on both
+configs, `npm run build` and 55/55 existing tests — **none of which exercise this hook.** The real
+check is manual: open a pupil's chart and click prev/next rapidly, confirming the name above the
+chart always matches the chart.
+
+**Deliberately NOT bundled:** BUG-00 lives in this same hook (`myCharts.find` hiding later
+chartings). It changes *what* is displayed where this changed *when* it is committed, and keeping
+them in separate commits keeps any regression attributable.
+
+**A note for BUG-08's sweep:** this fix inlines the pattern a third time. At three sites that is
+right — extracting a shared helper for three call sites would be premature. **At the eight further
+sites BUG-08 names, the extraction starts paying for itself**, and that is the moment to do it, not
+now.
+
+Original finding follows.
+
+### BUG-07 (original) · HIGH
 Claim:    **The dental chart can display one pupil's identity above another pupil's teeth.** This is
           not ordinary staleness — a *mixed* state is reachable, because the hook commits state at
           two different awaits.

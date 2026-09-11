@@ -1042,6 +1042,31 @@ User: *"record visit is also treatment, in rpc tracking"* — and the code agree
 
 ---
 
+## Sprint 160a (the FIX for BUG-07 - the chart could show two pupils at once) - DONE 2026-09-11, 55/55, tsc x2 + build clean
+
+**One file, 32 lines, five guard points.** Adopted the in-house `runIdRef`/`isStale()` pattern from `useDohReportData` rather than inventing a third variant — the codebase already had two.
+
+**Guarded at FIVE points, not one, which is the whole reason this was worse than ordinary staleness:**
+- **commit point 1** (`:104`) — identity (`setStudent`/`setSchoolName`/`setDentists`). **Returns rather than falling through**, so a superseded run also stops issuing its second round of requests.
+- **commit point 2** (`:174`) — `setYears`.
+- **the error path** (`:181`) — a superseded run's failure must not raise "Failed to load" over a pupil the user already navigated past.
+- **`endLoad`** (`:186`) — an abandoned run finishing first must not report the screen ready while the run whose data is actually wanted is still in flight.
+- **effect cleanup** (`:194`) — bumps the id on unmount, matching `useDohReportData`.
+
+**⚠ CHECKED BEFORE WRITING IT: `useLoadPhase` is IDEMPOTENT, not a counter.** `beginLoad` sets a flag, `endLoad` clears it unconditionally — so gating `endLoad` cannot unbalance anything and leave a stuck spinner, and the newest run always clears it. Worth the two minutes: gating a *counted* begin/end pair would have shipped a hung skeleton.
+
+**⚠ NOT UNIT-TESTED, same reason as BUG-04.** This is a React hook over `apiClient`, and Sprint 158's harness is pure functions only. Testing it needs `@testing-library/react` + jsdom — a new dependency and a scope decision, not something to slip into a fix sprint. Verified by `tsc` both configs, `npm run build` and 55/55 existing tests, **none of which exercise this hook.** **The real check is manual and takes ten seconds:** open a pupil's chart, click prev/next rapidly, confirm the name above the chart always matches the chart.
+
+**Deliberately NOT bundled: BUG-00 lives in this same hook** (`myCharts.find` hiding later chartings — 22 of 26 IPTRs have more than one chart). It changes *what* is displayed where this changed *when* it is committed. Separate commits keep any regression attributable.
+
+**A note for BUG-08's sweep:** this inlines the pattern a **third** time. At three sites that is right — extracting a shared helper for three call sites is premature. **At the eight further sites BUG-08 names, the extraction starts paying for itself**, and that is the moment to do it.
+
+**Track B: BUG-03, BUG-04, BUG-07 and SEC-27 fixed. Open: BUG-00, BUG-01, BUG-02, BUG-05, BUG-06, BUG-08, BUG-09.**
+
+**Next: Sprint 161 (report arithmetic)**, which reads `useDohReportData`/`useFhsisData`/`useSchoolSummary`/`useRPCTracking`/`useRiskClassification` and the `shared/` tally helpers — and should **write tests as it goes**, since those helpers are pure and are exactly what Sprint 158's harness was built for.
+
+---
+
 ## Open work (each needs approval; sprint loop applies)
 
 65. **AUDIT PROGRAM — SCOPED 2026-09-11. **TRACK A COMPLETE** — Sprints 151-157 DONE (+153a SEC-18 fix, +157a doc drift). **Track B OPEN: 158-159 DONE** (`npm test` exists, 46 tests, wired into CI; **BUG-03 is a real double-drain race** and SEC-27 is confirmed); 160-162 and the SEC fix sprints remain, each needs its own approval.** ⚠ No 154b is needed — 154 did not split. ⚠ SEC-26 + ARCH-07 were fixed in 157a. ⚠ Two HIGH read-access findings (SEC-03, SEC-19) are read-off-the-code and NOT yet demonstrated live — SEC-00 (this PC points at production) is what blocks the check.
