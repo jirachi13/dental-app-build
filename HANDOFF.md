@@ -871,9 +871,42 @@ User: *"record visit is also treatment, in rpc tracking"* — and the code agree
 
 ---
 
+## Sprint 157 (ML boundary) - DONE 2026-09-11, no code touched. ▶ TRACK A COMPLETE
+
+**Read-only.** 3 new findings. Last of the seven Track A audits.
+
+**▶ THE HEADLINE IS GOOD NEWS: CLAUDE.md's privacy rule is ENFORCED, not merely intended.** `predictionRoutes.ts` builds the outbound body from a **13-key allowlist** (`for (const k of FEATURE_KEYS) body[k] = features[k]`), so a name, address or record id **cannot cross even if the client sends it**. `student_id` is accepted by the route but used ONLY for the audit log and is never forwarded. And no feature values are logged — the only `print` calls in `predictor.py` sit in its `__main__` demo block, not the request path, so nothing patient-derived reaches Render's logs, which are outside the trust boundary.
+
+**⚠ SEC-30 — THE ONE THING I COULD NOT ANSWER, AND IT NEEDS YOU: is `ML_SERVICE_API_KEY` set on Render?**
+- `main.py`: `def _check_key(request): if API_KEY and request.headers.get("x-api-key") != API_KEY: raise HTTPException(401)`. **With the key empty the condition short-circuits and every request is accepted.** The module docstring says it outright: *"Unset = open, for local dev."* Express mirrors the shape — it sends no header when its own value is empty.
+- `.env.example:71` has `# ML_SERVICE_API_KEY=`, commented and empty. This machine's `.env` does not define it at all.
+- ⚠ **Neither proves anything about the deployed service** — Render's environment is configured in its dashboard, independently of any `.env` here. It proves only that nothing in the repo would set it.
+- **If it IS unset on Render:** `POST /predict` at the public URL accepts any caller. **This is NOT a patient-data disclosure** — the request carries only the 13 numbers the caller supplies and the response is a risk band for those numbers, so an attacker learns nothing about any pupil. It is an **open compute endpoint**, and there is **no rate limiting anywhere in the FastAPI app**. On the free tier that is a plausible way to exhaust the service during defense week — the moment HANDOFF already flags as when it most needs to answer. The URL is not secret; it is in HANDOFF and in `.env.example`.
+- **One look at the Render dashboard closes this row either way.** If set → NOT-A-BUG with the reason recorded. If not → set it on both Render and Vercel, same value.
+
+**⚠ THE PATTERN WORTH REMEMBERING FROM TRACK A — this is the THIRD fail-open.** `if API_KEY and …` joins **SEC-04** (an empty `school_ids` means ALL SCHOOLS) and **SEC-13**'s origin fallback: three places where **an absent or empty value is read as permission** rather than as a misconfiguration. Each is individually defensible and locally documented; together they are a habit, and the failure is always silent and always in the permissive direction.
+
+**SEC-31 (LOW)** — `/health` takes a `Request` but **never calls `_check_key`**, unlike `/predict` which calls it on line one. Discloses the algorithm name, training metadata and the `synthetic_data` flag. No patient data; reasonable for a health check, but worth being a deliberate choice rather than an omission. **SEC-32 (LOW)** — Express forwards the ML service's error body verbatim (`detail: result` on 502); a FastAPI 422 names the field and constraint. Same class as SEC-09 but milder — ML feature names, not patient schema.
+
+**Also correct:** pydantic range-validates all 13 features · Express is `requireAuth` + `requireRole(dentist, system_admin)` with every assessment audit-logged · **503 on unreachable and 502 on rejection, so the UI degrades honestly rather than inventing a risk band** · every response re-states the clinical disclaimer and carries the `synthetic_data` flag that drives the honesty banner, so CLAUDE.md's "dentist must validate" rule travels in the payload rather than living only in a screen.
+
+---
+
+## ▶ TRACK A COMPLETE — Sprints 151-157 (+153a)
+
+**31 findings recorded · 3 closed · 1 fixed.**
+
+**Still HIGH and open:** SEC-02 (PII in git history — accepted, WONTFIX, repo stays private) · **SEC-00** (this PC points at production) · **SEC-03 + SEC-19** (clinical reads by non-clinical roles — read off the code, **never demonstrated live**) · SEC-04 (empty-value-means-all) · **SEC-30** (conditional, one dashboard check).
+
+**⚠ TWO THINGS TRACK A COULD NOT DO, BOTH FOR THE SAME REASON.** The live RBAC spot-check (Sprint 153) and any probe of the deployed ML service both need an environment that is not production. **SEC-00 is therefore not just a finding — it is the blocker on closing two HIGH rows.** Getting a dev `.env` onto this PC (the whole file from the laptop, never one line — the `FIELD_ENCRYPTION_SECRET`s differ) is what unblocks them, and it was already the 10th session's top recommendation.
+
+**Next, three options:** (a) **SEC fix sprints** — SEC-22 and SEC-12 are self-contained and need no live check; (b) **Track B**, starting with Sprint 158's Vitest harness, which gates the 162 refactor; (c) the **CLAUDE.md doc-drift fixes** (SEC-26, ARCH-07, and ARCH-06's wrong justification), which are small and make the next reader's model of the system correct.
+
+---
+
 ## Open work (each needs approval; sprint loop applies)
 
-65. **AUDIT PROGRAM — SCOPED 2026-09-11. Sprints 151-156 DONE (+153a, the SEC-18 fix); 157-162 remain, each needs its own approval.** ⚠ No 154b is needed — 154 did not split. ⚠ SEC-26 + ARCH-07 are CLAUDE.md doc-drift fixes awaiting their own approval. ⚠ Two HIGH read-access findings (SEC-03, SEC-19) are read-off-the-code and NOT yet demonstrated live — SEC-00 (this PC points at production) is what blocks the check.
+65. **AUDIT PROGRAM — SCOPED 2026-09-11. **TRACK A COMPLETE** — Sprints 151-157 DONE (+153a, the SEC-18 fix); Track B (158-162) and the SEC fix sprints remain, each needs its own approval.** ⚠ No 154b is needed — 154 did not split. ⚠ SEC-26 + ARCH-07 are CLAUDE.md doc-drift fixes awaiting their own approval. ⚠ Two HIGH read-access findings (SEC-03, SEC-19) are read-off-the-code and NOT yet demonstrated live — SEC-00 (this PC points at production) is what blocks the check.
     - **Full program: `docs/audit/PROGRAM.md`** (in the repo deliberately — the plan-mode file lives in `~/.claude/plans` and does NOT sync between the two machines). Read that, not this entry, before running any audit sprint.
     - **User decisions taken 2026-09-11:** security/architecture track FIRST · audit sprints are **READ-ONLY**, fixes are separate approved sprints · **Vitest for pure logic only** before any refactor · output is **internal hardening** (terse ledger, no manuscript formatting).
     - **Track A (151-157, read-only):** 151 architecture map re-derivation + trust boundaries · 152 auth/session · 153 **RBAC + multi-school tenancy (highest consequence)** · 154 route-by-route input+authz (expected to split into 154b) · 155 data layer · 156 client-side + supply chain · 157 ML boundary. Then SEC fix sprints, 1-3 findings each.

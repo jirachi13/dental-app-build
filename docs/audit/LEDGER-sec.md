@@ -19,7 +19,8 @@ commit as the change.
 | 154 | Route-by-route input + authz | DONE — 4 new + 1 arch note. **No 154b needed** |
 | 155 | Data layer | DONE — **SEC-05 + SEC-06 CLOSED as NOT-A-BUG**; 1 new + 2 doc-drift rows |
 | 156 | Client-side & supply chain | DONE — 3 new; SEC-08 mechanism confirmed, SEC-11 reinforced |
-| 157 | ML boundary | not started |
+| 157 | ML boundary | DONE — 3 new. ⚠ SEC-30 needs one look at the Render dashboard |
+| — | **TRACK A COMPLETE** | 31 findings · 3 closed · 1 fixed · 2 HIGH rows blocked on SEC-00 |
 
 ---
 
@@ -798,6 +799,99 @@ Fix:      Add the two patterns, or better, exclude by what the chunk imports rat
 `http-equiv` of any kind. Worth noting for the fix — a `<meta http-equiv="Content-Security-Policy">`
 in this file is an alternative to Vercel response headers if the headers route proves awkward. The
 file is otherwise clean: no inline script, no inline style, no third-party tag.
+
+---
+
+## Sprint 157 — ML boundary (last Track A sprint)
+
+**Read:** `server/routes/predictionRoutes.ts` · `ml-service/main.py` · `ml-service/predictor.py`
+(`model_info`, and a sweep for logging) · `.env.example` · the local `.env` key names only.
+
+### What is correct here — and the headline is that CLAUDE.md's privacy rule is ENFORCED, not just intended
+- **No patient identity can cross this boundary, by construction.** `predictionRoutes.ts` builds the
+  outbound body from a **13-key allowlist** — `for (const k of FEATURE_KEYS) body[k] = features[k]`
+  — so a name, address or record id cannot cross **even if the client sends it**. `student_id` is
+  accepted by the route but used **only** for the audit log; it is never forwarded. CLAUDE.md
+  requires that names never leave MongoDB, and this is the code that makes it true.
+- **No feature values are logged.** The only `print` calls in `predictor.py` are in its `__main__`
+  demo block, not the request path — so no patient-derived numbers land in Render's logs, which are
+  a third-party surface outside the trust boundary.
+- Pydantic validates **every one of the 13 features** with an explicit `ge`/`le` range.
+- Express side: `requireAuth` + `requireRole("dentist", "system_admin")`, every assessment
+  audit-logged against the student it was generated for, **503 when the service is unreachable and
+  502 when it rejects** — so the UI degrades honestly rather than fabricating a risk band. Timeouts
+  are deliberate (8 s status, 30 s predict for the documented cold start).
+- Every response re-states the clinical disclaimer, and `model_info()` carries the `synthetic_data`
+  flag that drives the UI's honesty banner. CLAUDE.md's "dentist must validate" rule travels in the
+  payload rather than living only in a screen.
+
+### SEC-30 · `ml-service/main.py` `_check_key` · HIGH if unset, else none · **OPEN — NEEDS THE USER**
+Claim:    **The ML service authenticates only if a key happens to be configured, and no key is set
+          anywhere in the repository.** Whether the deployed service is open cannot be determined
+          from here.
+Evidence: `main.py` — `def _check_key(request): if API_KEY and request.headers.get("x-api-key") !=
+          API_KEY: raise HTTPException(401)`. With `API_KEY = os.environ.get("ML_SERVICE_API_KEY",
+          "")` empty, the condition short-circuits and **every request is accepted**. The module
+          docstring states it plainly: *"Unset = open, for local dev."*
+          Express mirrors the same shape — `...(ML_SERVICE_API_KEY ? { "X-API-Key": … } : {})` sends
+          no header when its own value is empty.
+          `.env.example:71` has `# ML_SERVICE_API_KEY=` — commented out and empty. This machine's
+          `.env` does not define it at all.
+          ⚠ **Render's environment is configured in its dashboard, independently of any `.env` in
+          this repo, so none of the above proves the deployed service is open.** It proves only that
+          nothing in the repo would set it.
+Impact:   **If unset on Render**: `POST /predict` at the public URL accepts any caller. This is *not*
+          a patient-data disclosure — the request carries only the 13 numbers the caller supplies and
+          the response is a risk band for those numbers, so an attacker learns nothing about any
+          pupil. It is an **open compute endpoint**: anyone who finds the URL can run the model, and
+          there is **no rate limiting anywhere in the FastAPI app**. On the free tier that is a
+          plausible way to exhaust the service during defense week — which HANDOFF already flags as
+          the moment it most needs to answer.
+          The URL is not secret: it appears in HANDOFF and in `.env.example`'s placeholder form.
+Fix:      **First, answer the question** — check the Render dashboard for `ML_SERVICE_API_KEY`. If it
+          is set, this row closes as NOT-A-BUG with the reason recorded. If it is not, set it on both
+          Render and Vercel (the same value) and it closes as fixed.
+          ⚠ Separately, consider whether `_check_key` should **fail closed** in production rather
+          than treating an empty key as permission — see the pattern note below.
+
+### The fail-open pattern — third instance
+`if API_KEY and …` joins **SEC-04** (an empty `school_ids` means *all schools*) and **SEC-13**'s
+origin fallback: three places where **an absent or empty value is read as permission** rather than as
+a misconfiguration. Each is individually defensible and locally documented; together they are a habit
+worth naming, because the failure is always silent and always in the permissive direction. Whatever
+is decided about SEC-30 specifically, this is the line to remember from Track A.
+
+### SEC-31 · `ml-service/main.py` `/health` · LOW · OPEN
+Claim:    `/health` is unauthenticated by construction, unlike `/predict`.
+Evidence: `def health(request: Request)` takes the request but **never calls `_check_key`**;
+          `predict` calls it on the first line. `/health` returns `predictor.model_info()` =
+          `{algorithm, **_model_meta}` — the algorithm's display name, training metadata, and the
+          `synthetic_data` flag.
+Impact:   Discloses that the service exists, which algorithm is active and when it was trained. No
+          patient data. Reasonable for a health check; worth being a deliberate choice rather than an
+          omission, since `predict` beside it is gated.
+
+### SEC-32 · `server/routes/predictionRoutes.ts` · LOW · OPEN
+Claim:    Express forwards the ML service's error body verbatim to the browser.
+Evidence: `res.status(502).json({ error: "Prediction service rejected the request", detail: result })`.
+Impact:   A FastAPI 422 names the offending field and its constraint. Same class as SEC-09, but
+          milder: these are ML feature names (`dmf_score`, `calculus`), not patient schema.
+Fix:      Log the detail server-side, return a generic message. Bundle with SEC-09.
+
+---
+
+## ▶ TRACK A COMPLETE (Sprints 151–157)
+
+Seven read-only audits, one fix sprint (153a). **31 findings recorded, 3 closed, 1 fixed.**
+
+**Still HIGH and open:** SEC-02 (PII in git history, accepted/WONTFIX) · SEC-00 (this PC points at
+production) · SEC-03 and SEC-19 (clinical reads by non-clinical roles — **read off the code, never
+demonstrated live, because SEC-00 blocks the check**) · SEC-04 (the empty-value-means-all design) ·
+SEC-30 (**conditional — needs one look at the Render dashboard**).
+
+**Two things Track A could not do, both for the same reason:** the live RBAC spot-check (Sprints 153)
+and any probe of the deployed ML service. Both need a database and an environment that are not
+production. **SEC-00 is therefore not just a finding — it is the blocker on closing two HIGH rows.**
 
 ---
 
