@@ -14,7 +14,7 @@ Track B sprints: 158 Vitest harness · 159 offline/sync races · 160 data-fetch 
 |---|---|---|
 | 158 | Vitest harness + characterization tests | DONE — 46 tests, net verified, CI wired |
 | 159 | Offline & sync races | DONE — 3 new, incl. a real double-drain race; SEC-27 confirmed |
-| 160 | Data-fetch hooks | not started |
+| 160 | Data-fetch hooks | DONE — 3 new; the worst can show two pupils at once |
 | 161 | Report arithmetic | not started |
 | 162 | `DentalChart.tsx` decomposition | not started (gated on 158 ✅) |
 
@@ -218,6 +218,95 @@ Impact:   A pupil's record is archived while an aide is offline; the aide's queu
 Fix:      Give PUT the archived check GET already has. ⚠ Then decide deliberately what the queue
           should DO with the rejection: `markFailed` wedges the queue, so this probably wants to be a
           conflict rather than a failure.
+
+---
+
+## Sprint 160 — data-fetch hooks
+
+**Read:** all 20 of `src/app/hooks/*` — structurally first (dependency arrays, guard patterns), then
+in full for the ones whose inputs a user can change quickly.
+
+**The shape of this sprint's findings: the fix already exists in this codebase.** Five hooks guard
+against out-of-order responses (`useDohReportData` and `useSchoolSummary` with an `isStale()` /
+`runIdRef` pair, `useGradeRoster` and `useLiveNumbers` with a `cancelled` flag, `useStudentNav`).
+Fifteen do not. So this is not "nobody thought about it" — it is a known, working, in-house pattern
+applied to some hooks and not others.
+
+⚠ **A correction to my own first pass, recorded because it nearly became a wrong finding.** An early
+grep truncated at 10 lines and I read it as "only 2 of 20 hooks guard". The real count is 5 of 20;
+`useDohReportData` and `useSchoolSummary` both guard and were missed. Counts here come from a
+per-file check, not a truncated grep.
+
+### What is correct here
+- **Dependency arrays are overwhelmingly primitives** — `fromMs`, `toMs`, `fromKey`, `key`,
+  `schoolName`, `schoolYear`, `studentId` — not objects or arrays. That is the right defence against
+  the refetch loop HANDOFF documents for `useAppointments`, and it has been applied broadly.
+- `useRefreshOnFocus` is unusually well-reasoned: throttled at 30 s, listening on `visibilitychange`
+  / `focus` / `online`, with an explicit argument for why an interval is the wrong shape (a billed
+  invocation per tick to keep an unwatched tab warm) and an explicit warning never to put it on a
+  screen holding unsaved edits.
+- `useAppointments` uses `pendingWrites.length` as an effect dependency — the correct defensive form
+  for an array whose identity changes every render.
+
+### BUG-07 · `src/app/hooks/useDentalChartData.ts:162` · HIGH · OPEN
+Claim:    **The dental chart can display one pupil's identity above another pupil's teeth.** This is
+          not ordinary staleness — a *mixed* state is reachable, because the hook commits state at
+          two different awaits.
+Evidence: `reload` is a `useCallback` keyed `[studentId]`, run by an effect on `[reload]`, with **no
+          cancellation guard**. Inside, it awaits a first `Promise.all` (student, schools, IPTRs,
+          dentists) and then **immediately commits** `setStudent`, `setSchoolName`, `setDentists`. It
+          then awaits a *second* `Promise.all` (seven joined collections) and commits `setYears`.
+          With two runs in flight, this interleaving is reachable:
+          `A-first → setStudent(A)` · `B-first → setStudent(B)` · `A-second → setYears(A)`
+          — leaving **pupil B's name, school and dentist above pupil A's chart years.**
+Impact:   The trigger is the ordinary way of working: `useStudentNav` puts prev/next patient buttons
+          on this very screen, and paging through a class means clicking next repeatedly. The screen
+          then shows a clinically wrong record that looks entirely normal — no error, no empty state.
+          ⚠ **`useStudentNav` itself guards. The hook it navigates *with* does not.** The two sit on
+          the same screen.
+Fix:      Add the `isStale()` / `runIdRef` guard `useDohReportData` already uses — **and check it
+          before BOTH commit points**, not just the last one. A guard only on `setYears` would still
+          allow the mixed state.
+⚠ This is also the hook carrying BUG-00 (`myCharts.find` hiding later chartings). **Fix them
+  separately** — BUG-00 changes what is displayed, BUG-07 changes when it is committed, and bundling
+  them makes a regression unattributable.
+
+### BUG-08 · `src/app/hooks/` — 15 files · MED · OPEN
+Claim:    The out-of-order guard is applied to 5 of 20 hooks, and several of the 15 without one fetch
+          on inputs a user can flip quickly.
+Evidence: **With a guard:** `useDohReportData`, `useSchoolSummary`, `useGradeRoster`,
+          `useLiveNumbers`, `useStudentNav`.
+          **Without, and genuinely at risk:** `useDentalChartData` `[studentId]` (BUG-07),
+          `useAppointments` `[fromMs, toMs]` (calendar paging), `useFhsisData` `[month, schoolName]`,
+          `useRPCTracking` `[key]`, `useRiskClassification` `[key]`, `useAuditTrail` `[fromKey]`,
+          `useDayNotes` `[fromKey, toKey]`, `useNotifications` `[enabled, schoolName]`.
+          **Without, and fine:** `useSchools`, `useUsers`, `useStudents` (fetch once on `[]`), and
+          `useLoadPhase`, `usePrintOrientation`, `useOfflineQueue`, `useRefreshOnFocus` (not fetch
+          hooks at all).
+Impact:   Every one of the at-risk hooks feeds a screen with a school switcher, a month/period
+          selector or a date range — the controls people click twice in a second. The failure is
+          silent: the older response wins and the screen shows the previous selection's numbers under
+          the new selection's label. CLAUDE.md's rule that a control which appears to work must work
+          is exactly what this breaks.
+Fix:      Apply the existing pattern. ⚠ **Not a mechanical sweep** — do it per hook, checking each
+          commit point, and prefer doing it alongside whatever sprint already touches that hook.
+Note:     **No hook uses `AbortController`.** The in-house guard discards a late *result*; it does not
+          cancel the request. That is a reasonable trade (simpler, and these are small GETs) and is
+          recorded so nobody reports it again as a separate finding — but it does mean a fast
+          switcher still pays the bandwidth for every response it throws away.
+
+### BUG-09 · `src/app/hooks/useAppointments.ts:206` · LOW · OPEN
+Claim:    A `useMemo` never hits its cache, because one dependency changes identity on every render.
+Evidence: `}, [appointments, students, schools, dentists, pendingWrites]);` — `pendingWrites` comes
+          from `usePendingWritesFor`, which returns `queue.filter(...)`, **a new array every render**.
+          The effect 23 lines above it gets this right: `}, [pendingWrites.length, reload]);`.
+Impact:   `buildSessions` re-runs on every render of every screen using appointments. Wasted work, not
+          wrong output — and small, since the collections are already bounded by the date window.
+          Worth fixing mainly because the same file already demonstrates the correct form, so the
+          inconsistency will confuse the next reader.
+Fix:      Depend on `pendingWrites.length`, or memoise `pendingWrites` at its source.
+
+---
 
 ### BUG-06 · `server/utils/schoolScope.ts:99-132` · MED · OPEN
 **Found while fixing BUG-04 — the neighbouring case, deliberately not fixed with it.**

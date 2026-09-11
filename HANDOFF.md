@@ -1016,6 +1016,32 @@ User: *"record visit is also treatment, in rpc tracking"* — and the code agree
 
 ---
 
+## Sprint 160 (data-fetch hooks) - DONE 2026-09-11, no code touched
+
+**Read-only.** All 20 hooks, structurally first (dep arrays, guard patterns) then in full for the ones whose inputs a user can flip fast. 3 new findings.
+
+**The shape of this sprint: THE FIX ALREADY EXISTS IN THIS CODEBASE.** Five hooks guard against out-of-order responses — `useDohReportData` and `useSchoolSummary` with an `isStale()`/`runIdRef` pair, `useGradeRoster` and `useLiveNumbers` with a `cancelled` flag, plus `useStudentNav`. **Fifteen do not.** So this is not "nobody thought about it"; it is a known, working, in-house pattern applied to some hooks and not others.
+
+**⚠ A CORRECTION TO MY OWN FIRST PASS, recorded because it nearly became a wrong finding.** An early grep truncated at 10 lines and I read it as *"only 2 of 20 hooks guard"*. **The real count is 5 of 20** — `useDohReportData` and `useSchoolSummary` both guard and were missed. Every count in the ledger now comes from a per-file check, not a truncated grep.
+
+**⚠ BUG-07 (HIGH) — THE DENTAL CHART CAN SHOW ONE PUPIL'S IDENTITY ABOVE ANOTHER PUPIL'S TEETH.** This is not ordinary staleness: a **mixed** state is reachable, because the hook commits at **two different awaits**. `useDentalChartData`'s `reload` is keyed `[studentId]` with **no cancellation guard**; it awaits a first `Promise.all` and immediately commits `setStudent`/`setSchoolName`/`setDentists`, then awaits a **second** `Promise.all` and commits `setYears`. With two runs in flight this interleaving is reachable: `A-first → setStudent(A)`, `B-first → setStudent(B)`, `A-second → setYears(A)` — leaving **pupil B's name, school and dentist above pupil A's chart years.**
+- **The trigger is the ordinary way of working:** `useStudentNav` puts prev/next patient buttons on this very screen, and paging through a class means clicking next repeatedly. The screen then shows a clinically wrong record that **looks entirely normal** — no error, no empty state.
+- ⚠ **`useStudentNav` itself GUARDS. The hook it navigates WITH does not.** Same screen.
+- **Fix must check the guard before BOTH commit points**, not just the last — a guard only on `setYears` would still allow the mixed state.
+- ⚠ **This is also the hook carrying BUG-00** (`myCharts.find` hiding later chartings). **Fix them SEPARATELY** — BUG-00 changes *what* is displayed, BUG-07 changes *when* it is committed, and bundling them makes a regression unattributable.
+
+**BUG-08 (MED)** — the guard is on 5 of 20 hooks. **At risk without one:** `useDentalChartData`, `useAppointments` `[fromMs, toMs]` (calendar paging), `useFhsisData` `[month, schoolName]`, `useRPCTracking`, `useRiskClassification`, `useAuditTrail`, `useDayNotes`, `useNotifications`. **Fine without one:** `useSchools`/`useUsers`/`useStudents` (fetch once on `[]`) and `useLoadPhase`/`usePrintOrientation`/`useOfflineQueue`/`useRefreshOnFocus` (not fetch hooks). Every at-risk hook feeds a screen with a school switcher, month selector or date range — the controls people click twice in a second — and the failure is silent: the older response wins and the screen shows the previous selection's numbers under the new selection's label. ⚠ **Not a mechanical sweep** — per hook, checking each commit point, ideally alongside whatever sprint already touches it. Noted so it is not re-reported: **no hook uses `AbortController`** — the in-house guard discards a late *result* rather than cancelling the request, which is a reasonable trade but still pays the bandwidth.
+
+**BUG-09 (LOW)** — `useAppointments:206` is a `useMemo` that never hits its cache: `pendingWrites` comes from `queue.filter(...)`, a new array every render. The effect 23 lines above gets it right with `pendingWrites.length`. Wasted work, not wrong output; worth fixing mainly because the same file demonstrates the correct form.
+
+**What is CORRECT here:** **dependency arrays are overwhelmingly primitives** (`fromMs`, `fromKey`, `key`, `schoolName`, `studentId`) rather than objects or arrays — the right defence against the refetch loop HANDOFF documents for `useAppointments`, applied broadly · `useRefreshOnFocus` is unusually well-reasoned: throttled at 30s, listening on `visibilitychange`/`focus`/`online`, with an explicit argument for why an interval is the wrong shape (a billed invocation per tick to keep an unwatched tab warm) and an explicit warning never to put it on a screen holding unsaved edits.
+
+**Track B: BUG-03/04 and SEC-27 fixed. Open: BUG-00, BUG-01, BUG-02, BUG-05, BUG-06, BUG-07, BUG-08, BUG-09.**
+
+**Next: BUG-07** is the one to fix — it is a HIGH, it is contained to one hook, and it sits in the file Sprint 162 will decompose, so fixing it first means 162 starts from correct behaviour. Then Sprint 161 (report arithmetic).
+
+---
+
 ## Open work (each needs approval; sprint loop applies)
 
 65. **AUDIT PROGRAM — SCOPED 2026-09-11. **TRACK A COMPLETE** — Sprints 151-157 DONE (+153a SEC-18 fix, +157a doc drift). **Track B OPEN: 158-159 DONE** (`npm test` exists, 46 tests, wired into CI; **BUG-03 is a real double-drain race** and SEC-27 is confirmed); 160-162 and the SEC fix sprints remain, each needs its own approval.** ⚠ No 154b is needed — 154 did not split. ⚠ SEC-26 + ARCH-07 were fixed in 157a. ⚠ Two HIGH read-access findings (SEC-03, SEC-19) are read-off-the-code and NOT yet demonstrated live — SEC-00 (this PC points at production) is what blocks the check.
