@@ -752,9 +752,39 @@ User: *"record visit is also treatment, in rpc tracking"* — and the code agree
 
 ---
 
+## Sprint 153 (RBAC and tenancy - the highest-consequence sprint, and it found a one-word bug) - DONE 2026-09-11, no code touched
+
+**Read-only.** 4 new findings plus the role x model x verb matrix, now in `docs/audit/LEDGER-sec.md`. **⚠ The live spot-check was NOT run — see the bottom of this section.**
+
+**⚠ SEC-18 (HIGH) — `createUser` WRITES A FIELD THE SCHEMA DOES NOT HAVE, so every account created through the API gets `school_ids: []`, which MEANS ALL SCHOOLS.**
+- `userController.ts:11` destructures **`school_id`** (singular); `:33` writes `school_id: school_id || null`. **`User.ts` has no such path** — Sprint 100 renamed it `school_ids`. Mongoose strict drops the unknown key, the write is a no-op, and `school_ids` takes its `[]` default. The controller **never reads `school_ids` at all**.
+- **The UI sends the right thing and is ignored.** `AccountManagement.tsx:98` holds `school_ids: [] as string[]`, `:385` binds the school picker to it, `:204` posts the whole form. The admin picks a school; the server discards it.
+- **So a School Administrator created and assigned to ONE school is created with access to ALL THREE.** Not an edge case — the outcome of every account creation.
+- **This is the concrete answer to Sprint 152's inherited SEC-04 question.** An empty `school_ids` is not merely reachable; it is the default state of every new user.
+- **Why nobody noticed:** editing a user afterwards goes through `crudFactory`'s PUT, where `school_ids` IS a schema field and does save. Create-then-edit ends up correct; create-only does not.
+- ⚠ **A fix must also audit EXISTING accounts** — every user created since Sprint 100 may be carrying `[]` unintentionally. Check the `school_admin` first.
+- Verified there is no compensating mapping: `grep "school_id\b"` minus `school_ids` returns only those two lines plus Student's own legitimate field, and there is no `pre('save')` hook on `User.ts` or `models/shared/`.
+
+**SEC-19 (HIGH) — thirteen clinical models are readable, UNREDACTED, by `school_admin` and `bho_staff`.** Every clinical mount omits `readRoles` and so takes `crudFactory`'s `ALL_ROLES` default; only `Student` carries a `redact` block. `GET /api/medical-histories?iptr_id=X` returns allergies and the hypertension/diabetes/hepatitis/blood-disorder flags; `GET /api/treatments?iptr_id=X` returns `diagnosis` and `treatment_done`. **Both hold AES-256 encrypted fields — encrypted because they are sensitive — and the API decrypts them on the way out for a role CLAUDE.md says gets "no clinical records".** The grant is deliberate (`index.ts:876`) and its comment cites CLAUDE.md while contradicting that clause.
+- ⚠ **Do NOT narrow it blind.** The grant was written when dashboards read raw collections; Sprint 151 found twelve `/stats/*` aggregates that now serve those screens. **First task of the fix sprint is to grep which hooks the school_admin and bho_staff screens actually use** — if they are on `/stats`, this is dead weight and safe to narrow; if any screen still reads a raw clinical collection, narrowing breaks it.
+
+**SEC-20 (MED)** — the student `redact` block names `school_admin` only, so **`bho_staff` reads full pupil identity across every school** (names, addresses, guardian contacts, PhilHealth, 4Ps for all ~8,000). CLAUDE.md gives that role consolidated reports, which need no identified rows. One word to fix, after the same load-bearing check.
+
+**SEC-21 (LOW)** — creating a user with a duplicate email answers **500**, not 409: no uniqueness check in `createUser`, and `app.ts` only special-cases `ValidationError`/`CastError`, so the Mongo duplicate-key error falls through to the generic handler.
+
+**SEC-13 has a SECOND call site** — `userController.sendResetLink` builds its reset link from `req.headers.origin` exactly as `forgotPassword` does. **Both must change together**, or the admin-initiated path keeps the coupling.
+
+**What the matrix shows is RIGHT, and is worth saying:** archive and restore are admin-only almost everywhere, the two deviations (StudentIptr archive to dentist, DayNote archive to clinical) each carry a written reason, `AuditTrail` is admin-read and unwritable through the API, and the write column is properly split clinical-vs-admin throughout. **The problem is not the write column — it is that the read column is `all 5` on thirteen clinical models.**
+
+**⚠ THE LIVE SPOT-CHECK WAS NOT RUN, DELIBERATELY.** The program calls for logging in as `school_admin` to confirm SEC-03 and SEC-19 against a running server. **This PC's `.env` points at PRODUCTION and there is no dev database here (SEC-00).** Probing live patient records with a low-privilege account to prove an access-control finding is not something to do casually. **So both HIGH read-access findings remain read-off-the-code, not demonstrated** — confirm them on the laptop's dev database, or once a dev `.env` reaches this PC, before any fix sprint acts on them. **SEC-18 needs no live check**; the schema mismatch is decisive on its own.
+
+**Next: Sprint 154 (route-by-route input validation + authz)** — `routes/index.ts` at 1006 lines, expected to split into 154b.
+
+---
+
 ## Open work (each needs approval; sprint loop applies)
 
-65. **AUDIT PROGRAM — SCOPED 2026-09-11. Sprints 151-152 DONE; 153-162 remain, each needs its own approval.**
+65. **AUDIT PROGRAM — SCOPED 2026-09-11. Sprints 151-153 DONE; 154-162 remain, each needs its own approval.** ⚠ Two HIGH read-access findings (SEC-03, SEC-19) are read-off-the-code and NOT yet demonstrated live — SEC-00 (this PC points at production) is what blocks the check.
     - **Full program: `docs/audit/PROGRAM.md`** (in the repo deliberately — the plan-mode file lives in `~/.claude/plans` and does NOT sync between the two machines). Read that, not this entry, before running any audit sprint.
     - **User decisions taken 2026-09-11:** security/architecture track FIRST · audit sprints are **READ-ONLY**, fixes are separate approved sprints · **Vitest for pure logic only** before any refactor · output is **internal hardening** (terse ledger, no manuscript formatting).
     - **Track A (151-157, read-only):** 151 architecture map re-derivation + trust boundaries · 152 auth/session · 153 **RBAC + multi-school tenancy (highest consequence)** · 154 route-by-route input+authz (expected to split into 154b) · 155 data layer · 156 client-side + supply chain · 157 ML boundary. Then SEC fix sprints, 1-3 findings each.

@@ -14,7 +14,7 @@ commit as the change.
 |---|---|---|
 | 151 | Architecture map + trust boundaries | DONE — 3 seeded, 11 new |
 | 152 | Auth & session | DONE — 7 new; SEC-04 corrected, SEC-07 closed, SEC-08 confirmed, SEC-10 raised |
-| 153 | RBAC & multi-school tenancy | not started |
+| 153 | RBAC & multi-school tenancy | DONE — 4 new + the matrix; SEC-04's open question answered. ⚠ live spot-check NOT run (SEC-00) |
 | 154 | Route-by-route input + authz | not started |
 | 155 | Data layer | not started |
 | 156 | Client-side & supply chain | not started |
@@ -349,3 +349,140 @@ Impact:   Deliberate, and the docblock gives the reason: it runs on Vercel's ser
           does not "discover" it as an oversight.
 Fix:      Tighten to a refusal once the deployed values are confirmed real — already tracked as
           backlog #49.
+
+---
+
+## Sprint 153 — RBAC & multi-school tenancy
+
+**Read:** `userController.ts` · the CRUD mount block (`routes/index.ts:53-71`, `:873-1006`) ·
+`crudFactory.ts`, `schoolScope.ts`, `roleGroups.ts` (already in context from 151) · two narrow greps
+into `AccountManagement.tsx` to establish what the UI actually sends on create.
+
+⚠ **The live spot-check the program calls for was NOT run — see the note at the end of this
+section.** Everything below is read off the code.
+
+### The matrix — what the server actually permits
+
+Derived from the mount options plus `crudFactory`'s defaults (`readRoles` = `ALL_ROLES`,
+`writeRoles`/`archiveRoles`/`restoreRoles` = `ADMIN_ONLY`). `clinical` = system_admin + dentist +
+dental_aide. **Bold = departs from the default.**
+
+| Model | read | create / update | archive | restore | scoped via | redacted |
+|---|---|---|---|---|---|---|
+| School | all 5 | admin | admin | admin | none | — |
+| User | **admin** | admin | admin | admin | none | — |
+| Dentist | all 5 | admin | admin | admin | school_id | — |
+| DentalAide | all 5 | admin | admin | admin | school_id | — |
+| Student | all 5 | clinical | admin | admin | school_id | **school_admin: 12 fields** |
+| StudentIptr | all 5 | clinical | **admin + dentist** | admin | student_id | — |
+| MedicalHistory | all 5 | clinical | admin | admin | iptr_id | — |
+| DietarySocialHabits | all 5 | clinical | admin | admin | iptr_id | — |
+| OralHealthCondition | all 5 | clinical | admin | admin | iptr_id | — |
+| DentalChart | all 5 | clinical | admin | admin | iptr_id | — |
+| ToothRecord | all 5 | clinical | admin | admin | chart_id | — |
+| Treatment | all 5 | clinical | admin | admin | iptr_id | — |
+| PreventiveCareRecord | all 5 | clinical | admin | admin | iptr_id | — |
+| RiskStratification | all 5 | clinical | admin | admin | preventive_id | — |
+| Appointment | all 5 | clinical | admin | admin | student_id | — |
+| DentistRotation | all 5 | clinical | admin | admin | school_id | — |
+| DayNote | all 5 | clinical | **clinical** | admin | school_id_or_global | — |
+| Referral | all 5 | clinical | admin | admin | iptr_id | — |
+| AuditTrail | **admin** | **read-only** | — | — | none | — |
+
+**What this shows is consistent and deliberate:** archive and restore are admin-only almost
+everywhere, the two deviations each carry a written reason, `AuditTrail` is admin-read and
+unwritable through the API, and writes are properly split clinical-vs-admin. The problem is not the
+write column. **It is that the read column is `all 5` on thirteen clinical models.**
+
+### SEC-18 · `server/controllers/userController.ts:11,33` · HIGH · OPEN
+Claim:    **`createUser` writes a field the User schema does not have, so every account created
+          through the API gets `school_ids: []` — which means ALL SCHOOLS.** The admin's school
+          selection is silently discarded.
+Evidence: `userController.ts:11` destructures `school_id` (singular); `:33` writes
+          `school_id: school_id || null`. **`User.ts` has no `school_id` path** — it has
+          `school_ids: { type: [ObjectId], default: [] }` (Sprint 100 renamed it). Mongoose strict
+          mode drops the unknown key, so the write is a no-op and `school_ids` takes its default.
+          `school_ids` is **never read by the controller at all.**
+          The UI does send the right thing: `AccountManagement.tsx:98` holds
+          `school_ids: [] as string[]`, `:385` binds the school picker to it, `:204` posts the whole
+          `form` to `/users`. The server ignores it.
+          Confirmed there is no compensating mapping: `grep "school_id\b"` excluding `school_ids`
+          returns only these two lines plus Student's own legitimate `school_id`; no `pre('save')`
+          hook exists on `User.ts` or `models/shared/`.
+Impact:   **A School Administrator created and assigned to one school is created with access to all
+          three.** This is not an edge case — it is the outcome of every account creation. It is also
+          the concrete answer to SEC-04's open question: an empty `school_ids` is not merely
+          reachable, it is the default state of every new user.
+          Masked in practice because editing a user afterwards goes through `crudFactory`'s PUT,
+          where `school_ids` **is** a schema field and does save. So an admin who creates and then
+          edits ends up correct, and one who only creates does not.
+Fix:      Read `school_ids` in `createUser` and pass it to `User.create()`. Small, but it is a fix
+          sprint. ⚠ **A fix must also audit existing accounts** — every user created since Sprint 100
+          may be carrying `[]` unintentionally, and the ones to check first are the `school_admin`
+          and any scoped role.
+
+### SEC-19 · `server/routes/index.ts:876` · HIGH · OPEN
+Claim:    **Thirteen clinical models are readable, unredacted, by `school_admin` and `bho_staff`** —
+          the two roles CLAUDE.md defines as non-clinical.
+Evidence: Every clinical mount omits `readRoles`, so it takes `crudFactory`'s `ALL_ROLES` default:
+          `medical-histories`, `dietary-social-habits`, `oral-health-conditions`, `dental-charts`,
+          `tooth-records`, `treatments`, `preventive-care-records`, `risk-stratifications`,
+          `appointments`, `referrals`, `day-notes`, `student-iptrs`, `dentist-rotations`.
+          Only `Student` carries a `redact` block; none of the thirteen does.
+          The grant is deliberate and explained at `:876`: "Clinical models — all 5 roles can read
+          (school_admin/bho_staff need this for dashboards/reports per CLAUDE.md's own role
+          descriptions)".
+Impact:   `GET /api/medical-histories?iptr_id=X` returns allergies and the hypertension / diabetes /
+          hepatitis / blood-disorder flags. `GET /api/treatments?iptr_id=X` returns `diagnosis` and
+          `treatment_done`. **Both models hold AES-256 encrypted fields — encrypted precisely because
+          they are sensitive — and the API decrypts them on the way out for a role CLAUDE.md says
+          gets "no clinical records".**
+          The justification cites CLAUDE.md while contradicting its own clause for that role.
+⚠ **Before fixing, establish whether the grant is still load-bearing.** It was written when
+          dashboards read raw collections. Sprint 151 found twelve `/stats/*` aggregate routes that
+          now serve exactly those screens. If the school_admin and bho_staff dashboards are on
+          `/stats`, this grant is dead weight and can simply be narrowed; if any screen still reads a
+          raw clinical collection, narrowing it breaks that screen. **That check is the first task of
+          the fix sprint** — grep the hooks those two roles' screens use. Do not narrow blind.
+
+### SEC-20 · `server/routes/index.ts:921-926` · MED · OPEN
+Claim:    The student redaction names `school_admin` only, so **`bho_staff` reads full pupil identity
+          across every school.**
+Evidence: `redact: { roles: ["school_admin"], fields: [...12 identity fields...] }`. `bho_staff` is
+          absent from that list, and is one of the roles `User.ts:14` leaves unscoped (empty
+          `school_ids` = all schools), so the reach is all three sites.
+Impact:   Names, addresses, contact numbers, guardian names and contacts, PhilHealth and 4Ps ids for
+          all ~8,000 pupils. CLAUDE.md gives Barangay Health Office Staff "consolidated reports
+          across all schools, City Health Office report submission" — consolidated figures, which
+          need no identified rows.
+Fix:      Add `bho_staff` to the `redact.roles` list, subject to the same "is it load-bearing?" check
+          as SEC-19. One word, once that check passes.
+
+### SEC-21 · `server/controllers/userController.ts` createUser · LOW · OPEN
+Claim:    Creating a user with an email that already exists answers **500**, not a clean 409.
+Evidence: `createUser` performs no uniqueness check; `User.ts` has `email: { unique: true }`, so the
+          collision surfaces as a Mongo duplicate-key error. `app.ts`'s handler special-cases only
+          `ValidationError` and `CastError`, so this falls through to the generic 500.
+Impact:   Cosmetic but misleading — the admin is told the server broke when in fact the input was
+          rejected. Compare `crudFactory`'s `uniqueBy`, which answers a proper 409.
+Fix:      Check first, or map duplicate-key (code 11000) to 409 in the error handler.
+
+### SEC-13 — second instance found
+`userController.sendResetLink` builds its reset link from `req.headers.origin` with exactly the same
+fallback as `authController.forgotPassword`. **Both call sites must change together**; fixing one
+would leave the admin-initiated path exposed to the same coupling.
+
+### SEC-04 — open question ANSWERED
+"Can a `school_admin` actually reach an empty `school_ids`?" **Yes — every newly created one has it,
+by default.** See SEC-18. SEC-04 stays open as the design issue (two meanings, one value); SEC-18 is
+the concrete instance and is the one to fix first.
+
+### ⚠ The live spot-check was not run, and why
+The program's verification step for this sprint is to log in as `school_admin` and confirm SEC-03 and
+SEC-19 against a running server. **This machine's `.env` points at the PRODUCTION database and there
+is no dev database on it (SEC-00).** Probing live patient records with a low-privilege account to
+prove an access-control finding is not something to do casually, and SEC-00 is unresolved.
+
+**So both HIGH read-access findings (SEC-03, SEC-19) remain read-off-the-code, not demonstrated.**
+They should be confirmed on the laptop's dev database, or after a dev `.env` reaches this PC, before
+any fix sprint acts on them. SEC-18 needs no live check — the schema mismatch is decisive on its own.
