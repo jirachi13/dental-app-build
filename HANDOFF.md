@@ -728,9 +728,33 @@ User: *"record visit is also treatment, in rpc tracking"* — and the code agree
 
 ---
 
+## Sprint 152 (auth and session; and the finding that corrected one of 151's) - DONE 2026-09-11, no code touched
+
+**Read-only.** `git diff --stat` over `dental-4-12-main/` and `ml-service/` empty. 7 new findings, and **four earlier rows changed status** — which is the ledger doing its job rather than accumulating.
+
+**⚠ SEC-04's CLAIM WAS WRONG AND IS NOW CORRECTED.** Sprint 151 called the empty-`school_ids` behaviour a fail-open bug and said the two halves of `schoolScope.ts` disagreed. **They do not.** `User.ts:14` (Sprint 100) documents it as deliberate, verbatim: *"EMPTY ARRAY MEANS ALL SCHOOLS: that keeps system_admin and bho_staff working exactly as the old `school_id: null` did, with one rule instead of a per-role special case."* **The finding survives; its cause does not.** The real problem is that "all schools" and "assigned to nothing" are the SAME VALUE, so the second cannot be expressed — a `school_admin` whose assignments are cleared is promoted to global rather than reduced to nothing. Still HIGH. **Sprint 153 settles the true severity by answering one question: can a `school_admin` actually REACH an empty `school_ids` through the UI or the API?**
+
+**SEC-07 CLOSED — not a bug.** `baseCookieOptions` is `{httpOnly: true, secure: isProd, sameSite: "lax"}`. Lax withholds the cookie from cross-site POST/PUT/PATCH, which is the whole CSRF vector here; every state change in this API is one of those verbs. Recorded so nobody re-raises it. Re-open only if a state-changing GET is ever added or `sameSite` is loosened.
+
+**SEC-08 upgraded from inference to CONFIRMED.** `AuthContext.tsx:259-268` is the entire logout path — `/auth/logout`, `setUser(null)`, `clearUserCache()`, `clearSessionHint()`, `setSelectedSchoolState(null)`. **No `caches.delete('api-cache')`.** Decrypted patient data outlives logout on a shared clinic PC. Note `authCache` IS cleared — that one holds staff identity, not patient data; they are different stores and only one is a problem.
+
+**SEC-10 raised LOW to MED and re-aimed.** 151 guessed the unlimited route that mattered was `/auth/refresh`. It is **`/auth/change-password`** (`authRoutes.ts:32`) — it verifies the current password and has no limiter, which is exactly the oracle `/auth/verify-password` was limited to prevent, **two lines below it, with the reason in the comment** (*"an unlimited yes/no on a password is an oracle"*). Anyone on a live session can brute-force the current password at unlimited rate.
+
+**NEW — the one to act on first is `SEC-12` (MED): there is no way to revoke a session.** `logout` clears cookies and nothing else; there is no denylist and no `token_version` on User for `refresh` to check. `changePassword` and `resetPassword` both rewrite the hash and touch no token state. **So a refresh token copied before logout is good for its full 7 days, and changing a password does not evict an attacker.** Concrete instance: Sprint 75 rotated all five demo passwords against the live DB — any session live at that moment survived it. Partly mitigated by the default, where both cookies are session cookies that die with the browser.
+
+**Also new:** `SEC-13` the reset link's host comes from `req.headers.origin` — **not exploitable today because the CORS allowlist rejects a forged origin first, and THAT is the finding**: CORS is load-bearing for reset-link integrity, which is not what it was added for, and `app.ts` records this block used to be `origin: true`. Restoring anything like it turns this into account takeover with no change to the reset code. Fix is to read `APP_URL` unconditionally; the header buys nothing when production is same-origin · `SEC-14` login is a timing oracle for account enumeration (unknown email skips bcrypt entirely, so the generic message is undone by the clock) · `SEC-15` rate limiting is per-IP with no per-account lockout — ten bad logins from one clinic lock out every member of staff there, while an attacker spread across IPs faces no account ceiling at all; `verifyOtp` also never counts attempts or clears the code on a wrong guess · `SEC-16` the 2FA code is in the email SUBJECT, so it shows in a lock-screen preview · `SEC-17` refresh tokens are never rotated · `ARCH-04` `secretGuard` warns and never throws (deliberate — a hard exit on Vercel's boot would take the live site down; already backlog #49).
+
+**What is CORRECT here is recorded in the ledger too**, so no later sprint re-derives it: HS256 pinned on sign and verify with separate access/refresh secrets · bcrypt 12 rounds · OTP from `randomInt` and reset token from `randomBytes(32)`, only SHA-256 hashes stored, all three hash fields `select: false` so the whole-document responses from `/auth/me` and `login` cannot carry them · OTP single-use, cleared before the session is issued · `forgotPassword` always returns the same generic 200 · `refresh` re-reads the DB instead of trusting token claims.
+
+**⚠ One budget note:** `User.ts` (41 lines) was read although it belongs to Sprint 155's list. Deliberate — `/auth/me` and `login` both return a whole User document, and "nothing sensitive leaks" could not be claimed honestly without seeing the schema. It is also what corrected SEC-04.
+
+**Next: Sprint 153 (RBAC + multi-school tenancy)** — the highest-consequence sprint, and it now carries two inherited questions: confirm `SEC-03` against a live `school_admin` login, and answer whether an empty `school_ids` is reachable.
+
+---
+
 ## Open work (each needs approval; sprint loop applies)
 
-65. **AUDIT PROGRAM — SCOPED 2026-09-11. Sprint 151 DONE; 152-162 remain, each needs its own approval.**
+65. **AUDIT PROGRAM — SCOPED 2026-09-11. Sprints 151-152 DONE; 153-162 remain, each needs its own approval.**
     - **Full program: `docs/audit/PROGRAM.md`** (in the repo deliberately — the plan-mode file lives in `~/.claude/plans` and does NOT sync between the two machines). Read that, not this entry, before running any audit sprint.
     - **User decisions taken 2026-09-11:** security/architecture track FIRST · audit sprints are **READ-ONLY**, fixes are separate approved sprints · **Vitest for pure logic only** before any refactor · output is **internal hardening** (terse ledger, no manuscript formatting).
     - **Track A (151-157, read-only):** 151 architecture map re-derivation + trust boundaries · 152 auth/session · 153 **RBAC + multi-school tenancy (highest consequence)** · 154 route-by-route input+authz (expected to split into 154b) · 155 data layer · 156 client-side + supply chain · 157 ML boundary. Then SEC fix sprints, 1-3 findings each.

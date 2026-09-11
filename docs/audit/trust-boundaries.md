@@ -15,8 +15,8 @@ This answers one question per hop: **what crosses, and what is checked there.**
  │ B0  THE BROWSER — untrusted, and it holds plaintext PII         │
  │     React SPA · IndexedDB write queue · Cache Storage api-cache │
  └───────────────┬─────────────────────────────────────────────────┘
-                 │  HTTPS · httpOnly cookie · credentials:"include"
-                 │  ⚠ no CSRF token (SEC-07)
+                 │  HTTPS · httpOnly + SameSite=Lax cookie · credentials:"include"
+                 │  no CSRF token, and Lax makes that OK (SEC-07, closed)
  ┌───────────────▼─────────────────────────────────────────────────┐
  │ B1  VERCEL EDGE — the rewrite decides Express or static         │
  │     /api/*  → serverless function (region sin1)                 │
@@ -50,17 +50,30 @@ This answers one question per hop: **what crosses, and what is checked there.**
 
 | Store | Contents | Cleared on logout? |
 |---|---|---|
-| `httpOnly` cookie | access + refresh JWT | yes, by `/auth/logout` |
+| `httpOnly` cookie | access + refresh JWT | cookies yes; **the tokens stay valid** — SEC-12 |
+| `localStorage` / `sessionStorage` | staff identity (id, name, email, role, schools) | yes — `clearUserCache()` |
 | IndexedDB | queued offline writes, incl. patient bodies | not established — Sprint 159 |
-| Cache Storage `api-cache` | whole `/api/*` responses, **decrypted PII** | **no** — SEC-08 |
+| Cache Storage `api-cache` | whole `/api/*` responses, **decrypted PII** | **no** — SEC-08, confirmed |
 
-The third row is the one that matters. Field-level encryption protects patient data in Atlas; the
-API decrypts on the way out; the service worker then writes that plaintext into the browser profile,
+The last row is the one that matters. Field-level encryption protects patient data in Atlas; the API
+decrypts on the way out; the service worker then writes that plaintext into the browser profile,
 where it survives the session. On a shared clinic PC that is the weakest point on the whole map, and
-it is not on the server side at all.
+it is not on the server side at all. Confirmed against `AuthContext.tsx:259-268`, which clears the
+identity cache and never touches `api-cache`.
 
-**Token lifetime:** access tokens expire after 15 minutes; `client.ts` refreshes once transparently
-on a 401 and retries, with a single-flight `refreshPromise` so concurrent 401s share one refresh.
+**Cookie flags** (`authController.ts` `baseCookieOptions`): `httpOnly: true`, `secure: isProd`,
+`sameSite: "lax"` — so cross-site POST/PUT/PATCH never carries the cookie, which is why the absence
+of a CSRF token is not a hole. Without "Remember me" no `maxAge` is set, making both session
+cookies that die with the browser — the right default on a shared clinic PC.
+
+**Token lifetime:** access 15 minutes, refresh 7 days. `client.ts` refreshes once transparently on a
+401 and retries, with a single-flight `refreshPromise` so concurrent 401s share one refresh.
+`refresh` re-reads the user from the database rather than trusting the token's claims, so a role
+change, reassignment or archive propagates within 15 minutes.
+
+⚠ **Logout is not revocation.** It clears cookies; nothing invalidates a token already issued, and no
+`token_version` exists to check against. A password change does not end other sessions either
+(SEC-12).
 
 ---
 
