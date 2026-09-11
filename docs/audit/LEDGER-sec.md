@@ -16,7 +16,7 @@ commit as the change.
 | 152 | Auth & session | DONE — 7 new; SEC-04 corrected, SEC-07 closed, SEC-08 confirmed, SEC-10 raised |
 | 153 | RBAC & multi-school tenancy | DONE — 4 new + the matrix; SEC-04's open question answered. ⚠ live spot-check NOT run (SEC-00) |
 | 153a | **FIX** — SEC-18 | DONE — code fixed, tsc + build clean. ⚠ `npm run audit:user-schools` not yet run |
-| 154 | Route-by-route input + authz | not started |
+| 154 | Route-by-route input + authz | DONE — 4 new + 1 arch note. **No 154b needed** |
 | 155 | Data layer | not started |
 | 156 | Client-side & supply chain | not started |
 | 157 | ML boundary | not started |
@@ -509,3 +509,102 @@ prove an access-control finding is not something to do casually, and SEC-00 is u
 **So both HIGH read-access findings (SEC-03, SEC-19) remain read-off-the-code, not demonstrated.**
 They should be confirmed on the laptop's dev database, or after a dev `.env` reaches this PC, before
 any fix sprint acts on them. SEC-18 needs no live check — the schema mismatch is decisive on its own.
+
+---
+
+## Sprint 154 — route-by-route input validation & authz
+
+**Read:** `routes/index.ts` (the ~890 lines not covered by 151/153) · `asyncHandler.ts` ·
+`auditLog.ts` · `healthController.ts`.
+
+**It did not need to split.** The program predicted a 154b. The file turned out to be far more
+uniform than its length suggests — 12 `/stats` routes sharing one shape, and input handling that is
+identical in all 32 places — so targeted reads plus pattern counts answered the sprint's questions
+without reading every aggregation line. No 154b is needed.
+
+### What is correct here, recorded so no later sprint re-derives it
+- **Only `/health` is unauthenticated**, and it returns `{ status, db }` — a connection-state word,
+  no version, no host, no connection string.
+- **All twelve `/stats/*` routes are GET.** The parallel surface of ARCH-01 can read but **cannot
+  write**, which bounds that finding materially.
+- All six mutating routes outside `crudFactory` are `requireAuth` + `requireRole(...ADMIN_ONLY)`.
+- **Every one of the 32 `req.query` reads is guarded by `typeof … === "string"`.** That defeats
+  Express's query-object injection — `?school[$ne]=x` arrives as an object, fails the guard, and
+  never reaches `School.findOne`. This is the best thing in the file and it is done consistently,
+  not sporadically.
+- `/stats/risk-history` validates the ObjectId **and** re-applies the school scope before returning
+  one pupil's history — the by-id path, done right.
+- `asyncHandler` wraps every async route, so a rejected promise reaches the error handler rather
+  than hanging the request.
+
+### SEC-22 · `server/routes/index.ts:180` · MED · OPEN
+Claim:    **`/stats/notifications` returns an unscoped `appointmentsToday`** — the one number of the
+          three that ignores both the caller's schools and the school switcher.
+Evidence: `Appointment.countDocuments({ isArchived: false, appointment_datetime: { $gte: dayStart,
+          $lt: dayEnd } })` — no scope clause, no `school_id`. The other two counts in the same
+          handler both filter through `scopedIptrIds`, and the comment beside `awaitingValidation`
+          states the rule being broken: "A risk row whose preventive record is outside the selected
+          school must not be counted; without the scope check the badge would ignore the school
+          switcher entirely."
+Impact:   A user scoped to one school sees a bell count that includes every school's appointments.
+          Counts only — no patient data crosses — so this is a correctness and trust failure rather
+          than a disclosure: the switcher changes two of three numbers and silently not the third.
+          CLAUDE.md: a control that appears to work must work.
+Fix:      Scope the count the way the other two are scoped. Contained to one handler.
+
+### SEC-23 · `server/routes/index.ts` — 11 sites · MED · OPEN (latent, **not** live)
+Claim:    **The security clause is merged two different ways, and the safe idiom is the minority.**
+Evidence: `{ isArchived: false, ...scope }` at :333, :393, :428, :466, :539, :631, :673, :762, :796
+          (nine). `{ $and: [studentFilter, scope] }` at :114 and :169 (two).
+Impact:   **Correct today — do not "fix" it as a live bug.** The two `$and` sites are exactly the
+          routes whose base filter carries a `school_id` from `?school`, which is where a spread
+          would let the caller's choice overwrite the permission clause. The nine spread sites have
+          no colliding key, so they are safe as written.
+          The finding is that the rule exists only inside two comments, while the fragile idiom is
+          what a new route is most likely to copy — nine examples against two. A future `/stats`
+          route that spreads *and* filters by school silently reinstates the Sprint 101 bug, and
+          nothing would fail.
+Fix:      Make one idiom the only idiom — a small helper that merges with `$and` unconditionally, so
+          the safe form is also the easy form.
+
+### SEC-24 · `server/routes/index.ts` — 37 sites · MED · OPEN
+Claim:    The `/stats` routes read whole collections, unbounded, and nothing rate-limits them.
+Evidence: 37 `.find(active)` calls with no `limit`. `/stats/reports-panels` alone reads students,
+          schools, IPTRs, charts, tooth records, treatments and referrals **in full** on every
+          request. `express-rate-limit` is applied only in `authRoutes.ts`.
+Impact:   At the Chapter 1 scale (~8,000 pupils) this is the largest class of read in the app, and
+          any authenticated user can trigger it as fast as they can issue requests. This is the same
+          scale risk HANDOFF already names for `audittrails`, on a surface that runs on every
+          dashboard load.
+          ⚠ **Partly deliberate** — the comments explain that three consumers aggregate over the
+          whole population, so paging the *data* would break them. The finding is the absence of any
+          ceiling at all, not the design choice.
+Fix:      needs scoping. A rate limiter on `/stats` is the cheap half and does not touch the joins.
+
+### SEC-25 · `server/routes/index.ts:530-531, 611` · LOW · OPEN
+Claim:    `limit` has no upper bound.
+Evidence: `limit: Number(req.query.limit) > 0 ? Number(req.query.limit) : 25`. `?limit=1000000000`
+          passes; so does `?limit=1e400`, which becomes `Infinity`.
+Impact:   Small, because the database read is already the whole collection (SEC-24) and the limit is
+          applied afterwards in JS — so this affects response size only, not query cost. Note the
+          guard *is* safe against non-numeric input: an array or object gives `NaN`, and `NaN > 0`
+          is false, so it falls back to 25.
+Fix:      Clamp to a maximum alongside the existing floor.
+
+### ARCH-05 · `server/utils/auditLog.ts` · LOW · OPEN (deliberate, recorded)
+Claim:    A failed audit write is swallowed, so a mutation can succeed unaudited.
+Evidence: `logAudit` wraps `AuditTrail.create` in try/catch and only `console.error`s on failure —
+          "Fire-and-forget: an audit logging failure should never break the actual user-facing
+          operation it's logging."
+Impact:   CLAUDE.md requires the audit trail to log ALL user actions. The tradeoff chosen — lose an
+          audit row rather than fail a clinical write — is defensible and probably right for this
+          app, but it means the trail cannot be claimed to be complete. Worth knowing before anyone
+          describes it as complete in Chapter 4.
+Fix:      None proposed. Recorded so the claim made about it stays accurate.
+
+### ARCH-01 — bounded by this sprint
+All twelve `/stats` routes are GET, and eleven of the twelve call `scopeFilter` themselves. So the
+unguarded parallel surface is a **read** problem only (SEC-03, SEC-19, SEC-22), never a write one.
+The twelfth, `/stats/last-change`, needs no scope — but note it does expose a fact derived from
+`AuditTrail` to all five roles, while `AuditTrail`'s own CRUD mount is `readRoles: ADMIN_ONLY`. It
+is one timestamp, so the severity is nil; it is a clean small example of the pattern.

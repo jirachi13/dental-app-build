@@ -803,9 +803,31 @@ User: *"record visit is also treatment, in rpc tracking"* — and the code agree
 
 ---
 
+## Sprint 154 (route-by-route input validation and authz) - DONE 2026-09-11, no code touched
+
+**Read-only.** 4 new findings + 1 architecture note. **⚠ NO 154b IS NEEDED** — the program predicted this sprint would split. `routes/index.ts` is 1006 lines but far more uniform than that suggests: twelve `/stats` routes sharing one shape and input handling identical in all 32 places, so targeted reads plus pattern counts answered the sprint's questions without reading every aggregation line.
+
+**⚠ THE `/stats` SURFACE IS READ-ONLY, which bounds ARCH-01 materially.** All twelve routes are GET and eleven of twelve call `scopeFilter` themselves. So the unguarded parallel surface is a **read** problem (SEC-03, SEC-19, SEC-22) and never a write one. Worth knowing before anyone sizes the ARCH-01 fix.
+
+**SEC-22 (MED) — `/stats/notifications` returns an UNSCOPED `appointmentsToday`.** `index.ts:180` counts appointments with `{isArchived:false, appointment_datetime:{...}}` and no scope clause, while the other two counts in the same handler both filter through `scopedIptrIds`. **The comment one line away states the rule it breaks:** *"A risk row whose preventive record is outside the selected school must not be counted; without the scope check the badge would ignore the school switcher entirely."* A user pinned to one school sees a bell count including every school. Counts only, no patient data crosses — so this is a trust failure rather than a disclosure: the switcher changes two of three numbers and silently not the third.
+
+**SEC-23 (MED, LATENT — do NOT fix as a live bug) — the security clause is merged two different ways and the safe idiom is the MINORITY.** Nine sites spread it (`{isArchived:false, ...scope}`), two use `$and`. **It is correct today**: the two `$and` sites are exactly the routes whose base filter carries a `school_id` from `?school`, which is where a spread would let the caller's choice overwrite the permission clause; the nine spread sites have no colliding key. The finding is that the rule lives only inside two comments while the fragile idiom is what a new route will copy — nine examples against two. A future `/stats` route that spreads AND filters by school silently reinstates the Sprint 101 bug and nothing fails. Fix is a helper that merges with `$and` unconditionally, so the safe form is also the easy form.
+
+**SEC-24 (MED) — the `/stats` routes read whole collections, unbounded, and nothing rate-limits them.** 37 `.find(active)` calls with no limit; `/stats/reports-panels` alone reads seven collections in full per request; `express-rate-limit` is applied only in `authRoutes.ts`. At ~8,000 pupils this is the largest class of read in the app and any authenticated user can trigger it as fast as they can issue requests. ⚠ Partly deliberate — three consumers aggregate over the whole population, so paging the DATA would break them. **The finding is the absence of any ceiling, not the design.** A rate limiter on `/stats` is the cheap half and touches none of the joins.
+
+**SEC-25 (LOW)** — `limit` has no upper bound (`Number(req.query.limit) > 0 ? ... : 25`), so `?limit=1e9` passes. Minor because the DB read is already whole-collection and the limit applies afterwards in JS. The guard IS safe against non-numeric input: an array gives `NaN`, and `NaN > 0` is false.
+
+**ARCH-05 (LOW, deliberate)** — `logAudit` is fire-and-forget, so a failed audit write is swallowed and a mutation can succeed unaudited. Defensible (lose an audit row rather than fail a clinical write) but it means **the trail cannot be claimed complete** — worth knowing before Chapter 4 describes it that way.
+
+**What is CORRECT here, recorded so no later sprint re-derives it:** only `/health` is unauthenticated and it returns a connection-state word with no version or host · all six mutating routes outside `crudFactory` are `requireAuth` + `ADMIN_ONLY` · **every one of the 32 `req.query` reads is guarded by `typeof === "string"`**, which defeats Express query-object injection (`?school[$ne]=x` arrives as an object, fails the guard, never reaches the query) — done consistently, not sporadically, and it is the best thing in the file · `/stats/risk-history` validates the ObjectId AND re-applies the scope before returning one pupil's history · `asyncHandler` wraps every async route so a rejected promise reaches the error handler rather than hanging.
+
+**Next: Sprint 155 (data layer)** — all 20 models, 705 lines, small enough to read in full. It also owes verdicts on **SEC-05** and **SEC-06** (archive/restore use `findByIdAndUpdate` on encrypted models, and skip `decryptForResponse`), both of which were flagged to VERIFY rather than fix.
+
+---
+
 ## Open work (each needs approval; sprint loop applies)
 
-65. **AUDIT PROGRAM — SCOPED 2026-09-11. Sprints 151-153 DONE; 154-162 remain, each needs its own approval.** ⚠ Two HIGH read-access findings (SEC-03, SEC-19) are read-off-the-code and NOT yet demonstrated live — SEC-00 (this PC points at production) is what blocks the check.
+65. **AUDIT PROGRAM — SCOPED 2026-09-11. Sprints 151-154 DONE (+153a, the SEC-18 fix); 155-162 remain, each needs its own approval.** ⚠ No 154b is needed — 154 did not split. ⚠ Two HIGH read-access findings (SEC-03, SEC-19) are read-off-the-code and NOT yet demonstrated live — SEC-00 (this PC points at production) is what blocks the check.
     - **Full program: `docs/audit/PROGRAM.md`** (in the repo deliberately — the plan-mode file lives in `~/.claude/plans` and does NOT sync between the two machines). Read that, not this entry, before running any audit sprint.
     - **User decisions taken 2026-09-11:** security/architecture track FIRST · audit sprints are **READ-ONLY**, fixes are separate approved sprints · **Vitest for pure logic only** before any refactor · output is **internal hardening** (terse ledger, no manuscript formatting).
     - **Track A (151-157, read-only):** 151 architecture map re-derivation + trust boundaries · 152 auth/session · 153 **RBAC + multi-school tenancy (highest consequence)** · 154 route-by-route input+authz (expected to split into 154b) · 155 data layer · 156 client-side + supply chain · 157 ML boundary. Then SEC fix sprints, 1-3 findings each.
