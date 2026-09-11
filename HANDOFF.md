@@ -847,9 +847,33 @@ User: *"record visit is also treatment, in rpc tracking"* — and the code agree
 
 ---
 
+## Sprint 156 (client-side and supply chain) - DONE 2026-09-11, no code touched
+
+**Read-only.** 3 new findings; SEC-08's mechanism confirmed at source and SEC-11 reinforced. Also ran `npm audit` and an XSS sweep against the built bundle, so several claims here are measured rather than read.
+
+**SEC-08 MECHANISM CONFIRMED — `src/sw.ts` caches EVERY `GET /api/*` with no exclusion of any kind.** One Workbox route: `request.method === 'GET' && url.pathname.startsWith('/api/')` → `NetworkFirst({cacheName: 'api-cache'})`. So `/api/students`, `/api/medical-histories`, `/api/treatments`, `/api/stats/student-rows` **and `/api/auth/me`** all sit in Cache Storage in full, decrypted. Refined fix: logout should `caches.delete('api-cache')` — ⚠ **after** any pending queue drain, because `captureBaselineSnapshot` reads that cache for conflict detection.
+
+**SEC-27 (MED) — THE OFFLINE QUEUE IS A SECOND PLAINTEXT PATIENT-DATA STORE, AND ITS ROWS HAVE NO OWNER.** `QueuedWrite` carries `body`, `baselineSnapshot` and `conflictServerRecord` — all patient data, plaintext in IndexedDB `floral-offline`. **The interface has no user id field at all**, so the queue cannot tell whose write a row is. And `grep` for `clearQueue`/`deleteDatabase`/`floral-offline` across `src/` returns only the declaration — **no clearing path exists anywhere in the app.**
+- **The consequence on a shared clinic PC:** aide A captures records offline and logs out; dentist B signs in; the queue drains **under B's session**, and `logAudit(req.user!.id, …)` records **B** as the author of A's work. The audit trail then attributes clinical data entry to the wrong person — the one thing an audit trail exists to get right.
+- ⚠ **Clearing the queue on logout would be the WRONG fix** — unsynced field data is exactly what must survive a logout. The fix is ownership: stamp the row with the user id at enqueue, then hold or refuse rows belonging to someone else.
+- ⚠ **Sprint 159 must confirm the replay path in `queueProcessor.ts` first.** That the queue has no owner is decisive from `db.ts`; whether `processQueue` fires on login, on `online`, or both decides how easily this is reached.
+
+**SEC-28 (LOW) — `npm audit` has DRIFTED FROM 0 TO 3 MODERATE, and HANDOFF still says 0.** Two `qs` advisories reached via `express@4.22.2` → `body-parser`: GHSA-x5fp-wj9c-mxmx (array-limit bypass via bracket-key comma parsing) and GHSA-4mjr-xmp4-gh2g (DoS via attacker-controlled `isBuffer`). **The first is largely blunted by work already done** — Sprint 154 found all 32 `req.query` reads are `typeof === "string"` guarded, so a bracket-key array fails the guard and never reaches a query. The second is not blunted by anything. ⚠ **Do NOT fix before the defense:** the only clean fix is `express@5.2.1`, breaking across every route and middleware signature, for two moderate advisories on an internal app behind authentication. Update the stale durable-gotcha line either way.
+
+**SEC-29 (LOW, payload not security)** — two chunks of the PDF-export feature slip the precache exclusions, because `globIgnores` matches **filenames** and these two do not carry the family's name: `index.es-*.js` (156 KB, and its first line is `import{_ as La}from"./jspdf.es.min-…js"`) and `purify.es-*.js` (27.5 KB, DOMPurify, a jspdf dependency). ~184 KB every device downloads on SW install for a feature most staff never use — the same waste the file's own comment says was fixed for the 382 KB jspdf chunk. **tesseract and pdfjs are FINE**: both are bundled inside `iptrOcr-*.js`, which IS excluded, so HANDOFF's claim about them holds — just by a different route than their own filenames.
+
+**What is CORRECT here, and two of these are the good news of the whole audit so far:**
+- **ZERO XSS SINKS IN THE ENTIRE FRONTEND.** `dangerouslySetInnerHTML`, `innerHTML`, `eval(`, `new Function`, `document.write` — grep across all of `src/` returns **nothing**. React's escaping is intact end to end, including the OCR and report-rendering paths, which were the ones worth worrying about.
+- **NO SECRETS REACH THE BUNDLE.** No `import.meta.env` usage anywhere in `src/`, and a grep of built `dist/assets/` for connection strings, JWT/Brevo/encryption key names and API-key patterns finds nothing.
+- The SW never caches or replays **writes** — GET only, deliberately, so the app's own queue stays the single source of truth · no unconditional `skipWaiting()`, so open tabs are not silently swapped onto stale assets · `index.html` is clean apart from the missing CSP: no inline script, no inline style, no third-party tag.
+
+**Next: Sprint 157 (ML boundary)** — the last Track A sprint. Whether Render authenticates the inbound request at all, and which patient fields actually cross the wire versus what CLAUDE.md requires.
+
+---
+
 ## Open work (each needs approval; sprint loop applies)
 
-65. **AUDIT PROGRAM — SCOPED 2026-09-11. Sprints 151-155 DONE (+153a, the SEC-18 fix); 156-162 remain, each needs its own approval.** ⚠ No 154b is needed — 154 did not split. ⚠ SEC-26 + ARCH-07 are CLAUDE.md doc-drift fixes awaiting their own approval. ⚠ Two HIGH read-access findings (SEC-03, SEC-19) are read-off-the-code and NOT yet demonstrated live — SEC-00 (this PC points at production) is what blocks the check.
+65. **AUDIT PROGRAM — SCOPED 2026-09-11. Sprints 151-156 DONE (+153a, the SEC-18 fix); 157-162 remain, each needs its own approval.** ⚠ No 154b is needed — 154 did not split. ⚠ SEC-26 + ARCH-07 are CLAUDE.md doc-drift fixes awaiting their own approval. ⚠ Two HIGH read-access findings (SEC-03, SEC-19) are read-off-the-code and NOT yet demonstrated live — SEC-00 (this PC points at production) is what blocks the check.
     - **Full program: `docs/audit/PROGRAM.md`** (in the repo deliberately — the plan-mode file lives in `~/.claude/plans` and does NOT sync between the two machines). Read that, not this entry, before running any audit sprint.
     - **User decisions taken 2026-09-11:** security/architecture track FIRST · audit sprints are **READ-ONLY**, fixes are separate approved sprints · **Vitest for pure logic only** before any refactor · output is **internal hardening** (terse ledger, no manuscript formatting).
     - **Track A (151-157, read-only):** 151 architecture map re-derivation + trust boundaries · 152 auth/session · 153 **RBAC + multi-school tenancy (highest consequence)** · 154 route-by-route input+authz (expected to split into 154b) · 155 data layer · 156 client-side + supply chain · 157 ML boundary. Then SEC fix sprints, 1-3 findings each.

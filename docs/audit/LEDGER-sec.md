@@ -18,7 +18,7 @@ commit as the change.
 | 153a | **FIX** — SEC-18 | DONE — code fixed, tsc + build clean. ⚠ `npm run audit:user-schools` not yet run |
 | 154 | Route-by-route input + authz | DONE — 4 new + 1 arch note. **No 154b needed** |
 | 155 | Data layer | DONE — **SEC-05 + SEC-06 CLOSED as NOT-A-BUG**; 1 new + 2 doc-drift rows |
-| 156 | Client-side & supply chain | not started |
+| 156 | Client-side & supply chain | DONE — 3 new; SEC-08 mechanism confirmed, SEC-11 reinforced |
 | 157 | ML boundary | not started |
 
 ---
@@ -192,6 +192,14 @@ Evidence: `client.ts` `captureBaselineSnapshot` opens `caches.open('api-cache')`
           inference from the absence of evidence; it is now read off the logout function itself.
           Distinct from `authCache.ts`, which logout DOES clear — that one holds staff identity
           (id, name, email, role, schools), not patient data.
+          **MECHANISM CONFIRMED in Sprint 156**, `src/sw.ts`: one Workbox route,
+          `({ url, request }) => request.method === 'GET' && url.pathname.startsWith('/api/')` with
+          `new NetworkFirst({ cacheName: 'api-cache', networkTimeoutSeconds: 4 })`. **No exclusion of
+          any kind** — so `/api/students`, `/api/medical-histories`, `/api/treatments`,
+          `/api/stats/student-rows` and `/api/auth/me` are all cached in full, decrypted.
+Fix (refined): logout should `caches.delete('api-cache')`. ⚠ It must run AFTER any pending queue
+          drain, because `captureBaselineSnapshot` reads that cache for conflict detection — see
+          SEC-27, which is the same problem in the other store.
 Impact:   On a shared clinic PC, pupil names, addresses, guardian contacts and PhilHealth numbers —
           the fields encrypted at rest in Atlas — sit in plaintext in the browser profile, readable
           by the next user of that machine. Encryption at rest is undone at the edge.
@@ -706,6 +714,90 @@ Impact:   The code is right and the rule is absolute. A reader reconciling the t
           an audit trail is for.
 Fix:      Note the exception in CLAUDE.md. Same handling as SEC-26: a CLAUDE.md edit is its own
           approved change.
+
+---
+
+## Sprint 156 — client-side & supply chain
+
+**Read:** `src/sw.ts` · `src/app/offline/db.ts` · `vite.config.ts` · `index.html` ·
+`package.json` + `npm audit --omit=dev` · an XSS-sink sweep of all of `src/` · the built
+`dist/assets/` and `dist/sw.js` precache manifest.
+
+### What is correct here, recorded so no later sprint re-derives it
+- **Zero XSS sinks in the entire frontend.** `grep` for `dangerouslySetInnerHTML`, `innerHTML`,
+  `eval(`, `new Function` and `document.write` across `src/` returns **nothing**. React's escaping is
+  intact end to end — including the OCR and report-rendering paths, which were the ones worth
+  worrying about.
+- **No secrets reach the bundle.** There is no `import.meta.env` usage anywhere in `src/`, and a grep
+  of the built `dist/assets/` for connection strings, JWT/Brevo/encryption key names and API-key
+  patterns finds nothing. Nothing server-side leaks client-side.
+- The service worker **never caches or replays writes** — only `GET` is routed, and the comment
+  states the reason: the app's own IndexedDB queue is the single source of truth, not Workbox's.
+- **No unconditional `skipWaiting()`.** Activation waits for the user to click Refresh on the update
+  toast, so open tabs are not silently swapped onto stale assets.
+- **The precache exclusions do hold for the big two.** `tesseract` and `pdfjs` are both bundled
+  inside `iptrOcr-*.js`, which `globIgnores` excludes — so HANDOFF's claim about them is right, just
+  by a different route than their own filenames. Verified against the actual manifest in `dist/sw.js`,
+  which lists 6 asset entries and none of the excluded chunks.
+
+### SEC-27 · `src/app/offline/db.ts` · MED · OPEN
+Claim:    **The offline queue is a second plaintext patient-data store, and its records have no
+          owner.** There is no way to clear it, and a queued write can be replayed under a different
+          user's session than the one that created it.
+Evidence: `QueuedWrite` carries `body` (the full write payload), `baselineSnapshot` (the record as
+          last seen, read out of `api-cache`) and `conflictServerRecord` (the server's version) —
+          all patient data, all plaintext in IndexedDB `floral-offline` / `writeQueue`.
+          **The interface has no user id field**, so the queue cannot tell whose write a row is.
+          `grep` for `clearQueue`, `deleteDatabase` and `floral-offline` across `src/` returns only
+          the declaration in `db.ts` — **no clearing path exists anywhere in the app**, so logout
+          cannot clear it even if it wanted to.
+Impact:   On a shared clinic PC: aide A captures records offline, logs out; dentist B signs in; the
+          queue drains **under B's session**, and `logAudit(req.user!.id, …)` records B as the author
+          of A's work. The audit trail then attributes clinical data entry to the wrong person —
+          which is the one thing an audit trail exists to get right.
+          ⚠ **Clearing the queue on logout would be the WRONG fix** — unsynced field data is exactly
+          what must survive a logout. The fix is ownership: stamp the queue row with the user id at
+          enqueue, and refuse (or hold) rows belonging to someone else.
+Fix:      needs scoping. ⚠ **Sprint 159 must confirm the replay path in `queueProcessor.ts`** before
+          this is acted on — that the queue has no owner is decisive from `db.ts`, but whether
+          `processQueue` runs on login, on `online`, or both determines how easily it is reached.
+
+### SEC-28 · `package.json` / `npm audit` · LOW · OPEN
+Claim:    **`npm audit` has drifted from 0 to 3 moderate**, and HANDOFF still records it as 0.
+Evidence: `npm audit --omit=dev` → `qs` 2.2.5–6.15.3, reached via `express@4.22.2` → `body-parser`.
+          Two advisories: GHSA-x5fp-wj9c-mxmx (array-limit bypass via bracket-key comma parsing) and
+          GHSA-4mjr-xmp4-gh2g (DoS via attacker-controlled `isBuffer`). The only clean fix is
+          `express@5.2.1`, a breaking change.
+          HANDOFF's durable gotchas say "the uuid override in package.json keeps `npm audit` at 0" —
+          true when written, not true now.
+Impact:   **The first advisory is largely blunted by work already done.** Sprint 154 established that
+          all 32 `req.query` reads are guarded by `typeof … === "string"`, so a bracket-key array
+          that slips the qs array limit fails the guard and never reaches a query. The second, a
+          parser-level DoS, is **not** blunted by anything the app does.
+Fix:      ⚠ **Not before the defense.** express 4→5 is a breaking change across every route and
+          middleware signature, for two moderate advisories on an internal-use app behind
+          authentication. Record it, re-check after. Update the stale HANDOFF line either way.
+
+### SEC-29 · `vite.config.ts` `globIgnores` · LOW · OPEN (payload, not security)
+Claim:    Two chunks of the PDF-export feature slip the precache exclusions, because the exclusion
+          list matches **filenames** and these two do not carry the family's name.
+Evidence: `globIgnores` lists `iptrOcr-*`, `exceljs*`, `jspdf*`, `html2canvas*`. The manifest in
+          `dist/sw.js` nonetheless precaches `assets/index.es-DIdGXNez.js` (156 KB — its first line
+          is `import{_ as La}from"./jspdf.es.min-…js"`, so it is jspdf-family) and
+          `assets/purify.es-Csrj9YNg.js` (27.5 KB — DOMPurify, a jspdf dependency).
+Impact:   ~184 KB that every device downloads on service-worker install for a feature most staff
+          never use — the same class of waste the comment in that file says was fixed for the
+          382 KB jspdf chunk, on the phone-over-mobile-data case CLAUDE.md's three-device rule
+          cares about. Not a security issue.
+Fix:      Add the two patterns, or better, exclude by what the chunk imports rather than by name.
+          ⚠ The file's own warning applies: never exclude a **statically**-imported chunk, or the
+          app breaks offline. Both of these are reached only through `import()`.
+
+### SEC-11 — reinforced by this sprint
+`index.html` carries no CSP: 12 lines of `<meta>`, a favicon, a title and one module script, with no
+`http-equiv` of any kind. Worth noting for the fix — a `<meta http-equiv="Content-Security-Policy">`
+in this file is an alternative to Vercel response headers if the headers route proves awkward. The
+file is otherwise clean: no inline script, no inline style, no third-party tag.
 
 ---
 
