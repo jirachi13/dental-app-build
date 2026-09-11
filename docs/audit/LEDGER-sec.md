@@ -36,12 +36,28 @@ Impact:   Every seeder, migration and local `dev:server` run touches live patien
 Fix:      Copy the whole dev `.env` from the laptop — never one line, the `FIELD_ENCRYPTION_SECRET`s
           differ. User action, not a sprint.
 
-### SEC-01 · GitHub ruleset `protect-main` · LOW · OPEN
+### SEC-01 · GitHub ruleset `protect-main` · LOW · OPEN (**re-verified 2026-09-11 against the API**)
 Claim:    Branch-protection bypass "Repository admin — Always allow" is active on `main`.
-Evidence: HANDOFF.md `## Live warnings`; verified in the GitHub UI 2026-09-02.
-Impact:   The owner's pushes bypass review. Deliberate today; it means the ruleset constrains
-          collaborators only.
-Fix:      Remove the bypass entry to make the discipline apply to the owner too. User decision.
+Evidence: **Confirmed unchanged**, this time from the API rather than the UI —
+          `gh api repos/jirachi13/dental-app-build/rulesets/20584321`:
+          `bypass_actors: [{ actor_id: 5, actor_type: "RepositoryRole", bypass_mode: "always" }]`
+          (role 5 is Admin). `enforcement: "active"`, targeting `~DEFAULT_BRANCH`, last updated
+          2026-09-02 — the date HANDOFF records, so nothing has moved since.
+          **Every other claim HANDOFF makes about this ruleset also checks out:** `deletion` and
+          `non_fast_forward` rules present; `pull_request` with `required_approving_review_count: 1`,
+          `dismiss_stale_reviews_on_push: true`, `require_code_owner_review: true`;
+          `required_status_checks` naming context **`build`** with
+          `strict_required_status_checks_policy: true`. `.github/CODEOWNERS` exists (1.9 KB,
+          catch-all `* @jirachi13`), so the code-owner rule is **not** inert.
+          One setting HANDOFF does not mention: `require_extra_approval_for_unattributed_changes: true`.
+Impact:   Unchanged — the ruleset constrains collaborators, not the owner. Deliberate.
+          ⚠ **Immediately relevant:** the 21 unpushed commits will go straight to `main` **because of
+          this bypass**. Remove it first and that push is refused, and the work needs a PR.
+Fix:      Remove the bypass entry to make the discipline apply to the owner too. User decision —
+          and, given the backlog, one better made **after** the current work is pushed.
+Note:     This was the last row seeded rather than derived. **All three seeded SEC rows have now been
+          re-verified this session** (SEC-00 and SEC-02 earlier), which closes the staleness gap that
+          BUG-00 and BUG-01 exposed.
 
 ### SEC-02 · `docs/Group404 - Manuscript.md` · HIGH · WONTFIX (accepted, repo stays private)
 Claim:    Real patient PII is committed and is in git history — Appendix E (`[image16]`) is a FILLED
