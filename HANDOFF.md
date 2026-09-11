@@ -6,11 +6,95 @@
 - **Phase 1 + 2 DONE and deployed**: https://dental-app-build.vercel.app (Vercel; **push to main auto-deploys** — verified across the 23h–27b sprints; older notes saying CLI-only are superseded). ML service live on Render free tier at `https://floral-ml-service.onrender.com` (sleeps after ~15min idle; first request 30–60s, may 503 once — retry works).
 - **Phase 3 built end-to-end on SYNTHETIC data** (21a–21g); re-run against real data BLOCKED — **not on locating files: there are none.** Barangay Tanyag's dental records are paper IPTR forms, so real data exists only once hand-encoded (n = 50, decided 2026-09-01). The current blocker is the dentist's DOH risk-classification source, which Section 4 of `docs/iptr-encoding-brief.md` needs before encoding can start — see Open work 3. Once encoded: `clean_excel.py data/raw` → `build_features.py` → `run_experiments.py` → regenerate `algo-results.md`/`model-selection-rationale.md` → `train.py` → commit new `active/model.pkl` (Render auto-deploys) → UI's synthetic-data banner clears itself.
 - **Last sprints**: 102 (Promote/Assign re-runnable — the screen could not fix its own mistakes, 09-04), 101 (school gate enforced SERVER-side — `school_ids` was in the JWT and nothing read it, 09-04), 100 (users hold MULTIPLE schools; `school_id` → `school_ids[]`, 09-04), 99 (**the API runs in `sin1` — the ~500 ms per request was geography, ~4.2x faster**, 09-04), then 98 (demo treatments seeded — Services Rendered now has real numbers, 09-03), 97 (notification bell — three real sources, counts only, server-side aggregate, 09-03), 96 (accent contrast — every visible text node on 8 screens now passes WCAG AA, 09-03), 95 (school switcher restored on a collapsed sidebar — user-reported, 09-03), 94 (150 hardcoded greys → tokens; muted-foreground darkened after measuring it fails AA on the CANVAS background, 09-03), 93 (appointment date prefills today; the one real contrast failure fixed — and the finding that the grey sprawl is a TOKEN problem, not a contrast one, 09-03), 92 (the audit trail read is bounded — and the fetch now follows the screen's date filter so a filter cannot lie, 09-03), 91 (the missing indexes — evidence-driven, and the finding that AuditTrail's unbounded read is the real scale risk, 09-03), 90 (Services Rendered wired to real numbers — and the finding that NO tooth record carries a treatment_code, so the section honestly reads 0, 09-03), 89 (Program Report section C rebuilt against the FILED January 2026 return — and the finding that the DOH workbook is a DIFFERENT form, 09-03), 88 (per-school summary sheet — the last supplied form with no output at all, 09-03), 87 (OCR corrections — and the upside-down-page bug that reported 31 phantom findings on a blank form, 09-03), 86 (OCR reads the IPTR checkbox grid — ink density, not character recognition; findings shown never applied, 09-03), 85 (official output — TCL Excel-only, Program Report PDF+Excel, IPTR PDF, blank consent form; formats are decisions, see that section, 09-03), 84 (Target Client List reconciled against the SOURCE WORKBOOK — now 66 columns, incl. the 20-column ORAL HEALTH STATUS group the app never had, 09-03), 83 (Program Report gains the form's missing section A + rows; DOH tables adopt the printed forms' amber band and blocked-cell grey, 09-03), 82 (Target Client List 40 → 50 columns; still short of the real 66 — the workbook is on the OTHER laptop, 09-03), 81 (RECORDING an RPC visit — `PREVENTIVE_CARE_RECORD` had no write path anywhere in the app until now; plus `facility_based` for the FHSIS a/b sub-rows, 09-03), 76 (archiving no longer blocks re-creation; restore guards the uniqueness instead — found by running sprint74's suite on dirty state, 09-02), 75 (`apply:seed-passwords` — `seed:demo` skips existing accounts, so `.env` edits never reached them, 09-02), 74 (Promote/Assign bulk rollover — **now 14/14**, 09-02), 73 (Consolidated rows/grades picker + export handling, 09-02), 72 (TCL column picker, 09-02), 71 (hideable rows/columns + ART sub-rows, 09-02), 70 (IPTR grade/section editable — retained pupils, 09-02), 69 (adding a student opens the school-year record, 09-02), 68 (height/weight + derived BMI per school year, 09-02), 67 (inline school switcher + local treatment terms, 09-02), 66 (archive UI — view + restore, 09-02), 65 (all student lists alphabetical by surname, 09-02), 64b (Target Client List full column set, 09-02), 64 (Program Report full column set, 09-02), 63 (System Admin gets the operational screens, 09-02), 62 (required fields on Add Student, 09-02), 61 (split login layout, 09-02), 60 (schools registry; dropdowns read the DB, 09-02), 59 (DOH School filter made real — it was cosmetic, 09-02), 58 (shared pagination on all four lists + prominent save toast, 09-02), 57b (DOH reports scoped to a school year; age at examination, 09-02), 57a (IPTR carries grade/section; migration run, 09-02), 56b (patient-list row joins server-side; useStudents stops pulling 6 collections, 09-02), 56 (bounded appointment reads + the first indexes in the codebase, 09-02), 55 (Oral Health Program Reporting Form, 09-02), 54 (Target Client List, 09-02), 53 (students-list pagination — CLIENT-side only, 09-02). All pushed and deployed. Per-sprint detail in the sections below.
-- **New scripts this session:** `npm run seed:appointments` (demo appointments — there was none), `npm run backfill:iptr-grades` (grade_level onto older IPTRs), `npm run verify:referrals` (16 checks, refuses on production).
+- **AUDIT PROGRAM, 2026-09-11 (Sprints 151-161).** Track A (security/architecture) complete, Track B 158-161 done, **162 remains**. Program: `docs/audit/PROGRAM.md`. Findings: `docs/audit/LEDGER-sec.md`, `docs/audit/LEDGER-bug.md`. **`npm test` now exists — vitest, 78 tests, in CI.** ⚠ The "Last sprints" line below stops at 102 and is stale; it is not worth rewriting — read the ledgers and the resume note instead.
+- **New scripts:** `npm run audit:user-schools` (2026-09-11, read-only — which accounts hold every school; **not yet run against any database**) · `npm run seed:appointments` (demo appointments — there was none), `npm run backfill:iptr-grades` (grade_level onto older IPTRs), `npm run verify:referrals` (16 checks, refuses on production).
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ▶ RESUME HERE — PARKED 2026-09-07 (10th session), at `be138a7e`, all pushed and deployed
+## ▶ RESUME HERE — PARKED 2026-09-11 (11th session), at `bdf99a7c`. ⚠ **16 COMMITS NOT PUSHED**
+
+**Nothing is in progress.** Working tree clean, all work committed, `npm test` 78/78, `tsc` both
+configs and `npm run build` clean at the park point.
+
+### ⚠ THE ONE THING THAT MATTERS BEFORE ANYTHING ELSE
+
+**`git push`. Sixteen commits are local-only.** Every push and several commits this session were
+refused by the sandbox, so the commits exist here and nowhere else — **none of this is on the other
+laptop, and none of it is deployed.** Nothing else in this note is safe until that runs.
+
+```
+git push origin main
+```
+
+⚠ **On the other machine, `npm ci` after pulling** — `package.json` and `package-lock.json` both
+changed (vitest added).
+
+### What this session was
+
+**A 12-sprint audit program, scoped and then executed.** Full program in **`docs/audit/PROGRAM.md`**;
+findings in **`docs/audit/LEDGER-sec.md`** and **`docs/audit/LEDGER-bug.md`**. Read those, not this
+note, before continuing.
+
+**Track A (security/architecture) COMPLETE — 151-157.** 31 findings. **Track B open — 158-161 done,
+162 remains.**
+
+**Fixed this session:** SEC-18 (every account was created holding every school) · SEC-27 + BUG-03
+(the offline queue had no owner and its guard did not cross contexts) · BUG-04 (PUT could write into
+an archived record) · BUG-07 (the dental chart could show one pupil's identity above another's
+teeth) · five doc-drift rows.
+
+**Built this session:** `npm test` — vitest, **78 characterization tests**, wired into CI. It did not
+exist before. The net was verified by deliberately breaking a function and watching it fail.
+
+### ▶ THREE THINGS FOR YOU (none is a sprint)
+
+1. **`git push`** — see above.
+2. **`npm run audit:user-schools`** (new, read-only). SEC-18's code is fixed but **the DATA has never
+   been checked** — the run was refused here because this PC points at production. Anything it lists
+   under the first heading is repaired by editing that account in Account Management.
+3. **Check the Render dashboard for `ML_SERVICE_API_KEY`.** One look closes **SEC-30** either way.
+   Unset means the public `/predict` endpoint accepts any caller — not a data leak, but an open
+   compute endpoint with no rate limiting, on a free tier, in the month it most needs to answer.
+
+### ⚠ A DECISION I MADE THAT YOU MAY WANT TO REVERSE
+
+**Background Sync now HOLDS queued writes instead of sending them** (Sprint 159a). A service worker
+can learn who owns a queued row but **cannot learn whose session it is about to write under** — the
+session is an httpOnly cookie it may send but never read. So it no longer writes; the page drains the
+queue on next open instead. **Sprint 20's "syncs even if the tab was closed" is therefore degraded**,
+deliberately, and documented at length in `sw.ts`. If you would rather have the old behaviour back
+for the defense, say so and it can be scoped — but it would mean accepting that a queue can sync as
+the wrong person.
+
+### Still HIGH and open
+
+**SEC-00 is the blocker, not just a finding.** This PC's `.env` points at production, and that is
+what stopped **two HIGH rows being demonstrated**: SEC-03 and SEC-19 (clinical reads by
+`school_admin` / `bho_staff`) are **read off the code and never confirmed live**. Getting a dev
+`.env` onto this PC — the whole file from the laptop, never one line, the `FIELD_ENCRYPTION_SECRET`s
+differ — unblocks both. It was the 10th session's top recommendation too.
+
+Also open: SEC-04 (an empty `school_ids` still means "all schools"; SEC-18 fixed the instance, not
+the design) · SEC-19/SEC-20 (⚠ **check whether the grant is still load-bearing before narrowing it** —
+grep which hooks the two non-clinical roles' screens actually use) · SEC-12 (no way to revoke a
+session) · SEC-22 (the bell's `appointmentsToday` ignores school scope) · BUG-00, BUG-01, BUG-02,
+BUG-05, BUG-06, BUG-08, BUG-09, BUG-10, BUG-11.
+
+### Next sprint
+
+**Sprint 162 — `DentalChart.tsx` decomposition (3,088 lines).** Its gate is satisfied: the harness
+exists, 78 tests are green, and BUG-07 is fixed so it starts from correct behaviour.
+⚠ **BUG-00 lives in that same hook and must be fixed before or after 162, never inside it** — it
+changes *what* is displayed where the refactor must change nothing at all.
+⚠ This is the sprint most likely to need splitting; extract by seam, one commit per extraction,
+`tsc` ×2 + `npm test` + build after each, and stop cleanly wherever the budget runs out.
+
+Cheaper alternatives if 162 is too big for the next session: **SEC-22** (one handler), **BUG-09**
+(one dependency array), or **BUG-10/BUG-11** (both one-liners).
+
+---
+
+## Parked 2026-09-07 (10th session), at `be138a7e`, all pushed and deployed
 
 **Nothing is in progress.** Working tree clean, `main` level with origin, three commits this session.
 Short session: no sprint was planned — this was a catch-up pull that turned up two config faults and
