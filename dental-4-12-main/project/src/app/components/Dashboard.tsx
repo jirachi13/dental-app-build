@@ -39,7 +39,7 @@ import { useRPCTracking } from '../hooks/useRPCTracking';
 import { apiClient } from '../api/client';
 import type { ApiUser, ApiTreatment, ApiStudentIptr, ApiAuditTrail, ApiRiskStratification } from '../api/types';
 import { windowStart, AUDIT_WINDOW_DAYS } from '../hooks/useAuditTrail';
-import { treatmentCodes, treatmentLabel } from './DentalChart';
+import { treatmentCodes, treatmentLabel } from '../utils/dentalChartCodes';
 
 export const Dashboard = () => {
   const { user, selectedSchool } = useAuth();

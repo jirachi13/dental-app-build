@@ -5,7 +5,7 @@ import { Search, Plus, X, CheckCircle, AlertCircle, Clock, Shield, School as Sch
 import { getGradeColor } from '../utils/gradeColors';
 import { useRPCTracking } from '../hooks/useRPCTracking';
 import type { ApiDentist } from '../api/types';
-import { treatmentCodes, treatmentLabel } from './DentalChart';
+import { treatmentCodes, treatmentLabel } from '../utils/dentalChartCodes';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { activatable } from '../utils/a11y';
 import { Pagination, usePagination } from './Pagination';

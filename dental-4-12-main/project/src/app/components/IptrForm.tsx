@@ -9,7 +9,7 @@ import {
   upperTemporary,
   lowerTemporary,
   conditionCodes,
-} from './DentalChart';
+} from '../utils/dentalChartCodes';
 
 // ─── INDIVIDUAL PATIENT TREATMENT RECORD — page 1 (Sprint 135) ──────────────
 //

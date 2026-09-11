@@ -21,7 +21,7 @@ import { OralHealthProgramReport } from './OralHealthProgramReport';
 import { SchoolSummaryReport } from './SchoolSummaryReport';
 import { FhsisReport } from './FhsisReport';
 import { ConsentForm } from './ConsentForm';
-import { treatmentCodes } from './DentalChart';
+import { treatmentCodes } from '../utils/dentalChartCodes';
 import { schoolYearLabel } from '../utils/schoolYear';
 import { formatDate } from '../utils/localDate';
 import { useSchools } from '../hooks/useSchools';
