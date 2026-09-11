@@ -15,7 +15,7 @@ Track B sprints: 158 Vitest harness · 159 offline/sync races · 160 data-fetch 
 | 158 | Vitest harness + characterization tests | DONE — 46 tests, net verified, CI wired |
 | 159 | Offline & sync races | DONE — 3 new, incl. a real double-drain race; SEC-27 confirmed |
 | 160 | Data-fetch hooks | DONE — 3 new; the worst can show two pupils at once |
-| 161 | Report arithmetic | not started |
+| 161 | Report arithmetic | DONE — **23 tests added**, 2 minor findings; the arithmetic largely held up |
 | 162 | `DentalChart.tsx` decomposition | not started (gated on 158 ✅) |
 
 ---
@@ -218,6 +218,65 @@ Impact:   A pupil's record is archived while an aide is offline; the aide's queu
 Fix:      Give PUT the archived check GET already has. ⚠ Then decide deliberately what the queue
           should DO with the rejection: `markFailed` wedges the queue, so this probably wants to be a
           conflict rather than a failure.
+
+---
+
+## Sprint 161 — report arithmetic
+
+**Read:** `shared/dohAggregate.ts` (the tally and aggregate), `shared/schoolYear.ts`,
+`shared/rpcTracking.ts` (the school-year cutoff), plus a division sweep across all of `shared/`.
+**Wrote 23 tests** — this is the first audit sprint that could, because the report arithmetic is pure
+functions, which is exactly what Sprint 158's harness was built for. 78/78 green.
+
+### ▶ The headline is that this arithmetic held up
+Unlike Sprints 159 and 160, this sprint largely **validated** the code rather than finding holes in
+it. Sprints 138–150 did careful work here and it shows; the two findings below are both LOW.
+
+- **`tallyIptrServices` behaves exactly as documented**, including the compatibility guarantee that
+  matters most: **with nothing linked — which is all real data today — it reproduces the
+  pre-Sprint-150 numbers exactly**, so Sprint 150 did not move any filed return. Now pinned by test.
+- The linked/unlinked rule is **per CODE, not per chart**, and the case its docblock records as a
+  real regression (a code appearing only in a pupil's *third* charting still counting as a 1st
+  application — caught by diffing filed numbers, `sdf_1st` 9→7 and `sdf_2nd` 0→2) is genuinely
+  handled. Pinned.
+- **Sittings, not teeth**: five teeth varnished in one visit is one application, not five. Pinned.
+- **No division by a count anywhere in `shared/`.** The empty-cohort divide-by-zero the plan asked
+  about does not exist — these aggregates are counts and sets throughout, and no percentage is
+  computed in the shared layer.
+- ⚠ **The plan's concern about "1st/2nd application inferred from chart dates" is RESOLVED and the
+  plan is simply out of date.** Sprint 149 gave `DENTAL_CHART` a `preventive_id` and Sprint 150 made
+  the ordinal a lookup; the date-order rule survives only as the fallback for pre-149 chartings,
+  which it has to, or services would vanish from returns already filed.
+
+### BUG-10 · `shared/schoolYear.ts` `schoolYearEnd` · LOW · OPEN
+Claim:    **The displayed RPC deadline and the enforced one disagree by up to 24 hours**, because
+          `schoolYearEnd` returns the *start* of the last day.
+Evidence: `schoolYearEnd` returns `new Date(y, 3, 30)` — April 30 at **00:00:00**.
+          `rpcTracking.ts:273-280` compares `windowCloses > syEnd.getTime()` to decide `syCutoff`
+          ('tight' / 'impossible'), then formats `syDeadline` as `"YYYY-04-30"` and shows it.
+          So a second-visit window closing at 09:00 on April 30 is past the **enforced** deadline
+          while still inside the **displayed** one. Pinned in `schoolYear.test.ts`.
+Impact:   Small and narrow — it can label a pupil's second RPC visit 'tight' or 'impossible' a day
+          early, which is a warning shown to staff rather than a filed figure. No DOH number moves.
+Fix:      Either return the end of April 30 (23:59:59.999) or compare against the start of May 1.
+          ⚠ Check both call sites together — `rpcTracking.ts` and `Appointments.tsx:105` — since
+          changing the returned instant changes both.
+
+### BUG-11 · `server/scripts/migrateIptrGrades.ts:37` · LOW · OPEN
+Claim:    A duplicated school-year rule survives in a script **whose stated reason for existing has
+          been removed**.
+Evidence: `migrateIptrGrades.ts:37` carries its own `schoolYearLabel` —
+          `d.getMonth() <= 3 ? \`${y-1}-${y}\` : \`${y}-${y+1}\`` — identical to `shared/schoolYear.ts`.
+          That file's own header explains why: server code could not import from `src/` — and then
+          says **"`shared/` removes that excuse — one school-year rule for every consumer, which is
+          the whole point of the file."** The excuse is gone; the copy is not.
+          A fifth variant also exists privately: `dohAggregate.ts:207` `schoolYearStartDate` parses a
+          year label without using `shared/schoolYear.ts`.
+Impact:   Latent, same family as BUG-02's three age implementations. They agree today. The risk is a
+          future change to the June–April rule (or to May's bucketing) landing in `shared/` and not
+          in the migration script, which would then write school-year labels that disagree with every
+          reader of them.
+Fix:      Import from `shared/` in the script — the constraint that prevented it no longer applies.
 
 ---
 

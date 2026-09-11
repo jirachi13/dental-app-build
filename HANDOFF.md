@@ -1067,6 +1067,29 @@ User: *"record visit is also treatment, in rpc tracking"* — and the code agree
 
 ---
 
+## Sprint 161 (report arithmetic - the sprint that mostly VALIDATED the code) - DONE 2026-09-11, 78/78, tsc x2 + build clean
+
+**23 tests added, 2 LOW findings, no app or server code touched.** The first audit sprint that could write tests as it went, because the report arithmetic is pure functions — exactly what Sprint 158's harness was built for.
+
+**▶ THE HEADLINE IS THAT THIS ARITHMETIC HELD UP.** Unlike 159 and 160, this sprint largely **validated** the code. Sprints 138-150 did careful work here and it shows.
+- **`tallyIptrServices` behaves exactly as documented**, including the guarantee that matters most: **with nothing linked — which is all real data today — it reproduces the pre-Sprint-150 numbers EXACTLY**, so Sprint 150 moved no filed return. Now pinned by test.
+- The linked/unlinked rule is **per CODE, not per chart**, and the case its docblock records as a real regression — a code appearing only in a pupil's THIRD charting still counting as a 1st application, caught by diffing filed numbers (`sdf_1st` 9→7, `sdf_2nd` 0→2) — is genuinely handled. Pinned.
+- **Sittings, not teeth:** five teeth varnished in one visit is one application, not five. Pinned.
+- **No division by a count anywhere in `shared/`** — the empty-cohort divide-by-zero the plan asked about **does not exist**. These aggregates are counts and sets throughout; no percentage is computed in the shared layer.
+- ⚠ **The plan's concern about "1st/2nd application inferred from chart dates" is RESOLVED — the plan is out of date in a good way.** Sprint 149 gave `DENTAL_CHART` a `preventive_id` and Sprint 150 made the ordinal a lookup. The date-order rule survives only as the fallback for pre-149 chartings, which it must, or services would vanish from returns already filed.
+
+**BUG-10 (LOW) — the DISPLAYED RPC deadline and the ENFORCED one disagree by up to 24 hours.** `schoolYearEnd` returns `new Date(y, 3, 30)` — **April 30 at 00:00:00**, the START of the last day. `rpcTracking.ts:273-280` compares `windowCloses > syEnd.getTime()` to set `syCutoff` ('tight'/'impossible'), then formats and shows `syDeadline` as `"YYYY-04-30"`. A second-visit window closing at 09:00 on April 30 is therefore **past the enforced deadline while still inside the displayed one**. Narrow: it is a warning shown to staff, not a filed figure, so **no DOH number moves**. ⚠ Fix both call sites together (`rpcTracking.ts` and `Appointments.tsx:105`) — changing the returned instant changes both.
+
+**BUG-11 (LOW) — a duplicated school-year rule survives in a script whose stated reason for existing has been REMOVED.** `migrateIptrGrades.ts:37` keeps its own `schoolYearLabel`, identical to `shared/schoolYear.ts`. That file's header explains the original reason (server code could not import from `src/`) and then says **"`shared/` removes that excuse — one school-year rule for every consumer, which is the whole point of the file."** The excuse is gone; the copy is not. A fifth variant also exists privately at `dohAggregate.ts:207` (`schoolYearStartDate`). Same family as BUG-02's three age implementations — they agree today, and the risk is a future change to the June-April rule landing in `shared/` and not in the script.
+
+**The 23 new tests:** `shared/dohAggregate.test.ts` (13 — tooth counts, the unlinked sittings rule, the linked-visit rule, and the no-links compatibility guarantee) and `shared/schoolYear.test.ts` (10 — the three functions agreeing across the year including the **May seam**, which is bucketed forward on purpose so no date falls between April 30 and June 1, plus the BUG-10 boundary pinned).
+
+**Track B: BUG-03, BUG-04, BUG-07 and SEC-27 fixed. Open: BUG-00, BUG-01, BUG-02, BUG-05, BUG-06, BUG-08, BUG-09, BUG-10, BUG-11.**
+
+**Next: Sprint 162 (`DentalChart.tsx` decomposition, 3,088 lines)** — the last Track B sprint and the flagship multi-file refactor. ⚠ **Its gate is satisfied**: 158's harness exists, 78 tests green, and BUG-07 (the race in its data hook) is already fixed so 162 starts from correct behaviour. ⚠ **BUG-00 still lives in that hook** and should be fixed BEFORE or AFTER 162, never inside it.
+
+---
+
 ## Open work (each needs approval; sprint loop applies)
 
 65. **AUDIT PROGRAM — SCOPED 2026-09-11. **TRACK A COMPLETE** — Sprints 151-157 DONE (+153a SEC-18 fix, +157a doc drift). **Track B OPEN: 158-159 DONE** (`npm test` exists, 46 tests, wired into CI; **BUG-03 is a real double-drain race** and SEC-27 is confirmed); 160-162 and the SEC fix sprints remain, each needs its own approval.** ⚠ No 154b is needed — 154 did not split. ⚠ SEC-26 + ARCH-07 were fixed in 157a. ⚠ Two HIGH read-access findings (SEC-03, SEC-19) are read-off-the-code and NOT yet demonstrated live — SEC-00 (this PC points at production) is what blocks the check.
