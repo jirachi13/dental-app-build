@@ -970,6 +970,28 @@ User: *"record visit is also treatment, in rpc tracking"* — and the code agree
 
 ---
 
+## Sprint 159a (the FIX for BUG-03 + SEC-27) - DONE 2026-09-11, 55/55 tests, tsc x2 + build clean
+
+**One cause, one fix.** The queue row carried neither an owner nor a cross-context claim. It now carries both.
+
+**BUG-03 — the guard moved from a module variable to the ROW.** `claimWrite(id, contextId)` in `db.ts` reads and writes the claim **inside a SINGLE readwrite transaction** — that is the part that matters, because IndexedDB serialises overlapping readwrite transactions on the same store, so two contexts calling it at the same instant cannot both win. `processQueue` claims before sending and skips any row already claimed; `CONTEXT_ID` tells the page and the service worker apart; a 60s lease frees a row whose context was killed mid-send, and every failure path calls `releaseClaim` so an ordinary retry does not wait out a lease. **`processing` is KEPT** — it still stops one context re-entering itself — with its comment corrected to say it was never the cross-context guard it was taken for.
+
+**SEC-27 — `enqueueWrite` stamps `userId` from `authCache`** (written at login, cleared at logout, readable synchronously where there is no React context to ask), and `processQueue` checks it via `isOwnedBy`. Nobody signed in → send nothing. Another user's row → **HELD, never dropped** (`continue`, not `break` — a row waiting for its owner must not wedge the writes of the person actually sitting there). **Legacy rows with no `userId` drain under whoever is signed in, deliberately** — refusing them would strand real unsynced work behind an app update, a worse failure than the one being fixed, and the window closes the first time the queue drains.
+
+**⚠ THIS DEGRADES A GRADED FEATURE, AND YOU SHOULD KNOW BEFORE THE DEFENSE.** **Background Sync (Sprint 20 — "the queue drains even if the tab was closed") now HOLDS every row instead of sending it.** A service worker can learn who owns a row but **cannot learn whose session it is about to write under**: the session is an httpOnly cookie it may send but never read, and `localStorage` does not exist in a worker, so `loadUserCache()` returns null there by design. **A worker that cannot tell whose session it is writing under must not write.** Rows now wait and the page drains them on next open, as itself. **The cost is a later sync; the gain is that it can no longer sync as the wrong person.** Documented at length in `sw.ts` so nobody "fixes" it later with a storage shim. **If you would rather have the old behaviour back, that is a decision to make deliberately — say so and I will scope it.**
+
+**⚠ NOT claimed as solved: exactly-once.** A context killed AFTER the server accepted a write but BEFORE the row is removed will re-send once the lease expires. Closing that needs server-side idempotency, which no route has. **The window went from "two contexts racing on every reconnect" to "a context dies in the gap between send and remove"** — much smaller, not zero.
+
+**New pure module `src/app/offline/queueRules.ts`** holds both decisions (`isClaimable`, `isOwnedBy`) so they are testable without IndexedDB, a browser or a worker — **the first real use of Sprint 158's harness**, with 9 tests covering the two cases that were wrong before, plus the empty-string-owner edge that a `??`/`||` slip would otherwise swallow.
+
+**Files:** `offline/queueRules.ts` (new) · `offline/queueRules.test.ts` (new) · `offline/db.ts` · `offline/queueProcessor.ts` · `api/client.ts` · `sw.ts`.
+
+**⚠ Still OPEN from Sprint 159: BUG-04** (`PUT /:id` has no archived check where `GET /:id` does, so a queued edit can write into an archived record) and **BUG-05** (conflict detection is check-then-act). BUG-04 is the next sensible fix and is server-side, so it is independent of all of this.
+
+**Next:** BUG-04, or Sprint 160 (data-fetch hooks, 20 files / 1,698 lines).
+
+---
+
 ## Open work (each needs approval; sprint loop applies)
 
 65. **AUDIT PROGRAM — SCOPED 2026-09-11. **TRACK A COMPLETE** — Sprints 151-157 DONE (+153a SEC-18 fix, +157a doc drift). **Track B OPEN: 158-159 DONE** (`npm test` exists, 46 tests, wired into CI; **BUG-03 is a real double-drain race** and SEC-27 is confirmed); 160-162 and the SEC fix sprints remain, each needs its own approval.** ⚠ No 154b is needed — 154 did not split. ⚠ SEC-26 + ARCH-07 were fixed in 157a. ⚠ Two HIGH read-access findings (SEC-03, SEC-19) are read-off-the-code and NOT yet demonstrated live — SEC-00 (this PC points at production) is what blocks the check.

@@ -119,7 +119,32 @@ Fix:      Resolved by BUG-00's fix plus backlog #63 steps 2–3 (nullable `preve
 - The conflict check compares **only the fields this write actually touches**, so an unrelated edit
   elsewhere on the same record is correctly not treated as a conflict.
 
-### BUG-03 · `src/app/offline/queueProcessor.ts:4` + `src/sw.ts` · HIGH · OPEN
+### BUG-03 · `src/app/offline/queueProcessor.ts:4` + `src/sw.ts` · HIGH · FIXED (Sprint 159a)
+**Fixed 2026-09-11, together with SEC-27 — they had one cause, so they got one fix: the queue row
+carried neither an owner nor a cross-context claim, and now carries both.**
+
+The guard moved from a module variable to the **row**: `claimWrite(id, contextId)` in `db.ts` reads
+and writes the claim **inside a single readwrite transaction**, which is the part that matters —
+IndexedDB serialises overlapping readwrite transactions on the same store, so two contexts calling it
+at the same instant cannot both win. `processQueue` claims before sending and skips any row already
+claimed. `CONTEXT_ID` distinguishes the page from the service worker. `CLAIM_LEASE_MS` (60 s) frees a
+row whose context was killed mid-send; the failure paths `releaseClaim` explicitly so an ordinary
+retry does not wait out a lease.
+
+`processing` is kept and its comment corrected — it still stops one context re-entering itself, it
+was simply never the cross-context guard it was taken for.
+
+⚠ **Not claimed as solved: exactly-once.** A context killed *after* the server accepted a write but
+*before* the row is removed will re-send after the lease expires. Closing that needs server-side
+idempotency, which no route has. The window went from "two contexts racing on every reconnect" to
+"a context dies in the gap between send and remove".
+
+Verified: `npm test` 55/55, `tsc` both configs, `npm run build` — all clean. The new rules are unit
+tested in `queueRules.test.ts` (9 tests), including the two cases that were wrong before.
+
+Original finding follows.
+
+### BUG-03 (original) · HIGH
 Claim:    **The `processing` re-entrancy guard does not hold across contexts, so the queue can drain
           twice at once and send the same write twice.**
 Evidence: `let processing = false` is **module scope**. The page and the service worker are separate

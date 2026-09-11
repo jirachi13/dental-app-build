@@ -765,7 +765,35 @@ Fix:      Note the exception in CLAUDE.md. Same handling as SEC-26: a CLAUDE.md 
   by a different route than their own filenames. Verified against the actual manifest in `dist/sw.js`,
   which lists 6 asset entries and none of the excluded chunks.
 
-### SEC-27 · `src/app/offline/db.ts` · MED · OPEN
+### SEC-27 · `src/app/offline/db.ts` · MED · FIXED (Sprint 159a)
+**Fixed 2026-09-11, with BUG-03 — one cause, one fix.** `enqueueWrite` now stamps `userId` from
+`authCache` (written at login, cleared at logout, readable synchronously where there is no React
+context to ask). `processQueue` reads the signed-in user once per drain and calls `isOwnedBy`, a pure
+rule in `queueRules.ts`:
+
+- **Nobody signed in → send nothing.** Previously this reached the API and was turned back by a 401,
+  which was safe but burned a refresh and flagged the row auth-blocked for a user who had not arrived.
+- **Another user's row → HELD, never dropped** — it is somebody's unsynced clinical work. `continue`,
+  not `break`, for the same reason a conflict does: a row waiting for its owner must not wedge the
+  writes of the person actually sitting there.
+- **Legacy rows (no `userId`) drain under whoever is signed in**, deliberately — refusing them would
+  strand real unsynced work behind an app update, a worse failure than the one being fixed. The
+  window is self-limiting: it closes the first time the queue drains.
+
+⚠ **This DEGRADES a graded feature, and it is documented in `sw.ts` rather than left to be
+discovered.** Background Sync (Sprint 20 — "the queue drains even if the tab was closed") now **holds
+every row instead of sending it**. A service worker can learn who owns a row but **cannot learn whose
+session it is about to write under**: the session is an httpOnly cookie it may send but never read,
+and `localStorage` does not exist in a worker, so `loadUserCache()` returns null there by design. **A
+worker that cannot tell whose session it is writing under must not write.** Queued rows now wait and
+the page drains them on next open, as itself. The cost is a later sync; the gain is that it can no
+longer sync as the wrong person.
+
+Verified: `npm test` 55/55, `tsc` both configs, `npm run build` — all clean.
+
+Original finding follows.
+
+### SEC-27 (original) · MED
 Claim:    **The offline queue is a second plaintext patient-data store, and its records have no
           owner.** There is no way to clear it, and a queued write can be replayed under a different
           user's session than the one that created it.
