@@ -783,9 +783,16 @@ Impact:   On a shared clinic PC: aide A captures records offline, logs out; dent
           ⚠ **Clearing the queue on logout would be the WRONG fix** — unsynced field data is exactly
           what must survive a logout. The fix is ownership: stamp the queue row with the user id at
           enqueue, and refuse (or hold) rows belonging to someone else.
-Fix:      needs scoping. ⚠ **Sprint 159 must confirm the replay path in `queueProcessor.ts`** before
-          this is acted on — that the queue has no owner is decisive from `db.ts`, but whether
-          `processQueue` runs on login, on `online`, or both determines how easily it is reached.
+Fix:      needs scoping — stamp the queue row with the user id at enqueue, then hold or refuse rows
+          belonging to someone else.
+**CONFIRMED in Sprint 159, and the trigger is worse than assumed.** `App.tsx:10-12` calls
+`initQueueProcessor()` in a root `useEffect(…, [])` **outside `AuthProvider`**, and that function
+calls `processQueue()` immediately whenever `navigator.onLine`. The queue drains **on every app
+load**, before and regardless of any login check, with `credentials: 'include'`.
+ · **Nobody logged in** → 401 → refresh fails → `markAuthRequired`, stop. **Fails safe.**
+ · **A different user logged in** → the writes land under *their* session and the audit trail records
+   *them*. No unusual timing needed — just the next person to sign in on that clinic PC.
+See BUG-03 in `LEDGER-bug.md`: the same trigger also races the service worker's copy of the queue.
 
 ### SEC-28 · `package.json` / `npm audit` · LOW · OPEN
 Claim:    **`npm audit` has drifted from 0 to 3 moderate**, and HANDOFF still records it as 0.

@@ -13,7 +13,7 @@ Track B sprints: 158 Vitest harness · 159 offline/sync races · 160 data-fetch 
 | Sprint | Surface | Status |
 |---|---|---|
 | 158 | Vitest harness + characterization tests | DONE — 46 tests, net verified, CI wired |
-| 159 | Offline & sync races | not started |
+| 159 | Offline & sync races | DONE — 3 new, incl. a real double-drain race; SEC-27 confirmed |
 | 160 | Data-fetch hooks | not started |
 | 161 | Report arithmetic | not started |
 | 162 | `DentalChart.tsx` decomposition | not started (gated on 158 ✅) |
@@ -96,3 +96,96 @@ Impact:   The reporting layer and the chart screen cannot both be right. Filed D
           the reporting layer's assumption; the clinician sees the other.
 Fix:      Resolved by BUG-00's fix plus backlog #63 steps 2–3 (nullable `preventive_id` on
           `DENTAL_CHART`, then reports read the link instead of inferring from chart dates).
+
+---
+
+## Sprint 159 — offline & sync races
+
+**Read:** `offline/queueProcessor.ts` · `offline/queueEvents.ts` · `hooks/useOfflineQueue.ts` ·
+`App.tsx` (the trigger site) · `offline/db.ts` and `sw.ts`, already in context from Sprint 156.
+
+### What is correct here, recorded so no later sprint re-derives it
+- **FIFO is real.** `getQueue()` reads through the `timestamp` index, and equal timestamps fall back
+  to the autoincrement primary key, so the order is stable.
+- **The queue stops rather than skips**, exactly as CLAUDE.md requires: a network failure `break`s
+  and leaves the item pending; a server rejection marks it failed and `break`s. Only a *conflict*
+  uses `continue`, and the comment records that as the user's explicit choice — one contested record
+  should not wedge unrelated writes behind it.
+- **`sendDirect` deliberately does NOT go through `apiClient`**, with the reason written down:
+  `apiClient` queues failed writes, so reusing it would re-queue a failed sync attempt and defeat
+  "stop queue if sync fails, never skip".
+- `discardFailedWrite` exists precisely because a permanently-rejected item would otherwise wedge the
+  FIFO forever. A failed item is recoverable by Retry or removable by Discard — both are offered.
+- The conflict check compares **only the fields this write actually touches**, so an unrelated edit
+  elsewhere on the same record is correctly not treated as a conflict.
+
+### BUG-03 · `src/app/offline/queueProcessor.ts:4` + `src/sw.ts` · HIGH · OPEN
+Claim:    **The `processing` re-entrancy guard does not hold across contexts, so the queue can drain
+          twice at once and send the same write twice.**
+Evidence: `let processing = false` is **module scope**. The page and the service worker are separate
+          JavaScript contexts with separate module instances — `sw.ts` imports `processQueue`, and
+          the SW is built as its own bundle (`injectManifest`). So there are **two independent
+          `processing` flags over one shared IndexedDB queue**, and neither can see the other.
+          Both fire on the same event: `initQueueProcessor` adds a `window` `online` listener *and*
+          calls `processQueue()` immediately when `navigator.onLine`; the SW's `sync` handler runs
+          `processQueue()` on the `floral-queue-sync` tag. Coming back online and opening the app is
+          the normal field workflow, and it triggers both.
+          Nothing in IndexedDB prevents it: `getQueue()` is a readonly transaction and
+          `removeFromQueue` runs only **after** a successful send, so both contexts read the same
+          rows and both `sendDirect` before either removes.
+Impact:   Depends on the model, and the quiet case is the bad one.
+          **Models with `uniqueBy` or `duplicateCheck`** (StudentIptr, Student): the second POST gets
+          a 409, which `markFailed`s and **wedges the whole queue**, showing the encoder "already
+          exists" for a record they created once.
+          **Models with neither** (ToothRecord, Treatment, DayNote, Appointment,
+          PreventiveCareRecord, MedicalHistory): **two identical records, silently.** On a tooth
+          record or a treatment, that is a duplicated clinical entry in a patient's chart.
+          ⚠ Honest bounds: Background Sync is Chromium-only (registration is guarded by
+          `'SyncManager' in window` and no-ops on Safari), and the two triggers must land close
+          together. This is a race, not a certainty — but the window is the exact moment the feature
+          exists for.
+Fix:      needs scoping. The guard has to live where both contexts can see it — a claim/lease field
+          on the queue row itself, written in the same readwrite transaction that reads it, not a
+          module variable. ⚠ `navigator.locks` would be simpler but is not shared with the service
+          worker in every browser; verify before choosing it.
+
+### BUG-04 · `server/routes/crudFactory.ts` PUT · MED · OPEN
+Claim:    **A queued edit can write into an archived record**, because `PUT /:id` has no archive
+          check — and the offline path is how it actually gets reached.
+Evidence: `crudFactory`'s `GET /:id` explicitly 404s an archived record for non-admins. **`PUT /:id`
+          does not**: it is `findById` → `if (!doc) 404` → `isInScope` → `Object.assign(doc, updates)`
+          → `save()`. `findById` finds archived rows.
+          The offline route in: `checkForConflict` returns `null` on any non-OK response — including
+          the 404 an archived record now gives — so the conflict check is skipped and the PUT
+          proceeds normally.
+Impact:   A pupil's record is archived while an aide is offline; the aide's queued edit syncs and
+          writes into the archived record, which no screen lists. The edit lands somewhere invisible
+          and the encoder is told it succeeded. Reachable through the API directly too, not only via
+          the queue, so it carries a SEC cross-reference as well.
+Fix:      Give PUT the archived check GET already has. ⚠ Then decide deliberately what the queue
+          should DO with the rejection: `markFailed` wedges the queue, so this probably wants to be a
+          conflict rather than a failure.
+
+### BUG-05 · `src/app/offline/queueProcessor.ts` `checkForConflict` · LOW · OPEN (known limitation)
+Claim:    Conflict detection is check-then-act, with a window between the GET and the PUT.
+Evidence: `checkForConflict` GETs the record and compares against `baselineSnapshot`; `sendDirect`
+          then PUTs. Another writer landing between the two is not detected.
+Impact:   Small, and inherent — it cannot be closed on the client alone, because no model carries a
+          version or updated-at token the server could check an `If-Match` against. Recorded so the
+          conflict feature is not described as stronger than it is.
+Fix:      Real optimistic locking needs a server-side version field. Not worth doing for its own
+          sake; worth knowing if a version field is ever added for another reason.
+
+### SEC-27 — CONFIRMED, and the mechanism is worse than "possible"
+Sprint 156 established that queue rows carry no owner. Sprint 159 has the trigger: **`App.tsx:10-12`
+calls `initQueueProcessor()` in a root `useEffect(…, [])`, OUTSIDE `AuthProvider`**, and
+`initQueueProcessor` calls `processQueue()` immediately whenever `navigator.onLine`. The queue
+therefore drains **on every app load**, before and regardless of any login check, using whatever
+session cookie the browser currently holds (`credentials: 'include'`).
+
+- **Nobody logged in** → 401 → refresh fails → `markAuthRequired` and stop. **Fails safe.**
+- **A DIFFERENT user logged in** → the writes go through under *their* session, and
+  `logAudit(req.user!.id, …)` records **them** as the author. This is the case that matters, and it
+  needs no unusual timing — only the next person to sign in on that clinic PC.
+
+Plus the SW's background-sync path, which runs with no page and no session context at all.
