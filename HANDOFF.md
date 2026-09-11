@@ -922,9 +922,32 @@ User: *"record visit is also treatment, in rpc tracking"* — and the code agree
 
 ---
 
+## Sprint 158 (the regression net - Track B opens) - DONE 2026-09-11, 46/46 green, tsc x2 + build clean
+
+**`npm test` exists for the first time.** vitest as a dev dependency, `npm test` (`vitest run`) and `npm run test:watch`, plus a **`Test` step in `.github/workflows/ci.yml`** between the typechecks and the build. Pure functions only — no component or database tests — so CI needs no services and no secrets.
+
+**46 tests across three files:**
+- `shared/studentValidation.test.ts` (25) — the gate `crudFactory` calls on every Student write, and the module's own header notes it is the **only** check the offline queue passes through, since the queue replays POSTs through no form at all.
+- `shared/age.test.ts` (11) — the DOH age brackets plus the cross-implementation pins below.
+- `src/app/utils/bmi.test.ts` (10) — BMI-for-Age, focused on the property that it **refuses rather than guesses** outside the table's 6-19 coverage, which is CLAUDE.md's no-filler rule enforced in code.
+
+**⚠ THE NET WAS VERIFIED, NOT ASSUMED.** Changed `getAgeGroup`'s `age <= 9` boundary to `age <= 8`; the suite went red on *"getAgeGroup maps each boundary to its bracket"*; restored the file and `git diff` confirmed clean. A test suite nobody has watched fail is not yet a net.
+
+**BUG-02 (MED, latent) — there are THREE age implementations and TWO bracket implementations in `shared/`, and every filed DOH figure rests on them.** `calculateAge(birthdate)` (always today), `ageAt(birthdate, on)`, and `ageOn(birth, on = new Date())` all run the same arithmetic; `getAgeGroup` returns `'5-9'` where `bracketOf` returns `'5-9 yrs'` — same boundaries, different labels. **`age.ts`'s own header warns about exactly this** (*"a second copy is how two screens end up disagreeing about which bracket a 9-year-old is in… a divergence would be a reporting error, not a cosmetic one"*) — there are now three copies. **They agree today, and the new tests PIN them together** so a future divergence fails in CI rather than quietly in a report filed with the City Health Office. One real asymmetry is already pinned: **`ageOn` returns `NaN` on a bad date where the other two return `null`** — safe only because `validateBirthdate` guards before calling it.
+
+**⚠ THREE ITEMS ON THE PLAN'S ORIGINAL LIST WERE NOT TESTABLE AS PURE FUNCTIONS, and none was forced:** `computeDMFT` is module-local inside `DentalChart.tsx` (extracting it is **Sprint 162's** job — doing it here would be the very refactor 158 exists to make safe), `readIptrCheckboxes` needs an `HTMLCanvasElement`, and `findDuplicateStudents` is async and hits the database. **The plan's list predated Track A mapping the codebase.** The better target it did not know about is **`shared/` — 2,129 lines of framework-free logic imported by BOTH server and client**; this sprint covers three of its modules, and `dohAggregate`, `rpcTracking`, `riskCandidates`, `schoolSummary`, `fhsis` and `reportsPanels` are the obvious next ones. They are also exactly what Sprint 161 reads, so 161 should write tests as it goes rather than reading twice.
+
+**Housekeeping:** `.vitest/` (the run-artifact directory) added to `.gitignore`.
+
+**⚠ Note for the other machine:** `npm ci` after pulling — `package.json` and `package-lock.json` both changed.
+
+**Next: Sprint 159 (offline and sync races)**, which also owes the confirmation SEC-27 is waiting on — whether `processQueue` fires on login, on `online`, or both, which decides how easily one user's queued writes drain under another's session.
+
+---
+
 ## Open work (each needs approval; sprint loop applies)
 
-65. **AUDIT PROGRAM — SCOPED 2026-09-11. **TRACK A COMPLETE** — Sprints 151-157 DONE (+153a, the SEC-18 fix); Track B (158-162) and the SEC fix sprints remain, each needs its own approval.** ⚠ No 154b is needed — 154 did not split. ⚠ SEC-26 + ARCH-07 are CLAUDE.md doc-drift fixes awaiting their own approval. ⚠ Two HIGH read-access findings (SEC-03, SEC-19) are read-off-the-code and NOT yet demonstrated live — SEC-00 (this PC points at production) is what blocks the check.
+65. **AUDIT PROGRAM — SCOPED 2026-09-11. **TRACK A COMPLETE** — Sprints 151-157 DONE (+153a SEC-18 fix, +157a doc drift). **Track B OPEN: 158 DONE** (`npm test` exists, 46 tests, wired into CI); 159-162 and the SEC fix sprints remain, each needs its own approval.** ⚠ No 154b is needed — 154 did not split. ⚠ SEC-26 + ARCH-07 are CLAUDE.md doc-drift fixes awaiting their own approval. ⚠ Two HIGH read-access findings (SEC-03, SEC-19) are read-off-the-code and NOT yet demonstrated live — SEC-00 (this PC points at production) is what blocks the check.
     - **Full program: `docs/audit/PROGRAM.md`** (in the repo deliberately — the plan-mode file lives in `~/.claude/plans` and does NOT sync between the two machines). Read that, not this entry, before running any audit sprint.
     - **User decisions taken 2026-09-11:** security/architecture track FIRST · audit sprints are **READ-ONLY**, fixes are separate approved sprints · **Vitest for pure logic only** before any refactor · output is **internal hardening** (terse ledger, no manuscript formatting).
     - **Track A (151-157, read-only):** 151 architecture map re-derivation + trust boundaries · 152 auth/session · 153 **RBAC + multi-school tenancy (highest consequence)** · 154 route-by-route input+authz (expected to split into 154b) · 155 data layer · 156 client-side + supply chain · 157 ML boundary. Then SEC fix sprints, 1-3 findings each.

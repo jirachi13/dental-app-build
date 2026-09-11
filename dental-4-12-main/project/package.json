@@ -8,6 +8,8 @@
     "dev:host": "vite --host",
     "build": "vite build",
     "dev:server": "tsx watch server/local.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "seed:admin": "tsx server/scripts/seedAdmin.ts",
     "restore:admin": "tsx server/scripts/restoreAdmin.ts",
     "seed:demo": "tsx server/scripts/seedDemo.ts",
@@ -127,7 +129,8 @@
     "tsx": "^4.22.4",
     "typescript": "^5.5.3",
     "vite": "^6.4.3",
-    "vite-plugin-pwa": "^1.2.0"
+    "vite-plugin-pwa": "^1.2.0",
+    "vitest": "^5.0.0"
   },
   "peerDependencies": {
     "react": "18.3.1",
