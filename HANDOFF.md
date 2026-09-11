@@ -1198,6 +1198,28 @@ User: *"record visit is also treatment, in rpc tracking"* — and the code agree
 
 ---
 
+## BUG-00 + BUG-01 CLOSED 2026-09-11 - no code change needed, they were ALREADY FIXED
+
+**⚠ I was asked to fix BUG-00 and it did not need fixing.** It was fixed before the audit began, by Sprints 148/149/154, and **I carried it as the top open HIGH for eleven sprints without checking.**
+
+**The row was SEEDED from backlog #63, which describes the state on 2026-09-05.** Those three sprints landed after that date. All three parts of the original claim are addressed:
+
+1. **Display** — `useDentalChartData` keeps **every** charting for the year, sorted oldest-first, and its own comment names the bug: *"⚠ ALL of them, oldest first — `.find()` here is what hid every charting after the first (Sprint 148)."* The default shown is `charts[charts.length - 1]` — **the LATEST, not the first** (*"a pupil charted again in January showed August's findings"*). `grep` for `myCharts.find` and `charts[0]` across the hook and the component returns **nothing**.
+2. **Selection** — there is a **real on-screen picker** (`DentalChart.tsx:2142-2160`): one button per charting, shown when `charts.length > 1`, labelled with the date, annotated with the visit number where linked, tooth-record count in the tooltip. `selectedChartId` also accepts a `?chart=` URL param. **A dentist can reach every charting of the year.**
+3. **Creation** — a second charting CAN be made: `RPCTracking.tsx:132`, "Record visit & chart now", creates one attached to the visit via `preventive_id` and navigates straight to it.
+
+**⚠ The `if (!chartId)` guard at `DentalChart.tsx:726` remains and is now CORRECT rather than the bug it was.** Editing appends to the charting currently selected; starting a new one belongs to Record Visit — which is right, because a charting created from the chart screen would be attached to **no visit**, exactly the unlinked case `tallyIptrServices` must fall back on. **Do not "fix" it.**
+
+**BUG-01 closes with it.** The contradiction was that the reporting layer assumed several chartings a year while the chart screen assumed one. **Both now assume several**, so they agree.
+
+**⚠ THE PROCESS LESSON, now recorded at the top of `LEDGER-bug.md`.** These two rows were **seeded from a backlog entry rather than read off the code**, and nothing verified them before they were carried forward. **A seeded row is a claim about the PAST — verify it against current code before acting on it**, the same way a row read off the code gets an Evidence line. Second instance of this class this session: Sprint 160 nearly reported "2 of 20 hooks guard" from a truncated grep, when it was 5.
+
+**Worth re-checking for the same staleness:** the other rows seeded rather than derived — `SEC-00`, `SEC-01`, `SEC-02` in the security ledger. SEC-00 and SEC-02 were re-confirmed this session; **SEC-01 (the branch-protection bypass) has not been looked at since 2026-09-02.**
+
+**Verified from code, not from a running app** — the 22-of-26 measurement in the original row was taken on dev and is not re-checked here. **The browser pass already owed for Sprint 162a/b would confirm all of this at the same time.**
+
+---
+
 ## Open work (each needs approval; sprint loop applies)
 
 65. **AUDIT PROGRAM — SCOPED 2026-09-11. **TRACK A COMPLETE** — Sprints 151-157 DONE (+153a SEC-18 fix, +157a doc drift). **Track B OPEN: 158-159 DONE** (`npm test` exists, 46 tests, wired into CI; **BUG-03 is a real double-drain race** and SEC-27 is confirmed); 160-162 and the SEC fix sprints remain, each needs its own approval.** ⚠ No 154b is needed — 154 did not split. ⚠ SEC-26 + ARCH-07 were fixed in 157a. ⚠ Two HIGH read-access findings (SEC-03, SEC-19) are read-off-the-code and NOT yet demonstrated live — SEC-00 (this PC points at production) is what blocks the check.

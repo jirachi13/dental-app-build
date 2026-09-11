@@ -7,6 +7,14 @@ Severity: `HIGH` · `MED` · `LOW`
 
 A row without an Evidence line (a `file:line`, or a command and its output) does not belong here.
 
+> ⚠ **A PROCESS LESSON, 2026-09-11.** BUG-00 and BUG-01 were **seeded** into this ledger from a
+> HANDOFF backlog entry rather than read off the code, and both turned out to have been **fixed
+> before the audit started** — by Sprints 148/149/154, which landed after the backlog entry was
+> written. They sat OPEN for eleven sprints, and BUG-00 was carried as the top HIGH the whole time.
+> **A seeded row is a claim about the past. Verify it against current code before acting on it**, the
+> same way a finding read off the code gets an Evidence line. (Second instance of this class this
+> session: Sprint 160 nearly reported "2 of 20 hooks guard" from a truncated grep; it was 5.)
+
 Track B sprints: 158 Vitest harness · 159 offline/sync races · 160 data-fetch hooks ·
 161 report arithmetic · 162 `DentalChart.tsx` decomposition.
 
@@ -75,7 +83,34 @@ Fix:      needs scoping — one age function taking an explicit `on`, one bracke
 
 ## Seeded from HANDOFF (measured before the audit began — recorded, not rediscovered)
 
-### BUG-00 · `src/app/hooks/useDentalChartData.ts:85` · HIGH · OPEN
+### BUG-00 · `src/app/hooks/useDentalChartData.ts:85` · HIGH · NOT-A-BUG (already fixed by Sprints 148/149/154)
+**Closed 2026-09-11 without a code change. ⚠ It was already fixed before this audit began, and I
+carried it as OPEN for eleven sprints without checking.**
+
+The row was seeded from HANDOFF backlog #63, which describes the state on **2026-09-05**. Sprints
+148, 149 and 154 landed after that date. All three parts of the original claim are addressed:
+
+1. **Display** — `useDentalChartData` keeps **every** charting for the year, sorted oldest-first, and
+   its comment names the bug directly: *"⚠ ALL of them, oldest first — `.find()` here is what hid
+   every charting after the first (Sprint 148)."* The default shown is `charts[charts.length - 1]`,
+   **the latest**, not the first — *"a pupil charted again in January showed August's findings."*
+   `grep` for `myCharts.find` and `charts[0]` across the hook and the component returns **nothing**.
+2. **Selection** — there is a real on-screen picker (`DentalChart.tsx:2142-2160`): one button per
+   charting, shown when `charts.length > 1`, labelled with the date, annotated with the visit number
+   where the charting is linked, and carrying the tooth-record count in its tooltip. `selectedChartId`
+   also accepts a `?chart=` URL param. **A dentist can reach every charting of the year.**
+3. **Creation** — a second charting *can* be made: `RPCTracking.tsx:132`, "Record visit & chart now",
+   creates one attached to the visit via `preventive_id` and navigates straight to it.
+
+⚠ **The `if (!chartId)` guard at `DentalChart.tsx:726` remains, and is now CORRECT rather than the
+bug it was.** Editing appends to the charting currently selected; starting a new one belongs to
+Record Visit. That is right: a charting created from the chart screen would be attached to **no**
+visit, which is exactly the unlinked case `tallyIptrServices` has to fall back on. Do not "fix" it.
+
+⚠ **Verified from code, not from a running app.** The measurement in the original row (22 of 26
+IPTRs with more than one charting) was taken on dev and is not re-checked here.
+
+### BUG-00 (original claim, as seeded) · HIGH
 Claim:    The Dental Chart page shows only the FIRST charting of a school year and hides every later
           one, and no second charting can be created from the UI either.
 Evidence: `useDentalChartData.ts:85` — `myCharts.find(c => c.iptr_id === iptr._id)` takes the first
@@ -87,7 +122,14 @@ Fix:      HANDOFF backlog #63 step 1 — show every charting for the year with i
           new one. ⚠ Deliberately NOT part of Sprint 162's decomposition: keeping the refactor
           behaviour-neutral is what makes a regression attributable to one change or the other.
 
-### BUG-01 · `tallyIptrServices` vs `useDentalChartData` · MED · OPEN
+### BUG-01 · `tallyIptrServices` vs `useDentalChartData` · MED · NOT-A-BUG (resolved with BUG-00)
+**Closed 2026-09-11.** The contradiction was that the reporting layer assumed several chartings a
+year while the chart screen assumed one. **Both now assume several**, so they agree:
+`tallyIptrServices` orders multiple charts per IPTR and treats each as a sitting (re-read and pinned
+by 13 tests in Sprint 161), and the chart screen shows all of them behind a picker (BUG-00 above).
+Seeded from the same stale backlog entry as BUG-00 and carried open for the same eleven sprints.
+
+### BUG-01 (original claim, as seeded) · MED
 Claim:    The app contradicts itself about how many chartings a school year may hold.
 Evidence: `tallyIptrServices` deliberately orders MULTIPLE charts per IPTR by date and treats each as
           a sitting — that is how the DOH report derives "1st / 2nd application".
