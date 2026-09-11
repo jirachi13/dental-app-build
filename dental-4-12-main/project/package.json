@@ -26,6 +26,7 @@
     "backfill:is-demo": "tsx server/scripts/backfillIsDemo.ts",
     "backup:raw": "tsx server/scripts/backupRaw.ts",
     "verify:indexes": "tsx server/scripts/verifySprint91Indexes.ts",
+    "audit:user-schools": "tsx server/scripts/auditUserSchools.ts",
     "verify:referrals": "tsx server/scripts/verifyReferrals.ts",
     "seed:treatments": "tsx server/scripts/seedTreatments.ts",
     "seed:appointments": "tsx server/scripts/seedAppointments.ts"

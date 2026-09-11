@@ -15,6 +15,7 @@ commit as the change.
 | 151 | Architecture map + trust boundaries | DONE — 3 seeded, 11 new |
 | 152 | Auth & session | DONE — 7 new; SEC-04 corrected, SEC-07 closed, SEC-08 confirmed, SEC-10 raised |
 | 153 | RBAC & multi-school tenancy | DONE — 4 new + the matrix; SEC-04's open question answered. ⚠ live spot-check NOT run (SEC-00) |
+| 153a | **FIX** — SEC-18 | DONE — code fixed, tsc + build clean. ⚠ `npm run audit:user-schools` not yet run |
 | 154 | Route-by-route input + authz | not started |
 | 155 | Data layer | not started |
 | 156 | Client-side & supply chain | not started |
@@ -108,9 +109,11 @@ Impact:   Unchanged, and it is the reason the row stays HIGH. A `school_admin` w
 Fix:      needs scoping — separate the two meanings, e.g. name the globally-scoped roles explicitly
           rather than inferring them from an empty array. ⚠ Any fix must keep `system_admin` and
           `bho_staff` global, which is what the sentinel is carrying today.
-Open question for Sprint 153: **can a `school_admin` actually reach an empty `school_ids` through the
-UI or the API?** `userController.ts` and AccountManagement decide whether this is reachable or only
-theoretical, and that is what settles the true severity.
+**Open question ANSWERED by Sprint 153** — yes, and routinely: SEC-18 showed every account created
+through the API took the empty default. **That instance is fixed (Sprint 153a); this row stays OPEN
+because the design issue is not.** An admin who creates a `school_admin` and selects no school still
+gets an unscoped account, since the two meanings remain one value and nothing rejects the empty case.
+That guard was deliberately left out of 153a to keep the fix to the bug it was approved for.
 
 ### SEC-05 · `server/routes/crudFactory.ts` archive + restore · MED · OPEN
 Claim:    Archive and restore use `findByIdAndUpdate` on every model, including the encrypted ones,
@@ -394,7 +397,27 @@ everywhere, the two deviations each carry a written reason, `AuditTrail` is admi
 unwritable through the API, and writes are properly split clinical-vs-admin. The problem is not the
 write column. **It is that the read column is `all 5` on thirteen clinical models.**
 
-### SEC-18 · `server/controllers/userController.ts:11,33` · HIGH · OPEN
+### SEC-18 · `server/controllers/userController.ts:11,33` · HIGH · FIXED (Sprint 153a)
+**Fixed 2026-09-11.** `createUser` now destructures `school_ids` and passes it to `User.create()`,
+with an explicit array-of-ObjectIds check so a malformed value fails cleanly instead of casting to a
+single-element array or surfacing as a schema-revealing CastError (SEC-09). The dead
+`school_id: school_id || null` write is gone. `npx tsc` on both configs and `npm run build` clean.
+Verified no other site had the same bug: the only remaining `school_id:` writes are on `Dentist` and
+`DentalAide`, which legitimately carry that field, and `seedDemo` already passes `school_ids`
+explicitly through `ensureUser`.
+
+⚠ **The code is fixed; the DATA is not yet checked.** `npm run audit:user-schools`
+(`server/scripts/auditUserSchools.ts`, new, read-only) reports every account holding an empty
+`school_ids`, separating the roles that are unscoped by design (`system_admin`, `bho_staff`) from
+`school_admin`, where it is a real grant, and leaving dentist/aide under REVIEW rather than judging
+for you. **It has not been run** — this machine points at production and the run was refused by the
+sandbox. Run it on the laptop's dev database, and on production when convenient; any account it lists
+under the first heading is fixed by editing it in Account Management, since the edit path writes
+`school_ids` correctly and always did.
+
+Original finding follows.
+
+### SEC-18 (original) · `server/controllers/userController.ts:11,33` · HIGH
 Claim:    **`createUser` writes a field the User schema does not have, so every account created
           through the API gets `school_ids: []` — which means ALL SCHOOLS.** The admin's school
           selection is silently discarded.

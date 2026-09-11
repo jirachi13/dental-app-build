@@ -782,6 +782,27 @@ User: *"record visit is also treatment, in rpc tracking"* — and the code agree
 
 ---
 
+## Sprint 153a (the FIX for SEC-18 - every account was created holding every school) - DONE 2026-09-11, tsc x2 + build clean
+
+**The bug in one line:** `createUser` destructured **`school_id`** (singular, the name Sprint 100 renamed away) and wrote it back as `school_id: school_id || null`. `User.ts` has no such path, so mongoose strict dropped the key and `school_ids` took its `[]` default — which `User.ts:14` documents as **ALL SCHOOLS**. The account form had been sending `school_ids` correctly the whole time; nothing on the server read it.
+
+**Changed — `server/controllers/userController.ts`:**
+- destructures `school_ids` and passes it to `User.create()`; the dead `school_id` write is gone
+- validates it explicitly as an array of ObjectIds. Deliberate, two reasons: a non-array would otherwise CAST to a single-element array rather than fail, and a bad id would surface as a mongoose CastError that `app.ts` turns into a 400 quoting internal schema detail (that is SEC-09, still open)
+- carries a comment naming SEC-18, so the next reader knows why the plural matters
+
+**New — `server/scripts/auditUserSchools.ts` + `npm run audit:user-schools`.** READ-ONLY. Lists every account with an empty `school_ids`, split into: **casualties** (`school_admin` — a real grant), **REVIEW** (dentist/aide — `[]` is probably right since one of each rotates across all three schools, but the script refuses to judge that for you), **OK** (`system_admin`/`bho_staff`, unscoped by design), and **migration stragglers** (a leftover singular `school_id`, meaning `migrateUserSchools` never ran over that row — its value is ignored by every read in the app). Reads the RAW collection, not the model, for the same reason `migrateUserSchools` does: a leftover `school_id` is invisible through a model that no longer declares it.
+
+**⚠ THE CODE IS FIXED; THE DATA IS NOT YET CHECKED.** `npm run audit:user-schools` **has not been run** — this PC points at production and the sandbox refused the read. **Run it on the laptop's dev database, and against production when convenient.** Anything it lists under the first heading is repaired by editing that account in Account Management: the EDIT path goes through `crudFactory`'s PUT, where `school_ids` is a real schema field, and has always written correctly. That asymmetry is also why this was never noticed — create-then-edit ends up right, create-only does not.
+
+**Verified the fix is complete, not just local:** the only other `school_id:` writes in scripts/controllers are on `Dentist` and `DentalAide`, which legitimately carry that field (`schoolScope.ts` RULES scopes both `via: school_id`), and `seedDemo` already passes `school_ids` explicitly through `ensureUser`. `createUser` was the only site.
+
+**⚠ What was deliberately NOT done: rejecting an empty `school_ids` for a scoped role.** Creating a `school_admin` and selecting no school still produces an unscoped account. That is **SEC-04**, a design issue — "all schools" and "assigned to nothing" are still the same value — and it stays OPEN. Folding it in would have changed create behaviour for `system_admin` and `bho_staff` too, which is a bigger decision than the bug this sprint was approved for. The UI does not require a school either (`handleCreate` checks only name/email/password), so the guard is worth its own sprint.
+
+**Next: Sprint 154 (route-by-route input validation + authz)**, or SEC-19/SEC-20 as a second fix sprint — but those two need the load-bearing check first (which hooks the school_admin and bho_staff screens actually use) and ideally the live confirmation that SEC-00 is blocking.
+
+---
+
 ## Open work (each needs approval; sprint loop applies)
 
 65. **AUDIT PROGRAM — SCOPED 2026-09-11. Sprints 151-153 DONE; 154-162 remain, each needs its own approval.** ⚠ Two HIGH read-access findings (SEC-03, SEC-19) are read-off-the-code and NOT yet demonstrated live — SEC-00 (this PC points at production) is what blocks the check.
