@@ -16,7 +16,7 @@ Track B sprints: 158 Vitest harness · 159 offline/sync races · 160 data-fetch 
 | 159 | Offline & sync races | DONE — 3 new, incl. a real double-drain race; SEC-27 confirmed |
 | 160 | Data-fetch hooks | DONE — 3 new; the worst can show two pupils at once |
 | 161 | Report arithmetic | DONE — **23 tests added**, 2 minor findings; the arithmetic largely held up |
-| 162 | `DentalChart.tsx` decomposition | not started (gated on 158 ✅) |
+| 162 | `DentalChart.tsx` decomposition | **PARTIAL** — 162a + 162b done (3088 → 2934). **162c remains: six tab panels** |
 
 ---
 
@@ -218,6 +218,58 @@ Impact:   A pupil's record is archived while an aide is offline; the aide's queu
 Fix:      Give PUT the archived check GET already has. ⚠ Then decide deliberately what the queue
           should DO with the rejection: `markFailed` wedges the queue, so this probably wants to be a
           conflict rather than a failure.
+
+---
+
+## Sprint 162 — `DentalChart.tsx` decomposition · **PARTIAL, stopped cleanly**
+
+**Two extractions, each verified before the next. 3,088 → 2,934 lines.** No behaviour change was
+intended and none was made: every step ran `tsc` on both configs, `npm test` and `npm run build`.
+
+**162a — the chart's vocabulary and arithmetic** → `src/app/utils/dentalChartCodes.ts` (132 lines).
+FDI tooth layout, condition/treatment code tables, colours, `computeDMFT`. The coupling mattered more
+than the line count: **Dashboard, Reports, RPCTracking and IptrForm all imported `treatmentCodes` /
+`treatmentLabel` from a 3,088-line component**, so opening any of those screens pulled the whole
+chart module in behind them. All four now import from the new module — which is why that commit
+touches five files and leaves no re-exports. Leaving them would have kept the coupling.
+**It also unblocked Sprint 158's deferral:** `computeDMFT` now has 13 tests, including a pin on the
+deliberate `X`/`x` vs `DX`/`dx` divergence from the printed DOH legend so nobody "fixes" it, and one
+recording that a **miscased entry is silently dropped from both indices** (an uppercase code on a
+deciduous tooth counts as neither) — pinned as current behaviour, not endorsed.
+
+**162b — the DMFT History tab** → `src/app/components/DmftHistoryTab.tsx`. Of the seven panels this
+is the only one reading **nothing but `years`** — no handlers, no local state, no callbacks — so it
+moves on one prop.
+
+### ▶ 162c — the seam map, at CURRENT line numbers (2026-09-11, after 162a/b)
+Re-derived after the extractions rather than carried over, because a stale map is worse than none.
+
+| Panel | Line | Approx size | Note |
+|---|---|---|---|
+| TAB 1 History | `:1788` | ~190 | plus a related block at `:1734` |
+| **TAB 2 Dental Chart** | `:1981` | **~555** | the big one — odontogram, palette, summaries |
+| TAB 4 DMFT History | `:2536` | — | **DONE (162b)** |
+| TAB 5 Treatment History | `:2539` | ~75 | |
+| TAB 6 Referrals | `:2617` | ~170 | |
+| TAB 7 AI Risk | `:2791` | ~45 | |
+| `ToothButton` | `:916` | — | an inner component; a seam **within** TAB 2, extractable first |
+
+⚠ **Why this stopped here, and it is not an arbitrary budget cut.** The two extractions done were
+*structurally* safe — one moved non-React constants, the other a panel with a single prop. **The
+remaining six panels all share mutable chart state with the host**, so each needs its handlers
+threaded deliberately, and a mistake there changes behaviour silently on a clinical screen. That is a
+different risk class and deserves its own approval, not the tail end of a sprint.
+
+⚠ **Order for 162c:** smallest first — TAB 7, then TAB 5, then TAB 6, then TAB 1 — and leave **TAB 2
+last**, extracting `ToothButton` before attempting the panel around it. One commit per extraction,
+`tsc` ×2 + `npm test` + `npm run build` after each, exactly as 162a/b did.
+
+⚠ **BUG-00 still lives in `useDentalChartData`** and must be fixed **before or after** 162c, never
+inside it.
+
+⚠ **Neither extraction is covered by a rendering test** — the suite is pure functions only. `tsc`
+proves the wiring, not the pixels. **A browser pass over the chart screen at 390 / 768 / 1280 px is
+still owed**, and is the honest verification for 162a/b as well as 162c.
 
 ---
 

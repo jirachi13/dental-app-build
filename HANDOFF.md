@@ -1174,6 +1174,30 @@ User: *"record visit is also treatment, in rpc tracking"* — and the code agree
 
 ---
 
+## Sprint 162 (DentalChart decomposition) - PARTIAL, STOPPED CLEANLY 2026-09-11. 91/91, tsc x2 + build clean
+
+**Two extractions, each fully verified before the next was started. 3,088 → 2,934 lines.** No behaviour change intended and none made.
+
+**162a — the chart's vocabulary and arithmetic** → `src/app/utils/dentalChartCodes.ts`. **The coupling mattered more than the line count:** Dashboard, Reports, RPCTracking and IptrForm all imported `treatmentCodes`/`treatmentLabel` from a **3,088-line component**, so opening any of those screens pulled the whole chart module in behind them. All four now import from the new module — which is why that commit touches five files and leaves **no re-exports**; leaving them would have kept the coupling and defeated the point.
+- **It unblocked Sprint 158's deferral.** `computeDMFT` was module-local and untestable; 158 recorded that extracting it was this sprint's job. It now has **13 tests**, including a pin on the deliberate `X`/`x` vs `DX`/`dx` divergence from the printed DOH legend (HANDOFF's durable gotcha — so nobody "fixes" it), and one recording that **a miscased entry is silently dropped from BOTH indices** (an uppercase code on a deciduous tooth counts as neither). Pinned as current behaviour, **not endorsed**.
+- ⚠ The typecheck earned its keep immediately: two symbols used deep in the component (`temporaryTeeth`, `WHOLE_MOUTH_TREATMENT_CODES`) were caught as missing imports.
+
+**162b — the DMFT History tab** → `src/app/components/DmftHistoryTab.tsx`. Of the seven panels this is the only one reading **nothing but `years`** — no handlers, no local state, no callbacks — so it moves on one prop.
+
+**▶ 162c — THE SEAM MAP IS IN `docs/audit/LEDGER-bug.md`, at CURRENT line numbers** (re-derived after the extractions, because a stale map is worse than none): TAB 7 AI Risk `:2791` (~45) · TAB 5 Treatment History `:2539` (~75) · TAB 6 Referrals `:2617` (~170) · TAB 1 History `:1788` (~190) · **TAB 2 Dental Chart `:1981` (~555, the big one)** · `ToothButton` `:916`, an inner component and a seam *within* TAB 2.
+
+**⚠ WHY THIS STOPPED HERE — it is not an arbitrary budget cut.** The two extractions done were **structurally** safe: one moved non-React constants, the other a panel with a single prop. **The remaining six panels all share MUTABLE CHART STATE with the host**, so each needs its handlers threaded deliberately, and a mistake there changes behaviour **silently, on a clinical screen**. Different risk class; it deserves its own approval rather than the tail end of a sprint.
+
+**⚠ Order for 162c: smallest first** — TAB 7, then 5, then 6, then 1 — and **leave TAB 2 last, extracting `ToothButton` before attempting the panel around it.** One commit per extraction, `tsc` x2 + `npm test` + `npm run build` after each, exactly as 162a/b did.
+
+**⚠ NEITHER EXTRACTION IS COVERED BY A RENDERING TEST.** The suite is pure functions only, so `tsc` proves the wiring, not the pixels. **A browser pass over the chart screen at 390 / 768 / 1280 px is still owed** — and it is the honest verification for 162a/b, not just for 162c.
+
+**⚠ BUG-00 still lives in `useDentalChartData`** (`myCharts.find` hiding later chartings; 22 of 26 IPTRs have more than one) and must be fixed **before or after** 162c, never inside it.
+
+**Track B: BUG-03, BUG-04, BUG-07 and SEC-27 fixed; 158-161 done; 162 partial. Open: BUG-00, BUG-01, BUG-02, BUG-05, BUG-06, BUG-08, BUG-09, BUG-10, BUG-11.**
+
+---
+
 ## Open work (each needs approval; sprint loop applies)
 
 65. **AUDIT PROGRAM — SCOPED 2026-09-11. **TRACK A COMPLETE** — Sprints 151-157 DONE (+153a SEC-18 fix, +157a doc drift). **Track B OPEN: 158-159 DONE** (`npm test` exists, 46 tests, wired into CI; **BUG-03 is a real double-drain race** and SEC-27 is confirmed); 160-162 and the SEC fix sprints remain, each needs its own approval.** ⚠ No 154b is needed — 154 did not split. ⚠ SEC-26 + ARCH-07 were fixed in 157a. ⚠ Two HIGH read-access findings (SEC-03, SEC-19) are read-off-the-code and NOT yet demonstrated live — SEC-00 (this PC points at production) is what blocks the check.
