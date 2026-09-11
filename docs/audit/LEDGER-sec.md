@@ -17,7 +17,7 @@ commit as the change.
 | 153 | RBAC & multi-school tenancy | DONE — 4 new + the matrix; SEC-04's open question answered. ⚠ live spot-check NOT run (SEC-00) |
 | 153a | **FIX** — SEC-18 | DONE — code fixed, tsc + build clean. ⚠ `npm run audit:user-schools` not yet run |
 | 154 | Route-by-route input + authz | DONE — 4 new + 1 arch note. **No 154b needed** |
-| 155 | Data layer | not started |
+| 155 | Data layer | DONE — **SEC-05 + SEC-06 CLOSED as NOT-A-BUG**; 1 new + 2 doc-drift rows |
 | 156 | Client-side & supply chain | not started |
 | 157 | ML boundary | not started |
 
@@ -115,7 +115,21 @@ because the design issue is not.** An admin who creates a `school_admin` and sel
 gets an unscoped account, since the two meanings remain one value and nothing rejects the empty case.
 That guard was deliberately left out of 153a to keep the fix to the bug it was approved for.
 
-### SEC-05 · `server/routes/crudFactory.ts` archive + restore · MED · OPEN
+### SEC-05 · `server/routes/crudFactory.ts` archive + restore · MED · NOT-A-BUG (the hook is a no-op here)
+**Settled in Sprint 155, by reading the plugin rather than reasoning from the rule.**
+Evidence: `node_modules/mongoose-field-encryption/lib/mongoose-field-encryption.js` — `updateHook`
+          loops over the encrypted fields and does work only inside
+          `if (!encryptedFieldValue && plainTextValue) { … }`, where
+          `plainTextValue = this._update.$set[field] || this._update[field]`.
+          Archive sets `{ isArchived, archivedAt, archivedBy }` and restore sets those three back;
+          **none of them is an encrypted field on any model**, so `plainTextValue` is `undefined` for
+          every iteration, every branch is skipped, and the hook falls through to `next()` having
+          changed nothing.
+Verdict:  `findByIdAndUpdate` cannot corrupt an encrypted field through a write that does not contain
+          one. Archive and restore are safe as written. **No fix, and none should be made** — see
+          ARCH-06 for what this does *not* settle.
+
+### SEC-05 (original claim) · MED
 Claim:    Archive and restore use `findByIdAndUpdate` on every model, including the encrypted ones,
           which this codebase forbids everywhere else.
 Evidence: `crudFactory.ts` archive and restore handlers both call `model.findByIdAndUpdate(...)`.
@@ -131,7 +145,18 @@ Fix:      **Verify before fixing.** Sprint 155 must establish empirically whethe
           the `$set` contains no encrypted field. If it does not fire, this becomes NOT-A-BUG with
           the reason recorded. Do not "fix" it on the strength of the rule alone.
 
-### SEC-06 · `server/routes/crudFactory.ts` archive + restore responses · MED · OPEN
+### SEC-06 · `server/routes/crudFactory.ts` archive + restore responses · MED · NOT-A-BUG (init decrypts)
+**Settled in Sprint 155.** The asymmetry is correct, not an oversight.
+Evidence: The plugin registers `schema.post("init", …)`, which calls `decryptFields` on every
+          document mongoose hydrates from database data. `findByIdAndUpdate(…, { new: true })`
+          returns a hydrated document, so `post('init')` runs and the encrypted fields are already
+          plaintext by the time the handler sees them.
+          `decryptForResponse` exists for the *other* case: after `create()` or `save()`, the
+          in-memory document was encrypted in place by `pre('save')` and no `init` ever runs — which
+          is exactly why POST and PUT call it and archive/restore do not.
+Verdict:  No ciphertext reaches the client on archive or restore. No fix needed.
+
+### SEC-06 (original claim) · MED
 Claim:    Archive and restore answer `res.json(doc)` without `decryptForResponse(doc)`, unlike POST
           and PUT which both apply it.
 Evidence: `crudFactory.ts` — POST `res.status(201).json(decryptForResponse(doc))`, PUT
@@ -602,7 +627,89 @@ Impact:   CLAUDE.md requires the audit trail to log ALL user actions. The tradeo
           describes it as complete in Chapter 4.
 Fix:      None proposed. Recorded so the claim made about it stays accurate.
 
-### ARCH-01 — bounded by this sprint
+---
+
+## Sprint 155 — data layer
+
+**Read:** all 19 model files + `models/shared/*` (705 lines, read in full) ·
+`node_modules/mongoose-field-encryption/lib/mongoose-field-encryption.js` (the hooks and
+`updateHook`, ~110 lines) · CLAUDE.md's DATA ENCRYPTION section.
+
+**This sprint CLOSED two rows rather than adding to the pile: SEC-05 and SEC-06 are both
+NOT-A-BUG**, each settled by reading the plugin instead of reasoning from the codebase's own rule.
+
+### What is correct here, recorded so no later sprint re-derives it
+- **Every `.lean()` read of an encrypted model projects only unencrypted fields.** All ten sites
+  checked: `.select("_id")`, `Treatment…select("iptr_id date")`, `Student…select("_id school_id sex
+  birthday")`, `Referral…select("iptr_id referral_type")`. This is the trap HANDOFF warns about
+  hardest — lean skips `post('init')`, so a lean read of an encrypted field returns ciphertext with
+  a 200 and no error — and it is clean everywhere.
+- **No encrypted field appears in any `filterableText`.** Student's is `["grade_level", "section"]`;
+  every other model filters on ObjectIds only. Random IVs would make such a filter silently return
+  nothing rather than fail.
+- **Soft delete on 18 of 19 models.** The exception is `AuditTrail`, and it is correct — an audit
+  trail that can be archived is not an audit trail (see ARCH-07 for the doc mismatch).
+- `Student`'s `pre('save')` is registered **before** the encryption plugin, so `full_name` is rebuilt
+  from the name parts while they are still plaintext and only then encrypted. Registering it after
+  would write a plaintext `full_name` over the encrypted one. Subtle, and right.
+- `fieldEncryptionOptions` passes `secret` as a **function**, so a missing `FIELD_ENCRYPTION_SECRET`
+  throws where it is used rather than at import time.
+- **Random IV per value confirmed at source**: no `saltGenerator` is passed, so the library defaults
+  to a fresh `crypto.randomBytes(16)` per encryption, and `decrypt` reads the IV back out of the
+  stored `<iv>:<ciphertext>` value rather than from config — which is why removing the old constant
+  IV stayed backward-compatible.
+- **Indexes: 13 of 19 models declare one.** The six without are `School`, `User`, `Dentist`,
+  `DentalAide`, `DentistRotation` and `RiskStratification` — all either tiny collections or never
+  queried by field (`RiskStratification` is read whole-collection by the `/stats` joins, which an
+  index would not help). Checked, not a finding.
+
+### SEC-26 · `CLAUDE.md` DATA ENCRYPTION section · LOW · OPEN
+Claim:    **CLAUDE.md's encrypted-field list is stale on two counts**, and it is the document the
+          project treats as authoritative for exactly this question.
+Evidence: CLAUDE.md names four models. The code encrypts **five**:
+          `Referral.ts:66` — `fieldEncryptionOptions(["reason", "notes"])`, added Sprint 127, never
+          added to CLAUDE.md.
+          And Student carries **twelve** fields, not the ten listed: `Student.ts:87` adds
+          `place_of_birth` and `guardian_occupation` (Sprint 174).
+Impact:   No live violation today — `filterableText` names no encrypted field, and every `.lean()`
+          projection avoids them. The risk is procedural: the "never put an encrypted field in
+          `filterableText`" rule is enforced by a human consulting this list, and the list is wrong
+          about two Student fields and an entire model. Someone adding `?place_of_birth=` as a text
+          filter, or filtering referrals by `reason`, would get a filter that silently matches
+          nothing — the failure mode CLAUDE.md itself calls out as worse than a loud one.
+Fix:      Update the list in CLAUDE.md. ⚠ Doc-only, but it is a CLAUDE.md edit, so it belongs to a
+          sprint the user approves rather than being slipped into an audit commit.
+
+### ARCH-06 · `docs/ARCHITECTURE.md` §5 + HANDOFF durable gotchas · LOW · OPEN
+Claim:    **The stated REASON for the "never `findByIdAndUpdate` on encrypted models" rule does not
+          match this configuration.** The rule may still be right; its recorded mechanism is not.
+Evidence: Both docs say the plugin's hook "calls a removed Node crypto API". That API is
+          `crypto.createCipher`, and the plugin reaches it only via `encryptAes256Ctr`, selected by
+          `options.useAes256Ctr` — which defaults to `false` (plugin source `:88`) and is **not set**
+          anywhere in `shared/fieldEncryption.ts`. The active strategy is `encrypt`, which uses
+          `crypto.createCipheriv` (`:25`), an API that is present and working.
+Impact:   Sprint 151 corrected this line once already (from "the write lands as plaintext" to
+          "corruption plus a crash"); this sprint shows the replacement is also not the mechanism.
+          **Keep the rule** — `findById` + `.save()` is the right default and SEC-05's exception is
+          narrow. But nobody should cite the reason until it is re-derived, and a fix sprint that
+          "fixed" something on the strength of it would be acting on a wrong model of the bug.
+Fix:      Either re-derive the real failure mode from the plugin, or restate the rule as a convention
+          without a mechanism it cannot support.
+
+### ARCH-07 · `CLAUDE.md` SOFT DELETE RULES · LOW · OPEN
+Claim:    CLAUDE.md states "**ALL** models include: isArchived … archivedAt … archivedBy". One model
+          correctly does not.
+Evidence: `AuditTrail.ts` has no `softDeleteFields`; `crudFactory`'s mount comment says so
+          explicitly — "AuditTrail has no isArchived, so the date range is the only filter."
+Impact:   The code is right and the rule is absolute. A reader reconciling the two could "fix" the
+          model to match the rule, which would make audit entries archivable — the opposite of what
+          an audit trail is for.
+Fix:      Note the exception in CLAUDE.md. Same handling as SEC-26: a CLAUDE.md edit is its own
+          approved change.
+
+---
+
+### ARCH-01 — bounded by Sprint 154
 All twelve `/stats` routes are GET, and eleven of the twelve call `scopeFilter` themselves. So the
 unguarded parallel surface is a **read** problem only (SEC-03, SEC-19, SEC-22), never a write one.
 The twelfth, `/stats/last-change`, needs no scope — but note it does expose a fact derived from

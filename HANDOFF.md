@@ -825,9 +825,31 @@ User: *"record visit is also treatment, in rpc tracking"* — and the code agree
 
 ---
 
+## Sprint 155 (data layer - the sprint that CLOSED two rows instead of adding to the pile) - DONE 2026-09-11, no code touched
+
+**Read-only.** All 19 models read in full (705 lines) plus the encryption plugin's own hooks. **SEC-05 and SEC-06 are both NOT-A-BUG**, each settled by reading `node_modules/mongoose-field-encryption` rather than reasoning from the codebase's rule about it.
+
+**SEC-05 CLOSED — `findByIdAndUpdate` on archive/restore CANNOT corrupt encrypted fields.** The plugin's `updateHook` loops the encrypted fields and does work only inside `if (!encryptedFieldValue && plainTextValue)`, where `plainTextValue = this._update.$set[field] || this._update[field]`. Archive writes `{isArchived, archivedAt, archivedBy}` and restore writes them back — **none is an encrypted field on any model** — so every iteration is skipped and the hook falls through to `next()` having done nothing. Safe as written. **No fix, and none should be made.**
+
+**SEC-06 CLOSED — the missing `decryptForResponse` on archive/restore is CORRECT, not an oversight.** The plugin registers `schema.post("init")`, which decrypts every document mongoose hydrates from the database; `findByIdAndUpdate(…, {new: true})` returns a hydrated document, so the fields are already plaintext. `decryptForResponse` exists for the OTHER case — after `create()`/`save()` the in-memory doc was encrypted in place by `pre('save')` and no `init` ever runs, which is exactly why POST and PUT call it and archive/restore do not.
+
+**⚠ ARCH-06 — THE STATED REASON FOR THE `findByIdAndUpdate` BAN IS WRONG AGAIN.** Both `ARCHITECTURE.md` §5 and HANDOFF's durable gotchas say the plugin hook "calls a removed Node crypto API". That API is `crypto.createCipher`, reached only via `encryptAes256Ctr`, selected by `options.useAes256Ctr` — which **defaults to false** (plugin source `:88`) and is **not set** in `shared/fieldEncryption.ts`. The live strategy is `encrypt`, using `crypto.createCipheriv`, which works fine. **Sprint 151 already corrected this line once** (from "the write lands as plaintext" to "corruption plus a crash"); the replacement is also not the mechanism. **KEEP THE RULE** — `findById`+`.save()` is the right default and SEC-05's exception is narrow — but nobody should cite the reason until it is re-derived, and a fix sprint acting on it would be working from a wrong model of the bug.
+
+**SEC-26 (LOW) — CLAUDE.md's encrypted-field list is STALE ON TWO COUNTS**, and it is the document this project treats as authoritative for exactly that question. It names four models; the code encrypts **five** — `Referral.ts:66` encrypts `reason` and `notes` (Sprint 127, never added). And Student carries **twelve** fields, not the ten listed: `place_of_birth` and `guardian_occupation` were added in Sprint 174. No live violation today, but the "never put an encrypted field in `filterableText`" rule is enforced by a human reading that list — someone adding `?place_of_birth=` as a text filter would get one that silently matches nothing, the exact failure CLAUDE.md calls worse than a loud one.
+
+**ARCH-07 (LOW)** — CLAUDE.md says "**ALL** models include isArchived"; `AuditTrail` correctly does not, and `crudFactory`'s own comment says so. The code is right and the rule is absolute, so a reader reconciling them could "fix" the model and make audit entries archivable.
+
+⚠ **SEC-26 and ARCH-07 are CLAUDE.md edits, so they are their own approved change** — deliberately not slipped into an audit commit.
+
+**What is CORRECT here, recorded so no later sprint re-derives it:** **every one of the ten `.lean()` reads of an encrypted model projects only UNENCRYPTED fields** — the trap HANDOFF warns about hardest, clean everywhere · no encrypted field appears in any `filterableText` · soft delete on 18 of 19 models, the one exception correct · **`Student`'s `pre('save')` is registered BEFORE the encryption plugin**, so `full_name` is rebuilt from the name parts while still plaintext and only then encrypted — registering it after would write a plaintext `full_name` over the encrypted one · `secret` is passed as a function so a missing `FIELD_ENCRYPTION_SECRET` throws at use, not at import · random IV per value confirmed at source (no `saltGenerator`, and `decrypt` reads the IV back out of the stored value rather than from config, which is why removing the old constant IV stayed backward-compatible) · indexes on 13 of 19 models, the six without being tiny collections or never queried by field.
+
+**Next: Sprint 156 (client-side + supply chain)** — SW cache scope (it owes the SEC-08 detail), XSS sinks, `npm audit`, bundle secrets, and whether the dynamic-import exclusions still hold.
+
+---
+
 ## Open work (each needs approval; sprint loop applies)
 
-65. **AUDIT PROGRAM — SCOPED 2026-09-11. Sprints 151-154 DONE (+153a, the SEC-18 fix); 155-162 remain, each needs its own approval.** ⚠ No 154b is needed — 154 did not split. ⚠ Two HIGH read-access findings (SEC-03, SEC-19) are read-off-the-code and NOT yet demonstrated live — SEC-00 (this PC points at production) is what blocks the check.
+65. **AUDIT PROGRAM — SCOPED 2026-09-11. Sprints 151-155 DONE (+153a, the SEC-18 fix); 156-162 remain, each needs its own approval.** ⚠ No 154b is needed — 154 did not split. ⚠ SEC-26 + ARCH-07 are CLAUDE.md doc-drift fixes awaiting their own approval. ⚠ Two HIGH read-access findings (SEC-03, SEC-19) are read-off-the-code and NOT yet demonstrated live — SEC-00 (this PC points at production) is what blocks the check.
     - **Full program: `docs/audit/PROGRAM.md`** (in the repo deliberately — the plan-mode file lives in `~/.claude/plans` and does NOT sync between the two machines). Read that, not this entry, before running any audit sprint.
     - **User decisions taken 2026-09-11:** security/architecture track FIRST · audit sprints are **READ-ONLY**, fixes are separate approved sprints · **Vitest for pure logic only** before any refactor · output is **internal hardening** (terse ledger, no manuscript formatting).
     - **Track A (151-157, read-only):** 151 architecture map re-derivation + trust boundaries · 152 auth/session · 153 **RBAC + multi-school tenancy (highest consequence)** · 154 route-by-route input+authz (expected to split into 154b) · 155 data layer · 156 client-side + supply chain · 157 ML boundary. Then SEC fix sprints, 1-3 findings each.
