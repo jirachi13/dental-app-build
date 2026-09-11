@@ -263,6 +263,39 @@ Fix:      Give PUT the archived check GET already has. ⚠ Then decide deliberat
 
 ---
 
+### BUG-12 · `src/app/hooks/useDentalChartData.ts:164` · HIGH · OPEN
+**Found by the browser pass, 2026-09-11, on live data. Pre-existing — NOT introduced by Sprint 162;
+the 162b extraction moved the rendering code verbatim and this comes from the hook it reads.**
+
+Claim:    **An empty later charting zeroes out the whole school year's DMFT.** The screen reports a
+          confident `0` for a pupil with fourteen decayed permanent teeth.
+Evidence: Measured on the running app against the production database, pupil
+          `6a9601a841e3a7b9e9c08350`, school year 2026-2027, which holds two chartings:
+          · **Sep 6** (`6a9d27077a10cd662f3c2882`) — **35 tooth records**: 14 `D`, 2 `d`, plus ✓/JC/jc.
+          · **Sep 7** (`6a9e7032a4c506cd6f6439ff`, the RPC-linked one) — **zero tooth records.**
+          `useDentalChartData:164` — `toothRecords: dentalChart ? allToothRecords.filter(t =>
+          t.chart_id === dentalChart._id) : []`, and `dentalChart` is `charts[charts.length - 1]`,
+          **the latest**. So the year's tooth records are the *latest charting's* records, which here
+          are none.
+          On screen: the DMFT History tab prints `dmft 0 / DMFT 0` for 2026-2027 and a **Trend of
+          "Stable"**; the year strip prints `2026-2027 · DMFT: 0`.
+Impact:   **A clinical screen states there is no disease where there are fourteen decayed teeth**, in
+          a year where the decay *is* recorded and one click away under the other date button. The
+          `0` reads as a finding, not as "not recorded" — exactly what CLAUDE.md's NOTHING COSMETIC
+          rule forbids. DMFT is also CLAUDE.md's **PRIMARY** feature for the predictive model.
+          ✅ **Filed DOH figures are NOT affected.** `tallyIptrServices` iterates **all** charts per
+          IPTR server-side (re-read and pinned by tests in Sprint 161), so the reports compute from
+          every charting. This is a screen defect, not a reporting one.
+Fix:      needs scoping, and it is a **definition question first, not a coding one**: what is "the
+          year's DMFT" when a year holds several self-contained chartings?
+          ⚠ The user's own 2026-09-05 decision — each charting is one visit's findings, read alone,
+          never merged — argues against summing them. The likely answer is **the latest charting that
+          actually has tooth records**, with an empty charting showing "not recorded" rather than 0.
+          ⚠ Do not simply take the max across chartings without deciding this; DMFT is cumulative in
+          principle but these are independent snapshots in this data model.
+
+---
+
 ## Sprint 162 — `DentalChart.tsx` decomposition · **PARTIAL, stopped cleanly**
 
 **Two extractions, each verified before the next. 3,088 → 2,934 lines.** No behaviour change was
@@ -310,8 +343,22 @@ last**, extracting `ToothButton` before attempting the panel around it. One comm
 inside it.
 
 ⚠ **Neither extraction is covered by a rendering test** — the suite is pure functions only. `tsc`
-proves the wiring, not the pixels. **A browser pass over the chart screen at 390 / 768 / 1280 px is
-still owed**, and is the honest verification for 162a/b as well as 162c.
+proves the wiring, not the pixels.
+
+### ✅ Browser pass — done 2026-09-11, against the running app on live data
+- **162a/b verified.** The chart screen renders correctly, the tab strip works, and the **DMFT
+  History tab — the panel 162b moved into its own file — renders with its table, its caption and all
+  four KPI tiles.** No regression from either extraction.
+- **BUG-00 verified live**, which closes the last doubt about it. On a pupil with two chartings the
+  picker reads `Charting: [Sep 6, 2026] [Sep 7, 2026 · Visit 2 · latest] — 2 chartings this school
+  year`. Clicking **Sep 6** switched the examination date, unchecked the four services, and populated
+  **35 tooth records** where the latest charting showed none. The default really is the latest, and
+  the visit annotation really does appear on the linked charting.
+- ⚠ **Phone width NOT verified.** `resize_window` reported success at 390×844 and the window stopped
+  at **1098 px** — the OS/browser minimum. This is the same tool limitation HANDOFF recorded in the
+  10th session. **390 px still needs a human with devtools device emulation**; window resizing cannot
+  reach it.
+- **BUG-12 was found during this pass** — see above. It is pre-existing, not a 162 regression.
 
 ---
 
