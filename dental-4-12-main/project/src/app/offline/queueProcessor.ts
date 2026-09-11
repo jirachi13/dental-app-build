@@ -133,9 +133,17 @@ export async function processQueue(): Promise<void> {
           // Prefer the server's own wording: a 409 here is usually the
           // duplicate-student guard, and "error 409" gives whoever is clearing
           // the queue nothing to act on.
+          //
+          // A 404 is the one case where the server's own wording is useless.
+          // Since Sprint 159b an archived record answers 404 to a PUT (BUG-04),
+          // and "Not found" tells the person clearing the queue nothing about
+          // what to do. Name the likely cause instead: this write cannot ever
+          // succeed as it stands, so Discard is the action, not Retry.
           await markFailed(
             write.id!,
-            result.message ?? `The server rejected this change (error ${result.status}).`,
+            result.status === 404
+              ? 'The record this change belongs to was archived or removed while you were offline, so it can no longer be saved. Discard this change, then re-enter it on the current record if it is still needed.'
+              : result.message ?? `The server rejected this change (error ${result.status}).`,
           );
           await releaseClaim(write.id!);
           notifyQueueChange();

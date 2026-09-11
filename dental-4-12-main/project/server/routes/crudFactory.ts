@@ -318,12 +318,31 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
         res.status(400).json({ error: "Invalid id" });
         return;
       }
-      // Loads + mutates + .save() rather than findByIdAndUpdate: the latter's
-      // pre('findOneAndUpdate') hook in mongoose-field-encryption has a bug that
-      // corrupts encrypted fields and crashes on the next decrypt (calls a removed
-      // Node crypto API). save() goes through the working pre('save') hook instead.
+      // Loads + mutates + .save() rather than findByIdAndUpdate. ⚠ Treat that as
+      // a CONVENTION, not a mechanism: the reason recorded here has been wrong
+      // twice (it is neither "the write lands as plaintext" nor "the hook calls
+      // a removed Node crypto API" — `useAes256Ctr` defaults false and is never
+      // set, so the live path is `createCipheriv`, which works). save() going
+      // through the working pre('save') hook is known-good, and the rule stands
+      // on that alone. See CLAUDE.md's DATA ENCRYPTION section (ARCH-06).
       const doc = await model.findById(req.params.id);
       if (!doc) {
+        res.status(404).json({ error: "Not found" });
+        return;
+      }
+      // An ARCHIVED record is out of circulation and must not be edited into
+      // (BUG-04, Sprint 159b). `findById` finds archived rows, and until this
+      // check existed the GET path 404'd them while PUT happily wrote to them.
+      //
+      // The offline queue is how that actually got reached: a pupil archived
+      // while an aide was offline, the aide's queued edit syncing afterwards,
+      // landing in a record no screen lists — and the encoder told it saved.
+      //
+      // 404, not 403, and admin-exempt: exactly mirroring the GET path above,
+      // so the two cannot drift. A System Admin may already READ archived
+      // records, so editing one stays their call; everyone else is not even
+      // told it exists.
+      if (hasSoftDelete && (doc as any).isArchived && !ADMIN_ONLY.includes(req.user!.role)) {
         res.status(404).json({ error: "Not found" });
         return;
       }

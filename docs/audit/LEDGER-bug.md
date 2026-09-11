@@ -174,7 +174,35 @@ Fix:      needs scoping. The guard has to live where both contexts can see it �
           module variable. ⚠ `navigator.locks` would be simpler but is not shared with the service
           worker in every browser; verify before choosing it.
 
-### BUG-04 · `server/routes/crudFactory.ts` PUT · MED · OPEN
+### BUG-04 · `server/routes/crudFactory.ts` PUT · MED · FIXED (Sprint 159b)
+**Fixed 2026-09-11, both halves.** Fixing only the server would have turned a silent bad write into
+a wedged queue, which is not obviously better.
+
+**Server:** `PUT /:id` now carries the same archived check `GET /:id` has — 404, not 403, and
+admin-exempt, **mirroring the GET path exactly so the two cannot drift**. A System Admin may already
+read archived records, so editing one stays their call; everyone else is not even told it exists.
+That is the minimal symmetric choice. ⚠ The stricter alternative — refuse the edit for *everyone*,
+on the grounds that an archived record should be restored before it is edited — was considered and
+**not** taken, because it removes a capability an admin may rely on and this sprint was approved for
+a bug, not a policy change.
+
+**Client:** a 404 on a queued write now gets an actionable message instead of the server's "Not
+found" — *"The record this change belongs to was archived or removed while you were offline… Discard
+this change."* The write still fails and still stops the queue, which is correct under CLAUDE.md's
+"stop queue if sync fails, never skip"; what changed is that the person clearing it is told Discard
+is the action, not Retry.
+
+**Also corrected while in that block:** the PUT handler's own comment still carried the ARCH-06
+justification that Sprint 157a fixed in three other places. It now says the same thing they do.
+
+⚠ **Not covered by an automated test.** This is a route guard over a Mongoose model, not a pure
+function, so Sprint 158's harness does not reach it; the `verify_*.mjs` pattern is the right tool and
+needs a live server, which SEC-00 blocks on this machine. Verified by `tsc` on both configs, `npm run
+build`, and 55/55 unit tests — none of which exercise this line. **Worth a live check on the laptop.**
+
+Original finding follows.
+
+### BUG-04 (original) · MED
 Claim:    **A queued edit can write into an archived record**, because `PUT /:id` has no archive
           check — and the offline path is how it actually gets reached.
 Evidence: `crudFactory`'s `GET /:id` explicitly 404s an archived record for non-admins. **`PUT /:id`
@@ -190,6 +218,33 @@ Impact:   A pupil's record is archived while an aide is offline; the aide's queu
 Fix:      Give PUT the archived check GET already has. ⚠ Then decide deliberately what the queue
           should DO with the rejection: `markFailed` wedges the queue, so this probably wants to be a
           conflict rather than a failure.
+
+### BUG-06 · `server/utils/schoolScope.ts:99-132` · MED · OPEN
+**Found while fixing BUG-04 — the neighbouring case, deliberately not fixed with it.**
+Claim:    **The scope walk ignores `isArchived` entirely**, so archiving a parent does not take its
+          children out of circulation, and a write may still name an archived parent.
+Evidence: All four walk functions gather ids with no archive filter:
+          `Student.find({ school_id: { $in: schools } })`,
+          `StudentIptr.find({ student_id: { $in: … } })`,
+          `DentalChart.find({ iptr_id: { $in: … } })`,
+          `PreventiveCareRecord.find({ iptr_id: { $in: … } })` — each `.select("_id").lean()`, none
+          with `isArchived: false`.
+Impact:   Two effects, and the first is the same family as BUG-04.
+          **Writes:** `isInScope("ToothRecord", req, body)` returns true for a `chart_id` whose chart
+          is archived, so a queued (or direct) `POST /tooth-records` can create a **live** tooth
+          record under an **archived** chart. BUG-04 closed the edit-into-archived path; this is the
+          create-under-archived one.
+          **Reads:** a list route's base filter is `isArchived: false` on the CHILD only, so a live
+          child of an archived parent still returns — archiving an IPTR does not hide its medical
+          history, charts or tooth records from an `?iptr_id=` query.
+          ⚠ Whether the read half is *wrong* is a genuine design question, not an obvious bug: the
+          child record is itself live. It should be decided, not patched by reflex.
+Fix:      needs scoping — and it is a **policy decision first**: does archiving a parent archive its
+          children (a cascade, which nothing in the app does today), or merely hide them? Answer that
+          before touching the walk.
+Note:     While reading these: each walk is an unbounded whole-collection read, memoised per request.
+          At the Chapter 1 scale `studentIds` pulls ~8,000 ids on every scoped request. Same family
+          as SEC-24; only scoped users (`school_admin`) pay it, which is why it has not been noticed.
 
 ### BUG-05 · `src/app/offline/queueProcessor.ts` `checkForConflict` · LOW · OPEN (known limitation)
 Claim:    Conflict detection is check-then-act, with a window between the GET and the PUT.

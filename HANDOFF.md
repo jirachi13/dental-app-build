@@ -992,6 +992,30 @@ User: *"record visit is also treatment, in rpc tracking"* — and the code agree
 
 ---
 
+## Sprint 159b (the FIX for BUG-04 - PUT could write into an archived record) - DONE 2026-09-11, 55/55, tsc x2 + build clean
+
+**Both halves, because fixing only the server would have turned a silent bad write into a WEDGED QUEUE** — not obviously better.
+
+**Server — `crudFactory` PUT now carries the same archived check GET has.** 404 not 403, admin-exempt, **mirroring the GET path exactly so the two cannot drift**. A System Admin may already READ archived records, so editing one stays their call; everyone else is not even told it exists. ⚠ The stricter alternative — refuse the edit for EVERYONE, on the grounds that an archived record should be restored before being edited — was considered and **deliberately not taken**: it removes a capability an admin may rely on, and this sprint was approved for a bug, not a policy change.
+
+**Client — a 404 on a queued write now gets an actionable message** instead of the server's bare "Not found": *"The record this change belongs to was archived or removed while you were offline… Discard this change."* The write still fails and still stops the queue, which is correct under CLAUDE.md's *"stop queue if sync fails, never skip"* — what changed is that the person clearing it is told **Discard** is the action, not Retry.
+
+**Also corrected while in that block:** the PUT handler's own comment still carried the ARCH-06 justification that Sprint 157a fixed in three other places. It now says what they say.
+
+**⚠ NOT COVERED BY AN AUTOMATED TEST, and I want that on the record.** This is a route guard over a Mongoose model, not a pure function, so Sprint 158's harness does not reach it. The `verify_*.mjs` pattern is the right tool and needs a live server, which **SEC-00 blocks on this machine**. Verified by `tsc` on both configs, `npm run build` and 55/55 unit tests — **none of which exercise this line.** Worth ten seconds on the laptop: archive a record, then PUT to it as the dentist and confirm 404.
+
+**⚠ NEW — BUG-06 (MED), found while fixing BUG-04 and deliberately NOT fixed with it: the scope walk ignores `isArchived` ENTIRELY.** All four walk functions in `schoolScope.ts:99-132` gather ids with no archive filter. Two effects:
+- **Writes:** `isInScope("ToothRecord", req, body)` returns true for a `chart_id` whose chart is archived, so a POST can create a **live** tooth record under an **archived** chart. BUG-04 closed edit-into-archived; this is create-under-archived.
+- **Reads:** a list route filters `isArchived: false` on the CHILD only, so a live child of an archived parent still returns — archiving an IPTR does not hide its medical history, charts or tooth records from an `?iptr_id=` query.
+- ⚠ **Whether the read half is WRONG is a genuine design question, not an obvious bug** — the child record is itself live. **The fix is a policy decision first:** does archiving a parent archive its children (a cascade, which nothing in the app does today), or merely hide them? Answer that before touching the walk. That is why it was not bundled in here.
+- Noted in passing: each walk is an unbounded whole-collection read memoised per request — at full scale `studentIds` pulls ~8,000 ids on every scoped request. Same family as SEC-24; only `school_admin` pays it, which is why nobody has noticed.
+
+**Track B status: BUG-03, BUG-04 and SEC-27 fixed; BUG-00, BUG-01, BUG-02, BUG-05, BUG-06 open.**
+
+**Next:** Sprint 160 (data-fetch hooks, 20 files / 1,698 lines), or BUG-06 if the archive-cascade policy is worth settling now.
+
+---
+
 ## Open work (each needs approval; sprint loop applies)
 
 65. **AUDIT PROGRAM — SCOPED 2026-09-11. **TRACK A COMPLETE** — Sprints 151-157 DONE (+153a SEC-18 fix, +157a doc drift). **Track B OPEN: 158-159 DONE** (`npm test` exists, 46 tests, wired into CI; **BUG-03 is a real double-drain race** and SEC-27 is confirmed); 160-162 and the SEC fix sprints remain, each needs its own approval.** ⚠ No 154b is needed — 154 did not split. ⚠ SEC-26 + ARCH-07 were fixed in 157a. ⚠ Two HIGH read-access findings (SEC-03, SEC-19) are read-off-the-code and NOT yet demonstrated live — SEC-00 (this PC points at production) is what blocks the check.
