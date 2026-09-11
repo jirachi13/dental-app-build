@@ -11,23 +11,31 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ▶ RESUME HERE — PARKED 2026-09-11 (11th session), at `bdf99a7c`. ⚠ **16 COMMITS NOT PUSHED**
+## ▶ RESUME HERE — PARKED 2026-09-12 (11th session), at `4f0b6281`. ✅ **ALL PUSHED**
 
-**Nothing is in progress.** Working tree clean, all work committed, `npm test` 78/78, `tsc` both
-configs and `npm run build` clean at the park point.
+**Nothing is in progress.** Working tree clean, `main` level with origin, **`npm test` 91/91**, `tsc`
+both configs and `npm run build` clean at the park point. Dev servers **stopped** (verified by port,
+not assumed — 4000 and 5173 both free).
 
-### ⚠ THE ONE THING THAT MATTERS BEFORE ANYTHING ELSE
-
-**`git push`. Sixteen commits are local-only.** Every push and several commits this session were
-refused by the sandbox, so the commits exist here and nowhere else — **none of this is on the other
-laptop, and none of it is deployed.** Nothing else in this note is safe until that runs.
-
-```
-git push origin main
-```
+⚠ **Vercel has auto-deployed all 23 commits**, which includes one live behaviour change worth knowing
+about: **Background Sync now HOLDS queued writes instead of sending them** (Sprint 159a — see the
+decision section below).
 
 ⚠ **On the other machine, `npm ci` after pulling** — `package.json` and `package-lock.json` both
 changed (vitest added).
+
+### ▶ ONE DECISION IS BLOCKING THE NEXT SPRINT
+
+**BUG-12 — what does "the school year's DMFT" mean when a year holds several chartings?**
+Found by the browser pass on live data: pupil `6a9601a841e3a7b9e9c08350`, 2026-2027, has a **Sep 6
+charting with 14 decayed permanent teeth** and an **empty Sep 7 charting**. Because the year's tooth
+records are taken from the *latest* charting only, the screen prints **`DMFT: 0`, `dmft: 0`, Trend
+"Stable"** — a clinical screen stating there is no disease, with the real data one click away.
+
+Your 2026-09-05 decision (each charting is one visit's findings, read alone, **never merged**) argues
+against summing them. **My reading: use the latest charting that actually HAS tooth records, and show
+an empty one as "not recorded" rather than 0.** Say yes and it is a short sprint.
+✅ **Filed DOH figures are NOT affected** — the server-side tally iterates every charting. Screen only.
 
 ### What this session was
 
@@ -35,26 +43,36 @@ changed (vitest added).
 findings in **`docs/audit/LEDGER-sec.md`** and **`docs/audit/LEDGER-bug.md`**. Read those, not this
 note, before continuing.
 
-**Track A (security/architecture) COMPLETE — 151-157.** 31 findings. **Track B open — 158-161 done,
-162 remains.**
+**Track A (security/architecture) COMPLETE — 151-157.** 31 findings. **Track B — 158-161 done, 162
+PARTIAL** (two extractions landed, six tab panels remain as 162c).
 
-**Fixed this session:** SEC-18 (every account was created holding every school) · SEC-27 + BUG-03
-(the offline queue had no owner and its guard did not cross contexts) · BUG-04 (PUT could write into
-an archived record) · BUG-07 (the dental chart could show one pupil's identity above another's
-teeth) · five doc-drift rows.
+**Fixed this session:** SEC-18 (every account was created holding every school — `createUser` read a
+field the schema had not had since Sprint 100) · SEC-27 + BUG-03 (the offline queue had no owner and
+its guard did not cross contexts) · BUG-04 (PUT could write into an archived record) · BUG-07 (the
+dental chart could show one pupil's identity above another's teeth) · five doc-drift rows.
 
-**Built this session:** `npm test` — vitest, **78 characterization tests**, wired into CI. It did not
-exist before. The net was verified by deliberately breaking a function and watching it fail.
+**Built this session:** `npm test` — vitest, **91 characterization tests**, wired into CI. It did not
+exist before. The net was verified by deliberately breaking a function and watching it fail, not by
+assuming it worked.
 
-### ▶ THREE THINGS FOR YOU (none is a sprint)
+⚠ **Two self-corrections are recorded, deliberately, because both were nearly wrong findings:**
+Sprint 152 corrected SEC-04's claim (the empty-`school_ids` behaviour is a documented sentinel, not a
+fail-open bug) · Sprint 160 nearly reported "2 of 20 hooks guard" from a **truncated grep** — it is 5
+· and BUG-00/BUG-01 were carried OPEN for eleven sprints on a **stale seeded claim**. The standing
+rule that came out of it is at the top of `LEDGER-bug.md`.
 
-1. **`git push`** — see above.
-2. **`npm run audit:user-schools`** (new, read-only). SEC-18's code is fixed but **the DATA has never
-   been checked** — the run was refused here because this PC points at production. Anything it lists
-   under the first heading is repaired by editing that account in Account Management.
-3. **Check the Render dashboard for `ML_SERVICE_API_KEY`.** One look closes **SEC-30** either way.
+### ▶ THREE THINGS FOR YOU (none is a sprint, none is done)
+
+1. **`npm run audit:user-schools`** (read-only). SEC-18's code is fixed but **the DATA has never been
+   checked** — the run was refused here because this PC points at production. Anything it lists under
+   the first heading is repaired by editing that account in Account Management.
+2. **Check the Render dashboard for `ML_SERVICE_API_KEY`.** One look closes **SEC-30** either way.
    Unset means the public `/predict` endpoint accepts any caller — not a data leak, but an open
    compute endpoint with no rate limiting, on a free tier, in the month it most needs to answer.
+3. **The dental chart at 390 px, in devtools.** ⚠ **I cannot do this one and neither could the 10th
+   session.** `resize_window` reports success and the window stops at **1098 px** — an OS/browser
+   minimum. Window resizing cannot reach phone width; **device emulation is the only way.** Everything
+   else on that screen was verified live this session (see the browser-pass note under Sprint 162).
 
 ### ⚠ A DECISION I MADE THAT YOU MAY WANT TO REVERSE
 
@@ -74,23 +92,38 @@ what stopped **two HIGH rows being demonstrated**: SEC-03 and SEC-19 (clinical r
 `.env` onto this PC — the whole file from the laptop, never one line, the `FIELD_ENCRYPTION_SECRET`s
 differ — unblocks both. It was the 10th session's top recommendation too.
 
-Also open: SEC-04 (an empty `school_ids` still means "all schools"; SEC-18 fixed the instance, not
-the design) · SEC-19/SEC-20 (⚠ **check whether the grant is still load-bearing before narrowing it** —
-grep which hooks the two non-clinical roles' screens actually use) · SEC-12 (no way to revoke a
-session) · SEC-22 (the bell's `appointmentsToday` ignores school scope) · BUG-00, BUG-01, BUG-02,
-BUG-05, BUG-06, BUG-08, BUG-09, BUG-10, BUG-11.
+⚠ **SEC-00 was RE-VERIFIED this session, not assumed:** `MONGODB_URI` targets
+`floral-cluster.edqpjtu…` and `PRODUCTION_DB_HOST=edqpjtu` — they match. It is still production.
+The browser pass was done against live data for that reason, read-only and saving nothing.
+
+Also open: **BUG-12** (the decision above — a wrong DMFT on a clinical screen) · SEC-04 (an empty
+`school_ids` still means "all schools"; SEC-18 fixed the instance, not the design) · SEC-19/SEC-20
+(⚠ **check whether the grant is still load-bearing before narrowing it** — grep which hooks the two
+non-clinical roles' screens actually use) · SEC-12 (no way to revoke a session) · SEC-22 (the bell's
+`appointmentsToday` ignores school scope) · SEC-30 (one dashboard look) · BUG-02, BUG-05, BUG-06,
+BUG-08, BUG-09, BUG-10, BUG-11.
+
+✅ **Closed this session:** SEC-05, SEC-06, SEC-07 (all NOT-A-BUG, with reasons) · BUG-00, BUG-01
+(already fixed) · SEC-01 re-verified against the API. **All three seeded SEC rows are now
+re-verified**, so no ledger row rests on an unchecked claim about the past.
 
 ### Next sprint
 
-**Sprint 162 — `DentalChart.tsx` decomposition (3,088 lines).** Its gate is satisfied: the harness
-exists, 78 tests are green, and BUG-07 is fixed so it starts from correct behaviour.
-⚠ **BUG-00 lives in that same hook and must be fixed before or after 162, never inside it** — it
-changes *what* is displayed where the refactor must change nothing at all.
-⚠ This is the sprint most likely to need splitting; extract by seam, one commit per extraction,
-`tsc` ×2 + `npm test` + build after each, and stop cleanly wherever the budget runs out.
+**BUG-12, once you answer the definition question above.** Short, contained to `useDentalChartData`,
+and it is the only open finding that puts a wrong clinical number on screen.
 
-Cheaper alternatives if 162 is too big for the next session: **SEC-22** (one handler), **BUG-09**
-(one dependency array), or **BUG-10/BUG-11** (both one-liners).
+**Then Sprint 162c** — six tab panels remain; the seam map with **current** line numbers is in
+`docs/audit/LEDGER-bug.md`. Order: smallest first (TAB 7 → 5 → 6 → 1), **TAB 2 last**, and extract
+`ToothButton` before attempting the panel around it. ⚠ 162a/b were structurally safe moves; **the
+remaining panels share mutable chart state with the host**, which is a different risk class.
+
+Cheaper alternatives for a short session: **SEC-22** (one handler — the bell's `appointmentsToday`
+ignores school scope), **BUG-09** (one dependency array), **BUG-10/BUG-11** (both one-liners).
+
+⚠ **BUG-00 and BUG-01 are CLOSED — do not start them.** They were already fixed by Sprints 148/149/154
+and were carried OPEN for eleven sprints on a stale seeded claim. Verified live this session: the
+charting picker works, shows the visit annotation, and switching chartings swaps the tooth records.
+The lesson is recorded at the top of `LEDGER-bug.md` — **a seeded row is a claim about the past.**
 
 ---
 
