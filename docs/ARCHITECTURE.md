@@ -244,15 +244,28 @@ whatever it must enforce, it has to enforce itself. See `audit/LEDGER-sec.md` **
 
 ## 5. Conventions that bite if ignored
 
-**Encrypted models must use `findById` + `save`, never `findByIdAndUpdate`.** The failure
-mode is **corruption, not plaintext** (this document said plaintext until 2026-09-11):
-`mongoose-field-encryption`'s `pre('findOneAndUpdate')` hook has a bug that corrupts
-encrypted fields and then crashes on the next decrypt, calling a Node crypto API that has
-been removed. `save()` goes through the working `pre('save')` hook instead. Affects
-STUDENT, DENTAL_AIDE, MEDICAL_HISTORY, TREATMENT.
+**Encrypted models use `findById` + `save`, never `findByIdAndUpdate`.** Treat this as a
+**convention whose stated reason has been wrong twice** — keep the rule, do not cite a
+mechanism:
 
-⚠ `crudFactory`'s **archive and restore routes still use `findByIdAndUpdate`** — recorded
-as **SEC-05**, to be verified rather than assumed in Sprint 155.
+- It is *not* "the write lands as plaintext" (this document said so until 2026-09-11).
+- It is *not* "the hook calls a removed Node crypto API" (its replacement, corrected the
+  same day by Sprint 155). That API is `crypto.createCipher`, reached only via
+  `encryptAes256Ctr`, selected by `options.useAes256Ctr` — which defaults to `false` and
+  is never set in `shared/fieldEncryption.ts`. The live strategy is `encrypt`, using
+  `crypto.createCipheriv`, which is present and working.
+
+The real failure mode has not been re-derived. `save()` going through `pre('save')` is
+known-good, so the rule stands on that alone. Affects STUDENT, DENTAL_AIDE,
+MEDICAL_HISTORY, TREATMENT, REFERRAL.
+
+✅ **Narrow exception, verified Sprint 155 (SEC-05, closed):** `crudFactory`'s archive and
+restore routes use `findByIdAndUpdate` and are **safe**. The plugin's `updateHook` acts
+only on encrypted fields actually present in the update
+(`if (!encryptedFieldValue && plainTextValue)`), and those routes write only `isArchived`,
+`archivedAt` and `archivedBy` — none encrypted on any model — so the hook does nothing.
+They also skip `decryptForResponse` correctly: `post('init')` decrypts any document
+mongoose hydrates, and `{ new: true }` returns a hydrated one.
 
 **Plaintext equality queries on encrypted fields never match.** A random IV per encryption
 means the same input produces different ciphertext every time. Fetch, then filter in JS —

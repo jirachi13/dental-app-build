@@ -20,7 +20,8 @@ commit as the change.
 | 155 | Data layer | DONE — **SEC-05 + SEC-06 CLOSED as NOT-A-BUG**; 1 new + 2 doc-drift rows |
 | 156 | Client-side & supply chain | DONE — 3 new; SEC-08 mechanism confirmed, SEC-11 reinforced |
 | 157 | ML boundary | DONE — 3 new. ⚠ SEC-30 needs one look at the Render dashboard |
-| — | **TRACK A COMPLETE** | 31 findings · 3 closed · 1 fixed · 2 HIGH rows blocked on SEC-00 |
+| 157a | **FIX** — doc drift (SEC-26, ARCH-02/06/07, half of SEC-28) | DONE — tsc ×2 clean |
+| — | **TRACK A COMPLETE** | 31 findings · 3 closed · 5 fixed · 2 HIGH rows blocked on SEC-00 |
 
 ---
 
@@ -249,7 +250,13 @@ Fix:      Add a `headers` block to `vercel.json` for the static routes. ⚠ A CS
           against the dynamic-import chunks (exceljs / jspdf / html2canvas / tesseract / pdfjs) and
           the service worker before it is turned on.
 
-### ARCH-02 · `server/middleware/auth.ts:21` · LOW · OPEN
+### ARCH-02 · `server/middleware/auth.ts:21` · LOW · FIXED (Sprint 157a)
+**Fixed 2026-09-11.** The comment now says scoping **is** enforced and points at `schoolScope.ts`,
+notes that it previously said the opposite, and adds the empty-array-means-all-schools warning with
+a pointer to SEC-04 — so the spot a reader checks to learn whether scoping is on now tells them both
+true things. `tsc` clean on both configs.
+
+Original finding follows.
 Claim:    A comment states the opposite of what the code now does: "school_ids is carried but NOT yet
           enforced on any query — Sprint 101."
 Evidence: `auth.ts:21`, against `schoolScope.ts` (Sprint 101 shipped the enforcement) and its 11 call
@@ -672,7 +679,12 @@ NOT-A-BUG**, each settled by reading the plugin instead of reasoning from the co
   queried by field (`RiskStratification` is read whole-collection by the `/stats` joins, which an
   index would not help). Checked, not a finding.
 
-### SEC-26 · `CLAUDE.md` DATA ENCRYPTION section · LOW · OPEN
+### SEC-26 · `CLAUDE.md` DATA ENCRYPTION section · LOW · FIXED (Sprint 157a)
+**Fixed 2026-09-11.** CLAUDE.md now names five models, carries Student's twelve fields, and states
+explicitly that this list is what the `filterableText` rule is checked against — so the next reader
+is told why the list has to stay exact, not just what it contains.
+
+Original finding follows.
 Claim:    **CLAUDE.md's encrypted-field list is stale on two counts**, and it is the document the
           project treats as authoritative for exactly this question.
 Evidence: CLAUDE.md names four models. The code encrypts **five**:
@@ -689,7 +701,14 @@ Impact:   No live violation today — `filterableText` names no encrypted field,
 Fix:      Update the list in CLAUDE.md. ⚠ Doc-only, but it is a CLAUDE.md edit, so it belongs to a
           sprint the user approves rather than being slipped into an audit commit.
 
-### ARCH-06 · `docs/ARCHITECTURE.md` §5 + HANDOFF durable gotchas · LOW · OPEN
+### ARCH-06 · `docs/ARCHITECTURE.md` §5 + HANDOFF durable gotchas · LOW · FIXED (Sprint 157a)
+**Fixed 2026-09-11, in all three places** (CLAUDE.md, `ARCHITECTURE.md` §5, HANDOFF durable
+gotchas). Each now states the rule as a **convention**, records that its reason has been wrong
+twice, and says plainly that the real mechanism has not been re-derived so none should be cited.
+Each also carries SEC-05's verified archive/restore exception, so the rule and its one legitimate
+violation travel together instead of looking like a contradiction.
+
+Original finding follows.
 Claim:    **The stated REASON for the "never `findByIdAndUpdate` on encrypted models" rule does not
           match this configuration.** The rule may still be right; its recorded mechanism is not.
 Evidence: Both docs say the plugin's hook "calls a removed Node crypto API". That API is
@@ -705,7 +724,12 @@ Impact:   Sprint 151 corrected this line once already (from "the write lands as 
 Fix:      Either re-derive the real failure mode from the plugin, or restate the rule as a convention
           without a mechanism it cannot support.
 
-### ARCH-07 · `CLAUDE.md` SOFT DELETE RULES · LOW · OPEN
+### ARCH-07 · `CLAUDE.md` SOFT DELETE RULES · LOW · FIXED (Sprint 157a)
+**Fixed 2026-09-11.** "ALL models include…" → "All models include… **except AUDIT_TRAIL,
+deliberately**", with the reason and a note that the absolute wording is what invited someone to
+"fix" the model to match.
+
+Original finding follows.
 Claim:    CLAUDE.md states "**ALL** models include: isArchived … archivedAt … archivedBy". One model
           correctly does not.
 Evidence: `AuditTrail.ts` has no `softDeleteFields`; `crudFactory`'s mount comment says so
@@ -775,6 +799,8 @@ Impact:   **The first advisory is largely blunted by work already done.** Sprint
           all 32 `req.query` reads are guarded by `typeof … === "string"`, so a bracket-key array
           that slips the qs array limit fails the guard and never reaches a query. The second, a
           parser-level DoS, is **not** blunted by anything the app does.
+Status:   **Half-addressed in Sprint 157a** — HANDOFF's stale "npm audit at 0" line is corrected, so
+          the next reader is not misled. The advisories themselves stay open **by decision**.
 Fix:      ⚠ **Not before the defense.** express 4→5 is a breaking change across every route and
           middleware signature, for two moderate advisories on an internal-use app behind
           authentication. Record it, re-check after. Update the stale HANDOFF line either way.
