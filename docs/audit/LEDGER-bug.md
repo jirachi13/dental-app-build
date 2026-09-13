@@ -263,7 +263,44 @@ Fix:      Give PUT the archived check GET already has. ⚠ Then decide deliberat
 
 ---
 
-### BUG-12 · `src/app/hooks/useDentalChartData.ts:164` · HIGH · OPEN
+### BUG-12 · `src/app/hooks/useDentalChartData.ts:164` · HIGH · FIXED (2026-09-14)
+**The definition was the user's call, made 2026-09-14: _"use latest charting with records, empty
+shows not recorded."_** Implemented as `dmftRecordsForYear` in `utils/dentalChartCodes.ts` — a pure
+function, so the rule is testable and cannot drift between the two screens that read it (the failure
+BUG-02 and BUG-11 both record). The hook exposes it as `dmftToothRecords: ApiToothRecord[] | null`.
+
+⚠ **`toothRecords` was deliberately NOT changed.** It is the charting being *viewed*, which is right
+for the editor: open a fresh charting and you must see it empty, because you are about to fill it in.
+Only the two **year-summary** readers moved to the new field — the year strip and the DMFT History
+table. The editor's own live DMFT still reflects the charting in front of you.
+
+**Verified live on the same pupil that exhibited it** (`6a9601a841e3a7b9e9c08350`, 2026-2027):
+· DMFT History table `0 / 0` → **`d 2 · dmft 2 · D 14 · DMFT 14`**
+· Trend **"Stable"** → **"↑ Worsening"**
+· year strip `DMFT: 0` → **`DMFT: 16`**
+**And the null path, on a second pupil** (`6a4439c0794468ceef36762c`, whose 2027-2028 and 2028-2029
+hold no charting): both years now read *"Not recorded — no charting this school year"* across the
+row, **Years tracked reads 1 rather than 3**, and Trend reads `—` instead of being computed off
+fabricated zeroes.
+✅ A year whose charting is all-sound still shows **0**, correctly — it has records. That is the
+distinction the rule exists for, and it was confirmed on 2025-2026 for the first pupil.
+
+96/96 tests (5 new on `dmftRecordsForYear`), `tsc` both configs, `npm run build` clean.
+
+### BUG-13 · `src/app/components/DentalChart.tsx` year strip · LOW · OPEN
+**Noticed while fixing BUG-12; pre-existing and deliberately not changed.**
+Claim:    The year strip labels `T + t` as "DMFT", while the DMFT History table reports the two
+          separately. The same screen uses "DMFT" to mean two different things.
+Evidence: Year strip renders `DMFT: {yrDmft.T + yrDmft.t}` — 16 for the pupil above. The History
+          table shows `DMFT 14` (permanent) and `dmft 2` (deciduous) for that same year.
+Impact:   Conventionally DMFT is permanent-only and dmft is deciduous; a combined figure under the
+          uppercase label is mislabelled. Cosmetic on its own, but DMFT is the ML pipeline's primary
+          feature name, so the ambiguity is worth removing before Chapter 4 quotes either number.
+Fix:      Decide what the strip should show — the combined total under a clearer label, or the two
+          figures — then make it match the table. Not changed here: it is pre-existing behaviour and
+          BUG-12 was approved as a defined fix, not a relabelling.
+
+### BUG-12 (original finding, as measured) · HIGH
 **Found by the browser pass, 2026-09-11, on live data. Pre-existing — NOT introduced by Sprint 162;
 the 162b extraction moved the rendering code verbatim and this comes from the hook it reads.**
 

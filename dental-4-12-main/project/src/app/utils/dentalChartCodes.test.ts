@@ -12,6 +12,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   computeDMFT,
+  dmftRecordsForYear,
   conditionCodes,
   treatmentCodes,
   treatmentLabel,
@@ -92,6 +93,43 @@ describe('⚠ computeDMFT accepts BOTH extraction spellings — do not "fix" thi
     for (const code of ['X', 'x', 'DX', 'dx']) {
       expect(conditionColors[code], `colour for ${code}`).toBeTruthy();
     }
+  });
+});
+
+describe('dmftRecordsForYear — which charting speaks for the year (BUG-12)', () => {
+  const A = [{ t: 'a1' }, { t: 'a2' }];
+  const B = [{ t: 'b1' }];
+
+  it('takes the LATEST charting that has records', () => {
+    expect(dmftRecordsForYear([A, B])).toBe(B);
+  });
+
+  it('⚠ SKIPS an empty charting that came after a recorded one — this is the fix', () => {
+    // The measured case: 14 decayed teeth charted on Sep 6, an empty charting
+    // opened on Sep 7, and the year reported DMFT 0 with a trend of "Stable".
+    expect(dmftRecordsForYear([A, []])).toBe(A);
+    expect(dmftRecordsForYear([A, [], [], []])).toBe(A);
+  });
+
+  it('returns null when NOTHING was charted all year — "not recorded", never 0', () => {
+    expect(dmftRecordsForYear([])).toBeNull();
+    expect(dmftRecordsForYear([[]])).toBeNull();
+    expect(dmftRecordsForYear([[], [], []])).toBeNull();
+  });
+
+  it('⚠ a charting with records still counts even if every tooth is sound', () => {
+    // The distinction the rule exists for: 0 means examined and no decay found;
+    // null means nothing was charted. A sound mouth is a real finding.
+    const allSound = [{ t: 'sound' }];
+    expect(dmftRecordsForYear([allSound])).toBe(allSound);
+  });
+
+  it('does not merge chartings — it returns ONE of them, never a concatenation', () => {
+    // Per the user's 2026-09-05 decision: each charting is one visit's
+    // findings, read alone.
+    const result = dmftRecordsForYear([A, B]);
+    expect(result).toHaveLength(B.length);
+    expect(result).not.toHaveLength(A.length + B.length);
   });
 });
 

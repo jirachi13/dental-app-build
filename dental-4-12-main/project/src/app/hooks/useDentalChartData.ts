@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLoadPhase } from './useLoadPhase';
 import { apiClient } from '../api/client';
+import { dmftRecordsForYear } from '../utils/dentalChartCodes';
 import type {
   ApiStudent,
   ApiSchool,
@@ -52,6 +53,26 @@ export interface IptrYearData {
   /** Tooth records of EVERY charting, keyed by chart id, so the screen can
    *  switch between chartings without another round trip. */
   toothRecordsByChart: Record<string, ApiToothRecord[]>;
+  /** Tooth records of the latest charting that actually HAS any — or `null`
+   *  when no charting this year recorded a single tooth (BUG-12).
+   *
+   *  ⚠ THIS IS NOT `toothRecords`, AND THE DIFFERENCE IS THE BUG. `toothRecords`
+   *  is the charting being VIEWED, which is right for the editor: open a fresh
+   *  charting and you must see it empty, because you are about to fill it in.
+   *  It is wrong for a YEAR SUMMARY. Measured 2026-09-11: a pupil with 14
+   *  decayed permanent teeth on a Sep 6 charting and an empty Sep 7 charting
+   *  after it had the year reported as `DMFT: 0`, Trend "Stable" — a clinical
+   *  screen stating there is no disease.
+   *
+   *  `null` means NOT RECORDED and must render as such, never as 0 (user,
+   *  2026-09-14). The distinction is the whole point: **0 means examined and
+   *  no decay found; `null` means nothing was charted.** A charting whose teeth
+   *  are all sound therefore still gives 0, correctly — it has records.
+   *
+   *  Derived here rather than in each screen so the year strip and the DMFT
+   *  History table cannot drift apart, which is the failure BUG-02 and BUG-11
+   *  both record. */
+  dmftToothRecords: ApiToothRecord[] | null;
   treatments: ApiTreatment[];
   referrals: ApiReferral[];
 }
@@ -164,6 +185,12 @@ export function useDentalChartData(studentId: string | undefined) {
           toothRecords: dentalChart ? allToothRecords.filter((t) => t.chart_id === dentalChart._id) : [],
           toothRecordsByChart: Object.fromEntries(
             charts.map((c) => [c._id, allToothRecords.filter((t) => t.chart_id === c._id)]),
+          ),
+          // BUG-12 — `charts` is sorted oldest-first, and the rule lives in a
+          // pure function so it is testable and cannot drift between the year
+          // strip and the DMFT History table.
+          dmftToothRecords: dmftRecordsForYear(
+            charts.map((c) => allToothRecords.filter((t) => t.chart_id === c._id)),
           ),
           treatments: allTreatments.filter((t) => t.iptr_id === iptr._id),
           referrals: allReferrals.filter((r) => r.iptr_id === iptr._id),

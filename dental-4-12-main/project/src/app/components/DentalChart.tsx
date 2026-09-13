@@ -1595,16 +1595,21 @@ export const DentalChart = () => {
               <div className="overflow-x-auto">
               <div className="flex items-center gap-0 min-w-max">
               {years.map((y, idx) => {
+                // BUG-12: the year's DMFT comes from the latest charting that
+                // HAS records, not from whichever charting is newest. An empty
+                // charting made this read "DMFT: 0" for a pupil with 14 decayed
+                // teeth recorded a day earlier. Null prints "—", not 0.
                 const yrChart: Record<number, ChartEntry> = {};
-                for (const tr of y.toothRecords) yrChart[tr.tooth_number] = { condition: tr.condition, treatment: tr.treatment_code ?? '' };
+                for (const tr of y.dmftToothRecords ?? []) yrChart[tr.tooth_number] = { condition: tr.condition, treatment: tr.treatment_code ?? '' };
                 const yrDmft = computeDMFT(yrChart);
+                const yrDmftLabel = y.dmftToothRecords ? `${yrDmft.T + yrDmft.t}` : '—';
                 const isActive = selectedYear === idx;
                 return (
                   <div key={y.iptr._id} className={`mr-1 flex flex-shrink-0 items-stretch border-b-2 ${isActive ? 'border-blue-700 bg-blue-50 text-blue-700' : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-gray-50'}`}>
                     <button type="button" onClick={() => setSelectedYear(idx)} className="px-4 py-2.5 text-left text-xs font-medium transition-all">
                       <div>{y.iptr.school_year}</div>
                       {activeTab === 'chart' && (
-                        <div style={{ fontSize: '10px', marginTop: '2px' }} className={isActive ? 'text-blue-600' : 'text-muted-foreground'}>DMFT: {yrDmft.T + yrDmft.t}</div>
+                        <div style={{ fontSize: '10px', marginTop: '2px' }} className={isActive ? 'text-blue-600' : 'text-muted-foreground'} title={y.dmftToothRecords ? undefined : 'No charting this school year recorded a tooth'}>DMFT: {yrDmftLabel}</div>
                       )}
                       <div style={{ fontSize: '10px', marginTop: '2px' }} className={isActive ? 'text-blue-600' : 'text-muted-foreground'}>
                         {formatDateStamp(y.dentalChart?.date_charted)}

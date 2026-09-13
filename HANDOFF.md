@@ -11,7 +11,7 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ▶ RESUME HERE — PARKED 2026-09-12 (11th session), at `4f0b6281`. ✅ **ALL PUSHED**
+## ▶ RESUME HERE — PARKED 2026-09-14 (11th session). ✅ **ALL PUSHED**
 
 **Nothing is in progress.** Working tree clean, `main` level with origin, **`npm test` 91/91**, `tsc`
 both configs and `npm run build` clean at the park point. Dev servers **stopped** (verified by port,
@@ -24,18 +24,27 @@ decision section below).
 ⚠ **On the other machine, `npm ci` after pulling** — `package.json` and `package-lock.json` both
 changed (vitest added).
 
-### ▶ ONE DECISION IS BLOCKING THE NEXT SPRINT
+### ✅ BUG-12 FIXED 2026-09-14 — the blocking decision was made and implemented
 
-**BUG-12 — what does "the school year's DMFT" mean when a year holds several chartings?**
-Found by the browser pass on live data: pupil `6a9601a841e3a7b9e9c08350`, 2026-2027, has a **Sep 6
-charting with 14 decayed permanent teeth** and an **empty Sep 7 charting**. Because the year's tooth
-records are taken from the *latest* charting only, the screen prints **`DMFT: 0`, `dmft: 0`, Trend
-"Stable"** — a clinical screen stating there is no disease, with the real data one click away.
+**Your call: _"use latest charting with records, empty shows not recorded."_** Implemented and
+**verified live on the pupil that exhibited it** (`6a9601a841e3a7b9e9c08350`, 2026-2027): the DMFT
+History table went `0 / 0` → **`dmft 2 · DMFT 14`**, Trend **"Stable"** → **"↑ Worsening"**, and the
+year strip `DMFT: 0` → **`DMFT: 16`**. On a second pupil with two uncharted years
+(`6a4439c0794468ceef36762c`), both now read *"Not recorded — no charting this school year"*,
+**Years tracked reads 1 rather than 3**, and Trend reads `—` instead of being computed off
+fabricated zeroes.
 
-Your 2026-09-05 decision (each charting is one visit's findings, read alone, **never merged**) argues
-against summing them. **My reading: use the latest charting that actually HAS tooth records, and show
-an empty one as "not recorded" rather than 0.** Say yes and it is a short sprint.
-✅ **Filed DOH figures are NOT affected** — the server-side tally iterates every charting. Screen only.
+⚠ **A year charted all-sound still shows `0`** — it has records, and that is a real finding. `0`
+means examined and nothing found; "not recorded" means nothing was charted. **That distinction is
+the whole point of the rule.**
+⚠ **`toothRecords` was deliberately NOT changed** — it is the charting being *viewed*, which must
+stay empty when you open a fresh one to chart into. Only the two year-summary readers moved.
+The rule lives in `dmftRecordsForYear` (pure, 5 tests) so the year strip and the History table
+cannot drift apart.
+
+**New, and left open: BUG-13 (LOW)** — the year strip labels `T + t` as "DMFT" (16) while the table
+reports them separately (14 / 2). Pre-existing, cosmetic, but worth settling before Chapter 4 quotes
+either number. Details in `LEDGER-bug.md`.
 
 ### What this session was
 
@@ -109,10 +118,7 @@ re-verified**, so no ledger row rests on an unchecked claim about the past.
 
 ### Next sprint
 
-**BUG-12, once you answer the definition question above.** Short, contained to `useDentalChartData`,
-and it is the only open finding that puts a wrong clinical number on screen.
-
-**Then Sprint 162c** — six tab panels remain; the seam map with **current** line numbers is in
+**Sprint 162c** — six tab panels remain; the seam map with **current** line numbers is in
 `docs/audit/LEDGER-bug.md`. Order: smallest first (TAB 7 → 5 → 6 → 1), **TAB 2 last**, and extract
 `ToothButton` before attempting the panel around it. ⚠ 162a/b were structurally safe moves; **the
 remaining panels share mutable chart state with the host**, which is a different risk class.

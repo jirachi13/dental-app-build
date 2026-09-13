@@ -68,6 +68,30 @@ export const computeDMFT = (chart: Record<number, ChartEntry>) => {
   return { d, m, f, x, t: d + m + f + x, D, M, F, X, T: D + M + F + X };
 };
 
+/**
+ * Which charting speaks for a school year's DMFT? (BUG-12, decided by the user
+ * 2026-09-14.)
+ *
+ * **The latest charting that actually HAS tooth records** — not simply the
+ * latest. `null` when no charting that year recorded a single tooth, and the
+ * caller must render that as "not recorded", never as 0.
+ *
+ * ⚠ THE DISTINCTION IS THE WHOLE POINT. `0` means examined and no decay found;
+ * `null` means nothing was charted. A charting whose teeth are all sound has
+ * records, so it correctly yields 0 rather than null.
+ *
+ * Not "sum every charting": the user's 2026-09-05 decision is that each
+ * charting is one visit's findings, read alone and never merged.
+ *
+ * @param chartsOldestFirst tooth records grouped by charting, oldest charting first.
+ */
+export function dmftRecordsForYear<T>(chartsOldestFirst: T[][]): T[] | null {
+  for (let i = chartsOldestFirst.length - 1; i >= 0; i--) {
+    if (chartsOldestFirst[i].length > 0) return chartsOldestFirst[i];
+  }
+  return null;
+}
+
 // The three codes that describe the whole mouth, not a tooth. They have their
 // own rows in the Treatment Summary, above the per-tooth table — her split.
 //
