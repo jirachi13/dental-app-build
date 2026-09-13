@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate, useSearchParams } from 'react-router';
 import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, FileText, Plus, Pencil, Trash2, Download, X, Maximize2, Minimize2, Check, ChevronUp, ChevronDown, ShieldCheck, ShieldAlert, Shield as ShieldIcon, MoreVertical } from 'lucide-react';
 import { exportPagesToPdf } from '../utils/exportPdf';
 import { getGradeColor } from '../utils/gradeColors';
-import { computeBmi, BMI_NOTE, classifyNutritionalStatus } from '../utils/bmi';
+import { BMI_NOTE } from '../utils/bmi';
 import { useAuth } from '../context/AuthContext';
 import { GradePill } from './GradePill';
 import { useToast } from './Toast';
@@ -26,6 +26,8 @@ import { DmftHistoryTab } from './DmftHistoryTab';
 import { AiRiskTab } from './AiRiskTab';
 import { TreatmentHistoryTab } from './TreatmentHistoryTab';
 import { ReferralsTab } from './ReferralsTab';
+import { HistoryTab } from './HistoryTab';
+import { emptyMed, emptyDiet, emptyOral, type MedicalHistoryDraft, type DietDraft, type OralDraft } from './iptrDrafts';
 import type { ReferralType } from '../api/types';
 import {
   sectionBRows,
@@ -61,33 +63,8 @@ import {
 const ALL_SCHOOL_YEARS = ['2023-2024', '2024-2025', '2025-2026', '2026-2027', '2027-2028', '2028-2029', '2029-2030'];
 const GRADES = ['Kinder', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10'];
 
-type MedicalHistoryDraft = {
-  allergies: string; hypertension: boolean; diabetes: boolean; bloodDisorders: boolean;
-  cardiovascular: boolean; thyroid: boolean; hepatitis: boolean; malignancy: boolean;
-  hospitalization: boolean; bloodTransfusion: boolean; tattoo: boolean; others: string;
-};
-type DietDraft = {
-  sugarSweetened: boolean; alcoholDrinker: boolean; tobaccoUser: boolean; betelNut: boolean;
-  bodyPiercing: boolean; nailBiting: boolean; thumbsucking: boolean;
-};
-type OralDraft = {
-  gingivitis: boolean; periodontal: boolean; debris: boolean; calculus: boolean;
-  abnormalGrowth: boolean; cleftLipPalate: boolean; oralHygiene: string; others: string;
-};
-
-const emptyMed = (): MedicalHistoryDraft => ({
-  allergies: '', hypertension: false, diabetes: false, bloodDisorders: false, cardiovascular: false,
-  thyroid: false, hepatitis: false, malignancy: false, hospitalization: false, bloodTransfusion: false,
-  tattoo: false, others: '',
-});
-const emptyDiet = (): DietDraft => ({
-  sugarSweetened: false, alcoholDrinker: false, tobaccoUser: false, betelNut: false,
-  bodyPiercing: false, nailBiting: false, thumbsucking: false,
-});
-const emptyOral = (): OralDraft => ({
-  gingivitis: false, periodontal: false, debris: false, calculus: false,
-  abnormalGrowth: false, cleftLipPalate: false, oralHygiene: '', others: '',
-});
+// The draft shapes and their empty factories moved to `iptrDrafts.ts` in
+// Sprint 162c — shared by this host, the History tab and the Dental Chart tab.
 
 const formatDateStamp = (dateString?: string | null) => formatDate(dateString, 'No date stamp');
 
@@ -1787,195 +1764,18 @@ export const DentalChart = () => {
         <>
         {/* ── TAB 1: History ── */}
         {activeTab === 'history' && (
-          <div className="p-4 space-y-4">
-            {/* Physical Measurements — first on the tab, hers (Sprint 173).
-                These were three grey read-only rows on the patient card, typed
-                somewhere else entirely (the Edit Student Info panel). Two
-                places for one record is how a screen ends up disagreeing with
-                itself, so both of those are gone and this is the one editor. */}
-            {/* ⚠ A CARD, like every other section on this tab. An earlier pass
-                stripped it on the reasoning that the tab body is already a card
-                — true, but its four siblings (Medical History, Dietary Habits,
-                the Data Privacy notice, Upcoming Appointments) are all nested
-                cards inside it, so this was the one section sitting bare. Hers
-                boxes it too: `bg-card rounded-xl border border-border p-4` at
-                DentalChart.tsx:1702 on classmate/majorUpdates. */}
-            <div className="bg-card rounded-xl border border-border p-4">
-              <div className="text-base font-bold text-foreground mb-3">Physical Measurements</div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div>
-                  <label className="block text-xs text-muted-foreground mb-1">Height (cm)</label>
-                  <input type="number" min="0" max="300" step="0.1" inputMode="decimal" disabled={!editingHistory}
-                    value={draftMeasure.height_cm}
-                    onChange={(e) => setDraftMeasure((p) => ({ ...p, height_cm: e.target.value }))}
-                    placeholder="e.g. 120" className="w-full text-xs border border-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed" />
-                </div>
-                <div>
-                  <label className="block text-xs text-muted-foreground mb-1">Weight (kg)</label>
-                  <input type="number" min="0" max="500" step="0.1" inputMode="decimal" disabled={!editingHistory}
-                    value={draftMeasure.weight_kg}
-                    onChange={(e) => setDraftMeasure((p) => ({ ...p, weight_kg: e.target.value }))}
-                    placeholder="e.g. 25" className="w-full text-xs border border-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed" />
-                </div>
-                <div>
-                  <label className="block text-xs text-muted-foreground mb-1">Temperature (°C)</label>
-                  <input type="number" min="0" max="45" step="0.1" inputMode="decimal" disabled={!editingHistory}
-                    value={draftMeasure.temperature_c}
-                    onChange={(e) => setDraftMeasure((p) => ({ ...p, temperature_c: e.target.value }))}
-                    placeholder="e.g. 36.5" className="w-full text-xs border border-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed" />
-                </div>
-                <div>
-                  <label className="block text-xs text-muted-foreground mb-1">Blood Pressure</label>
-                  {/* Text, not two numbers: read and written as one pair, and
-                      nothing here queries systolic alone. */}
-                  <input type="text" disabled={!editingHistory}
-                    value={draftMeasure.blood_pressure}
-                    onChange={(e) => setDraftMeasure((p) => ({ ...p, blood_pressure: e.target.value }))}
-                    placeholder="e.g. 110/70" className="w-full text-xs border border-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed" />
-                </div>
-                {(() => {
-                  const bmiValue = computeBmi(Number(draftMeasure.height_cm) || null, Number(draftMeasure.weight_kg) || null);
-                  const status = classifyNutritionalStatus(bmiValue, patientAgeMonths, student.sex);
-                  const statusColor =
-                    status === 'Normal' ? 'bg-success-surface text-success'
-                    : status === 'Overweight' || status === 'Obese' ? 'bg-warning-surface text-warning'
-                    : status === 'Wasted' || status === 'Severely Wasted' ? 'bg-danger-surface text-destructive'
-                    : 'bg-muted text-muted-foreground';
-                  // ⚠ Say WHY it is blank. "Nothing measured yet" and "no
-                  // reference exists for this age" look identical as a dash,
-                  // and only one of them is the user's to fix.
-                  const statusFallback = bmiValue == null
-                    ? 'Automatic'
-                    : (patientAgeMonths ?? 0) < 72
-                    ? 'No reference below age 6'
-                    : 'No reference above age 19';
-                  return (
-                    <>
-                      <div>
-                        <label className="block text-xs text-muted-foreground mb-1">BMI</label>
-                        <div className="w-full text-xs border border-border rounded px-2 py-1 bg-muted text-muted-foreground" title={BMI_NOTE}>
-                          {bmiValue ?? 'Automatic'}
-                        </div>
-                      </div>
-                      <div className="col-span-2 sm:col-span-1">
-                        <label className="block text-xs text-muted-foreground mb-1">Nutritional Status</label>
-                        <div className={`w-full text-xs border border-border rounded px-2 py-1 ${statusColor}`}
-                          title="DOH/DepEd BMI-for-Age classification, 6-19 years old — blank outside that range.">
-                          {status ?? statusFallback}
-                        </div>
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-card rounded-xl border border-border p-4">
-                {/* Her heading: sentence case at text-base with the instruction
-                    under it, not a small uppercase label. */}
-                <div className="text-base font-bold text-foreground">Medical History</div>
-                <p className="text-xs text-muted-foreground mb-3">Select all applicable conditions.</p>
-                {/* ⚠ Sprint 165 — chips, not label-left/checkbox-right rows.
-                    Removing the record page's width cap stretched those rows to
-                    the full content width and left every checkbox a hand-span
-                    from the word it belonged to. Her chips keep the box against
-                    its label at any width, and they are already the pattern on
-                    the Oral Conditions card. */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {([
-                    ['Hypertension / CVA', 'hypertension'], ['Diabetes Mellitus', 'diabetes'],
-                    ['Cardiovascular / Heart Diseases', 'cardiovascular'], ['Thyroid Disorders', 'thyroid'],
-                    ['Hepatitis', 'hepatitis'], ['Malignancy', 'malignancy'],
-                    ['History of Hospitalization', 'hospitalization'], ['Blood Transfusion', 'bloodTransfusion'], ['Tattoo', 'tattoo'],
-                  ] as [string, keyof MedicalHistoryDraft][]).map(([label, field]) => (
-                    <label key={field} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors ${!!draftMed[field] ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-foreground'} ${editingHistory ? 'cursor-pointer hover:bg-canvas' : 'cursor-not-allowed opacity-70'}`}>
-                      <input type="checkbox" disabled={!editingHistory} checked={!!draftMed[field]}
-                        onChange={(e) => setDraftMed((p) => ({ ...p, [field]: e.target.checked }))}
-                        className="w-4 h-4 rounded accent-primary disabled:cursor-not-allowed" />
-                      {label}
-                    </label>
-                  ))}
-                  <div className="pt-1">
-                    <label className="block text-xs text-muted-foreground mb-1">Allergies</label>
-                    <input type="text" disabled={!editingHistory} value={draftMed.allergies} onChange={(e) => setDraftMed((p) => ({ ...p, allergies: e.target.value }))}
-                      placeholder="—" className="w-full text-xs border border-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed" />
-                  </div>
-                </div>
-              </div>
-              <div className="bg-card rounded-xl border border-border p-4">
-                <div className="text-base font-bold text-foreground">Dietary Habits and Social History</div>
-                <p className="text-xs text-muted-foreground mb-3">Select all applicable conditions.</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {([
-                    ['Sugar Sweetened Beverages/Food', 'sugarSweetened'], ['Alcohol Drinker', 'alcoholDrinker'],
-                    ['Tobacco User', 'tobaccoUser'], ['Betel Nut Chewer', 'betelNut'],
-                    ['Body Piercing', 'bodyPiercing'], ['Nail Biting', 'nailBiting'], ['Thumbsucking', 'thumbsucking'],
-                  ] as [string, keyof DietDraft][]).map(([label, field]) => (
-                    <label key={field} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors ${!!draftDiet[field] ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-foreground'} ${editingHistory ? 'cursor-pointer hover:bg-canvas' : 'cursor-not-allowed opacity-70'}`}>
-                      <input type="checkbox" disabled={!editingHistory} checked={!!draftDiet[field]}
-                        onChange={(e) => setDraftDiet((p) => ({ ...p, [field]: e.target.checked }))}
-                        className="w-4 h-4 rounded accent-primary disabled:cursor-not-allowed" />
-                      {label}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* ⚠ ORAL HEALTH CONDITION IS NOT HERE ANY MORE (Sprint 176, hers).
-                It is the same ORAL_HEALTH_CONDITION record the Oral Conditions
-                card on the Dental Chart tab edits (Sprint 154) — two editors
-                for one record, on adjacent tabs, which is how a screen ends up
-                disagreeing with itself. It lives beside the odontogram now,
-                because that is where a clinician is looking when they notice
-                calculus. Her reasoning, and it applies to us harder: we had
-                BOTH, and I built the second one. */}
-            {/* ⚠ Both kept from the Consent tab deleted in Sprint 171, because
-                neither has another home. The RA 10173 notice appears NOWHERE
-                else — not even on the printed consent form — and deleting a
-                legal notice to match a tab count is not a design decision.
-                Upcoming Appointments is real data read from this pupil's
-                schedule.
-
-                NOT kept: the on-screen signature rules. Consent is signed on
-                the printed form (Reports → Consent Form), which carries the
-                real PANGALAN NG MAGULANG/GUARDIAN block; ruled lines on a
-                screen were never signable. */}
-          <div className="bg-blue-50 rounded-xl border border-blue-200 p-4">
-            <div className="flex items-start gap-3">
-              <Shield className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <div className="text-xs font-bold text-blue-900 mb-1">Republic Act No. 10173 — Data Privacy Act of 2012</div>
-                <p className="text-xs text-blue-700 leading-relaxed">
-                  Ang impormasyong nakolekta sa form na ito ay gagamitin lamang para sa mga layuning pangkalusugan ng Dental Health Program ng Barangay Tanyag, Lungsod ng Taguig. Ang inyong personal na impormasyon ay protektado ng Batas Republika Blg. 10173 o ang Data Privacy Act ng 2012. Ang inyong datos ay hindi ibabahagi sa anumang partido na walang pahintulot maliban kung kinakailangan ng batas.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-card rounded-xl border border-border p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-semibold text-foreground">Upcoming Appointments</div>
-              <Link to="/appointments" className="text-xs text-blue-600 hover:underline">View all →</Link>
-            </div>
-            {studentAppointments.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">No upcoming appointments scheduled.</p>
-            ) : (
-              <div className="space-y-2">
-                {studentAppointments.map((apt) => (
-                  <div key={apt.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                    <div>
-                      <div className="text-xs font-medium text-foreground">{apt.type}</div>
-                      <div className="text-xs text-muted-foreground">{apt.date} at {apt.time}</div>
-                    </div>
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{apt.status}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          </div>
+          <HistoryTab
+            editing={editingHistory}
+            measure={draftMeasure}
+            setMeasure={setDraftMeasure}
+            med={draftMed}
+            setMed={setDraftMed}
+            diet={draftDiet}
+            setDiet={setDraftDiet}
+            patientAgeMonths={patientAgeMonths}
+            sex={student.sex}
+            appointments={studentAppointments}
+          />
         )}
 
         {/* ── TAB 2: Dental Chart ── */}
