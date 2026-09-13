@@ -24,7 +24,7 @@ Track B sprints: 158 Vitest harness · 159 offline/sync races · 160 data-fetch 
 | 159 | Offline & sync races | DONE — 3 new, incl. a real double-drain race; SEC-27 confirmed |
 | 160 | Data-fetch hooks | DONE — 3 new; the worst can show two pupils at once |
 | 161 | Report arithmetic | DONE — **23 tests added**, 2 minor findings; the arithmetic largely held up |
-| 162 | `DentalChart.tsx` decomposition | **PARTIAL** — 162a + 162b done (3088 → 2934). **162c remains: six tab panels** |
+| 162 | `DentalChart.tsx` decomposition | **PARTIAL** — 162a/b/c done (3088 → 2802). **Three panels remain: TAB 1, TAB 2, `ToothButton`** |
 
 ---
 
@@ -286,6 +286,34 @@ fabricated zeroes.
 distinction the rule exists for, and it was confirmed on 2025-2026 for the first pupil.
 
 96/96 tests (5 new on `dmftRecordsForYear`), `tsc` both configs, `npm run build` clean.
+
+### BUG-14 · `ReferralsTab.tsx` vs `Reports.tsx:164` · MED · OPEN
+**Found while extracting the Referrals tab, 2026-09-14. Moved verbatim, NOT reconciled — fixing it
+is a form-fidelity decision, not a refactor.**
+
+Claim:    **The DOH referral row labels exist in two copies, and they have already drifted.** Both
+          claim to be the form's own printed wording; they cannot both be right.
+Evidence: Three of the five differ:
+          | key | chart screen | Reports screen |
+          |---|---|---|
+          | `higher_level` | Higher Level of Care **(unspecified)** | Higher Level of Care |
+          | `oral_cancer_screening` | **Higher Level — **Oral Cancer Screening | Oral Cancer Screening |
+          | `surgical` | **Higher Level — **Surgical Procedure | Surgical Procedure |
+          (`primary_care` and `private_facility`'s stem agree.)
+          The chart-screen copy's own comment states the stakes: *"the referral kinds are the DOH Oral
+          Health Program Report's own printed rows, not a taxonomy of ours. Picking one here IS the
+          report row the patient will be counted in."* The on-screen caption repeats it: *"Decides
+          which row of the DOH Program Report this patient is counted in."*
+Impact:   A dentist choosing "Higher Level — Surgical Procedure" on the chart and a reader seeing
+          "Surgical Procedure" on the report are looking at the same stored value under two different
+          names. Whether either matches the paper form is **unverified**. CLAUDE.md's strongest
+          standing rule governs this — *"COPY OFFICIAL FORMS EXACTLY … in the form's own wording"* —
+          and one of these two is violating it.
+          ⚠ Only the LABELS differ; the stored `referral_type` values are the same enum, so **no
+          filed count is wrong**. This is a naming defect, not an arithmetic one.
+Fix:      **Read the DOH Oral Health Program Report's printed referral rows and make one copy match
+          it**, then have the other import it. ⚠ Do not simply pick the longer or the shorter; the
+          form decides. The manuscript's appendices or the supplied workbook are where to look.
 
 ### BUG-13 · `src/app/components/DentalChart.tsx` year strip · LOW · OPEN
 **Noticed while fixing BUG-12; pre-existing and deliberately not changed.**
