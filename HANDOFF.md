@@ -24,6 +24,20 @@ decision section below).
 ⚠ **On the other machine, `npm ci` after pulling** — `package.json` and `package-lock.json` both
 changed (vitest added).
 
+### What happened after the 2026-09-12 park
+
+**BUG-12 fixed** (your definition call), then **Sprint 162c extracted four tab panels**, then **both
+were verified in the browser** against live data. All pushed. `npm test` **96/96**, `tsc` both
+configs and `npm run build` clean. Servers stopped, confirmed by port.
+
+⚠ **Two new findings, both LOW-to-MED and both left open deliberately:**
+**BUG-13** — the year strip labels `T + t` as "DMFT" (16) while the DMFT History table separates them
+(14 / 2). Pre-existing; relabelling was not what was approved.
+**BUG-14** — the DOH referral row labels exist in **two copies and have already drifted** (three of
+five differ; the chart says "Higher Level — Surgical Procedure", Reports says "Surgical Procedure").
+Both claim to be the form's own wording. **Reconciling them needs the paper form, not a refactor** —
+CLAUDE.md is explicit that the form decides. Only labels differ, so **no filed count is wrong**.
+
 ### ✅ BUG-12 FIXED 2026-09-14 — the blocking decision was made and implemented
 
 **Your call: _"use latest charting with records, empty shows not recorded."_** Implemented and
@@ -53,12 +67,18 @@ findings in **`docs/audit/LEDGER-sec.md`** and **`docs/audit/LEDGER-bug.md`**. R
 note, before continuing.
 
 **Track A (security/architecture) COMPLETE — 151-157.** 31 findings. **Track B — 158-161 done, 162
-PARTIAL** (two extractions landed, six tab panels remain as 162c).
+NEARLY DONE** (162a/b/c landed; **only TAB 2 remains** — see Next sprint).
 
 **Fixed this session:** SEC-18 (every account was created holding every school — `createUser` read a
 field the schema had not had since Sprint 100) · SEC-27 + BUG-03 (the offline queue had no owner and
 its guard did not cross contexts) · BUG-04 (PUT could write into an archived record) · BUG-07 (the
-dental chart could show one pupil's identity above another's teeth) · five doc-drift rows.
+dental chart could show one pupil's identity above another's teeth) · **BUG-12 (an empty charting
+zeroed the year's DMFT — a clinical screen reading 0 for a pupil with 14 decayed teeth)** · five
+doc-drift rows.
+
+**Refactored:** `DentalChart.tsx` **3,088 → 2,602**, with the chart's vocabulary and arithmetic, the
+shared IPTR draft shapes, and five tab panels each in their own file — and the four screens that used
+to import constants from that 2,800-line component no longer do.
 
 **Built this session:** `npm test` — vitest, **91 characterization tests**, wired into CI. It did not
 exist before. The net was verified by deliberately breaking a function and watching it fail, not by
@@ -105,26 +125,35 @@ differ — unblocks both. It was the 10th session's top recommendation too.
 `floral-cluster.edqpjtu…` and `PRODUCTION_DB_HOST=edqpjtu` — they match. It is still production.
 The browser pass was done against live data for that reason, read-only and saving nothing.
 
-Also open: **BUG-12** (the decision above — a wrong DMFT on a clinical screen) · SEC-04 (an empty
-`school_ids` still means "all schools"; SEC-18 fixed the instance, not the design) · SEC-19/SEC-20
-(⚠ **check whether the grant is still load-bearing before narrowing it** — grep which hooks the two
-non-clinical roles' screens actually use) · SEC-12 (no way to revoke a session) · SEC-22 (the bell's
-`appointmentsToday` ignores school scope) · SEC-30 (one dashboard look) · BUG-02, BUG-05, BUG-06,
-BUG-08, BUG-09, BUG-10, BUG-11.
+Also open: SEC-04 (an empty `school_ids` still means "all schools"; SEC-18 fixed the instance, not
+the design) · SEC-19/SEC-20 (⚠ **check whether the grant is still load-bearing before narrowing it**
+— grep which hooks the two non-clinical roles' screens actually use) · SEC-12 (no way to revoke a
+session) · SEC-22 (the bell's `appointmentsToday` ignores school scope) · SEC-30 (one dashboard
+look) · BUG-02, BUG-05, BUG-06, BUG-08, BUG-09, BUG-10, BUG-11, **BUG-13, BUG-14**.
 
-✅ **Closed this session:** SEC-05, SEC-06, SEC-07 (all NOT-A-BUG, with reasons) · BUG-00, BUG-01
-(already fixed) · SEC-01 re-verified against the API. **All three seeded SEC rows are now
-re-verified**, so no ledger row rests on an unchecked claim about the past.
+✅ **Closed:** SEC-05, SEC-06, SEC-07 (all NOT-A-BUG, with reasons) · BUG-00, BUG-01 (already fixed
+before the audit began) · **BUG-12 (fixed 09-14)** · SEC-01 re-verified against the API. **All three
+seeded SEC rows are now re-verified**, so no ledger row rests on an unchecked claim about the past.
 
 ### Next sprint
 
-**Sprint 162c** — six tab panels remain; the seam map with **current** line numbers is in
-`docs/audit/LEDGER-bug.md`. Order: smallest first (TAB 7 → 5 → 6 → 1), **TAB 2 last**, and extract
-`ToothButton` before attempting the panel around it. ⚠ 162a/b were structurally safe moves; **the
-remaining panels share mutable chart state with the host**, which is a different risk class.
+**ONE PANEL REMAINS: TAB 2, the Dental Chart (~555 lines), plus `ToothButton` inside it.**
+Sprint 162c extracted four of the five it was scoped for (AI Risk, Treatment History, Referrals,
+History); 162b had already taken DMFT History. **`DentalChart.tsx` is 3,088 → 2,602.**
+
+⚠ **Give TAB 2 its own session, and read before moving anything.** It is the hardest by a distance:
+the odontogram, the code palette and the summaries all share **mutable charting state** with the
+host, and it is the screen a dentist actually works in — the one extraction where a silent mistake
+lands on clinical work. **Extract `ToothButton` first**, then the panel around it.
+
+**The pattern the four established, and TAB 2 should follow it:** read-only values go as plain props;
+anything the panel can CHANGE goes in one named bundle (`addForm` in Treatment History and
+Referrals), so the seam stays legible. Shared draft shapes live in `components/iptrDrafts.ts` — put
+nothing in a tab component that another tab also needs.
 
 Cheaper alternatives for a short session: **SEC-22** (one handler — the bell's `appointmentsToday`
-ignores school scope), **BUG-09** (one dependency array), **BUG-10/BUG-11** (both one-liners).
+ignores school scope), **BUG-09** (one dependency array), **BUG-10/BUG-11/BUG-13** (all one-liners),
+or **BUG-14** if you can read the DOH form's referral rows.
 
 ⚠ **BUG-00 and BUG-01 are CLOSED — do not start them.** They were already fixed by Sprints 148/149/154
 and were carried OPEN for eleven sprints on a stale seeded claim. Verified live this session: the
