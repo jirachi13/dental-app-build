@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router';
-import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, FileText, Plus, Pencil, Trash2, Brain, Download, X, Maximize2, Minimize2, Check, ChevronUp, ChevronDown, ShieldCheck, ShieldAlert, Shield as ShieldIcon, MoreVertical } from 'lucide-react';
+import { ArrowLeft, Save, ChevronLeft, ChevronRight, Shield, Users, FileText, Plus, Pencil, Trash2, Download, X, Maximize2, Minimize2, Check, ChevronUp, ChevronDown, ShieldCheck, ShieldAlert, Shield as ShieldIcon, MoreVertical } from 'lucide-react';
 import { exportPagesToPdf } from '../utils/exportPdf';
 import { getGradeColor } from '../utils/gradeColors';
 import { computeBmi, BMI_NOTE, classifyNutritionalStatus } from '../utils/bmi';
@@ -23,6 +23,8 @@ import { SERVICES as CONSENT_SERVICES } from './ConsentForm';
 import { IptrForm, IptrFormPage2 } from './IptrForm';
 import { IptrFormV2 } from './IptrFormV2';
 import { DmftHistoryTab } from './DmftHistoryTab';
+import { AiRiskTab } from './AiRiskTab';
+import { TreatmentHistoryTab } from './TreatmentHistoryTab';
 import type { ReferralType } from '../api/types';
 import {
   sectionBRows,
@@ -2542,77 +2544,23 @@ export const DentalChart = () => {
 
         {/* ── TAB 5: Treatment History ── */}
         {activeTab === 'treatments' && (
-          <div className="p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-foreground">Treatment History</h3>
-              {canEdit && currentYearData && (
-                <button onClick={() => setShowAddTreatment((v) => !v)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-primary-hover">
-                  <Plus className="w-3.5 h-3.5" /> Add Entry
-                </button>
-              )}
-            </div>
-            {showAddTreatment && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
-                <p className="text-xs text-blue-700">Adding to school year: <strong>{currentYearData?.iptr.school_year}</strong></p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div><label className="block text-xs font-medium text-foreground mb-1">Date</label>
-                    <input type="date" value={treatmentForm.date} onChange={(e) => setTreatmentForm((f) => ({ ...f, date: e.target.value }))} className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring" /></div>
-                  <div><label className="block text-xs font-medium text-foreground mb-1">{staffNameLabel}</label>
-                    <input type="text" value={user?.name ?? ''} readOnly className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-gray-50 cursor-default text-foreground" /></div>
-                  <div><label className="block text-xs font-medium text-foreground mb-1">Diagnosis</label>
-                    <textarea rows={2} value={treatmentForm.diagnosis} onChange={(e) => setTreatmentForm((f) => ({ ...f, diagnosis: e.target.value }))} className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring resize-none" /></div>
-                  <div><label className="block text-xs font-medium text-foreground mb-1">Treatment Done</label>
-                    <textarea rows={2} value={treatmentForm.treatmentDone} onChange={(e) => setTreatmentForm((f) => ({ ...f, treatmentDone: e.target.value }))} className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring resize-none" /></div>
-                  <div className="md:col-span-2"><label className="block text-xs font-medium text-foreground mb-1">Remarks</label>
-                    <input type="text" value={treatmentForm.remarks} onChange={(e) => setTreatmentForm((f) => ({ ...f, remarks: e.target.value }))} className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring" /></div>
-                </div>
-                {treatmentError && <p className="text-xs text-destructive">{treatmentError}</p>}
-                <div className="flex gap-2">
-                  <button onClick={handleAddTreatment} disabled={treatmentSaving} className="px-4 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-60">{treatmentSaving ? 'Saving…' : 'Save'}</button>
-                  <button onClick={() => setShowAddTreatment(false)} className="px-4 py-1.5 text-sm border border-border text-foreground rounded-lg hover:bg-gray-50">Cancel</button>
-                </div>
-              </div>
-            )}
-            {allTreatments.length === 0 ? (
-              <p className="text-center text-muted-foreground text-sm py-12">No treatment records yet.</p>
-            ) : (
-            <>
-            <div className="hidden md:block overflow-x-auto rounded-lg border border-border">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-border">
-                  <tr>{['Date', 'Diagnosis', 'Treatment Done', 'Dentist', 'Remarks'].map((h) => (
-                    <th key={h} className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">{h}</th>
-                  ))}</tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-card">
-                  {allTreatments.map((t) => (
-                    <tr key={t._id} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 whitespace-nowrap font-medium text-foreground text-xs">{formatDate(t.date)}</td>
-                      <td className="px-4 py-2 text-xs text-foreground">{t.diagnosis}</td>
-                      <td className="px-4 py-2 text-xs text-foreground">{t.treatment_done}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-xs text-foreground">{dentistNameById.get(t.dentist_id) ?? 'Unknown'}</td>
-                      <td className="px-4 py-2 text-xs text-muted-foreground">{t.remarks}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="md:hidden space-y-3">
-              {allTreatments.map((t) => (
-                <div key={t._id} className="rounded-lg border bg-card border-border p-3 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-foreground text-xs">{formatDate(t.date)}</span>
-                    <span className="text-xs text-muted-foreground">{dentistNameById.get(t.dentist_id) ?? 'Unknown'}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground"><span className="font-medium">Dx:</span> {t.diagnosis}</p>
-                  <p className="text-xs text-muted-foreground"><span className="font-medium">Tx:</span> {t.treatment_done}</p>
-                  {t.remarks && <p className="text-xs text-muted-foreground italic">{t.remarks}</p>}
-                </div>
-              ))}
-            </div>
-            </>
-            )}
-          </div>
+          <TreatmentHistoryTab
+            treatments={allTreatments}
+            dentistNameById={dentistNameById}
+            schoolYear={currentYearData?.iptr.school_year}
+            canEdit={canEdit}
+            staffNameLabel={staffNameLabel}
+            staffName={user?.name ?? ''}
+            addForm={{
+              open: showAddTreatment,
+              setOpen: setShowAddTreatment,
+              values: treatmentForm,
+              setValues: setTreatmentForm,
+              error: treatmentError,
+              saving: treatmentSaving,
+              onSave: handleAddTreatment,
+            }}
+          />
         )}
 
         {/* ── TAB 6: Referrals (Sprint 127) -- REFERRAL exists now, so this is
@@ -2790,19 +2738,8 @@ export const DentalChart = () => {
         </Modal>
       )}
 
-        {/* ── TAB 7: AI Risk — the full assessment workflow (generate, validate,
-             save) lives on the dedicated Risk Classification page (Sprint 21f);
-             this tab just points there rather than duplicating that UI. ── */}
-        {activeTab === 'ai' && (
-          <div className="p-4">
-            <div className="text-center py-12 text-muted-foreground">
-              <Brain className="w-8 h-8 mx-auto mb-2 opacity-30" />
-              <p className="text-sm font-medium text-muted-foreground">Risk assessments live on the Risk Classification page</p>
-              <p className="text-xs mt-1 max-w-sm mx-auto">Generate, validate, and save AI-assisted risk assessments for this student from the dedicated page. The current model is trained on synthetic placeholder data until real IPTR records are available.</p>
-              <Link to="/ai-analytics" className="inline-block mt-4 px-4 py-2 bg-primary hover:bg-primary-hover text-white text-sm rounded-lg">Open Risk Classification</Link>
-            </div>
-          </div>
-        )}
+        {/* ── TAB 7: AI Risk ── */}
+        {activeTab === 'ai' && <AiRiskTab />}
         </>
         )}
       </div>
