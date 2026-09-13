@@ -410,7 +410,24 @@ inside it.
 ⚠ **Neither extraction is covered by a rendering test** — the suite is pure functions only. `tsc`
 proves the wiring, not the pixels.
 
-### ✅ Browser pass — done 2026-09-11, against the running app on live data
+### ✅ Browser pass 2 — done 2026-09-14, verifying the four panels 162c extracted
+All four render and all their props are wired. Checked against live data, read-only, nothing saved.
+- **History** (9 props, the largest surface): physical measurements with BMI and Nutritional Status
+  both reading "Automatic", all 9 medical chips plus Allergies, all 7 dietary chips, the full RA
+  10173 notice, and the appointments panel showing "No upcoming appointments scheduled."
+- **Treatment History**: heading, Add Entry, empty state. Opening the add form proved the whole
+  `addForm` bundle — *"Adding to school year: **2026-2027**"*, the date defaulted to today, and
+  **"Dr. Maria Santos" under the label "Dentist"**, which is `staffName` + `staffNameLabel` resolving
+  by role.
+- **Referrals**: same, and the Referred-For dropdown renders `REFERRAL_TYPE_LABELS` from its new home
+  — showing **"Higher Level of Care (unspecified)"**, which is BUG-14 visible on screen.
+- **AI Risk**: message and the `/ai-analytics` link both present.
+
+⚠ **One false alarm worth recording:** clicking Add Entry by element `ref` did not dispatch and the
+form stayed shut, which looked exactly like a broken binding. Clicking by **coordinate** worked. The
+tool, not the app — but the first reading would have been a wrong finding.
+
+### ✅ Browser pass 1 — done 2026-09-11, against the running app on live data
 - **162a/b verified.** The chart screen renders correctly, the tab strip works, and the **DMFT
   History tab — the panel 162b moved into its own file — renders with its table, its caption and all
   four KPI tiles.** No regression from either extraction.
