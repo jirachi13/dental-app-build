@@ -1251,8 +1251,10 @@ export const PatientList = () => {
                       {/* Hugs its content width (user, 2026-09-27) -- was a
                           fixed w-44 wider than any of these three labels
                           need. Title Case, no trailing ellipsis. Order:
-                          Select Students, Find Duplicates, Queue (user,
-                          2026-09-27 -- Queue moved last). */}
+                          Archive Students, Find Duplicates, Queue (user,
+                          2026-09-27 -- Queue moved last; "Select Students"
+                          renamed to "Archive Students" since that's the
+                          only thing this mode's select-then-act flow does). */}
                       <div
                         style={listMenuAt ? { top: listMenuAt.top, right: listMenuAt.right } : undefined}
                         className="fixed z-50 bg-card border border-border rounded-xl shadow-md py-1 w-max"
@@ -1261,7 +1263,7 @@ export const PatientList = () => {
                           onClick={() => { setSelectMode(true); setShowListMenu(false); }}
                           className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-canvas flex items-center gap-2"
                         >
-                          <ListChecks className="w-3.5 h-3.5" /> Select Students
+                          <ListChecks className="w-3.5 h-3.5" /> Archive Students
                         </button>
                         <button
                           onClick={() => { setShowListMenu(false); setShowDuplicates(true); void loadDuplicates(); }}
@@ -1271,7 +1273,7 @@ export const PatientList = () => {
                         </button>
                         {/* Queue (user, 2026-09-27): the Bulk Queue
                             counterpart to Dental Charts' own Dequeue flow --
-                            a SEPARATE mode from "Select Students" above, not
+                            a SEPARATE mode from "Archive Students" above, not
                             another action inside it. Turns on bulkQueueMode,
                             which reveals checkboxes AND makes each row's
                             Grade/Section clickable, plus the dark bar below
