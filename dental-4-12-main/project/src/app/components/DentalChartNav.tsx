@@ -754,10 +754,19 @@ export const DentalChartNav = () => {
             <tbody className="divide-y divide-border">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                    {viewMode === 'queued' && queuedStudentIds.length === 0
-                      ? 'No students queued for charting yet — use "Queue for Charting" on the Students page, or switch to Full List.'
-                      : 'No students match your search.'}
+                  {/* Same empty-state pattern as Appointments' own EmptyState
+                      (user, 2026-09-27): icon badge, bold title, muted
+                      subtitle -- was a single line of plain muted text. */}
+                  <td colSpan={9} className="px-4 py-16 text-center">
+                    <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                      <Users className="w-6 h-6 text-muted-foreground/60" />
+                    </div>
+                    <p className="text-base font-bold text-foreground">No patients found</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {viewMode === 'queued' && queuedStudentIds.length === 0
+                        ? 'There are currently no patients in this charting queue. Use "Queue for Charting" on the Students page, or switch to Full List.'
+                        : 'No students match your search.'}
+                    </p>
                   </td>
                 </tr>
               ) : filtered.map((p, i) => {
