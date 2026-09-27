@@ -190,15 +190,21 @@ export const TreatmentRecords = () => {
                 <Clipboard className="w-4.5 h-4.5 text-muted-foreground" />
               </span>
               <div className="min-w-0">
+                {/* Same eyebrow/pill/title pattern as the Charting Queue card
+                    (user, 2026-09-27, "i want the same but for treatment
+                    queue") -- QUEUE eyebrow, school-tinted count pill,
+                    bold title. Description stays truthful to what this list
+                    actually is: the full roster sorted alphabetically, not
+                    an ordered processing queue like Charting Queue's. */}
                 <div className="flex items-center gap-2">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Students</div>
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap bg-primary-surface text-primary">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Queue</div>
+                  <span style={{ backgroundColor: kickerColor.light, color: kickerColor.solid }} className="text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap">
                     {filtered.length} {filtered.length === 1 ? 'STUDENT' : 'STUDENTS'}
                   </span>
                 </div>
-                <h2 className="text-lg font-bold text-foreground mt-0.5">Full List</h2>
+                <h2 className="text-lg font-bold text-foreground mt-0.5">Treatment Queue</h2>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  {selectedSchool ? `Every student at ${selectedSchool}, with their latest recommended treatment.` : 'Every student, with their latest recommended treatment.'}
+                  {selectedSchool ? `Students at ${selectedSchool}, with their latest recommended treatment.` : 'Students with their latest recommended treatment.'}
                 </p>
               </div>
             </div>
