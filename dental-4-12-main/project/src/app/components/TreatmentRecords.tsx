@@ -326,9 +326,17 @@ export const TreatmentRecords = () => {
           in the page that only extends when hide is clicked") -- fixed
           `height` normally, `maxHeight` once Hide renders every row so the
           card can shrink to fit a short queue or extend to the page edge
-          for a long one, same as Student Records' own Hide. */}
+          for a long one, same as Student Records' own Hide.
+          Bottom corners round ONLY when the card actually ends with room to
+          spare below it (Hide + a short queue) -- in the default paginated
+          view the card is ALWAYS pinned flush against the bottom of the
+          viewport (user, 2026-09-28: "when i scroll till the part where it
+          will fix stop, it should be the same size at the bottom of the
+          nav bar"), so a rounded corner there would cut into content that
+          is genuinely flush, not floating above empty space. Hide + a long
+          queue is the same flush case (hideAtEdge). */}
       <div
-        className={`sticky top-0 z-30 flex flex-col bg-card border border-border shadow-sm overflow-clip ${hideAtEdge ? 'rounded-t-2xl' : 'rounded-2xl'}`}
+        className={`sticky top-0 z-30 flex flex-col bg-card border border-border shadow-sm overflow-clip ${hidePagination && !hideAtEdge ? 'rounded-2xl' : 'rounded-t-2xl'}`}
         style={hidePagination ? { maxHeight: regionHeight ?? undefined } : { height: regionHeight ?? undefined }}
       >
         {/* Dark green top accent bar. */}
