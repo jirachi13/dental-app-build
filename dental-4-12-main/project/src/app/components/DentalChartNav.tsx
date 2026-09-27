@@ -283,6 +283,15 @@ export const DentalChartNav = () => {
   // Only students BOTH queued and currently visible in `filtered` count --
   // selecting shouldn't reach past the search box into rows you can't see.
   const queuedInView = useMemo(() => filtered.filter((p) => queuedStudentIds.includes(p.id)), [filtered, queuedStudentIds]);
+  const allQueuedInViewSelected = queuedInView.length > 0 && queuedInView.every((p) => selectedForDequeue.has(p.id));
+  // "All" quick-select (user, 2026-09-27): grabs everyone queued and in
+  // view in one click. Clears any grade/section criteria pills first --
+  // they'd just be a redundant subset once everyone's selected.
+  const toggleSelectAllQueued = () => {
+    setActiveGradeCriteria(new Set());
+    setActiveSectionCriteria(new Set());
+    setSelectedForDequeue(allQueuedInViewSelected ? new Set() : new Set(queuedInView.map((p) => p.id)));
+  };
 
   // No pagination (user, 2026-09-26 — removed): the queue card scrolls its
   // own rows internally (see regionRef/rowsBoxRef below) instead of paging,
@@ -609,14 +618,14 @@ export const DentalChartNav = () => {
                   </div>
                 )}
               </div>
-              {/* Bulk-actions "⋮" menu (user, 2026-09-27 -- reordered): this
-                  is the ENTRY POINT, not a confirm-only gate. Picking
-                  "Dequeue" here is what turns bulkSelectMode on and reveals
+              {/* Bulk-actions "⋮" menu (user, 2026-09-27): the ENTRY POINT
+                  only. Picking "Dequeue…" turns bulkSelectMode on, revealing
                   the table's checkboxes + clickable Grade/Section badges --
-                  before that, they're plain, inert cells. Once in the mode,
-                  the same menu switches to "Dequeue N selected" / "Cancel".
-                  Thinner than a standard icon-square button (user,
-                  2026-09-27) -- narrower width, same height as Filter. */}
+                  before that they're plain, inert cells. Once in the mode,
+                  this button disables itself -- the actual Dequeue/Cancel
+                  controls move to the selection bar below (user, 2026-09-27),
+                  not a second menu state. Thinner than a standard icon-square
+                  button -- narrower width, same height as Filter. */}
               <div ref={bulkMenuRef} className="relative shrink-0">
                 <button
                   type="button"
@@ -624,45 +633,23 @@ export const DentalChartNav = () => {
                   aria-expanded={bulkMenuOpen}
                   aria-label="Bulk actions"
                   title="Bulk actions"
+                  disabled={bulkSelectMode}
                   onClick={() => setBulkMenuOpen((o) => !o)}
-                  className="flex items-center justify-center w-7 h-9 rounded-lg border border-border bg-card text-foreground hover:bg-muted"
+                  className={`flex items-center justify-center w-7 h-9 rounded-lg border border-border bg-card ${
+                    bulkSelectMode ? 'text-muted-foreground/40 cursor-not-allowed' : 'text-foreground hover:bg-muted'
+                  }`}
                 >
                   <MoreVertical className="w-4 h-4" />
                 </button>
-                {bulkMenuOpen && (
-                  <div className="absolute right-0 z-20 mt-1 min-w-[180px] rounded-lg border border-border bg-card shadow-md py-1">
-                    {!bulkSelectMode ? (
-                      <button
-                        type="button"
-                        onClick={() => { setBulkSelectMode(true); setBulkMenuOpen(false); }}
-                        className="w-full text-left px-3 py-2 text-sm font-medium text-foreground hover:bg-canvas"
-                      >
-                        Dequeue…
-                      </button>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          disabled={selectedForDequeue.size === 0}
-                          onClick={() => {
-                            setBulkMenuOpen(false);
-                            setPendingDequeue({ ids: Array.from(selectedForDequeue), label: `${selectedForDequeue.size} student${selectedForDequeue.size === 1 ? '' : 's'}` });
-                          }}
-                          className={`w-full text-left px-3 py-2 text-sm font-medium ${
-                            selectedForDequeue.size === 0 ? 'text-muted-foreground/40 cursor-not-allowed' : 'text-destructive hover:bg-canvas'
-                          }`}
-                        >
-                          Dequeue {selectedForDequeue.size > 0 ? `${selectedForDequeue.size} selected` : ''}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { exitBulkSelectMode(); setBulkMenuOpen(false); }}
-                          className="w-full text-left px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-canvas"
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    )}
+                {bulkMenuOpen && !bulkSelectMode && (
+                  <div className="absolute right-0 z-20 mt-1 min-w-[160px] rounded-lg border border-border bg-card shadow-md py-1">
+                    <button
+                      type="button"
+                      onClick={() => { setBulkSelectMode(true); setBulkMenuOpen(false); }}
+                      className="w-full text-left px-3 py-2 text-sm font-medium text-foreground hover:bg-canvas"
+                    >
+                      Dequeue…
+                    </button>
                   </div>
                 )}
               </div>
@@ -675,15 +662,24 @@ export const DentalChartNav = () => {
             is what turns bulkSelectMode on and reveals the table's
             checkboxes + clickable Grade/Section badges below. Checking a
             row, or clicking a badge, populates the selection and shows why
-            (removable criteria pills). The actual removal is still NOT a
-            button here -- it's the "Dequeue N selected" item back in the
-            same "⋮" menu, so finishing the bulk action is as deliberate as
-            starting it. */}
+            (removable criteria pills). "All" grabs everyone queued and in
+            view in one click. Dequeue/Cancel sit together on the right of
+            this same row (user, 2026-09-27 -- moved off the "⋮" menu, which
+            now only starts the mode; word is just "Dequeue", not "Dequeue
+            Selected"). */}
         {bulkSelectMode && (
           <div className="px-5 sm:px-6 py-2.5 bg-foreground flex flex-wrap items-center gap-2 text-sm">
             <span className="text-xs font-bold text-white">
               {selectedForDequeue.size > 0 ? `${selectedForDequeue.size} selected` : 'Check rows or click a Grade/Section badge to select'}
             </span>
+            <button
+              onClick={toggleSelectAllQueued}
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                allQueuedInViewSelected ? 'bg-white text-foreground' : 'bg-white/10 text-white hover:bg-white/20'
+              }`}
+            >
+              All
+            </button>
             {Array.from(activeGradeCriteria).map((g) => (
               <button
                 key={`g-${g}`}
@@ -703,6 +699,15 @@ export const DentalChartNav = () => {
               </button>
             ))}
             <div className="flex-1" />
+            <button
+              disabled={selectedForDequeue.size === 0}
+              onClick={() => setPendingDequeue({ ids: Array.from(selectedForDequeue), label: `${selectedForDequeue.size} student${selectedForDequeue.size === 1 ? '' : 's'}` })}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                selectedForDequeue.size === 0 ? 'bg-white/10 text-white/40 cursor-not-allowed' : 'bg-destructive text-white hover:opacity-90'
+              }`}
+            >
+              Dequeue
+            </button>
             <button onClick={exitBulkSelectMode} className="text-xs font-medium text-white/60 hover:text-white">
               Cancel
             </button>
