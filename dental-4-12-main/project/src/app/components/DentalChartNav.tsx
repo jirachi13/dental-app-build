@@ -642,13 +642,13 @@ export const DentalChartNav = () => {
                   <MoreVertical className="w-4 h-4" />
                 </button>
                 {bulkMenuOpen && !bulkSelectMode && (
-                  <div className="absolute right-0 z-20 mt-1 min-w-[160px] rounded-lg border border-border bg-card shadow-md py-1">
+                  <div className="absolute right-0 z-20 mt-1 w-max rounded-lg border border-border bg-card shadow-md py-1">
                     <button
                       type="button"
                       onClick={() => { setBulkSelectMode(true); setBulkMenuOpen(false); }}
-                      className="w-full text-left px-3 py-2 text-sm font-medium text-foreground hover:bg-canvas"
+                      className="block px-3 py-2 text-sm font-medium text-foreground hover:bg-canvas"
                     >
-                      Dequeue…
+                      Dequeue
                     </button>
                   </div>
                 )}
@@ -669,12 +669,12 @@ export const DentalChartNav = () => {
             Selected"). */}
         {bulkSelectMode && (
           <div className="px-5 sm:px-6 py-2.5 bg-foreground flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-xs font-bold text-white">
+            <span className="text-xs font-normal text-white">
               {selectedForDequeue.size > 0 ? `${selectedForDequeue.size} selected` : 'Check rows or click a Grade/Section badge to select'}
             </span>
             <button
               onClick={toggleSelectAllQueued}
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-normal ${
                 allQueuedInViewSelected ? 'bg-white text-foreground' : 'bg-white/10 text-white hover:bg-white/20'
               }`}
             >
@@ -684,7 +684,7 @@ export const DentalChartNav = () => {
               <button
                 key={`g-${g}`}
                 onClick={() => toggleGradeCriterion(g)}
-                className="inline-flex items-center gap-1.5 rounded-full bg-white/10 text-white px-2.5 py-1 text-xs font-semibold hover:bg-white/20"
+                className="inline-flex items-center gap-1.5 rounded-full bg-white/10 text-white px-2.5 py-1 text-xs font-normal hover:bg-white/20"
               >
                 {g} <X className="w-3 h-3" />
               </button>
@@ -693,7 +693,7 @@ export const DentalChartNav = () => {
               <button
                 key={`s-${s}`}
                 onClick={() => toggleSectionCriterion(s)}
-                className="inline-flex items-center gap-1.5 rounded-full bg-white/10 text-white px-2.5 py-1 text-xs font-semibold hover:bg-white/20"
+                className="inline-flex items-center gap-1.5 rounded-full bg-white/10 text-white px-2.5 py-1 text-xs font-normal hover:bg-white/20"
               >
                 {s} section <X className="w-3 h-3" />
               </button>
@@ -702,13 +702,13 @@ export const DentalChartNav = () => {
             <button
               disabled={selectedForDequeue.size === 0}
               onClick={() => setPendingDequeue({ ids: Array.from(selectedForDequeue), label: `${selectedForDequeue.size} student${selectedForDequeue.size === 1 ? '' : 's'}` })}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+              className={`rounded-lg px-3 py-1.5 text-xs font-normal ${
                 selectedForDequeue.size === 0 ? 'bg-white/10 text-white/40 cursor-not-allowed' : 'bg-destructive text-white hover:opacity-90'
               }`}
             >
               Dequeue
             </button>
-            <button onClick={exitBulkSelectMode} className="text-xs font-medium text-white/60 hover:text-white">
+            <button onClick={exitBulkSelectMode} className="text-xs font-normal text-white/60 hover:text-white">
               Cancel
             </button>
           </div>
