@@ -30,6 +30,14 @@ import { validateStudentValues } from '../../../shared/studentValidation';
 
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 
+// Sentinels for "not assigned yet" (user, 2026-09-28) -- a new school year's
+// promotion leaves a pupil's grade/section blank until re-assigned, and
+// that population needs to be findable, not just invisible among "All
+// Grades"/"All Sections". Distinct from '' itself so a literal empty string
+// value on a <select> (which reads as unset) can never collide with these.
+const NO_GRADE = '__no_grade__';
+const NO_SECTION = '__no_section__';
+
 /** Male before Female in the default sort; anything else (data the intake
  *  form doesn't otherwise produce) sorts after both rather than being lost
  *  at the front or crashing the comparator. */
@@ -908,15 +916,22 @@ export const PatientList = () => {
 
   // List view filtered
   const allSections = useMemo(() => {
-    let base = gradeFilter !== 'all' ? schoolStudents.filter(s => s.grade === gradeFilter) : schoolStudents;
-    return [...new Set(base.map(s => s.section))].sort();
+    let base = gradeFilter === NO_GRADE ? schoolStudents.filter(s => !s.grade)
+      : gradeFilter !== 'all' ? schoolStudents.filter(s => s.grade === gradeFilter)
+      : schoolStudents;
+    // The blank grade/section itself never renders as a real option here --
+    // it gets its own labeled "No Section" entry instead (see FilterSelect
+    // below), not a nameless blank row in the dropdown.
+    return [...new Set(base.map(s => s.section))].filter(Boolean).sort();
   }, [gradeFilter]);
 
   const filtered = useMemo(() => schoolStudents.filter(s => {
     const age = calculateAge(s.birthdate);
     const ag = getAgeGroup(age);
-    if (gradeFilter !== 'all' && s.grade !== gradeFilter) return false;
-    if (sectionFilter !== 'all' && s.section !== sectionFilter) return false;
+    if (gradeFilter === NO_GRADE) { if (s.grade) return false; }
+    else if (gradeFilter !== 'all' && s.grade !== gradeFilter) return false;
+    if (sectionFilter === NO_SECTION) { if (s.section) return false; }
+    else if (sectionFilter !== 'all' && s.section !== sectionFilter) return false;
     if (genderFilter !== 'all' && s.gender !== genderFilter) return false;
     if (ageGroupFilter !== 'all' && ag !== ageGroupFilter) return false;
     if (searchTerm) {
@@ -1202,9 +1217,9 @@ export const PatientList = () => {
           <div className="flex flex-wrap items-center gap-2">
             <ListSearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Search student, grade, or section" />
             <FilterSelect value={gradeFilter} onChange={v => { setGradeFilter(v); setSectionFilter('all'); }} label="All Grades"
-              options={GRADES.map(g => ({ value: g, label: g }))} />
+              options={[{ value: NO_GRADE, label: 'No Grade' }, ...GRADES.map(g => ({ value: g, label: g }))]} />
             <FilterSelect value={sectionFilter} onChange={setSectionFilter} label="All Sections"
-              options={allSections.map(s => ({ value: s, label: s }))} />
+              options={[{ value: NO_SECTION, label: 'No Section' }, ...allSections.map(s => ({ value: s, label: s }))]} />
             <FilterSelect value={genderFilter} onChange={setGenderFilter} label="All Genders"
               options={[{ value:'Male', label:'Male' }, { value:'Female', label:'Female' }]} />
             <FilterSelect value={ageGroupFilter} onChange={setAgeGroupFilter} label="All Age Groups"
