@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Eye, FileText, X, School as SchoolIcon, List, ChevronLeft, ChevronRight, ChevronUp, Users, Upload, CheckCircle, AlertCircle, ScanLine, GraduationCap, MoreVertical, ListChecks, Archive as ArchiveIcon, Copy } from 'lucide-react';
+import { Plus, Eye, FileText, X, School as SchoolIcon, List, ChevronLeft, ChevronRight, ChevronUp, Users, Upload, CheckCircle, AlertCircle, ScanLine, GraduationCap, MoreVertical, ListChecks, Archive as ArchiveIcon, Copy, ListPlus } from 'lucide-react';
 import { ConfirmDialog } from './ConfirmDialog';
 import { formatDate } from '../utils/localDate';
 import { OCR_CONFIDENCE_THRESHOLD, type IptrOcrFieldKey, type IptrCheckboxFinding } from '../utils/iptrOcrShared';
@@ -13,7 +13,7 @@ import { useToast } from './Toast';
 import { Modal } from './Modal';
 import { activatable } from '../utils/a11y';
 import { ListSearchInput } from './ListSearchInput';
-import { addQueuedStudentId, getQueuedStudentIds, removeQueuedStudentId } from '../utils/queueStorage';
+import { addQueuedStudentId, getQueuedStudentIds, removeQueuedStudentId, setQueuedStudentIds as persistQueuedStudentIds } from '../utils/queueStorage';
 import { useStudents } from '../hooks/useStudents';
 import { usePagination, PAGE_SIZE_OPTIONS } from './Pagination';
 import { apiClient, ApiError } from '../api/client';
@@ -464,6 +464,19 @@ export const PatientList = () => {
       else next.add(id);
       return next;
     });
+  };
+
+  // Bulk Queue (user, 2026-09-27): the "Queue" counterpart to Dental Charts'
+  // own "Dequeue" bulk flow -- same select mode + checkboxes already built
+  // for Archive, just a second batch action once something's ticked. Not
+  // destructive, so no password confirmation like Archive needs.
+  const bulkQueueTicked = () => {
+    const ids = Array.from(tickedIds);
+    const merged = Array.from(new Set([...queuedStudentIds, ...ids]));
+    persistQueuedStudentIds(merged);
+    setQueuedStudentIds(merged);
+    exitSelectMode();
+    toast.success(`${ids.length} student${ids.length === 1 ? '' : 's'} queued.`);
   };
 
   const calculateAge = (birthdate: string) => {
@@ -1139,14 +1152,24 @@ export const PatientList = () => {
             )}
             <div className="ml-auto flex items-center gap-2">
               {selectMode && tickedIds.size > 0 && (
-                <button
-                  onClick={() => { setArchivePassword(''); setArchivePasswordError(null); setConfirmArchiveTicked(true); }}
-                  title="Archive"
-                  aria-label={`Archive ${tickedIds.size} selected`}
-                  className="p-2 rounded-full border border-destructive text-destructive hover:bg-danger-surface"
-                >
-                  <ArchiveIcon className="w-4 h-4" />
-                </button>
+                <>
+                  <button
+                    onClick={bulkQueueTicked}
+                    title="Queue"
+                    aria-label={`Queue ${tickedIds.size} selected`}
+                    className="p-2 rounded-full border border-primary/20 text-primary hover:bg-primary-surface"
+                  >
+                    <ListPlus className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => { setArchivePassword(''); setArchivePasswordError(null); setConfirmArchiveTicked(true); }}
+                    title="Archive"
+                    aria-label={`Archive ${tickedIds.size} selected`}
+                    className="p-2 rounded-full border border-destructive text-destructive hover:bg-danger-surface"
+                  >
+                    <ArchiveIcon className="w-4 h-4" />
+                  </button>
+                </>
               )}
               {selectMode ? (
                 <button onClick={exitSelectMode}
@@ -1171,21 +1194,36 @@ export const PatientList = () => {
                           menu off at its edge — the school-year menu looked like
                           a dead button for exactly that reason. Positioned from
                           the trigger's own rect so no ancestor can clip it. */}
+                      {/* Hugs its content width (user, 2026-09-27) -- was a
+                          fixed w-44 wider than any of these three labels
+                          need. Title Case, no trailing ellipsis. */}
                       <div
                         style={listMenuAt ? { top: listMenuAt.top, right: listMenuAt.right } : undefined}
-                        className="fixed z-50 bg-card border border-border rounded-xl shadow-md py-1 w-44"
+                        className="fixed z-50 bg-card border border-border rounded-xl shadow-md py-1 w-max"
                       >
                         <button
                           onClick={() => { setSelectMode(true); setShowListMenu(false); }}
                           className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-canvas flex items-center gap-2"
                         >
-                          <ListChecks className="w-3.5 h-3.5" /> Select students…
+                          <ListChecks className="w-3.5 h-3.5" /> Select Students
+                        </button>
+                        {/* Queue (user, 2026-09-27): same entry-point pattern
+                            as "Select Students" -- turns on the shared select
+                            mode, where the Queue icon button above now sits
+                            beside Archive once something's ticked. This is
+                            the Bulk Queue counterpart to Dental Charts' own
+                            Dequeue flow. */}
+                        <button
+                          onClick={() => { setSelectMode(true); setShowListMenu(false); }}
+                          className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-canvas flex items-center gap-2"
+                        >
+                          <ListPlus className="w-3.5 h-3.5" /> Queue
                         </button>
                         <button
                           onClick={() => { setShowListMenu(false); setShowDuplicates(true); void loadDuplicates(); }}
                           className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-canvas flex items-center gap-2"
                         >
-                          <Copy className="w-3.5 h-3.5" /> Find duplicates…
+                          <Copy className="w-3.5 h-3.5" /> Find Duplicates
                         </button>
                       </div>
                     </>
