@@ -148,7 +148,7 @@ export const TreatmentRecords = () => {
               <span style={{ backgroundColor: meta.bg, color: meta.fg }} className="w-7 h-7 flex-shrink-0 rounded-lg grid place-items-center">
                 <Icon className="w-3 h-3" />
               </span>
-              <div className="min-w-0 font-thin">
+              <div className="min-w-0 font-bold">
                 <div className="text-[11px] text-foreground truncate">{meta.label}</div>
                 <div className="text-xl leading-none text-foreground mt-1.5">{count === null ? '—' : count}</div>
                 <div className="text-[10px] text-muted-foreground mt-1">{count === 1 ? 'student' : 'students'} this school year</div>
