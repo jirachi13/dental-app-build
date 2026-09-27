@@ -785,6 +785,14 @@ router.get("/stats/student-nav", requireAuth, asyncHandler(async (req, res) => {
       name: !last && !first ? (s.full_name ?? "").trim() : !last ? first : !first ? last : `${last}, ${first}`,
       // The prev/next buttons show the surname alone, matching the sort order.
       lastName: s.last_name ?? "",
+      firstName: s.first_name ?? "",
+      // Added 2026-09-27 -- the Student Records nav (opened from that
+      // module, no ?context=) sorts grade > section > gender > surname >
+      // first name, same as PatientList's own table, not plain alphabetical.
+      // These three fields are what that comparator needs.
+      gender: s.sex,
+      grade: s.grade_level,
+      section: s.section,
       school: schoolNameById.get(String(s.school_id)) ?? "Unknown School",
     };
   });

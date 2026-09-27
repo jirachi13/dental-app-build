@@ -3,11 +3,18 @@ import { apiClient } from '../api/client';
 
 export interface StudentNavEntry {
   id: string;
-  /** Surname-first display string — the nav sorts on this. */
+  /** Surname-first display string — the default-context nav sorts on this. */
   name: string;
   /** Shown alone on the prev/next buttons, which name the surname because the
    *  list is ordered by surname. Falls back to `name` when empty. */
   lastName: string;
+  /** Added 2026-09-27 -- opened from Student Records (no ?context=), the nav
+   *  instead sorts grade > section > gender > surname > first name, matching
+   *  that module's own table order (PatientList.tsx), not plain alphabetical. */
+  firstName: string;
+  gender: string;
+  grade: string;
+  section: string;
   school: string;
 }
 

@@ -67,6 +67,9 @@ import {
 // so extending this list is also how the cap would ever need to move.
 const ALL_SCHOOL_YEARS = ['2023-2024', '2024-2025', '2025-2026', '2026-2027', '2027-2028', '2028-2029', '2029-2030', '2030-2031', '2031-2032', '2032-2033', '2033-2034'];
 const GRADES = ['Kinder', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10'];
+// Matches PatientList.tsx's own GENDER_SORT_ORDER exactly (user, 2026-09-27)
+// -- the default-context nav below has to sort like that module's table.
+const GENDER_SORT_ORDER: Record<string, number> = { Male: 0, Female: 1 };
 
 // The draft shapes and their empty factories moved to `iptrDrafts.ts` in
 // Sprint 162c — shared by this host, the History tab and the Dental Chart tab.
@@ -254,12 +257,26 @@ export const DentalChart = () => {
     const ordered = getEffectiveQueueOrder(getQueuedStudentIds(), queueAppointmentsTodayIds);
     return ordered.map((qid) => byId.get(qid)).filter((s): s is (typeof allStudents)[number] => !!s);
   }, [iptrContext, allStudents, queueAppointmentsTodayIds]);
-  const navList = useMemo(
-    () =>
-      queueNavList ??
-      (selectedSchool ? allStudents.filter((s) => s.school === selectedSchool) : [...allStudents]).sort((a, b) => a.name.localeCompare(b.name)),
-    [queueNavList, allStudents, selectedSchool],
-  );
+  const navList = useMemo(() => {
+    if (queueNavList) return queueNavList;
+    const scoped = selectedSchool ? allStudents.filter((s) => s.school === selectedSchool) : [...allStudents];
+    // Opened from Student Records (iptrContext === 'default', no ?context=)
+    // sorts the SAME way that module's own table does -- grade, section,
+    // gender, surname, first name -- not plain alphabetical (user,
+    // 2026-09-27: "the next student should be the next student in the
+    // student list, not alphabetical"). risk/treatment contexts keep the
+    // simple alphabetical fallback, unaffected.
+    if (iptrContext === 'default') {
+      return [...scoped].sort((a, b) =>
+        (GRADES.indexOf(a.grade) - GRADES.indexOf(b.grade)) ||
+        a.section.localeCompare(b.section) ||
+        ((GENDER_SORT_ORDER[a.gender] ?? 2) - (GENDER_SORT_ORDER[b.gender] ?? 2)) ||
+        (a.lastName || a.name).localeCompare(b.lastName || b.name) ||
+        (a.firstName ?? '').localeCompare(b.firstName ?? '')
+      );
+    }
+    return [...scoped].sort((a, b) => a.name.localeCompare(b.name));
+  }, [queueNavList, allStudents, selectedSchool, iptrContext]);
   const navIndex = navList.findIndex((s) => s.id === id);
   const prevPatient = navIndex > 0 ? navList[navIndex - 1] : null;
   const nextPatient = navIndex >= 0 && navIndex < navList.length - 1 ? navList[navIndex + 1] : null;
