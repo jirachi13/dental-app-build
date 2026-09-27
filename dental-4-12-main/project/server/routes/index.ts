@@ -17,6 +17,7 @@ import { buildSchoolSummary } from "../../shared/schoolSummary.js";
 import { buildFhsisCounts } from "../../shared/fhsis.js";
 import { buildReportsPanels } from "../../shared/reportsPanels.js";
 import { perToothTreatmentCodes, WHOLE_MOUTH_CODE_TO_PREVENTIVE_FIELD } from "../../shared/treatmentCodes.js";
+import { schoolYearLabel } from "../../shared/schoolYear.js";
 import { findDuplicateStudents } from "../utils/studentDuplicates.js";
 import {
   School,
@@ -819,8 +820,14 @@ router.get("/stats/treatment-categories", requireAuth, asyncHandler(async (req, 
   const studentIds = (await Student.find(studentFilter).select("_id").lean()).map((s: any) => String(s._id));
   if (studentIds.length === 0) return res.json([]);
 
-  const iptrs = await StudentIptr.find({ isArchived: false, student_id: { $in: studentIds } })
-    .select("_id student_id").lean();
+  // Current school year only (user, 2026-09-27) -- a headcount for "students
+  // given this treatment" that quietly summed every year the clinic has ever
+  // recorded would overstate the current roll's actual need.
+  const iptrs = await StudentIptr.find({
+    isArchived: false,
+    student_id: { $in: studentIds },
+    school_year: schoolYearLabel(),
+  }).select("_id student_id").lean();
   const studentIdByIptr = new Map(iptrs.map((i: any) => [String(i._id), String(i.student_id)]));
   const iptrIds = iptrs.map((i: any) => String(i._id));
   if (iptrIds.length === 0) return res.json([]);
@@ -875,7 +882,7 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
     StudentIptr.find({ isArchived: false }).select("_id student_id").lean(),
     DentalChart.find({ isArchived: false }).select("iptr_id date_charted").lean(),
     PreventiveCareRecord.find({ isArchived: false }).select("_id iptr_id").lean(),
-    RiskStratification.find({ isArchived: false }).select("preventive_id risk_level").lean(),
+    RiskStratification.find({ isArchived: false }).select("preventive_id risk_level recommendation").lean(),
   ]);
 
   const schoolNameById = new Map(schools.map((s: any) => [String(s._id), String(s.school_name)]));
@@ -894,9 +901,13 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
   }
   const preventiveIptrById = new Map((preventives as any[]).map((p) => [String(p._id), String(p.iptr_id)]));
   const riskByIptr = new Map<string, string>();
+  const recommendationByIptr = new Map<string, string>();
   for (const r of risks as any[]) {
     const iptrId = preventiveIptrById.get(String(r.preventive_id));
-    if (iptrId) riskByIptr.set(iptrId, String(r.risk_level));
+    if (iptrId) {
+      riskByIptr.set(iptrId, String(r.risk_level));
+      recommendationByIptr.set(iptrId, String(r.recommendation ?? ""));
+    }
   }
 
   // Mirrors deriveOralStatus in the client hook — kept identical on purpose so
@@ -913,6 +924,9 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
     // First iptr carrying a risk wins, matching the badge and the old client
     // join; `find(Boolean)` over the iptrs in insertion order.
     const riskLevel = studentIptrs.map((id) => riskByIptr.get(id)).find(Boolean) ?? null;
+    // Same iptr the risk level came from, so the two never disagree about
+    // which assessment they're describing.
+    const recommendation = studentIptrs.map((id) => recommendationByIptr.get(id)).find(Boolean) ?? "";
     const last = (s.last_name ?? "").trim();
     const first = (s.first_name ?? "").trim();
     return {
@@ -932,6 +946,7 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
         : null,
       oralStatus: deriveOralStatus(riskLevel),
       riskLevel,
+      recommendation,
       consentStatus: s.consent_status,
     };
   });

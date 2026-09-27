@@ -1,10 +1,10 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { X, Clipboard, Search, Droplet, ShieldCheck, Sparkles, Wrench, Timer, RotateCcw, Scissors, Syringe, MessageCircle, type LucideIcon } from 'lucide-react';
-import { PageHeader } from './PageHeader';
+import { GradePill } from './GradePill';
 import { GradeTableCell } from './GradeTableCell';
 import { ListSearchInput } from './ListSearchInput';
-import { studentListTableStyles } from './StudentListTableStyles';
+import { getGradeColor } from '../utils/gradeColors';
 import { useStudents } from '../hooks/useStudents';
 import { useTreatmentCategories } from '../hooks/useTreatmentCategories';
 import { useAuth } from '../context/AuthContext';
@@ -14,6 +14,12 @@ import { activatable } from '../utils/a11y';
 import { Pagination, usePagination } from './Pagination';
 
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
+
+/** Two-letter initials for the row avatar -- same derivation Dental Charts'
+ *  own queue table uses, so a pupil is recognised by the same mark on both
+ *  screens rather than two near-misses. */
+const initials = (name: string) =>
+  name.split(/[\s,]+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('');
 
 const calculateAge = (birthdate: string) => {
   const today = new Date();
@@ -52,11 +58,6 @@ const CATEGORY_META: Record<string, { label: string; icon: LucideIcon; bg: strin
 
 export const TreatmentRecords = () => {
   const navigate = useNavigate();
-  // Which category card is active -- null means "Full List" (every student
-  // at this school), same meaning the old viewMode='full' had. Selecting a
-  // category is now the ONLY way to narrow to it; clicking the active card
-  // again clears back to Full List (user, 2026-09-27 redesign).
-  const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const [gradeFilter, setGradeFilter] = useState('all');
   const [sectionFilter, setSectionFilter] = useState('all');
   const [genderFilter, setGenderFilter] = useState('all');
@@ -73,12 +74,7 @@ export const TreatmentRecords = () => {
   const { rows: categoryRows, loading: categoriesLoading } = useTreatmentCategories();
   const studentIdsByCode = useMemo(() => new Map(categoryRows.map((r) => [r.code, new Set(r.studentIds)])), [categoryRows]);
 
-  const sourcePatients = useMemo(
-    () => (selectedCode ? allPatients.filter((p) => studentIdsByCode.get(selectedCode)?.has(p.id)) : allPatients),
-    [selectedCode, studentIdsByCode, allPatients],
-  );
-
-  const filtered = useMemo(() => sourcePatients.filter(t => {
+  const filtered = useMemo(() => allPatients.filter(t => {
     const age = calculateAge(t.birthdate);
     if (gradeFilter !== 'all' && t.grade !== gradeFilter) return false;
     if (sectionFilter !== 'all' && t.section !== sectionFilter) return false;
@@ -90,12 +86,12 @@ export const TreatmentRecords = () => {
       if (!formattedName.includes(query) && !t.grade.toLowerCase().includes(query) && !t.section.toLowerCase().includes(query)) return false;
     }
     return true;
-  }), [sourcePatients, gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm]);
+  }), [allPatients, gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm]);
 
   // Paged (Sprint 58): this list rendered EVERY filtered row, which is fine at
   // demo scale and thousands of DOM rows at ~8,000 students. Reset keys are the
   // filter inputs, never `filtered` — see Pagination.tsx.
-  const pager = usePagination(filtered, [selectedCode, gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm]);
+  const pager = usePagination(filtered, [gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm]);
 
   const hasActiveFilters = [gradeFilter, sectionFilter, genderFilter, ageGroupFilter].some(f => f !== 'all') || searchTerm !== '';
   const clearFilters = () => { setGradeFilter('all'); setSectionFilter('all'); setGenderFilter('all'); setAgeGroupFilter('all'); setSearchTerm(''); };
@@ -116,113 +112,131 @@ export const TreatmentRecords = () => {
     );
   }
 
-  const activeMeta = selectedCode ? CATEGORY_META[selectedCode] : null;
-
   return (
     <div className="space-y-4">
-      <PageHeader
-        icon={Clipboard}
-        eyebrow="Clinical Care"
-        title="Treatment Records"
-        description="Pick a treatment category to see which students have actually been given it, or browse the full list below."
-      />
+      <div className="flex items-center gap-3">
+        <span className="w-10 h-10 rounded-xl bg-gray-100 grid place-items-center flex-shrink-0">
+          <Clipboard className="w-4.5 h-4.5 text-muted-foreground" />
+        </span>
+        <div className="min-w-0">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Clinical Care</div>
+          <h1 className="text-lg font-bold text-foreground">Treatment Records</h1>
+        </div>
+      </div>
 
       {/* Category cards (user, 2026-09-27 redesign): each one is a REAL count
-          of students with that treatment on record -- ToothRecord.
-          treatment_code for the 6 per-tooth codes, PreventiveCareRecord's
-          booleans for the 4 whole-mouth ones (see /stats/treatment-
-          categories). Never the free-text TREATMENT.treatment_done field,
-          which can't be reliably bucketed into a code. */}
-      {/* Sized ~30% down from the first pass (user, 2026-09-27) -- padding,
-          badge, icon and all three text sizes scaled together so the card
-          stays proportional, not just shrunk in one dimension. */}
+          of students given that treatment DURING THE CURRENT SCHOOL YEAR --
+          ToothRecord.treatment_code for the 6 per-tooth codes,
+          PreventiveCareRecord's booleans for the 4 whole-mouth ones (see
+          /stats/treatment-categories). Never the free-text TREATMENT.
+          treatment_done field, which can't be reliably bucketed into a code.
+          A count is PER STUDENT (headcount), not per tooth record -- a pupil
+          with 4 sealants charted still counts once, same as one.
+          NOT CLICKABLE (user, 2026-09-27 correction) -- these are read-only
+          totals, not a filter into the list below. */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {treatmentCodes.map((t) => {
           const meta = CATEGORY_META[t.code];
           const Icon = meta.icon;
           const count = categoriesLoading ? null : (studentIdsByCode.get(t.code)?.size ?? 0);
-          const active = selectedCode === t.code;
           return (
             <div
               key={t.code}
-              {...activatable(() => setSelectedCode(active ? null : t.code))}
               title={t.local ? treatmentLabel(t) : undefined}
-              className={`flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-[0_4px_20px_rgba(0,0,0,0.06)] cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_10px_30px_rgba(15,23,42,0.08)] focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2 ${
-                active ? 'border-primary/40 shadow-[0_10px_30px_rgba(15,23,42,0.08)]' : 'border-border'
-              }`}
+              className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
             >
               <span style={{ backgroundColor: meta.bg, color: meta.fg }} className="w-7 h-7 flex-shrink-0 rounded-lg grid place-items-center">
                 <Icon className="w-3 h-3" />
               </span>
-              <div className="min-w-0">
-                <div className="text-[11px] font-medium text-foreground truncate">{meta.label}</div>
-                <div className="text-xl leading-none font-extrabold text-foreground mt-1.5">{count === null ? '—' : count}</div>
-                <div className="text-[10px] text-muted-foreground mt-1">{count === 1 ? 'student' : 'students'}</div>
+              <div className="min-w-0 font-thin">
+                <div className="text-[11px] text-foreground truncate">{meta.label}</div>
+                <div className="text-xl leading-none text-foreground mt-1.5">{count === null ? '—' : count}</div>
+                <div className="text-[10px] text-muted-foreground mt-1">{count === 1 ? 'student' : 'students'} this school year</div>
               </div>
             </div>
           );
         })}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="min-w-0 flex items-center gap-3">
-            <span className="w-10 h-10 rounded-xl bg-gray-100 grid place-items-center flex-shrink-0">
-              <Clipboard className="w-4.5 h-4.5 text-muted-foreground" />
-            </span>
-            <div className="min-w-0">
-              <h2 className="text-lg font-bold text-foreground">{activeMeta ? activeMeta.label : 'Full List'}</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {activeMeta
-                  ? `${filtered.length} student${filtered.length !== 1 ? 's' : ''} with ${activeMeta.label} on record.`
-                  : `${filtered.length} student${filtered.length !== 1 ? 's' : ''} at this school.`}
-              </p>
+      {/* Container restyled to match the Charting Queue card (user,
+          2026-09-27) -- icon badge, eyebrow with a count pill, title,
+          description, search up top, one bordered card holding the whole
+          list instead of a separate filter box above a separate table box. */}
+      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-clip">
+        <div className="p-5 sm:p-6 border-b border-border bg-card">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0 flex items-center gap-3">
+              <span className="w-10 h-10 rounded-xl bg-gray-100 grid place-items-center flex-shrink-0">
+                <Clipboard className="w-4.5 h-4.5 text-muted-foreground" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Students</div>
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap bg-primary-surface text-primary">
+                    {filtered.length} {filtered.length === 1 ? 'STUDENT' : 'STUDENTS'}
+                  </span>
+                </div>
+                <h2 className="text-lg font-bold text-foreground mt-0.5">Full List</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {selectedSchool ? `Every student at ${selectedSchool}, with their latest recommended treatment.` : 'Every student, with their latest recommended treatment.'}
+                </p>
+              </div>
             </div>
+            <ListSearchInput value={searchTerm} onChange={setSearchTerm} />
           </div>
-          {selectedCode && (
-            <button onClick={() => setSelectedCode(null)} className="flex items-center gap-1 px-3 py-2 text-sm text-primary border border-primary/20 rounded-lg hover:bg-primary-surface">
-              <X className="w-3 h-3" /> Clear category
-            </button>
-          )}
+          <div className="flex flex-wrap gap-2 mt-4">
+            <FS value={gradeFilter} onChange={g => { setGradeFilter(g); setSectionFilter('all'); }} label="All Grades" opts={GRADES.map(g => ({ v: g, l: g }))} />
+            <FS value={sectionFilter} onChange={setSectionFilter} label="All Sections" opts={[...new Set((gradeFilter !== 'all' ? allPatients.filter((r:any) => r.grade === gradeFilter) : allPatients).map((r:any) => r.section))].sort().map((s:any) => ({ v: s, l: s }))} />
+            <FS value={genderFilter} onChange={setGenderFilter} label="All Genders" opts={[{ v:'Male', l:'Male' }, { v:'Female', l:'Female' }]} />
+            <FS value={ageGroupFilter} onChange={setAgeGroupFilter} label="All Age Groups"
+              opts={[{ v:'4 & below', l:'4 & below' }, { v:'5-9', l:'5-9' }, { v:'10-14', l:'10-14' }, { v:'15-19', l:'15-19' }, { v:'20 & above', l:'20 & above' }]} />
+            {hasActiveFilters && (
+              <button onClick={clearFilters} className="flex items-center gap-1 px-3 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50">
+                <X className="w-3 h-3" /> Clear All
+              </button>
+            )}
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <ListSearchInput value={searchTerm} onChange={setSearchTerm} />
-          <FS value={gradeFilter} onChange={g => { setGradeFilter(g); setSectionFilter('all'); }} label="All Grades" opts={GRADES.map(g => ({ v: g, l: g }))} />
-          <FS value={sectionFilter} onChange={setSectionFilter} label="All Sections" opts={[...new Set((gradeFilter !== 'all' ? allPatients.filter((r:any) => r.grade === gradeFilter) : allPatients).map((r:any) => r.section))].sort().map((s:any) => ({ v: s, l: s }))} />
-          <FS value={genderFilter} onChange={setGenderFilter} label="All Genders" opts={[{ v:'Male', l:'Male' }, { v:'Female', l:'Female' }]} />
-          <FS value={ageGroupFilter} onChange={setAgeGroupFilter} label="All Age Groups"
-            opts={[{ v:'4 & below', l:'4 & below' }, { v:'5-9', l:'5-9' }, { v:'10-14', l:'10-14' }, { v:'15-19', l:'15-19' }, { v:'20 & above', l:'20 & above' }]} />
-          {hasActiveFilters && (
-            <button onClick={clearFilters} className="flex items-center gap-1 px-3 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50">
-              <X className="w-3 h-3" /> Clear All
-            </button>
-          )}
-        </div>
-      </div>
-      <div className={studentListTableStyles.wrapper}>
-        <div className={studentListTableStyles.scroller}>
-          <table className={studentListTableStyles.table}>
-            <thead className={studentListTableStyles.head}>
-              <tr>
-                <th className={studentListTableStyles.headerCell}>Student</th>
-                <th className={studentListTableStyles.headerCell}>Grade</th>
-                <th className={studentListTableStyles.headerCell}>Section</th>
-                <th className={studentListTableStyles.headerCell}>Gender</th>
-                <th className={studentListTableStyles.headerCell}>Age</th>
+
+        <div className="overflow-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">#</th>
+                <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Student</th>
+                <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Grade</th>
+                <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Section</th>
+                <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Gender</th>
+                <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Age</th>
+                <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Recommended Treatment</th>
               </tr>
             </thead>
-            <tbody className={studentListTableStyles.body}>
+            <tbody className="divide-y divide-border">
               {filtered.length === 0 ? (
-                <tr><td colSpan={5} className={studentListTableStyles.emptyCell}>{selectedCode && !hasActiveFilters ? `No students with ${activeMeta?.label} on record at this school yet.` : 'No students match the selected filters.'}</td></tr>
-              ) : pager.paged.map(t => {
+                <tr>
+                  <td colSpan={7} className="px-4 pt-20 pb-10 text-center text-sm text-muted-foreground">No students match the selected filters.</td>
+                </tr>
+              ) : pager.paged.map((t, i) => {
                 const age = calculateAge(t.birthdate);
+                const gc = getGradeColor(t.grade);
                 return (
-                  <tr key={t.id} {...activatable(() => navigate(`/dental-chart/${t.id}?tab=chart&context=treatment`))} className={studentListTableStyles.row}>
-                    <td className={studentListTableStyles.primaryCell}>{t.name}</td>
-                    <GradeTableCell grade={t.grade} />
-                    <td className={studentListTableStyles.secondaryCell}>{t.section}</td>
-                    <td className={studentListTableStyles.secondaryCell}>{t.gender}</td>
-                    <td className={studentListTableStyles.secondaryCell}>{age}</td>
+                  <tr key={t.id} {...activatable(() => navigate(`/dental-chart/${t.id}?tab=chart&context=treatment`))} className="cursor-pointer hover:bg-canvas">
+                    <td className="px-4 py-2.5 text-muted-foreground">{pager.from + i}</td>
+                    <td className="px-4 py-2.5 font-medium text-foreground">
+                      <div className="flex items-center gap-3">
+                        <span style={{ backgroundColor: gc.light, color: gc.solid }} className="w-8 h-8 shrink-0 rounded-full grid place-items-center text-xs font-bold">
+                          {initials(t.name)}
+                        </span>
+                        <span className="truncate">{t.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5"><GradePill grade={t.grade} /></td>
+                    <td className="px-4 py-2.5 text-muted-foreground">{t.section}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground">{t.gender}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground">{age}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground max-w-xs truncate" title={t.recommendation || undefined}>
+                      {t.recommendation || <span className="text-muted-foreground/50">Not yet assessed</span>}
+                    </td>
                   </tr>
                 );
               })}
@@ -230,16 +244,13 @@ export const TreatmentRecords = () => {
           </table>
         </div>
         {filtered.length > 0 && (
-          <div className={studentListTableStyles.footer}>
+          <div className="px-4 py-3 border-t border-border">
             <Pagination
               {...pager}
               onPage={pager.setPage}
               onPageSize={pager.changePageSize}
               noun="students"
-              detail={[
-                filtered.length !== sourcePatients.length ? `(filtered from ${sourcePatients.length})` : '',
-                selectedSchool ? `at ${selectedSchool}` : '',
-              ].filter(Boolean).join(' ')}
+              detail={selectedSchool ? `at ${selectedSchool}` : ''}
             />
           </div>
         )}

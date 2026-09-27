@@ -24,6 +24,9 @@ export interface StudentRow {
   lastVisit: string | null;
   oralStatus: string;
   riskLevel: 'High' | 'Medium' | 'Low' | null;
+  /** The dentist-validated recommendation text from the same RiskStratification
+   *  record `riskLevel` came from. Empty string when unassessed. */
+  recommendation: string;
   /** From the student's LATEST STUDENT_IPTR (consent is per school year).
    *  null means no IPTR exists yet — a different fact from "pending". */
   consentStatus: 'pending' | 'complete' | null;
@@ -110,6 +113,7 @@ export function useStudents() {
         lastVisit: null,
         oralStatus: 'Not Yet Screened',
         riskLevel: null,
+        recommendation: '',
         consentStatus: 'pending',
         pending: true,
       };
