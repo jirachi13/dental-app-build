@@ -821,14 +821,12 @@ export const DentalChartNav = () => {
                 const age = calculateAge(p.birthdate);
                 const gc = getGradeColor(p.grade);
                 const open = () => navigate(`/dental-chart/${p.id}?tab=history&context=dental-queue`);
-                // Row click opens the chart directly (user, 2026-09-28) --
-                // was preview-only (setSelectedStudentId), requiring the
-                // Actions button; that selection still drives the Up Next
-                // panel's "Selected" state, so clicking a row still spotlights
-                // it there for the instant before navigation completes.
-                // Suppressed during bulk-select mode, where the row's job is
-                // picking dequeue candidates, not navigating away from them.
-                const select = () => { setSelectedStudentId(p.id); if (!bulkSelectMode) open(); };
+                // Row click previews the student in the left panel (user,
+                // 2026-09-28 -- reverted back from opening the chart
+                // directly: "i forgot that when this is clicked, the
+                // container from the left reflects the information"). The
+                // Actions button is the only way this row navigates.
+                const select = () => setSelectedStudentId(p.id);
                 return (
                   <tr key={p.id} {...activatable(select)} className={`cursor-pointer ${spotlightStudent?.id === p.id ? 'bg-primary-surface' : 'hover:bg-canvas'}`}>
                     <td className="px-4 py-2.5 sm:pl-6" onClick={(e) => e.stopPropagation()}>
