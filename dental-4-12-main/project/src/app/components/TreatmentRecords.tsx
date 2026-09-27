@@ -139,7 +139,8 @@ export const TreatmentRecords = () => {
           the card itself) down ~30% per feedback (2026-09-27): w-8 h-8
           rounded-xl icon badge, mb-4 to the text stack, 22px extrabold
           count, p-4 card padding -- flat card (border only, no shadow).
-          Label bumped +3px to 14px semibold and the unit line shortened to
+          Label bumped +3px to 14px then back down 2px to 12px semibold, and
+          the unit line shortened to
           just "student(s)" in 9px thin, dropping "this school year" (still
           true -- the count itself is year-scoped, see above -- just no
           longer spelled out on the card). Still one font family throughout
@@ -159,7 +160,7 @@ export const TreatmentRecords = () => {
                 <Icon className="w-4 h-4" />
               </span>
               <div className="min-w-0">
-                <div className="text-[14px] font-semibold text-foreground truncate">{meta.label}</div>
+                <div className="text-[12px] font-semibold text-foreground truncate">{meta.label}</div>
                 <div className="text-[22px] leading-none font-extrabold text-foreground mt-1">{count === null ? '—' : count}</div>
                 <div className="text-[9px] font-thin text-muted-foreground mt-0.5">{count === 1 ? 'student' : 'students'}</div>
               </div>
