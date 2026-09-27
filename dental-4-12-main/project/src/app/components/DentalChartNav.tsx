@@ -138,16 +138,18 @@ export const DentalChartNav = () => {
     persistQueuedStudentIds(next);
     setQueuedStudentIds(next);
     if (selectedStudentId && toRemove.has(selectedStudentId)) setSelectedStudentId(null);
-    clearBulkSelection();
+    exitBulkSelectMode();
     setPendingDequeue(null);
   };
 
-  // Bulk multi-select (user, 2026-09-26 -- Option K, "click a Grade/Section
-  // badge to select the whole group"): a plain checkbox set, PLUS which
-  // grade/section badges are currently "active" as selection criteria --
-  // tracked separately so the criteria bar can show removable pills and the
-  // matching badges can render as picked, distinct from a one-off manual
-  // checkbox click.
+  // Bulk multi-select (user, 2026-09-27 -- entered deliberately, not always
+  // on): checkboxes and clickable Grade/Section badges are HIDDEN by
+  // default. Picking "Dequeue" from the "⋮" menu after Filter is what turns
+  // `bulkSelectMode` on and reveals them -- the user's own correction: pick
+  // dequeue mode FIRST, then the checkboxes/badges appear to build a
+  // selection, not the other way around. The same menu, once in the mode,
+  // offers "Dequeue N selected" (opens the confirm dialog) and "Cancel".
+  const [bulkSelectMode, setBulkSelectMode] = useState(false);
   const [selectedForDequeue, setSelectedForDequeue] = useState<Set<string>>(new Set());
   const [activeGradeCriteria, setActiveGradeCriteria] = useState<Set<string>>(new Set());
   const [activeSectionCriteria, setActiveSectionCriteria] = useState<Set<string>>(new Set());
@@ -162,6 +164,10 @@ export const DentalChartNav = () => {
     setSelectedForDequeue(new Set());
     setActiveGradeCriteria(new Set());
     setActiveSectionCriteria(new Set());
+  };
+  const exitBulkSelectMode = () => {
+    clearBulkSelection();
+    setBulkSelectMode(false);
   };
   // Clicking a Grade/Section badge on a queued row toggles it as a selection
   // criterion: turning one on unions its matching rows into the selection;
@@ -603,11 +609,14 @@ export const DentalChartNav = () => {
                   </div>
                 )}
               </div>
-              {/* Bulk-actions "⋮" menu (user, 2026-09-26): the Dequeue action
-                  lives behind this menu, not as a bare button in the
-                  selection bar below, so a stray click near the row of
-                  count/pills can't fire it by accident. Disabled entirely
-                  until something is actually selected. */}
+              {/* Bulk-actions "⋮" menu (user, 2026-09-27 -- reordered): this
+                  is the ENTRY POINT, not a confirm-only gate. Picking
+                  "Dequeue" here is what turns bulkSelectMode on and reveals
+                  the table's checkboxes + clickable Grade/Section badges --
+                  before that, they're plain, inert cells. Once in the mode,
+                  the same menu switches to "Dequeue N selected" / "Cancel".
+                  Thinner than a standard icon-square button (user,
+                  2026-09-27) -- narrower width, same height as Filter. */}
               <div ref={bulkMenuRef} className="relative shrink-0">
                 <button
                   type="button"
@@ -615,26 +624,45 @@ export const DentalChartNav = () => {
                   aria-expanded={bulkMenuOpen}
                   aria-label="Bulk actions"
                   title="Bulk actions"
-                  disabled={selectedForDequeue.size === 0}
                   onClick={() => setBulkMenuOpen((o) => !o)}
-                  className={`flex items-center justify-center w-9 h-9 rounded-lg border border-border bg-card ${
-                    selectedForDequeue.size === 0 ? 'text-muted-foreground/40 cursor-not-allowed' : 'text-foreground hover:bg-muted'
-                  }`}
+                  className="flex items-center justify-center w-7 h-9 rounded-lg border border-border bg-card text-foreground hover:bg-muted"
                 >
                   <MoreVertical className="w-4 h-4" />
                 </button>
-                {bulkMenuOpen && selectedForDequeue.size > 0 && (
-                  <div className="absolute right-0 z-20 mt-1 min-w-[160px] rounded-lg border border-border bg-card shadow-md py-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setBulkMenuOpen(false);
-                        setPendingDequeue({ ids: Array.from(selectedForDequeue), label: `${selectedForDequeue.size} student${selectedForDequeue.size === 1 ? '' : 's'}` });
-                      }}
-                      className="w-full text-left px-3 py-2 text-sm font-medium text-destructive hover:bg-canvas"
-                    >
-                      Dequeue
-                    </button>
+                {bulkMenuOpen && (
+                  <div className="absolute right-0 z-20 mt-1 min-w-[180px] rounded-lg border border-border bg-card shadow-md py-1">
+                    {!bulkSelectMode ? (
+                      <button
+                        type="button"
+                        onClick={() => { setBulkSelectMode(true); setBulkMenuOpen(false); }}
+                        className="w-full text-left px-3 py-2 text-sm font-medium text-foreground hover:bg-canvas"
+                      >
+                        Dequeue…
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          disabled={selectedForDequeue.size === 0}
+                          onClick={() => {
+                            setBulkMenuOpen(false);
+                            setPendingDequeue({ ids: Array.from(selectedForDequeue), label: `${selectedForDequeue.size} student${selectedForDequeue.size === 1 ? '' : 's'}` });
+                          }}
+                          className={`w-full text-left px-3 py-2 text-sm font-medium ${
+                            selectedForDequeue.size === 0 ? 'text-muted-foreground/40 cursor-not-allowed' : 'text-destructive hover:bg-canvas'
+                          }`}
+                        >
+                          Dequeue {selectedForDequeue.size > 0 ? `${selectedForDequeue.size} selected` : ''}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { exitBulkSelectMode(); setBulkMenuOpen(false); }}
+                          className="w-full text-left px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-canvas"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -642,17 +670,20 @@ export const DentalChartNav = () => {
           </div>
         </div>
 
-        {/* Bulk dequeue (user, 2026-09-26 -- Option K): no permanent controls
-            here at all. Checking a row, or clicking a Grade/Section badge in
-            the table below, populates the selection; this bar only appears
-            once it's non-empty, showing why (removable criteria pills) as
-            well as what (the count) and Cancel. The actual Dequeue action is
-            NOT a button in this bar (user, 2026-09-26) -- it lives behind
-            the "⋮" menu after Filter above, so a stray click in this row
-            can't fire it by accident. */}
-        {selectedForDequeue.size > 0 && (
+        {/* Bulk dequeue (user, 2026-09-27 -- reordered): this bar only
+            appears once "Dequeue…" is picked from the "⋮" menu above, which
+            is what turns bulkSelectMode on and reveals the table's
+            checkboxes + clickable Grade/Section badges below. Checking a
+            row, or clicking a badge, populates the selection and shows why
+            (removable criteria pills). The actual removal is still NOT a
+            button here -- it's the "Dequeue N selected" item back in the
+            same "⋮" menu, so finishing the bulk action is as deliberate as
+            starting it. */}
+        {bulkSelectMode && (
           <div className="px-5 sm:px-6 py-2.5 bg-foreground flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-xs font-bold text-white">{selectedForDequeue.size} selected</span>
+            <span className="text-xs font-bold text-white">
+              {selectedForDequeue.size > 0 ? `${selectedForDequeue.size} selected` : 'Check rows or click a Grade/Section badge to select'}
+            </span>
             {Array.from(activeGradeCriteria).map((g) => (
               <button
                 key={`g-${g}`}
@@ -672,7 +703,7 @@ export const DentalChartNav = () => {
               </button>
             ))}
             <div className="flex-1" />
-            <button onClick={clearBulkSelection} className="text-xs font-medium text-white/60 hover:text-white">
+            <button onClick={exitBulkSelectMode} className="text-xs font-medium text-white/60 hover:text-white">
               Cancel
             </button>
           </div>
@@ -686,11 +717,12 @@ export const DentalChartNav = () => {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
-                {/* Bulk-dequeue checkboxes (user, 2026-09-26): only queued
-                    rows get one, since there's nothing to select on an
-                    un-queued Full List row. */}
+                {/* Bulk-dequeue checkboxes (user, 2026-09-27): hidden until
+                    bulkSelectMode is on (see the "⋮" menu above) -- only
+                    queued rows get one even then, since there's nothing to
+                    select on an un-queued Full List row. */}
                 <th className="sticky top-0 z-10 px-4 py-3 sm:pl-6 bg-gray-100 w-8">
-                  {queuedInView.length > 0 && (
+                  {bulkSelectMode && queuedInView.length > 0 && (
                     <input
                       type="checkbox"
                       aria-label="Select all queued students in view"
@@ -735,7 +767,7 @@ export const DentalChartNav = () => {
                 return (
                   <tr key={p.id} {...activatable(select)} className={`cursor-pointer ${spotlightStudent?.id === p.id ? 'bg-primary-surface' : 'hover:bg-canvas'}`}>
                     <td className="px-4 py-2.5 sm:pl-6" onClick={(e) => e.stopPropagation()}>
-                      {queuePosition >= 0 && (
+                      {bulkSelectMode && queuePosition >= 0 && (
                         <input
                           type="checkbox"
                           aria-label={`Select ${p.name} for bulk dequeue`}
@@ -755,7 +787,7 @@ export const DentalChartNav = () => {
                       </div>
                     </td>
                     <td className="px-4 py-2.5">
-                      {queuePosition >= 0 ? (
+                      {bulkSelectMode && queuePosition >= 0 ? (
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleGradeCriterion(p.grade); }}
                           title={activeGradeCriteria.has(p.grade) ? `Deselect all of ${p.grade}` : `Select all of ${p.grade}`}
@@ -768,7 +800,7 @@ export const DentalChartNav = () => {
                       )}
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground">
-                      {queuePosition >= 0 ? (
+                      {bulkSelectMode && queuePosition >= 0 ? (
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleSectionCriterion(p.section); }}
                           title={activeSectionCriteria.has(p.section) ? `Deselect ${p.section} section` : `Select all of ${p.section} section`}
