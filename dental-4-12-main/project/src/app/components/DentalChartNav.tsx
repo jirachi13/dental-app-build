@@ -513,11 +513,12 @@ export const DentalChartNav = () => {
             <>
               {/* Blue fill, matching the populated avatar above (user,
                   2026-09-25) -- was a plain gray circle. */}
-              <span style={{ backgroundColor: '#E8ECF6', color: '#273A78' }} className="w-12 h-12 rounded-full grid place-items-center">
-                <Users className="w-5 h-5" />
+              <span style={{ backgroundColor: '#E8ECF6', color: '#273A78' }} className="w-10 h-10 rounded-full grid place-items-center">
+                <Users className="w-4 h-4" />
               </span>
-              <div className="font-bold text-foreground">No Students Queued</div>
-              <div className="text-xs text-muted-foreground">Use "Queue for Charting" on the Students page.</div>
+              <div className="text-sm font-bold text-foreground">No Students Queued</div>
+              {/* Shortened (user, 2026-09-27) -- was 'Use "Queue for Charting" on the Students page.' */}
+              <div className="text-xs text-muted-foreground">Queue on the Students page.</div>
             </>
           )}
         </div>
@@ -757,14 +758,19 @@ export const DentalChartNav = () => {
                   {/* Same empty-state pattern as Appointments' own EmptyState
                       (user, 2026-09-27): icon badge, bold title, muted
                       subtitle -- was a single line of plain muted text. */}
-                  <td colSpan={9} className="px-4 py-16 text-center">
-                    <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
-                      <Users className="w-6 h-6 text-muted-foreground/60" />
+                  <td colSpan={9} className="px-4 py-10 text-center">
+                    <div className="w-10 h-10 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                      <Users className="w-4 h-4 text-muted-foreground/60" />
                     </div>
-                    <p className="text-base font-bold text-foreground">No patients found</p>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm font-bold text-foreground">No patients found</p>
+                    {/* Shortened, wraps to two short lines instead of one
+                        long one (user, 2026-09-27) -- was 'There are
+                        currently no patients in this charting queue. Use
+                        "Queue for Charting" on the Students page, or switch
+                        to Full List.' */}
+                    <p className="text-xs text-muted-foreground mt-1">
                       {viewMode === 'queued' && queuedStudentIds.length === 0
-                        ? 'There are currently no patients in this charting queue. Use "Queue for Charting" on the Students page, or switch to Full List.'
+                        ? 'There are currently no patients in this charting queue. Queue on the Students page.'
                         : 'No students match your search.'}
                     </p>
                   </td>
