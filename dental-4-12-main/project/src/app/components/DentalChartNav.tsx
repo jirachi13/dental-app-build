@@ -934,7 +934,7 @@ export const DentalChartNav = () => {
           reusable variant. */}
       {showTreatmentConfirm && (
         <Modal onClose={() => setShowTreatmentConfirm(false)} maxWidth="max-w-sm">
-          <div className="-m-px rounded-xl bg-[#1B2A63] p-6 text-center">
+          <div className="rounded-xl bg-[#1B2A63] p-6 text-center">
             <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
               <ClipboardList className="h-6 w-6 text-white" />
             </span>
