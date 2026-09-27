@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { Clipboard, Search, Droplet, ShieldCheck, Sparkles, Wrench, Timer, RotateCcw, Scissors, Syringe, MessageCircle, Eye, SlidersHorizontal, ChevronDown, ChevronUp, MoreVertical, type LucideIcon } from 'lucide-react';
+import { Clipboard, Search, Droplet, ShieldCheck, Sparkles, Wrench, Timer, RotateCcw, Scissors, Syringe, MessageCircle, Eye, SlidersHorizontal, ChevronDown, ChevronUp, MoreVertical, Trash2, type LucideIcon } from 'lucide-react';
 import { GradePill } from './GradePill';
 import { ListSearchInput } from './ListSearchInput';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -109,7 +109,12 @@ export const TreatmentRecords = () => {
   // handleSave, which adds a pupil here the moment their saved chart
   // carries a tooth condition/treatment or an oral health condition.
   const [treatmentQueueIds, setTreatmentQueueIdsState] = useState<string[]>(() => getTreatmentQueueStudentIds());
-  const [viewTab, setViewTab] = useState<'queue' | 'done'>('queue');
+  // "Full List" is a TESTING tab (user, 2026-09-28, "add the full list of
+  // students filter for testing") -- every student at the school regardless
+  // of queue/done membership, so the real Queue/Done data can be checked
+  // against the whole roll rather than only what's already been sorted
+  // into one bucket or the other.
+  const [viewTab, setViewTab] = useState<'queue' | 'done' | 'full'>('queue');
 
   // Dequeues AUTOMATICALLY once real treatment data shows up (user,
   // 2026-09-28: "remove mark as done, it should be automatic") -- a queued
@@ -128,9 +133,21 @@ export const TreatmentRecords = () => {
   const sourcePatients = useMemo(
     () => (viewTab === 'queue'
       ? allPatients.filter((p) => treatmentQueueIds.includes(p.id))
-      : allPatients.filter((p) => doneIds.has(p.id))),
+      : viewTab === 'done'
+        ? allPatients.filter((p) => doneIds.has(p.id))
+        : allPatients),
     [viewTab, allPatients, treatmentQueueIds, doneIds],
   );
+
+  // Per-row manual removal (user, 2026-09-28, "also the delete queue") --
+  // alongside automatic done-detection and the bulk "Clear queue" action,
+  // for pulling one specific pupil out of the queue (e.g. queued in error)
+  // without waiting on real treatment data or clearing everyone.
+  const deleteFromQueue = (studentId: string) => {
+    const next = treatmentQueueIds.filter((id) => id !== studentId);
+    setTreatmentQueueStudentIds(next);
+    setTreatmentQueueIdsState(next);
+  };
 
   const filtered = useMemo(() => sourcePatients.filter(t => {
     if (pipelineFilter !== 'all' && t.pipelineStatus !== pipelineFilter) return false;
@@ -352,20 +369,26 @@ export const TreatmentRecords = () => {
                 <Clipboard className="w-4.5 h-4.5 text-muted-foreground" />
               </span>
               <div className="min-w-0">
-                {/* Swaps to "Done Treatment" on the Done tab (user,
-                    2026-09-28) rather than keeping "Treatment Queue" as the
-                    title while showing already-treated pupils. */}
+                {/* Swaps title/description per tab (user, 2026-09-28)
+                    rather than keeping "Treatment Queue" as the title while
+                    showing already-treated pupils or the whole roll. */}
                 <div className="flex items-center gap-2">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{viewTab === 'queue' ? 'Queue' : 'Done'}</div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    {viewTab === 'queue' ? 'Queue' : viewTab === 'done' ? 'Done' : 'Full List'}
+                  </div>
                   <span style={{ backgroundColor: kickerColor.light, color: kickerColor.solid }} className="text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap">
                     {filtered.length} {filtered.length === 1 ? 'STUDENT' : 'STUDENTS'}
                   </span>
                 </div>
-                <h2 className="text-lg font-bold text-foreground mt-0.5">{viewTab === 'queue' ? 'Treatment Queue' : 'Done Treatment'}</h2>
+                <h2 className="text-lg font-bold text-foreground mt-0.5">
+                  {viewTab === 'queue' ? 'Treatment Queue' : viewTab === 'done' ? 'Done Treatment' : 'Full List'}
+                </h2>
                 <p className="text-sm text-muted-foreground mt-0.5">
                   {viewTab === 'queue'
                     ? 'Students in queue order, ready for treatment.'
-                    : `Students treated during SY ${yearFilter}.`}
+                    : viewTab === 'done'
+                      ? `Students treated during SY ${yearFilter}.`
+                      : `Every student at this school, for checking Queue/Done against the whole roll.`}
                 </p>
               </div>
             </div>
@@ -435,13 +458,15 @@ export const TreatmentRecords = () => {
               </div>
             </div>
           </div>
-          {/* Queue / Done toggle -- "there would be filter in this module
-              that are in queue for treatment and all students that were
-              done treatment for the current school year". Queue is auto-
-              populated by DentalChart.tsx's save AND auto-emptied once
-              real treatment data appears; Done is the same real per-year
-              aggregation the category cards above already use, so the two
-              can never disagree. */}
+          {/* Queue / Done / Full List toggle -- "there would be filter in
+              this module that are in queue for treatment and all students
+              that were done treatment for the current school year". Queue
+              is auto-populated by DentalChart.tsx's save AND auto-emptied
+              once real treatment data appears; Done is the same real
+              per-year aggregation the category cards above already use, so
+              the two can never disagree. Full List is a TESTING tab (user,
+              2026-09-28) -- every student at the school, for checking Queue
+              and Done against the whole roll rather than only each other. */}
           <div className="inline-flex rounded-lg bg-gray-100 p-1 mt-4">
             <button
               type="button"
@@ -456,6 +481,13 @@ export const TreatmentRecords = () => {
               className={`rounded-md px-3 py-1.5 text-sm font-semibold ${viewTab === 'done' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
               Done This School Year <span className="tabular-nums">({doneIds.size})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewTab('full')}
+              className={`rounded-md px-3 py-1.5 text-sm font-semibold ${viewTab === 'full' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              Full List <span className="tabular-nums">({allPatients.length})</span>
             </button>
           </div>
         </div>
@@ -480,7 +512,9 @@ export const TreatmentRecords = () => {
                   <td colSpan={8} className="px-4 pt-20 pb-10 text-center text-sm text-muted-foreground">
                     {viewTab === 'queue'
                       ? 'No students in the treatment queue. Saving a dental chart with a condition or treatment code queues a student here.'
-                      : `No students treated during SY ${yearFilter} yet.`}
+                      : viewTab === 'done'
+                        ? `No students treated during SY ${yearFilter} yet.`
+                        : 'No students match the selected filters.'}
                   </td>
                 </tr>
               ) : rowsToRender.map((t, i) => {
@@ -505,13 +539,29 @@ export const TreatmentRecords = () => {
                       {t.recommendation || <span className="text-muted-foreground/50">Not yet assessed</span>}
                     </td>
                     <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/dental-chart/${t.id}?tab=chart&context=treatment`)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
-                      >
-                        <Eye className="w-3.5 h-3.5" /> Open chart
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/dental-chart/${t.id}?tab=chart&context=treatment`)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
+                        >
+                          <Eye className="w-3.5 h-3.5" /> Open chart
+                        </button>
+                        {/* Per-row manual removal (user, 2026-09-28, "also
+                            the delete queue") -- pulls just this pupil out,
+                            unlike the "⋮" menu's all-at-once "Clear queue". */}
+                        {viewTab === 'queue' && (
+                          <button
+                            type="button"
+                            onClick={() => deleteFromQueue(t.id)}
+                            title="Remove from queue"
+                            aria-label={`Remove ${t.name} from the treatment queue`}
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
