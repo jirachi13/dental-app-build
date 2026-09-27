@@ -940,8 +940,14 @@ export const DentalChartNav = () => {
             </span>
             <h3 className="text-base font-bold text-white">Go to Treatment Records?</h3>
             <p className="mt-2 text-sm leading-relaxed text-white/70">
-              This is where students who are for treatment are located. You'll leave Dental Charts to view them there.
+              You're about to leave Dental Charts. This takes you to the Treatment Records to view students that are for treatment.
             </p>
+            {/* Real, already-computed count -- same number the stat card
+                itself shows (user, 2026-09-27). */}
+            <span className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white">
+              <ClipboardList className="h-3.5 w-3.5" />
+              {forTreatmentCount} {forTreatmentCount === 1 ? 'student' : 'students'} for treatment
+            </span>
             <div className="mt-6 flex gap-2.5">
               <button
                 onClick={() => setShowTreatmentConfirm(false)}
