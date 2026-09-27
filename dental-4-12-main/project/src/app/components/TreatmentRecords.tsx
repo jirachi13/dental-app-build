@@ -160,10 +160,49 @@ export const TreatmentRecords = () => {
         <span style={{ backgroundColor: kickerColor.light }} className="w-12 h-12 rounded-2xl grid place-items-center flex-shrink-0">
           <Clipboard style={{ color: kickerColor.solid }} className="w-6 h-6" />
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Clinical Services</div>
           <h1 className="text-2xl font-bold text-foreground mt-0.5">Treatment Records</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">View treatment records and each student's recommended treatment.</p>
+          {/* School-year picker moved onto the same row as the description
+              (user, 2026-09-28: "align the school year in the same row as
+              View treatment records...") and shrunk. Design "B" -- a single
+              pill, no icons, opens a dropdown of the other years on click.
+              TEMPORARY per the user ("for now make it a filter so i can
+              validate if its showing the right numbers") -- once the
+              current-year count is confirmed correct, the plan is to remove
+              this and always show the current year with no picker. */}
+          <div className="flex items-center justify-between gap-3 mt-0.5">
+            <p className="text-sm text-muted-foreground">View treatment records and each student's recommended treatment.</p>
+            <div ref={yearMenuRef} className="relative flex-shrink-0">
+              <button
+                type="button"
+                role="combobox"
+                aria-haspopup="listbox"
+                aria-expanded={yearMenuOpen}
+                onClick={() => setYearMenuOpen((o) => !o)}
+                className="rounded-full bg-primary-surface px-2.5 py-1 text-xs font-bold text-primary hover:bg-primary-surface/80"
+              >
+                {yearFilter}
+              </button>
+              {yearMenuOpen && (
+                <div className="absolute right-0 z-20 mt-1 min-w-[140px] rounded-lg border border-border bg-card shadow-md py-1">
+                  {schoolYearOptions.map((y) => (
+                    <button
+                      key={y}
+                      type="button"
+                      onClick={() => { setYearFilter(y); setYearMenuOpen(false); }}
+                      className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-canvas ${
+                        y === yearFilter ? 'font-semibold text-primary' : 'text-foreground'
+                      }`}
+                    >
+                      {y}
+                      {y === schoolYearLabel() && <span className="text-[10px] font-bold text-green-600">Current</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -190,43 +229,6 @@ export const TreatmentRecords = () => {
           true -- the count itself is year-scoped, see above -- just no
           longer spelled out on the card). Still one font family throughout
           (Inter Variable). */}
-      {/* School-year picker (user, 2026-09-27, design "B" -- a single pill,
-          no icons, opens a dropdown of the other years on click). TEMPORARY
-          per the user ("for now make it a filter so i can validate if its
-          showing the right numbers") -- once the current-year count is
-          confirmed correct, the plan is to remove this and always show the
-          current year with no picker. */}
-      <div className="flex justify-end">
-        <div ref={yearMenuRef} className="relative">
-          <button
-            type="button"
-            role="combobox"
-            aria-haspopup="listbox"
-            aria-expanded={yearMenuOpen}
-            onClick={() => setYearMenuOpen((o) => !o)}
-            className="rounded-full bg-primary-surface px-3 py-1.5 text-sm font-bold text-primary hover:bg-primary-surface/80"
-          >
-            {yearFilter}
-          </button>
-          {yearMenuOpen && (
-            <div className="absolute right-0 z-20 mt-1 min-w-[140px] rounded-lg border border-border bg-card shadow-md py-1">
-              {schoolYearOptions.map((y) => (
-                <button
-                  key={y}
-                  type="button"
-                  onClick={() => { setYearFilter(y); setYearMenuOpen(false); }}
-                  className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-canvas ${
-                    y === yearFilter ? 'font-semibold text-primary' : 'text-foreground'
-                  }`}
-                >
-                  {y}
-                  {y === schoolYearLabel() && <span className="text-[10px] font-bold text-green-600">Current</span>}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         {treatmentCodes.map((t) => {
           const meta = CATEGORY_META[t.code];
