@@ -134,15 +134,14 @@ export const TreatmentRecords = () => {
           with 4 sealants charted still counts once, same as one.
           NOT CLICKABLE (user, 2026-09-27 correction) -- these are read-only
           totals, not a filter into the list below.
-          Typography/spacing matched exactly to the user's RAMHIS "Department
-          Overview" reference screenshot (2026-09-27, full page this time,
-          not the cropped one): w-12 h-12 rounded-2xl icon badge, mb-6 to the
-          text stack, 16px semibold label, 32px extrabold count, 14px muted
-          unit line -- flat card (border only, no shadow). One font family
-          throughout (Inter Variable, same as the rest of the app) -- the
-          number reads as a different typeface only because of the size/
-          weight jump to 32px extrabold, exactly like the reference. */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6">
+          Typography/spacing matched to the user's RAMHIS "Department
+          Overview" reference screenshot, then scaled everything inside (and
+          the card itself) down ~30% per feedback (2026-09-27): w-8 h-8
+          rounded-xl icon badge, mb-4 to the text stack, 11px semibold label,
+          22px extrabold count, 10px muted unit line, p-4 card padding --
+          flat card (border only, no shadow). Still one font family
+          throughout (Inter Variable). */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         {treatmentCodes.map((t) => {
           const meta = CATEGORY_META[t.code];
           const Icon = meta.icon;
@@ -151,15 +150,15 @@ export const TreatmentRecords = () => {
             <div
               key={t.code}
               title={t.local ? treatmentLabel(t) : undefined}
-              className="flex flex-col rounded-2xl border border-border bg-card p-6"
+              className="flex flex-col rounded-xl border border-border bg-card p-4"
             >
-              <span style={{ backgroundColor: meta.bg, color: meta.fg }} className="w-12 h-12 flex-shrink-0 rounded-2xl grid place-items-center mb-6">
-                <Icon className="w-6 h-6" />
+              <span style={{ backgroundColor: meta.bg, color: meta.fg }} className="w-8 h-8 flex-shrink-0 rounded-xl grid place-items-center mb-4">
+                <Icon className="w-4 h-4" />
               </span>
               <div className="min-w-0">
-                <div className="text-base font-semibold text-foreground truncate">{meta.label}</div>
-                <div className="text-[32px] leading-none font-extrabold text-foreground mt-1">{count === null ? '—' : count}</div>
-                <div className="text-sm text-muted-foreground mt-0.5">{count === 1 ? 'student' : 'students'} this school year</div>
+                <div className="text-[11px] font-semibold text-foreground truncate">{meta.label}</div>
+                <div className="text-[22px] leading-none font-extrabold text-foreground mt-1">{count === null ? '—' : count}</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">{count === 1 ? 'student' : 'students'} this school year</div>
               </div>
             </div>
           );
