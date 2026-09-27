@@ -421,6 +421,60 @@ export const PatientList = () => {
     setTickedIds(new Set());
   };
 
+  // Bulk Queue (user, 2026-09-27): a SEPARATE mode from the plain
+  // Select-Students/Archive one above -- not just another action inside it.
+  // Mirrors Dental Charts' own bulk Dequeue exactly: entering it (via
+  // "Queue" in the "⋮" menu) reveals checkboxes AND makes each row's
+  // Grade/Section clickable as selection criteria, and a dark bar (count,
+  // "All", removable criteria pills, Queue, Cancel) appears below the
+  // header instead of the plain toolbar's Archive icon.
+  const [bulkQueueMode, setBulkQueueMode] = useState(false);
+  const [activeGradeCriteriaQ, setActiveGradeCriteriaQ] = useState<Set<string>>(new Set());
+  const [activeSectionCriteriaQ, setActiveSectionCriteriaQ] = useState<Set<string>>(new Set());
+  const exitBulkQueueMode = () => {
+    setBulkQueueMode(false);
+    setTickedIds(new Set());
+    setActiveGradeCriteriaQ(new Set());
+    setActiveSectionCriteriaQ(new Set());
+  };
+  // Criteria match against `filtered` (every student matching the current
+  // search/grade/section/etc. filters), not just the current page -- same
+  // reasoning as Dental Charts' `queuedInView`: selecting shouldn't reach
+  // past what the filters already narrowed to, but SHOULD reach past
+  // whatever page happens to be showing.
+  const toggleGradeCriterionQ = (grade: string) => {
+    const matching = filtered.filter(s => !s.pending && s.grade === grade).map(s => s.id);
+    const turningOn = !activeGradeCriteriaQ.has(grade);
+    setActiveGradeCriteriaQ(prev => {
+      const next = new Set(prev);
+      if (turningOn) next.add(grade); else next.delete(grade);
+      return next;
+    });
+    setTickedIds(prev => {
+      const next = new Set(prev);
+      matching.forEach(id => (turningOn ? next.add(id) : next.delete(id)));
+      return next;
+    });
+  };
+  const toggleSectionCriterionQ = (section: string) => {
+    const matching = filtered.filter(s => !s.pending && s.section === section).map(s => s.id);
+    const turningOn = !activeSectionCriteriaQ.has(section);
+    setActiveSectionCriteriaQ(prev => {
+      const next = new Set(prev);
+      if (turningOn) next.add(section); else next.delete(section);
+      return next;
+    });
+    setTickedIds(prev => {
+      const next = new Set(prev);
+      matching.forEach(id => (turningOn ? next.add(id) : next.delete(id)));
+      return next;
+    });
+  };
+  // `selectableFiltered`/`allFilteredSelected`/`toggleSelectAllFilteredQ` are
+  // defined further down, right after `filtered` itself -- a useMemo here
+  // would read `filtered` before its own declaration runs (TDZ), same bug
+  // class Dental Charts hit with `queuedInView`.
+
   const archiveTicked = async () => {
     if (!archivePassword) {
       setArchivePasswordError('Enter your password to confirm.');
@@ -466,16 +520,14 @@ export const PatientList = () => {
     });
   };
 
-  // Bulk Queue (user, 2026-09-27): the "Queue" counterpart to Dental Charts'
-  // own "Dequeue" bulk flow -- same select mode + checkboxes already built
-  // for Archive, just a second batch action once something's ticked. Not
+  // Executes the actual Bulk Queue, from bulkQueueMode's dark bar. Not
   // destructive, so no password confirmation like Archive needs.
   const bulkQueueTicked = () => {
     const ids = Array.from(tickedIds);
     const merged = Array.from(new Set([...queuedStudentIds, ...ids]));
     persistQueuedStudentIds(merged);
     setQueuedStudentIds(merged);
-    exitSelectMode();
+    exitBulkQueueMode();
     toast.success(`${ids.length} student${ids.length === 1 ? '' : 's'} queued.`);
   };
 
@@ -890,6 +942,17 @@ export const PatientList = () => {
     a.firstName.localeCompare(b.firstName)
   ), [schoolStudents, gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm]);
 
+  // Bulk Queue's "All" shortcut + select-all state -- see bulkQueueMode
+  // above. Placed here, not with the rest of that block, because it reads
+  // `filtered`, which isn't declared until this point in the render.
+  const selectableFiltered = useMemo(() => filtered.filter(s => !s.pending), [filtered]);
+  const allFilteredSelected = selectableFiltered.length > 0 && selectableFiltered.every(s => tickedIds.has(s.id));
+  const toggleSelectAllFilteredQ = () => {
+    setActiveGradeCriteriaQ(new Set());
+    setActiveSectionCriteriaQ(new Set());
+    setTickedIds(allFilteredSelected ? new Set() : new Set(selectableFiltered.map(s => s.id)));
+  };
+
   // ── Pagination (client-side, Sprint 53) ──────────────────────────────────
   // Deliberately paginates the ALREADY-LOADED rows rather than the fetch. The
   // table rendered every row, which is unusable at the ~8,000-student scale in
@@ -1152,24 +1215,14 @@ export const PatientList = () => {
             )}
             <div className="ml-auto flex items-center gap-2">
               {selectMode && tickedIds.size > 0 && (
-                <>
-                  <button
-                    onClick={bulkQueueTicked}
-                    title="Queue"
-                    aria-label={`Queue ${tickedIds.size} selected`}
-                    className="p-2 rounded-full border border-primary/20 text-primary hover:bg-primary-surface"
-                  >
-                    <ListPlus className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => { setArchivePassword(''); setArchivePasswordError(null); setConfirmArchiveTicked(true); }}
-                    title="Archive"
-                    aria-label={`Archive ${tickedIds.size} selected`}
-                    className="p-2 rounded-full border border-destructive text-destructive hover:bg-danger-surface"
-                  >
-                    <ArchiveIcon className="w-4 h-4" />
-                  </button>
-                </>
+                <button
+                  onClick={() => { setArchivePassword(''); setArchivePasswordError(null); setConfirmArchiveTicked(true); }}
+                  title="Archive"
+                  aria-label={`Archive ${tickedIds.size} selected`}
+                  className="p-2 rounded-full border border-destructive text-destructive hover:bg-danger-surface"
+                >
+                  <ArchiveIcon className="w-4 h-4" />
+                </button>
               )}
               {selectMode ? (
                 <button onClick={exitSelectMode}
@@ -1181,12 +1234,13 @@ export const PatientList = () => {
                   <button
                     ref={listMenuBtnRef}
                     onClick={toggleListMenu}
-                    className="p-2 rounded-full text-muted-foreground hover:bg-canvas hover:text-foreground"
+                    disabled={bulkQueueMode}
+                    className={`p-2 rounded-full ${bulkQueueMode ? 'text-muted-foreground/40 cursor-not-allowed' : 'text-muted-foreground hover:bg-canvas hover:text-foreground'}`}
                     title="More options"
                   >
                     <MoreVertical className="w-4 h-4" />
                   </button>
-                  {showListMenu && (
+                  {showListMenu && !bulkQueueMode && (
                     <>
                       <div className="fixed inset-0 z-10" onClick={() => setShowListMenu(false)} />
                       {/* ⚠ FIXED, not absolute. This card is `overflow-hidden`,
@@ -1196,7 +1250,9 @@ export const PatientList = () => {
                           the trigger's own rect so no ancestor can clip it. */}
                       {/* Hugs its content width (user, 2026-09-27) -- was a
                           fixed w-44 wider than any of these three labels
-                          need. Title Case, no trailing ellipsis. */}
+                          need. Title Case, no trailing ellipsis. Order:
+                          Select Students, Find Duplicates, Queue (user,
+                          2026-09-27 -- Queue moved last). */}
                       <div
                         style={listMenuAt ? { top: listMenuAt.top, right: listMenuAt.right } : undefined}
                         className="fixed z-50 bg-card border border-border rounded-xl shadow-md py-1 w-max"
@@ -1207,23 +1263,25 @@ export const PatientList = () => {
                         >
                           <ListChecks className="w-3.5 h-3.5" /> Select Students
                         </button>
-                        {/* Queue (user, 2026-09-27): same entry-point pattern
-                            as "Select Students" -- turns on the shared select
-                            mode, where the Queue icon button above now sits
-                            beside Archive once something's ticked. This is
-                            the Bulk Queue counterpart to Dental Charts' own
-                            Dequeue flow. */}
-                        <button
-                          onClick={() => { setSelectMode(true); setShowListMenu(false); }}
-                          className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-canvas flex items-center gap-2"
-                        >
-                          <ListPlus className="w-3.5 h-3.5" /> Queue
-                        </button>
                         <button
                           onClick={() => { setShowListMenu(false); setShowDuplicates(true); void loadDuplicates(); }}
                           className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-canvas flex items-center gap-2"
                         >
                           <Copy className="w-3.5 h-3.5" /> Find Duplicates
+                        </button>
+                        {/* Queue (user, 2026-09-27): the Bulk Queue
+                            counterpart to Dental Charts' own Dequeue flow --
+                            a SEPARATE mode from "Select Students" above, not
+                            another action inside it. Turns on bulkQueueMode,
+                            which reveals checkboxes AND makes each row's
+                            Grade/Section clickable, plus the dark bar below
+                            the header (see bulkQueueMode block after the
+                            table). */}
+                        <button
+                          onClick={() => { setBulkQueueMode(true); setShowListMenu(false); }}
+                          className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-canvas flex items-center gap-2"
+                        >
+                          <ListPlus className="w-3.5 h-3.5" /> Queue
                         </button>
                       </div>
                     </>
@@ -1233,6 +1291,57 @@ export const PatientList = () => {
             </div>
           </div>
         </div>
+
+        {/* Bulk Queue's dark selection bar (user, 2026-09-27): only while
+            bulkQueueMode is on. Same shape as Dental Charts' own bar --
+            count/instructions, "All", removable Grade/Section criteria
+            pills, Queue, Cancel. */}
+        {bulkQueueMode && (
+          <div className="px-5 sm:px-6 py-2.5 bg-foreground flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-xs font-normal text-white">
+              {tickedIds.size > 0 ? `${tickedIds.size} selected` : 'Check rows or click a Grade/Section badge to select'}
+            </span>
+            <button
+              onClick={toggleSelectAllFilteredQ}
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-normal ${
+                allFilteredSelected ? 'bg-white text-foreground' : 'bg-white/10 text-white hover:bg-white/20'
+              }`}
+            >
+              All
+            </button>
+            {Array.from(activeGradeCriteriaQ).map((g) => (
+              <button
+                key={`g-${g}`}
+                onClick={() => toggleGradeCriterionQ(g)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-white/10 text-white px-2.5 py-1 text-xs font-normal hover:bg-white/20"
+              >
+                {g} <X className="w-3 h-3" />
+              </button>
+            ))}
+            {Array.from(activeSectionCriteriaQ).map((s) => (
+              <button
+                key={`s-${s}`}
+                onClick={() => toggleSectionCriterionQ(s)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-white/10 text-white px-2.5 py-1 text-xs font-normal hover:bg-white/20"
+              >
+                {s} section <X className="w-3 h-3" />
+              </button>
+            ))}
+            <div className="flex-1" />
+            <button
+              disabled={tickedIds.size === 0}
+              onClick={bulkQueueTicked}
+              className={`rounded-lg px-3 py-1.5 text-xs font-normal ${
+                tickedIds.size === 0 ? 'bg-white/10 text-white/40 cursor-not-allowed' : 'bg-primary text-white hover:opacity-90'
+              }`}
+            >
+              Queue
+            </button>
+            <button onClick={exitBulkQueueMode} className="text-xs font-normal text-white/60 hover:text-white">
+              Cancel
+            </button>
+          </div>
+        )}
 
         {/* flex-1 fills whatever the card (see cardRef above) doesn't give
             to the header/footer — this box (not the page) is what scrolls,
@@ -1250,7 +1359,7 @@ export const PatientList = () => {
                       the current page: now that the table paginates, ticking
                       everything in the filtered set would tick rows the user
                       cannot see. */}
-                  {selectMode ? (
+                  {selectMode || bulkQueueMode ? (
                     <input
                       type="checkbox"
                       aria-label="Select all students on this page"
@@ -1282,7 +1391,7 @@ export const PatientList = () => {
                 return (
                   <tr key={student.id} {...activatable(() => { if (!student.pending) navigate(`/dental-chart/${student.id}?tab=history`); })} className={`hover:bg-canvas transition-colors cursor-pointer ${student.pending ? 'opacity-70' : ''}`}>
                     <td className="px-4 py-2.5 sm:pl-6 text-xs text-muted-foreground tabular-nums" onClick={(e) => e.stopPropagation()}>
-                      {selectMode ? (
+                      {selectMode || bulkQueueMode ? (
                         !student.pending && (
                           <input
                             type="checkbox"
@@ -1307,8 +1416,32 @@ export const PatientList = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-2.5 text-muted-foreground"><GradePill grade={student.grade} /></td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{student.section}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground" onClick={(e) => e.stopPropagation()}>
+                      {bulkQueueMode && !student.pending ? (
+                        <button
+                          onClick={() => toggleGradeCriterionQ(student.grade)}
+                          title={activeGradeCriteriaQ.has(student.grade) ? `Deselect all of ${student.grade}` : `Select all of ${student.grade}`}
+                          className={`rounded-full ${activeGradeCriteriaQ.has(student.grade) ? 'ring-2 ring-primary' : 'hover:ring-2 hover:ring-primary/30'}`}
+                        >
+                          <GradePill grade={student.grade} />
+                        </button>
+                      ) : (
+                        <GradePill grade={student.grade} />
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-muted-foreground" onClick={(e) => e.stopPropagation()}>
+                      {bulkQueueMode && !student.pending ? (
+                        <button
+                          onClick={() => toggleSectionCriterionQ(student.section)}
+                          title={activeSectionCriteriaQ.has(student.section) ? `Deselect ${student.section} section` : `Select all of ${student.section} section`}
+                          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${activeSectionCriteriaQ.has(student.section) ? 'bg-foreground text-white' : 'bg-gray-100 text-foreground hover:bg-gray-200'}`}
+                        >
+                          {student.section}
+                        </button>
+                      ) : (
+                        student.section
+                      )}
+                    </td>
                     <td className="px-4 py-2.5 text-muted-foreground">{student.gender}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{age ?? '—'}</td>
                     <td className="px-4 py-2.5 sm:pr-6">
