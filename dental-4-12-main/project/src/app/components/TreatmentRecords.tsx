@@ -180,7 +180,11 @@ export const TreatmentRecords = () => {
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
-  }, [studentsLoading]);
+    // hidePagination is ALSO a dep (ported from PatientList's own version of
+    // this bug fix): without it, toggling Hide never re-measures a fresh
+    // baseline, so the card kept the paginated view's already-shrunk
+    // regionHeight instead of getting a real chance to grow back.
+  }, [studentsLoading, hidePagination]);
 
   useLayoutEffect(() => {
     if (regionHeight == null) return;
@@ -188,7 +192,31 @@ export const TreatmentRecords = () => {
     if (overflow > 0) {
       setRegionHeight((h) => (h == null ? h : Math.max(h - overflow, 200)));
     }
-  }, [regionHeight]);
+    // hidePagination is ALSO a dep, not just regionHeight: toggling Hide can
+    // remeasure to the EXACT SAME regionHeight value, which React bails out
+    // as a no-op, so this effect would never get a second look at the real
+    // overflow once Hide changes what's actually rendered.
+  }, [regionHeight, hidePagination]);
+
+  // Adaptive height/corners when the pagination footer is hidden (user,
+  // 2026-09-28: "the container should be adaptive as well... rounded
+  // corners and fix in the page that only extends when hide is clicked") --
+  // same rule as Student Records' own Hide: rounded bottom corners when the
+  // card ends on its own (a short queue), square when it's actually pressed
+  // flush against the region's bottom (a long queue hitting the cap and
+  // scrolling internally) -- a curve with nothing beneath it reads as a
+  // render glitch, not a corner.
+  const [hideAtEdge, setHideAtEdge] = useState(false);
+  useLayoutEffect(() => {
+    if (!hidePagination) { setHideAtEdge(false); return; }
+    const el = rowsBoxRef.current;
+    if (!el) return;
+    const check = () => setHideAtEdge(el.scrollHeight > el.clientHeight + 1);
+    check();
+    const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(check) : null;
+    resizeObserver?.observe(el);
+    return () => resizeObserver?.disconnect();
+  }, [hidePagination, regionHeight, filtered.length]);
 
   if (studentsLoading) {
     return (
@@ -293,10 +321,15 @@ export const TreatmentRecords = () => {
       {/* Pinned Treatment Queue card -- same shape as the Charting Queue card
           (icon badge, eyebrow with a count pill, title, description, search
           + Filter + "⋮" up top), now also sticky/height-bound like it (user,
-          2026-09-28). */}
+          2026-09-28). Adaptive on top of that (user, 2026-09-28, "the
+          container should be adaptive as well... rounded corners and fix
+          in the page that only extends when hide is clicked") -- fixed
+          `height` normally, `maxHeight` once Hide renders every row so the
+          card can shrink to fit a short queue or extend to the page edge
+          for a long one, same as Student Records' own Hide. */}
       <div
-        className="sticky top-0 z-30 flex flex-col bg-card rounded-t-2xl border border-border shadow-sm overflow-clip"
-        style={{ height: regionHeight ?? undefined }}
+        className={`sticky top-0 z-30 flex flex-col bg-card border border-border shadow-sm overflow-clip ${hideAtEdge ? 'rounded-t-2xl' : 'rounded-2xl'}`}
+        style={hidePagination ? { maxHeight: regionHeight ?? undefined } : { height: regionHeight ?? undefined }}
       >
         {/* Dark green top accent bar. */}
         <div className="h-1.5 bg-[#0F9D74] flex-shrink-0" />
