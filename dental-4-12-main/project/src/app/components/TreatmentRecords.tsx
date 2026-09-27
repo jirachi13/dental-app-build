@@ -133,7 +133,10 @@ export const TreatmentRecords = () => {
           booleans for the 4 whole-mouth ones (see /stats/treatment-
           categories). Never the free-text TREATMENT.treatment_done field,
           which can't be reliably bucketed into a code. */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      {/* Sized ~30% down from the first pass (user, 2026-09-27) -- padding,
+          badge, icon and all three text sizes scaled together so the card
+          stays proportional, not just shrunk in one dimension. */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {treatmentCodes.map((t) => {
           const meta = CATEGORY_META[t.code];
           const Icon = meta.icon;
@@ -144,17 +147,17 @@ export const TreatmentRecords = () => {
               key={t.code}
               {...activatable(() => setSelectedCode(active ? null : t.code))}
               title={t.local ? treatmentLabel(t) : undefined}
-              className={`flex flex-col gap-4 rounded-2xl border bg-card p-6 shadow-[0_4px_20px_rgba(0,0,0,0.06)] cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_10px_30px_rgba(15,23,42,0.08)] focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2 ${
+              className={`flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-[0_4px_20px_rgba(0,0,0,0.06)] cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_10px_30px_rgba(15,23,42,0.08)] focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2 ${
                 active ? 'border-primary/40 shadow-[0_10px_30px_rgba(15,23,42,0.08)]' : 'border-border'
               }`}
             >
-              <span style={{ backgroundColor: meta.bg, color: meta.fg }} className="w-10 h-10 flex-shrink-0 rounded-xl grid place-items-center">
-                <Icon className="w-4 h-4" />
+              <span style={{ backgroundColor: meta.bg, color: meta.fg }} className="w-7 h-7 flex-shrink-0 rounded-lg grid place-items-center">
+                <Icon className="w-3 h-3" />
               </span>
               <div className="min-w-0">
-                <div className="text-[15px] font-medium text-foreground truncate">{meta.label}</div>
-                <div className="text-[28px] leading-none font-extrabold text-foreground mt-2">{count === null ? '—' : count}</div>
-                <div className="text-xs text-muted-foreground mt-1">{count === 1 ? 'student' : 'students'}</div>
+                <div className="text-[11px] font-medium text-foreground truncate">{meta.label}</div>
+                <div className="text-xl leading-none font-extrabold text-foreground mt-1.5">{count === null ? '—' : count}</div>
+                <div className="text-[10px] text-muted-foreground mt-1">{count === 1 ? 'student' : 'students'}</div>
               </div>
             </div>
           );
