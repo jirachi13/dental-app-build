@@ -758,7 +758,10 @@ export const DentalChartNav = () => {
                   {/* Same empty-state pattern as Appointments' own EmptyState
                       (user, 2026-09-27): icon badge, bold title, muted
                       subtitle -- was a single line of plain muted text. */}
-                  <td colSpan={9} className="px-4 py-10 text-center">
+                  {/* Extra top padding (user, 2026-09-27) -- pushes the icon
+                      further from the column header row than a plain py-10
+                      did, so it doesn't read as cramped against it. */}
+                  <td colSpan={9} className="px-4 pt-20 pb-10 text-center">
                     <div className="w-10 h-10 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
                       <Users className="w-4 h-4 text-muted-foreground/60" />
                     </div>
