@@ -16,7 +16,7 @@ export const PipelineStatusPill = ({ status }: { status: StudentRow['pipelineSta
   return (
     <span
       style={{ backgroundColor: meta.bg, color: meta.fg }}
-      className="inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold"
+      className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-normal"
     >
       {status}
     </span>
