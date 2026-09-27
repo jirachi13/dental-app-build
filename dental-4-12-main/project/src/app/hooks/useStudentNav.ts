@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
+import { cachedGet } from '../utils/apiCache';
+
+const STUDENT_NAV_CACHE_KEY = '/stats/student-nav';
 
 export interface StudentNavEntry {
   id: string;
@@ -38,7 +41,11 @@ export function useStudentNav() {
     let cancelled = false;
     (async () => {
       try {
-        const rows = await apiClient.get<StudentNavEntry[]>('/stats/student-nav');
+        // Cached across mounts within the session (user, 2026-09-27) -- same
+        // decrypt-heavy Student.find() as /stats/student-rows, and this nav
+        // remounts on every Dental Chart open/Prev/Next. useStudents.ts's
+        // `reload` invalidates this cache entry too, on any mutation.
+        const rows = await cachedGet(STUDENT_NAV_CACHE_KEY, () => apiClient.get<StudentNavEntry[]>(STUDENT_NAV_CACHE_KEY));
         if (!cancelled) setEntries(rows);
       } catch {
         // The nav is a convenience; a failure here must not blank the chart.

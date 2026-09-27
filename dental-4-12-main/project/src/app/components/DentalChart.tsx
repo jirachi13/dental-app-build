@@ -19,6 +19,7 @@ import { surnameFirst, surnameFirstWithInitial } from '../utils/studentName';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
 import { removeQueuedStudentId, getQueuedStudentIds, getEffectiveQueueOrder } from '../utils/queueStorage';
+import { invalidateCached } from '../utils/apiCache';
 import { Modal } from './Modal';
 import { useSchools } from '../hooks/useSchools';
 import { SERVICES as CONSENT_SERVICES } from './ConsentForm';
@@ -1249,6 +1250,13 @@ export const DentalChart = () => {
           section: draftYear.section.trim() === '' ? null : draftYear.section,
         });
       }
+      // This page never mounts useStudents/useStudentNav's own reload path,
+      // so a PUT here has to invalidate their shared caches directly (user,
+      // 2026-09-27) -- otherwise Student Records or the next chart's own
+      // Prev/Next nav would keep showing this student's PRE-edit name/grade/
+      // section until the cache's safety-net TTL expired.
+      invalidateCached('/stats/student-rows');
+      invalidateCached('/stats/student-nav');
       await reload();
       toast.success('Student info updated.');
       setEditingInfo(false);
@@ -1453,7 +1461,15 @@ export const DentalChart = () => {
   };
 
   const showStickyYearBar = activeTab === 'history' || activeTab === 'chart';
-  const backPath = iptrContext === 'risk' ? '/ai-analytics' : iptrContext === 'treatment' ? '/treatment-records' : '/dental-charts';
+  // Was: 'default' fell through to the same '/dental-charts' as the queue
+  // context (user, 2026-09-27) -- opened from Student Records, Back must
+  // return to Student Records, not the Dental Charts queue it never came
+  // from.
+  const backPath =
+    iptrContext === 'risk' ? '/ai-analytics'
+    : iptrContext === 'treatment' ? '/treatment-records'
+    : iptrContext === 'dental-queue' ? '/dental-charts'
+    : '/patients';
 
   // ⚠ ABOVE THE EARLY RETURNS ON PURPOSE. This is a HOOK, and the
   // `if (loading)` / `if (error)` guards below return before the rest of the
