@@ -282,7 +282,7 @@ export const TreatmentRecords = () => {
                 aria-haspopup="listbox"
                 aria-expanded={yearMenuOpen}
                 onClick={() => setYearMenuOpen((o) => !o)}
-                className="rounded-full bg-primary-surface px-2.5 py-1 text-xs font-bold text-primary hover:bg-primary-surface/80"
+                className="rounded-full bg-primary-surface px-2.5 py-1 text-xs font-normal text-primary hover:bg-primary-surface/80"
               >
                 {yearFilter}
               </button>
