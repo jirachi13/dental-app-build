@@ -108,12 +108,13 @@ export const DentalChartNav = () => {
   );
 
   // ── Stat row + "Up Next" spotlight (user, 2026-09-25) ───────────────────
-  // Whoever is first in the ACTUAL queue order (queueStorage), not the
-  // table's own alphabetical sort — same distinction as the Queue # column.
-  const upNext = useMemo(
-    () => (queuedStudentIds.length ? allPatients.find((p) => p.id === queuedStudentIds[0]) ?? null : null),
-    [queuedStudentIds, allPatients],
-  );
+  // `upNext`/`spotlightStudent`/`isSpotlightUpNext` are defined further
+  // down, right after `queuedInView` -- Up Next now has to respect whatever
+  // search/viewMode/extraFilter narrowed the queue to (user, 2026-09-27:
+  // clicking Appointments Today didn't change who this panel showed), and
+  // `queuedInView` is what already does that filtering. Referencing it here
+  // would read `queuedInView` before its own declaration runs (TDZ), same
+  // bug class hit before with this exact file.
 
   // Clicking a row in the Charting Queue table previews that student in the
   // left panel instead of always showing whoever is first in queue (user,
@@ -121,11 +122,6 @@ export const DentalChartNav = () => {
   // also covers a selection that's since left the filtered list (e.g. a
   // search that no longer matches them).
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const spotlightStudent = useMemo(
-    () => (selectedStudentId ? allPatients.find((p) => p.id === selectedStudentId) ?? upNext : upNext),
-    [selectedStudentId, allPatients, upNext],
-  );
-  const isSpotlightUpNext = !!spotlightStudent && spotlightStudent.id === upNext?.id;
 
   // Dequeue, with confirmation (user, 2026-09-26) -- one shared pending-
   // removal state for both the single Queue # badge click AND the bulk
@@ -283,6 +279,21 @@ export const DentalChartNav = () => {
   // Only students BOTH queued and currently visible in `filtered` count --
   // selecting shouldn't reach past the search box into rows you can't see.
   const queuedInView = useMemo(() => filtered.filter((p) => queuedStudentIds.includes(p.id)), [filtered, queuedStudentIds]);
+
+  // "Up Next" = whoever is first in queue order AMONG the currently
+  // filtered view (user, 2026-09-27) -- was always the global first-in-
+  // queue regardless of search/viewMode/extraFilter, so clicking
+  // Appointments Today (or RPC, or typing a search) filtered the table but
+  // left this panel showing someone who might not even be in that filtered
+  // set any more. `queuedInView` is already `filtered` narrowed to queued
+  // students, in queue-position order, so its first entry IS that answer.
+  const upNext = queuedInView.length ? queuedInView[0] : null;
+  const spotlightStudent = useMemo(
+    () => (selectedStudentId ? allPatients.find((p) => p.id === selectedStudentId) ?? upNext : upNext),
+    [selectedStudentId, allPatients, upNext],
+  );
+  const isSpotlightUpNext = !!spotlightStudent && spotlightStudent.id === upNext?.id;
+
   const allQueuedInViewSelected = queuedInView.length > 0 && queuedInView.every((p) => selectedForDequeue.has(p.id));
   // "All" quick-select (user, 2026-09-27): grabs everyone queued and in
   // view in one click. Clears any grade/section criteria pills first --
