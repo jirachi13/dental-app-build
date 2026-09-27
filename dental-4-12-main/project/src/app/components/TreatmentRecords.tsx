@@ -5,6 +5,7 @@ import { GradePill } from './GradePill';
 import { GradeTableCell } from './GradeTableCell';
 import { ListSearchInput } from './ListSearchInput';
 import { getGradeColor } from '../utils/gradeColors';
+import { getSchoolColor } from '../utils/schoolColors';
 import { useStudents } from '../hooks/useStudents';
 import { useTreatmentCategories } from '../hooks/useTreatmentCategories';
 import { useAuth } from '../context/AuthContext';
@@ -65,6 +66,7 @@ export const TreatmentRecords = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const { selectedSchool } = useAuth();
+  const kickerColor = getSchoolColor(selectedSchool || '');
   const { students: allStudents, loading: studentsLoading } = useStudents();
   // School-scoped like every other list page
   const allPatients = useMemo(
@@ -114,13 +116,18 @@ export const TreatmentRecords = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <span className="w-10 h-10 rounded-xl bg-gray-100 grid place-items-center flex-shrink-0">
-          <Clipboard className="w-4.5 h-4.5 text-muted-foreground" />
+      {/* Same header pattern as Dental Charts' own page title (user,
+          2026-09-27, "i want the same but for Treatment submodule") -- icon
+          badge sized/colored the same way (getSchoolColor, not a flat
+          gray), same eyebrow/title/description type scale. */}
+      <div className="flex items-center gap-4">
+        <span style={{ backgroundColor: kickerColor.light }} className="w-12 h-12 rounded-2xl grid place-items-center flex-shrink-0">
+          <Clipboard style={{ color: kickerColor.solid }} className="w-6 h-6" />
         </span>
         <div className="min-w-0">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Clinical Care</div>
-          <h1 className="text-lg font-bold text-foreground">Treatment Records</h1>
+          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Clinical Services</div>
+          <h1 className="text-2xl font-bold text-foreground mt-0.5">Treatment Records</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">View treatment records and each student's recommended treatment.</p>
         </div>
       </div>
 
