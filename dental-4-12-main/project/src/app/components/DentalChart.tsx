@@ -1132,6 +1132,13 @@ export const DentalChart = () => {
       }
 
       await Promise.all([...toothWrites, medWrite, dietWrite, oralWrite, ...extraWrites]);
+      // Student Records' Status column and the Charting Queue's own status
+      // both read /stats/student-rows -- without this, either would keep
+      // showing this pupil's PRE-save pipeline stage until something else
+      // happened to invalidate the cache (user, 2026-09-28: "status should
+      // be real time... without refreshing the page").
+      invalidateCached('/stats/student-rows');
+      invalidateCached('/stats/student-nav');
       await reload();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);

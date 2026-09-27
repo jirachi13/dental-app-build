@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { Eye, Users, Calendar, Clipboard, ClipboardList, Shield, Stethoscope, SlidersHorizontal, PanelLeftClose, PanelLeftOpen, X, ChevronDown, MoreVertical } from 'lucide-react';
 import { GradePill } from './GradePill';
+import { PipelineStatusPill } from './PipelineStatusPill';
 import { getSchoolColor } from '../utils/schoolColors';
 import { getGradeColor } from '../utils/gradeColors';
 import { ListSearchInput } from './ListSearchInput';
@@ -527,6 +528,10 @@ export const DentalChartNav = () => {
                 <div className="flex items-center justify-between py-0.5">
                   <span className="text-muted-foreground">Last Dental Visit</span>
                   <span className="font-semibold text-foreground">{formatDate(spotlightStudent.lastVisit)}</span>
+                </div>
+                <div className="flex items-center justify-between py-0.5">
+                  <span className="text-muted-foreground">Status</span>
+                  <PipelineStatusPill status={spotlightStudent.pipelineStatus} />
                 </div>
                 <div className="flex items-center justify-between py-0.5">
                   <span className="text-muted-foreground">Queue No.</span>

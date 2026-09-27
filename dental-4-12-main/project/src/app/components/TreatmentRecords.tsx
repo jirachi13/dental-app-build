@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { X, Clipboard, Search, Droplet, ShieldCheck, Sparkles, Wrench, Timer, RotateCcw, Scissors, Syringe, MessageCircle, CheckCircle2, type LucideIcon } from 'lucide-react';
+import { X, Clipboard, Search, Droplet, ShieldCheck, Sparkles, Wrench, Timer, RotateCcw, Scissors, Syringe, MessageCircle, CheckCircle2, Eye, type LucideIcon } from 'lucide-react';
 import { GradePill } from './GradePill';
 import { ListSearchInput } from './ListSearchInput';
 import { getGradeColor } from '../utils/gradeColors';
@@ -258,6 +258,8 @@ export const TreatmentRecords = () => {
           description, search up top, one bordered card holding the whole
           list instead of a separate filter box above a separate table box. */}
       <div className="bg-card rounded-2xl border border-border shadow-sm overflow-clip">
+        {/* Green top accent bar (user, 2026-09-28). */}
+        <div className="h-1.5 bg-green-500" />
         <div className="p-5 sm:p-6 border-b border-border bg-card">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0 flex items-center gap-3">
@@ -371,13 +373,26 @@ export const TreatmentRecords = () => {
                     </td>
                     {viewTab === 'queue' && (
                       <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => markDone(t.id)}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 px-2.5 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-50"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Mark as done
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {/* Same "Open chart" button/icon as the Charting
+                              Queue table (user, 2026-09-28) -- row click
+                              already opens the chart, but an explicit
+                              action matches the other queue table's pattern. */}
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/dental-chart/${t.id}?tab=chart&context=treatment`)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
+                          >
+                            <Eye className="w-3.5 h-3.5" /> Open chart
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => markDone(t.id)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 px-2.5 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-50"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Mark as done
+                          </button>
+                        </div>
                       </td>
                     )}
                   </tr>
