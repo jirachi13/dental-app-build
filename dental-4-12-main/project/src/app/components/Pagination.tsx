@@ -72,6 +72,12 @@ interface Props {
   noun?: string;
   /** Extra text after the range, e.g. "(filtered from 134)". */
   detail?: string;
+  /** Adds a "Hide" option to the Items-per-page select (ported from
+   *  PatientList/RPCTracking's own bespoke footers, 2026-09-28, so other
+   *  screens can opt into the same collapse-to-a-reveal-tab behavior
+   *  without re-hand-rolling it). Omit to keep the plain page-size list —
+   *  existing callers are unaffected. */
+  onHide?: () => void;
 }
 
 // Matches PatientList's/RPCTracking's own inline footer exactly (2026-09-25,
@@ -83,8 +89,10 @@ const navBtn =
   'flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-canvas ' +
   'disabled:opacity-40 disabled:hover:bg-transparent';
 
+const HIDE_OPTION = 0;
+
 export const Pagination = ({
-  page, pageCount, pageSize, from, to, total, onPage, onPageSize, noun = 'rows', detail,
+  page, pageCount, pageSize, from, to, total, onPage, onPageSize, noun = 'rows', detail, onHide,
 }: Props) => (
   // Stacks below sm: per CLAUDE.md's three-device rule — this row is read on a
   // phone in the field, not only on a clinic PC.
@@ -104,10 +112,15 @@ export const Pagination = ({
         id="page-size"
         aria-label="Items per page"
         value={pageSize}
-        onChange={(e) => onPageSize(Number(e.target.value))}
+        onChange={(e) => {
+          const n = Number(e.target.value);
+          if (onHide && n === HIDE_OPTION) { onHide(); return; }
+          onPageSize(n);
+        }}
         className="rounded-full border border-border bg-canvas px-2.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
       >
         {PAGE_SIZE_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
+        {onHide && <option value={HIDE_OPTION}>Hide</option>}
       </select>
     </div>
 

@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { Clipboard, Search, Droplet, ShieldCheck, Sparkles, Wrench, Timer, RotateCcw, Scissors, Syringe, MessageCircle, Eye, SlidersHorizontal, ChevronDown, MoreVertical, type LucideIcon } from 'lucide-react';
+import { Clipboard, Search, Droplet, ShieldCheck, Sparkles, Wrench, Timer, RotateCcw, Scissors, Syringe, MessageCircle, Eye, SlidersHorizontal, ChevronDown, ChevronUp, MoreVertical, type LucideIcon } from 'lucide-react';
 import { GradePill } from './GradePill';
 import { ListSearchInput } from './ListSearchInput';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -146,6 +146,13 @@ export const TreatmentRecords = () => {
   // demo scale and thousands of DOM rows at ~8,000 students. Reset keys are the
   // filter inputs, never `filtered` — see Pagination.tsx.
   const pager = usePagination(filtered, [viewTab, pipelineFilter, searchTerm]);
+  // Same "Hide" collapse as Student Records' own Items-per-page control
+  // (user, 2026-09-28, "i want the same pagination set up for the
+  // treatment module") -- rowsToRender swaps to every filtered row with no
+  // paging once hidden, since the rows box here already scrolls internally.
+  const [hidePagination, setHidePagination] = useState(false);
+  const rowsToRender = hidePagination ? filtered : pager.paged;
+  const rowIndexBase = hidePagination ? 1 : pager.from;
 
   const clearQueue = () => {
     setTreatmentQueueStudentIds([]);
@@ -431,12 +438,12 @@ export const TreatmentRecords = () => {
                       : `No students treated during SY ${yearFilter} yet.`}
                   </td>
                 </tr>
-              ) : pager.paged.map((t, i) => {
+              ) : rowsToRender.map((t, i) => {
                 const age = calculateAge(t.birthdate);
                 const gc = getGradeColor(t.grade);
                 return (
                   <tr key={t.id} {...activatable(() => navigate(`/dental-chart/${t.id}?tab=chart&context=treatment`))} className="cursor-pointer hover:bg-canvas">
-                    <td className="px-4 py-2.5 text-muted-foreground">{pager.from + i}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground">{rowIndexBase + i}</td>
                     <td className="px-4 py-2.5 font-medium text-foreground">
                       <div className="flex items-center gap-3">
                         <span style={{ backgroundColor: gc.light, color: gc.solid }} className="w-8 h-8 shrink-0 rounded-full grid place-items-center text-xs font-bold">
@@ -466,13 +473,29 @@ export const TreatmentRecords = () => {
               })}
             </tbody>
           </table>
+          {/* "Hide" collapses the footer to this thin reveal tab -- placed
+              INSIDE the scrollable box, as the last row of its content, not
+              pinned below it: it only comes into view once you've scrolled
+              to the end of the list, same as any other row would. Same
+              pattern as Student Records' own Items-per-page "Hide". */}
+          {hidePagination && (
+            <button
+              type="button"
+              onClick={() => setHidePagination(false)}
+              title="Show pagination controls"
+              className="flex w-full items-center justify-center gap-1.5 border-t border-gray-100 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-canvas hover:text-foreground"
+            >
+              <ChevronUp className="h-3 w-3" /> Show pagination controls
+            </button>
+          )}
         </div>
-        {filtered.length > 0 && (
+        {!hidePagination && filtered.length > 0 && (
           <div className="px-4 py-3 border-t border-border flex-shrink-0">
             <Pagination
               {...pager}
               onPage={pager.setPage}
               onPageSize={pager.changePageSize}
+              onHide={() => setHidePagination(true)}
               noun="students"
               detail={selectedSchool ? `at ${selectedSchool}` : ''}
             />
