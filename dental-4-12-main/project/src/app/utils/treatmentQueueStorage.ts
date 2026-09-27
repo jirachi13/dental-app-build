@@ -10,8 +10,12 @@
 // condition queues that pupil here, whether or not this particular save is
 // what changed it -- a chart that already has decay marked on it queues its
 // pupil again on every subsequent save, not just the first one that charted
-// it. Removed only by an explicit "Mark as done" action on the Treatment
-// Records page once the dentist has actually given the treatment.
+// it. Removed AUTOMATICALLY too (user, 2026-09-28, "remove mark as done, it
+// should be automatic") -- TreatmentRecords.tsx drops a pupil from this list
+// the moment they appear in the real per-year treatment aggregation
+// (/stats/treatment-categories), no manual action. The one manual override
+// left is "Clear queue" (setTreatmentQueueStudentIds([])), for a pupil
+// queued in error.
 
 const TREATMENT_QUEUE_STUDENT_IDS_KEY = 'treatment-queue-student-ids';
 
@@ -39,12 +43,6 @@ export const setTreatmentQueueStudentIds = (ids: string[]) => {
 
 export const addTreatmentQueueStudentId = (id: string) => {
   const next = normalizeIds([...getTreatmentQueueStudentIds(), String(id)]);
-  setTreatmentQueueStudentIds(next);
-  return next;
-};
-
-export const removeTreatmentQueueStudentId = (id: string) => {
-  const next = getTreatmentQueueStudentIds().filter(existingId => existingId !== String(id));
   setTreatmentQueueStudentIds(next);
   return next;
 };

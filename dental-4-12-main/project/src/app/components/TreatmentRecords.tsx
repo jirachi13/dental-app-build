@@ -1,8 +1,9 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { X, Clipboard, Search, Droplet, ShieldCheck, Sparkles, Wrench, Timer, RotateCcw, Scissors, Syringe, MessageCircle, CheckCircle2, Eye, type LucideIcon } from 'lucide-react';
+import { Clipboard, Search, Droplet, ShieldCheck, Sparkles, Wrench, Timer, RotateCcw, Scissors, Syringe, MessageCircle, Eye, SlidersHorizontal, ChevronDown, MoreVertical, type LucideIcon } from 'lucide-react';
 import { GradePill } from './GradePill';
 import { ListSearchInput } from './ListSearchInput';
+import { ConfirmDialog } from './ConfirmDialog';
 import { getGradeColor } from '../utils/gradeColors';
 import { getSchoolColor } from '../utils/schoolColors';
 import { useStudents } from '../hooks/useStudents';
@@ -10,12 +11,10 @@ import { useTreatmentCategories } from '../hooks/useTreatmentCategories';
 import { useAuth } from '../context/AuthContext';
 import { treatmentCodes, treatmentLabel } from '../utils/dentalChartCodes';
 import { schoolYearLabel } from '../utils/schoolYear';
-import { getTreatmentQueueStudentIds, removeTreatmentQueueStudentId } from '../utils/treatmentQueueStorage';
+import { getTreatmentQueueStudentIds, setTreatmentQueueStudentIds } from '../utils/treatmentQueueStorage';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { activatable } from '../utils/a11y';
 import { Pagination, usePagination } from './Pagination';
-
-const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 
 /** Two-letter initials for the row avatar -- same derivation Dental Charts'
  *  own queue table uses, so a pupil is recognised by the same mark on both
@@ -30,14 +29,6 @@ const calculateAge = (birthdate: string) => {
   const m = today.getMonth() - birth.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
   return age;
-};
-
-const getAgeGroup = (age: number) => {
-  if (age <= 4) return '4 & below';
-  if (age <= 9) return '5-9';
-  if (age <= 14) return '10-14';
-  if (age <= 19) return '15-19';
-  return '20 & above';
 };
 
 // Icon + tint per treatment code (user, 2026-09-27, design review "Style 1"
@@ -58,13 +49,30 @@ const CATEGORY_META: Record<string, { label: string; icon: LucideIcon; bg: strin
   CONS: { label: 'Consultation', icon: MessageCircle, bg: '#F3F4F6', fg: '#4B5563' },
 };
 
+type PipelineFilter = 'all' | 'For First Treatment' | 'For Second Treatment';
+const PIPELINE_FILTER_OPTS: { v: PipelineFilter; l: string }[] = [
+  { v: 'all', l: 'All' },
+  { v: 'For First Treatment', l: 'For First Treatment' },
+  { v: 'For Second Treatment', l: 'For Second Treatment' },
+];
+
 export const TreatmentRecords = () => {
   const navigate = useNavigate();
-  const [gradeFilter, setGradeFilter] = useState('all');
-  const [sectionFilter, setSectionFilter] = useState('all');
-  const [genderFilter, setGenderFilter] = useState('all');
-  const [ageGroupFilter, setAgeGroupFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [pipelineFilter, setPipelineFilter] = useState<PipelineFilter>('all');
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const filterMenuRef = useRef<HTMLDivElement>(null);
+  const [bulkMenuOpen, setBulkMenuOpen] = useState(false);
+  const bulkMenuRef = useRef<HTMLDivElement>(null);
+  const [clearQueueConfirmOpen, setClearQueueConfirmOpen] = useState(false);
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (!filterMenuRef.current?.contains(e.target as Node)) setFilterMenuOpen(false);
+      if (!bulkMenuRef.current?.contains(e.target as Node)) setBulkMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, []);
 
   const { selectedSchool } = useAuth();
   const kickerColor = getSchoolColor(selectedSchool || '');
@@ -97,13 +105,25 @@ export const TreatmentRecords = () => {
     return ids;
   }, [studentIdsByCode]);
 
-  // Auto-queued from a dental chart save (user, 2026-09-28) -- see
-  // DentalChart.tsx's handleSave, which adds a pupil here the moment their
-  // saved chart carries a tooth condition/treatment or an oral health
-  // condition. Removed only by "Mark as done" below, once actually treated.
-  const [treatmentQueueIds, setTreatmentQueueIds] = useState<string[]>(() => getTreatmentQueueStudentIds());
+  // Auto-queued from a dental chart save -- see DentalChart.tsx's
+  // handleSave, which adds a pupil here the moment their saved chart
+  // carries a tooth condition/treatment or an oral health condition.
+  const [treatmentQueueIds, setTreatmentQueueIdsState] = useState<string[]>(() => getTreatmentQueueStudentIds());
   const [viewTab, setViewTab] = useState<'queue' | 'done'>('queue');
-  const markDone = (studentId: string) => setTreatmentQueueIds(removeTreatmentQueueStudentId(studentId));
+
+  // Dequeues AUTOMATICALLY once real treatment data shows up (user,
+  // 2026-09-28: "remove mark as done, it should be automatic") -- a queued
+  // pupil who now appears in `doneIds` (a real ToothRecord/
+  // PreventiveCareRecord for the SELECTED year) leaves the queue on its
+  // own, no button required.
+  useEffect(() => {
+    setTreatmentQueueIdsState((prev) => {
+      const next = prev.filter((id) => !doneIds.has(id));
+      if (next.length === prev.length) return prev;
+      setTreatmentQueueStudentIds(next);
+      return next;
+    });
+  }, [doneIds]);
 
   const sourcePatients = useMemo(
     () => (viewTab === 'queue'
@@ -113,33 +133,55 @@ export const TreatmentRecords = () => {
   );
 
   const filtered = useMemo(() => sourcePatients.filter(t => {
-    const age = calculateAge(t.birthdate);
-    if (gradeFilter !== 'all' && t.grade !== gradeFilter) return false;
-    if (sectionFilter !== 'all' && t.section !== sectionFilter) return false;
-    if (genderFilter !== 'all' && t.gender !== genderFilter) return false;
-    if (ageGroupFilter !== 'all' && getAgeGroup(age) !== ageGroupFilter) return false;
+    if (pipelineFilter !== 'all' && t.pipelineStatus !== pipelineFilter) return false;
     if (searchTerm) {
       const query = searchTerm.toLowerCase();
       const formattedName = t.name.toLowerCase();
       if (!formattedName.includes(query) && !t.grade.toLowerCase().includes(query) && !t.section.toLowerCase().includes(query)) return false;
     }
     return true;
-  }), [sourcePatients, gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm]);
+  }), [sourcePatients, pipelineFilter, searchTerm]);
 
   // Paged (Sprint 58): this list rendered EVERY filtered row, which is fine at
   // demo scale and thousands of DOM rows at ~8,000 students. Reset keys are the
   // filter inputs, never `filtered` — see Pagination.tsx.
-  const pager = usePagination(filtered, [viewTab, gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm]);
+  const pager = usePagination(filtered, [viewTab, pipelineFilter, searchTerm]);
 
-  const hasActiveFilters = [gradeFilter, sectionFilter, genderFilter, ageGroupFilter].some(f => f !== 'all') || searchTerm !== '';
-  const clearFilters = () => { setGradeFilter('all'); setSectionFilter('all'); setGenderFilter('all'); setAgeGroupFilter('all'); setSearchTerm(''); };
+  const clearQueue = () => {
+    setTreatmentQueueStudentIds([]);
+    setTreatmentQueueIdsState([]);
+    setClearQueueConfirmOpen(false);
+  };
 
-  const FS = ({ value, onChange, opts, label }: { value: string; onChange: (v: string) => void; opts: {v:string;l:string}[]; label: string }) => (
-    <select value={value} onChange={e => onChange(e.target.value)} className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-      <option value="all">{label}</option>
-      {opts.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
-    </select>
-  );
+  // Adaptive, PINNED queue card -- same pattern as the Charting Queue card
+  // (DentalChartNav.tsx) so this list behaves identically (user, 2026-09-28:
+  // "when i scroll, it should stop at the treatment queue container and
+  // should be fix in the page then the scrollable part should start at the
+  // first list of queue"). The whole page becomes its own bounded,
+  // internally-scrolling region; the queue card sticks to that region's top
+  // once reached, and only the rows box inside it keeps scrolling.
+  const regionRef = useRef<HTMLDivElement | null>(null);
+  const rowsBoxRef = useRef<HTMLDivElement | null>(null);
+  const [regionHeight, setRegionHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    const measure = () => {
+      if (!regionRef.current) return;
+      const top = regionRef.current.getBoundingClientRect().top;
+      setRegionHeight(Math.max(window.innerHeight - top, 200));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [studentsLoading]);
+
+  useLayoutEffect(() => {
+    if (regionHeight == null) return;
+    const overflow = document.documentElement.scrollHeight - window.innerHeight;
+    if (overflow > 0) {
+      setRegionHeight((h) => (h == null ? h : Math.max(h - overflow, 200)));
+    }
+  }, [regionHeight]);
 
   if (studentsLoading) {
     return (
@@ -151,7 +193,7 @@ export const TreatmentRecords = () => {
   }
 
   return (
-    <div className="space-y-4">
+    <div ref={regionRef} className="space-y-4 overflow-y-auto no-scrollbar -mb-4 md:-mb-8" style={{ height: regionHeight ?? undefined }}>
       {/* Same header pattern as Dental Charts' own page title (user,
           2026-09-27, "i want the same but for Treatment submodule") -- icon
           badge sized/colored the same way (getSchoolColor, not a flat
@@ -163,14 +205,13 @@ export const TreatmentRecords = () => {
         <div className="min-w-0 flex-1">
           <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Clinical Services</div>
           <h1 className="text-2xl font-bold text-foreground mt-0.5">Treatment Records</h1>
-          {/* School-year picker moved onto the same row as the description
-              (user, 2026-09-28: "align the school year in the same row as
-              View treatment records...") and shrunk. Design "B" -- a single
-              pill, no icons, opens a dropdown of the other years on click.
-              TEMPORARY per the user ("for now make it a filter so i can
-              validate if its showing the right numbers") -- once the
-              current-year count is confirmed correct, the plan is to remove
-              this and always show the current year with no picker. */}
+          {/* School-year picker on the same row as the description (user,
+              2026-09-28), shrunk. Design "B" -- a single pill, no icons,
+              opens a dropdown of the other years on click. TEMPORARY per
+              the user ("for now make it a filter so i can validate if its
+              showing the right numbers") -- once the current-year count is
+              confirmed correct, the plan is to remove this and always show
+              the current year with no picker. */}
           <div className="flex items-center justify-between gap-3 mt-0.5">
             <p className="text-sm text-muted-foreground">View treatment records and each student's recommended treatment.</p>
             <div ref={yearMenuRef} className="relative flex-shrink-0">
@@ -217,18 +258,7 @@ export const TreatmentRecords = () => {
           NOT CLICKABLE (user, 2026-09-27 correction) -- these are read-only
           totals, not a filter into the list below. Hover lift/shadow ADDED
           BACK (user, 2026-09-27) purely as visual feedback -- no onClick,
-          cursor-pointer or focus outline, so it never reads as interactive.
-          Typography/spacing matched to the user's RAMHIS "Department
-          Overview" reference screenshot, then scaled everything inside (and
-          the card itself) down ~30% per feedback (2026-09-27): w-8 h-8
-          rounded-xl icon badge, mb-4 to the text stack, 22px extrabold
-          count, p-4 card padding -- flat card (border only, no shadow).
-          Label bumped +3px to 14px then back down 2px to 12px semibold, and
-          the unit line shortened to
-          just "student(s)" in 9px thin, dropping "this school year" (still
-          true -- the count itself is year-scoped, see above -- just no
-          longer spelled out on the card). Still one font family throughout
-          (Inter Variable). */}
+          cursor-pointer or focus outline, so it never reads as interactive. */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         {treatmentCodes.map((t) => {
           const meta = CATEGORY_META[t.code];
@@ -253,25 +283,24 @@ export const TreatmentRecords = () => {
         })}
       </div>
 
-      {/* Container restyled to match the Charting Queue card (user,
-          2026-09-27) -- icon badge, eyebrow with a count pill, title,
-          description, search up top, one bordered card holding the whole
-          list instead of a separate filter box above a separate table box. */}
-      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-clip">
-        {/* Dark green top accent bar (user, 2026-09-28 -- corrected from a
-            brighter green-500 to this darker teal-green). */}
-        <div className="h-1.5 bg-[#0F9D74]" />
-        <div className="p-5 sm:p-6 border-b border-border bg-card">
+      {/* Pinned Treatment Queue card -- same shape as the Charting Queue card
+          (icon badge, eyebrow with a count pill, title, description, search
+          + Filter + "⋮" up top), now also sticky/height-bound like it (user,
+          2026-09-28). */}
+      <div
+        className="sticky top-0 z-30 flex flex-col bg-card rounded-t-2xl border border-border shadow-sm overflow-clip"
+        style={{ height: regionHeight ?? undefined }}
+      >
+        {/* Dark green top accent bar. */}
+        <div className="h-1.5 bg-[#0F9D74] flex-shrink-0" />
+        <div className="p-5 sm:p-6 border-b border-border bg-card flex-shrink-0">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0 flex items-center gap-3">
               <span className="w-10 h-10 rounded-xl bg-gray-100 grid place-items-center flex-shrink-0">
                 <Clipboard className="w-4.5 h-4.5 text-muted-foreground" />
               </span>
               <div className="min-w-0">
-                {/* Same eyebrow/pill/title/description pattern as the
-                    Charting Queue card, wording included verbatim (user,
-                    2026-09-27, "i want the same but for treatment queue").
-                    Swaps to "Done Treatment" on the Done tab (user,
+                {/* Swaps to "Done Treatment" on the Done tab (user,
                     2026-09-28) rather than keeping "Treatment Queue" as the
                     title while showing already-treated pupils. */}
                 <div className="flex items-center gap-2">
@@ -288,14 +317,79 @@ export const TreatmentRecords = () => {
                 </p>
               </div>
             </div>
-            <ListSearchInput value={searchTerm} onChange={setSearchTerm} />
+            {/* Search + Filter + "⋮" -- same layout as the Charting Queue
+                card (user, 2026-09-28, "implement the same design with the
+                treatment submodule"). Filter narrows by pipeline stage
+                instead of grade/section/gender/age, which the removed
+                dropdown row used to do. */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <ListSearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Search student, grade, or section" />
+              <div ref={filterMenuRef} className="relative shrink-0">
+                <button
+                  type="button"
+                  role="combobox"
+                  aria-haspopup="listbox"
+                  aria-expanded={filterMenuOpen}
+                  onClick={() => setFilterMenuOpen((o) => !o)}
+                  className="flex items-center gap-1.5 text-sm font-medium rounded-lg px-3 py-2 bg-primary text-white hover:bg-primary-hover"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5" /> Filter <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+                {filterMenuOpen && (
+                  <div className="absolute right-0 z-20 mt-1 min-w-[180px] rounded-lg border border-border bg-card shadow-md py-1">
+                    {PIPELINE_FILTER_OPTS.map((o) => (
+                      <button
+                        key={o.v}
+                        type="button"
+                        onClick={() => { setPipelineFilter(o.v); setFilterMenuOpen(false); }}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-canvas ${pipelineFilter === o.v ? 'text-primary font-semibold' : 'text-foreground'}`}
+                      >
+                        {o.l}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* "⋮" -- clears the whole Treatment Queue at once, for a
+                  pupil queued in error or otherwise handled outside the
+                  normal (now automatic) done-detection. Only meaningful on
+                  the Queue tab, since Done isn't manually managed. */}
+              <div ref={bulkMenuRef} className="relative shrink-0">
+                <button
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={bulkMenuOpen}
+                  aria-label="Queue actions"
+                  title="Queue actions"
+                  disabled={viewTab !== 'queue' || treatmentQueueIds.length === 0}
+                  onClick={() => setBulkMenuOpen((o) => !o)}
+                  className={`flex items-center justify-center w-7 h-9 rounded-lg border border-border bg-card ${
+                    viewTab !== 'queue' || treatmentQueueIds.length === 0 ? 'text-muted-foreground/40 cursor-not-allowed' : 'text-foreground hover:bg-muted'
+                  }`}
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+                {bulkMenuOpen && (
+                  <div className="absolute right-0 z-20 mt-1 w-max rounded-lg border border-border bg-card shadow-md py-1">
+                    <button
+                      type="button"
+                      onClick={() => { setClearQueueConfirmOpen(true); setBulkMenuOpen(false); }}
+                      className="block px-3 py-2 text-sm font-medium text-destructive hover:bg-canvas"
+                    >
+                      Clear queue
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-          {/* Queue / Done toggle (user, 2026-09-28) -- "there would be
-              filter in this module that are in queue for treatment and all
-              students that were done treatment for the current school
-              year". Queue is auto-populated by DentalChart.tsx's save;
-              Done is the same real per-year aggregation the category cards
-              above already use, so the two can never disagree. */}
+          {/* Queue / Done toggle -- "there would be filter in this module
+              that are in queue for treatment and all students that were
+              done treatment for the current school year". Queue is auto-
+              populated by DentalChart.tsx's save AND auto-emptied once
+              real treatment data appears; Done is the same real per-year
+              aggregation the category cards above already use, so the two
+              can never disagree. */}
           <div className="inline-flex rounded-lg bg-gray-100 p-1 mt-4">
             <button
               type="button"
@@ -312,21 +406,9 @@ export const TreatmentRecords = () => {
               Done This School Year <span className="tabular-nums">({doneIds.size})</span>
             </button>
           </div>
-          <div className="flex flex-wrap gap-2 mt-3">
-            <FS value={gradeFilter} onChange={g => { setGradeFilter(g); setSectionFilter('all'); }} label="All Grades" opts={GRADES.map(g => ({ v: g, l: g }))} />
-            <FS value={sectionFilter} onChange={setSectionFilter} label="All Sections" opts={[...new Set((gradeFilter !== 'all' ? allPatients.filter((r:any) => r.grade === gradeFilter) : allPatients).map((r:any) => r.section))].sort().map((s:any) => ({ v: s, l: s }))} />
-            <FS value={genderFilter} onChange={setGenderFilter} label="All Genders" opts={[{ v:'Male', l:'Male' }, { v:'Female', l:'Female' }]} />
-            <FS value={ageGroupFilter} onChange={setAgeGroupFilter} label="All Age Groups"
-              opts={[{ v:'4 & below', l:'4 & below' }, { v:'5-9', l:'5-9' }, { v:'10-14', l:'10-14' }, { v:'15-19', l:'15-19' }, { v:'20 & above', l:'20 & above' }]} />
-            {hasActiveFilters && (
-              <button onClick={clearFilters} className="flex items-center gap-1 px-3 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50">
-                <X className="w-3 h-3" /> Clear All
-              </button>
-            )}
-          </div>
         </div>
 
-        <div className="overflow-auto">
+        <div ref={rowsBoxRef} className="min-h-0 flex-1 overflow-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
@@ -337,15 +419,13 @@ export const TreatmentRecords = () => {
                 <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Gender</th>
                 <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Age</th>
                 <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Recommended Treatment</th>
-                {viewTab === 'queue' && (
-                  <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Actions</th>
-                )}
+                <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={viewTab === 'queue' ? 8 : 7} className="px-4 pt-20 pb-10 text-center text-sm text-muted-foreground">
+                  <td colSpan={8} className="px-4 pt-20 pb-10 text-center text-sm text-muted-foreground">
                     {viewTab === 'queue'
                       ? 'No students in the treatment queue. Saving a dental chart with a condition or treatment code queues a student here.'
                       : `No students treated during SY ${yearFilter} yet.`}
@@ -372,30 +452,15 @@ export const TreatmentRecords = () => {
                     <td className="px-4 py-2.5 text-muted-foreground max-w-xs truncate" title={t.recommendation || undefined}>
                       {t.recommendation || <span className="text-muted-foreground/50">Not yet assessed</span>}
                     </td>
-                    {viewTab === 'queue' && (
-                      <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-2">
-                          {/* Same "Open chart" button/icon as the Charting
-                              Queue table (user, 2026-09-28) -- row click
-                              already opens the chart, but an explicit
-                              action matches the other queue table's pattern. */}
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/dental-chart/${t.id}?tab=chart&context=treatment`)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
-                          >
-                            <Eye className="w-3.5 h-3.5" /> Open chart
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => markDone(t.id)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 px-2.5 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-50"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Mark as done
-                          </button>
-                        </div>
-                      </td>
-                    )}
+                    <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/dental-chart/${t.id}?tab=chart&context=treatment`)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
+                      >
+                        <Eye className="w-3.5 h-3.5" /> Open chart
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
@@ -403,7 +468,7 @@ export const TreatmentRecords = () => {
           </table>
         </div>
         {filtered.length > 0 && (
-          <div className="px-4 py-3 border-t border-border">
+          <div className="px-4 py-3 border-t border-border flex-shrink-0">
             <Pagination
               {...pager}
               onPage={pager.setPage}
@@ -414,6 +479,16 @@ export const TreatmentRecords = () => {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={clearQueueConfirmOpen}
+        title="Clear treatment queue?"
+        message={`All ${treatmentQueueIds.length} student${treatmentQueueIds.length === 1 ? '' : 's'} will be removed from the queue. This does not affect their student record or dental chart, and does not mark them as treated.`}
+        confirmLabel="Clear queue"
+        tone="danger"
+        onConfirm={clearQueue}
+        onCancel={() => setClearQueueConfirmOpen(false)}
+      />
     </div>
   );
 };
