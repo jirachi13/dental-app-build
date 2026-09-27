@@ -19,6 +19,7 @@ import { surnameFirst, surnameFirstWithInitial } from '../utils/studentName';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
 import { removeQueuedStudentId, getQueuedStudentIds, getEffectiveQueueOrder } from '../utils/queueStorage';
+import { addTreatmentQueueStudentId } from '../utils/treatmentQueueStorage';
 import { invalidateCached } from '../utils/apiCache';
 import { Modal } from './Modal';
 import { useSchools } from '../hooks/useSchools';
@@ -1145,6 +1146,15 @@ export const DentalChart = () => {
       // queue should be gone" for that pupil. Harmless if they were never
       // queued (removeQueuedStudentId no-ops).
       removeQueuedStudentId(id);
+      // Auto-queue for Treatment (user, 2026-09-28): any save that leaves
+      // behind a charted tooth condition/treatment or a ticked oral health
+      // condition queues this pupil for the Treatment submodule -- checked
+      // against the SAVED state, not just this save's delta, so a chart
+      // that already had decay marked queues again on every later save too.
+      const hasChartOrOralConditionData =
+        Object.values(draftChart).some((e) => e.condition || e.treatment) ||
+        Object.values(draftOral).some((v) => v === true || (typeof v === 'string' && v.trim() !== ''));
+      if (hasChartOrOralConditionData) addTreatmentQueueStudentId(id);
       if (iptrContext === 'dental-queue') setTimeout(() => navigate('/ai-analytics'), 450);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'Failed to save';

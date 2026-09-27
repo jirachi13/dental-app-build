@@ -1,8 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { X, Clipboard, Search, Droplet, ShieldCheck, Sparkles, Wrench, Timer, RotateCcw, Scissors, Syringe, MessageCircle, type LucideIcon } from 'lucide-react';
+import { X, Clipboard, Search, Droplet, ShieldCheck, Sparkles, Wrench, Timer, RotateCcw, Scissors, Syringe, MessageCircle, CheckCircle2, type LucideIcon } from 'lucide-react';
 import { GradePill } from './GradePill';
-import { GradeTableCell } from './GradeTableCell';
 import { ListSearchInput } from './ListSearchInput';
 import { getGradeColor } from '../utils/gradeColors';
 import { getSchoolColor } from '../utils/schoolColors';
@@ -11,6 +10,7 @@ import { useTreatmentCategories } from '../hooks/useTreatmentCategories';
 import { useAuth } from '../context/AuthContext';
 import { treatmentCodes, treatmentLabel } from '../utils/dentalChartCodes';
 import { schoolYearLabel } from '../utils/schoolYear';
+import { getTreatmentQueueStudentIds, removeTreatmentQueueStudentId } from '../utils/treatmentQueueStorage';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { activatable } from '../utils/a11y';
 import { Pagination, usePagination } from './Pagination';
@@ -88,8 +88,31 @@ export const TreatmentRecords = () => {
   }, []);
   const { rows: categoryRows, schoolYearOptions, loading: categoriesLoading } = useTreatmentCategories(yearFilter);
   const studentIdsByCode = useMemo(() => new Map(categoryRows.map((r) => [r.code, new Set(r.studentIds)])), [categoryRows]);
+  // Every student with at least one real treatment record for the selected
+  // year -- the union of the category cards' own sets, so "Done" can never
+  // disagree with what the cards above are counting.
+  const doneIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const set of studentIdsByCode.values()) for (const id of set) ids.add(id);
+    return ids;
+  }, [studentIdsByCode]);
 
-  const filtered = useMemo(() => allPatients.filter(t => {
+  // Auto-queued from a dental chart save (user, 2026-09-28) -- see
+  // DentalChart.tsx's handleSave, which adds a pupil here the moment their
+  // saved chart carries a tooth condition/treatment or an oral health
+  // condition. Removed only by "Mark as done" below, once actually treated.
+  const [treatmentQueueIds, setTreatmentQueueIds] = useState<string[]>(() => getTreatmentQueueStudentIds());
+  const [viewTab, setViewTab] = useState<'queue' | 'done'>('queue');
+  const markDone = (studentId: string) => setTreatmentQueueIds(removeTreatmentQueueStudentId(studentId));
+
+  const sourcePatients = useMemo(
+    () => (viewTab === 'queue'
+      ? allPatients.filter((p) => treatmentQueueIds.includes(p.id))
+      : allPatients.filter((p) => doneIds.has(p.id))),
+    [viewTab, allPatients, treatmentQueueIds, doneIds],
+  );
+
+  const filtered = useMemo(() => sourcePatients.filter(t => {
     const age = calculateAge(t.birthdate);
     if (gradeFilter !== 'all' && t.grade !== gradeFilter) return false;
     if (sectionFilter !== 'all' && t.section !== sectionFilter) return false;
@@ -101,12 +124,12 @@ export const TreatmentRecords = () => {
       if (!formattedName.includes(query) && !t.grade.toLowerCase().includes(query) && !t.section.toLowerCase().includes(query)) return false;
     }
     return true;
-  }), [allPatients, gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm]);
+  }), [sourcePatients, gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm]);
 
   // Paged (Sprint 58): this list rendered EVERY filtered row, which is fine at
   // demo scale and thousands of DOM rows at ~8,000 students. Reset keys are the
   // filter inputs, never `filtered` — see Pagination.tsx.
-  const pager = usePagination(filtered, [gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm]);
+  const pager = usePagination(filtered, [viewTab, gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm]);
 
   const hasActiveFilters = [gradeFilter, sectionFilter, genderFilter, ageGroupFilter].some(f => f !== 'all') || searchTerm !== '';
   const clearFilters = () => { setGradeFilter('all'); setSectionFilter('all'); setGenderFilter('all'); setAgeGroupFilter('all'); setSearchTerm(''); };
@@ -242,22 +265,49 @@ export const TreatmentRecords = () => {
               <div className="min-w-0">
                 {/* Same eyebrow/pill/title/description pattern as the
                     Charting Queue card, wording included verbatim (user,
-                    2026-09-27, "i want the same but for treatment queue"). */}
+                    2026-09-27, "i want the same but for treatment queue").
+                    Swaps to "Done Treatment" on the Done tab (user,
+                    2026-09-28) rather than keeping "Treatment Queue" as the
+                    title while showing already-treated pupils. */}
                 <div className="flex items-center gap-2">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Queue</div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{viewTab === 'queue' ? 'Queue' : 'Done'}</div>
                   <span style={{ backgroundColor: kickerColor.light, color: kickerColor.solid }} className="text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap">
                     {filtered.length} {filtered.length === 1 ? 'STUDENT' : 'STUDENTS'}
                   </span>
                 </div>
-                <h2 className="text-lg font-bold text-foreground mt-0.5">Treatment Queue</h2>
+                <h2 className="text-lg font-bold text-foreground mt-0.5">{viewTab === 'queue' ? 'Treatment Queue' : 'Done Treatment'}</h2>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  Students in queue order, ready for treatment.
+                  {viewTab === 'queue'
+                    ? 'Students in queue order, ready for treatment.'
+                    : `Students treated during SY ${yearFilter}.`}
                 </p>
               </div>
             </div>
             <ListSearchInput value={searchTerm} onChange={setSearchTerm} />
           </div>
-          <div className="flex flex-wrap gap-2 mt-4">
+          {/* Queue / Done toggle (user, 2026-09-28) -- "there would be
+              filter in this module that are in queue for treatment and all
+              students that were done treatment for the current school
+              year". Queue is auto-populated by DentalChart.tsx's save;
+              Done is the same real per-year aggregation the category cards
+              above already use, so the two can never disagree. */}
+          <div className="inline-flex rounded-lg bg-gray-100 p-1 mt-4">
+            <button
+              type="button"
+              onClick={() => setViewTab('queue')}
+              className={`rounded-md px-3 py-1.5 text-sm font-semibold ${viewTab === 'queue' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              In Queue <span className="tabular-nums">({treatmentQueueIds.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewTab('done')}
+              className={`rounded-md px-3 py-1.5 text-sm font-semibold ${viewTab === 'done' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              Done This School Year <span className="tabular-nums">({doneIds.size})</span>
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2 mt-3">
             <FS value={gradeFilter} onChange={g => { setGradeFilter(g); setSectionFilter('all'); }} label="All Grades" opts={GRADES.map(g => ({ v: g, l: g }))} />
             <FS value={sectionFilter} onChange={setSectionFilter} label="All Sections" opts={[...new Set((gradeFilter !== 'all' ? allPatients.filter((r:any) => r.grade === gradeFilter) : allPatients).map((r:any) => r.section))].sort().map((s:any) => ({ v: s, l: s }))} />
             <FS value={genderFilter} onChange={setGenderFilter} label="All Genders" opts={[{ v:'Male', l:'Male' }, { v:'Female', l:'Female' }]} />
@@ -282,12 +332,19 @@ export const TreatmentRecords = () => {
                 <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Gender</th>
                 <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Age</th>
                 <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Recommended Treatment</th>
+                {viewTab === 'queue' && (
+                  <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Actions</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 pt-20 pb-10 text-center text-sm text-muted-foreground">No students match the selected filters.</td>
+                  <td colSpan={viewTab === 'queue' ? 8 : 7} className="px-4 pt-20 pb-10 text-center text-sm text-muted-foreground">
+                    {viewTab === 'queue'
+                      ? 'No students in the treatment queue. Saving a dental chart with a condition or treatment code queues a student here.'
+                      : `No students treated during SY ${yearFilter} yet.`}
+                  </td>
                 </tr>
               ) : pager.paged.map((t, i) => {
                 const age = calculateAge(t.birthdate);
@@ -310,6 +367,17 @@ export const TreatmentRecords = () => {
                     <td className="px-4 py-2.5 text-muted-foreground max-w-xs truncate" title={t.recommendation || undefined}>
                       {t.recommendation || <span className="text-muted-foreground/50">Not yet assessed</span>}
                     </td>
+                    {viewTab === 'queue' && (
+                      <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => markDone(t.id)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 px-2.5 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-50"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Mark as done
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
