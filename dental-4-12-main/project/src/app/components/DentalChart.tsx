@@ -618,9 +618,21 @@ export const DentalChart = () => {
   // landing on a bare `/dental-chart/:id` dropped the context, so the very
   // next Prev/Next silently fell back to the default alphabetical nav list.
   const navQuery = iptrContext !== 'default' ? `?context=${iptrContext}` : '';
+  // Only warn when there's actually something to lose (user, 2026-09-27) --
+  // being in edit mode with nothing typed or ticked yet is not "unsaved
+  // work", so Prev/Next/Back should just navigate silently in that case.
+  // Checks every field the Medical History and Dental Chart tabs write:
+  // per-tooth conditions/treatments, whole-mouth services, medical history
+  // flags/text, dietary/social habits, and oral conditions.
+  const hasUnsavedChartContent =
+    Object.values(draftChart).some((e) => e.condition || e.treatment) ||
+    Object.values(draftServices).some((v) => v === true) ||
+    Object.values(draftMed).some((v) => v === true || (typeof v === 'string' && v.trim() !== '')) ||
+    Object.values(draftDiet).some((v) => v === true) ||
+    Object.values(draftOral).some((v) => v === true || (typeof v === 'string' && v.trim() !== ''));
   const goToStudent = (target: { id: string; name: string } | null) => {
     if (!target) return;
-    if (editMode) { setPendingNav(target); return; }
+    if (editMode && hasUnsavedChartContent) { setPendingNav(target); return; }
     navigate(`/dental-chart/${target.id}${navQuery}`);
   };
 
