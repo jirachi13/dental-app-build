@@ -251,10 +251,30 @@ export const DentalChartNav = () => {
   const { total: rpcOutstandingCount, records: rpcOutstandingRecords } = useRPCTracking({ school: selectedSchool ?? undefined, status: 'outstanding', limit: 1000 });
   const rpcOutstandingIds = useMemo(() => new Set(rpcOutstandingRecords.map((r) => r.id)), [rpcOutstandingRecords]);
 
+  // The actual "Queue #" every queued student is given (user, 2026-09-27):
+  // appointments-today students BYPASS raw queue position entirely and get
+  // renumbered 1, 2, 3… ahead of everyone else, who then continue after
+  // them in their existing relative order. Computed once, off every queued
+  // student (not `filtered`, which search/extraFilter can narrow) so the
+  // number a student shows is stable regardless of what's currently
+  // searched or filtered -- only the visible ROWS should shrink with a
+  // search, never the numbers themselves.
+  const effectiveQueueOrder = useMemo(() => {
+    const queued = allPatients.filter((p) => queuedStudentIds.includes(p.id));
+    return [...queued]
+      .sort((a, b) => {
+        const apptA = appointmentsTodayIds.has(a.id) ? 0 : 1;
+        const apptB = appointmentsTodayIds.has(b.id) ? 0 : 1;
+        if (apptA !== apptB) return apptA - apptB;
+        return queuedStudentIds.indexOf(a.id) - queuedStudentIds.indexOf(b.id);
+      })
+      .map((p) => p.id);
+  }, [allPatients, queuedStudentIds, appointmentsTodayIds]);
+
   // No grade/section/gender/age filters (user, 2026-09-25 — removed in
-  // favor of a single, fixed sort). Search only; order is always by queue
-  // position, with un-queued students (Full List only) pushed after the
-  // queued ones and broken by name.
+  // favor of a single, fixed sort). Search only; row order follows the same
+  // effectiveQueueOrder as the Queue # badge, with un-queued students (Full
+  // List only) pushed after the queued ones and broken by name.
   const filtered = useMemo(() => {
     const rows = sourcePatients.filter((p) => {
       // Stat-card filter (user, 2026-09-26): narrows to exactly the
@@ -268,19 +288,13 @@ export const DentalChartNav = () => {
       return formattedName.includes(query) || p.grade.toLowerCase().includes(query) || p.section.toLowerCase().includes(query);
     });
     return [...rows].sort((a, b) => {
-      // Appointments-today students sort first (user, 2026-09-27) -- ahead
-      // of raw queue position, since they're the ones physically at the
-      // clinic today. Ties within that group still break by queue position.
-      const apptA = appointmentsTodayIds.has(a.id) ? 0 : 1;
-      const apptB = appointmentsTodayIds.has(b.id) ? 0 : 1;
-      if (apptA !== apptB) return apptA - apptB;
-      const qa = queuedStudentIds.indexOf(a.id);
-      const qb = queuedStudentIds.indexOf(b.id);
+      const qa = effectiveQueueOrder.indexOf(a.id);
+      const qb = effectiveQueueOrder.indexOf(b.id);
       const posA = qa >= 0 ? qa : Infinity;
       const posB = qb >= 0 ? qb : Infinity;
       return posA !== posB ? posA - posB : a.name.localeCompare(b.name);
     });
-  }, [sourcePatients, searchTerm, queuedStudentIds, extraFilter, appointmentsTodayIds, rpcOutstandingIds]);
+  }, [sourcePatients, searchTerm, effectiveQueueOrder, extraFilter, appointmentsTodayIds, rpcOutstandingIds]);
 
   // Only students BOTH queued and currently visible in `filtered` count --
   // selecting shouldn't reach past the search box into rows you can't see.
@@ -515,7 +529,7 @@ export const DentalChartNav = () => {
                 <div className="flex items-center justify-between py-0.5">
                   <span className="text-muted-foreground">Queue No.</span>
                   <span className="font-semibold text-foreground">
-                    {queuedStudentIds.includes(spotlightStudent.id) ? queuedStudentIds.indexOf(spotlightStudent.id) + 1 : '—'}
+                    {queuedStudentIds.includes(spotlightStudent.id) ? effectiveQueueOrder.indexOf(spotlightStudent.id) + 1 : '—'}
                   </span>
                 </div>
               </div>
@@ -860,17 +874,21 @@ export const DentalChartNav = () => {
                           onClick={(e) => { e.stopPropagation(); setPendingDequeue({ ids: [p.id], label: p.name }); }}
                           title={appointmentsTodayIds.has(p.id) ? 'Has an appointment today. Remove from charting queue' : 'Remove from charting queue'}
                           aria-label={`Remove ${p.name} from the charting queue`}
-                          // Amber, matching the Appointments Today stat card
-                          // exactly, when this student has one today (user,
-                          // 2026-09-27) -- otherwise the usual school color.
+                          // Green when this student has an appointment
+                          // today (user, 2026-09-27 -- amber "was ugly"),
+                          // otherwise the usual school color.
                           style={
                             appointmentsTodayIds.has(p.id)
-                              ? { backgroundColor: '#FFFBEB', color: '#B45309' }
+                              ? { backgroundColor: '#DCFCE7', color: '#15803D' }
                               : { backgroundColor: kickerColor.light, color: kickerColor.solid }
                           }
                           className="inline-flex w-6 h-6 rounded-full items-center justify-center text-xs font-bold hover:opacity-75"
                         >
-                          {queuePosition + 1}
+                          {/* Effective number, not raw queuePosition (user,
+                              2026-09-27): appointments-today students
+                              bypass the queue entirely and get renumbered
+                              1, 2, 3… ahead of everyone else. */}
+                          {effectiveQueueOrder.indexOf(p.id) + 1}
                         </button>
                       ) : (
                         <span className="text-muted-foreground">—</span>
