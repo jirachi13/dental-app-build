@@ -133,7 +133,9 @@ export const TreatmentRecords = () => {
           A count is PER STUDENT (headcount), not per tooth record -- a pupil
           with 4 sealants charted still counts once, same as one.
           NOT CLICKABLE (user, 2026-09-27 correction) -- these are read-only
-          totals, not a filter into the list below.
+          totals, not a filter into the list below. Hover lift/shadow ADDED
+          BACK (user, 2026-09-27) purely as visual feedback -- no onClick,
+          cursor-pointer or focus outline, so it never reads as interactive.
           Typography/spacing matched to the user's RAMHIS "Department
           Overview" reference screenshot, then scaled everything inside (and
           the card itself) down ~30% per feedback (2026-09-27): w-8 h-8
@@ -154,7 +156,7 @@ export const TreatmentRecords = () => {
             <div
               key={t.code}
               title={t.local ? treatmentLabel(t) : undefined}
-              className="flex flex-col rounded-xl border border-border bg-card p-4"
+              className="flex flex-col rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
             >
               <span style={{ backgroundColor: meta.bg, color: meta.fg }} className="w-8 h-8 flex-shrink-0 rounded-xl grid place-items-center mb-4">
                 <Icon className="w-4 h-4" />
