@@ -887,9 +887,9 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
   const [students, schools, iptrs, charts, preventives, risks] = await Promise.all([
     Student.find(studentFilter),
     School.find({ isArchived: false }).select("_id school_name").lean(),
-    StudentIptr.find({ isArchived: false }).select("_id student_id").lean(),
+    StudentIptr.find({ isArchived: false }).select("_id student_id school_year").lean(),
     DentalChart.find({ isArchived: false }).select("iptr_id date_charted").lean(),
-    PreventiveCareRecord.find({ isArchived: false }).select("_id iptr_id").lean(),
+    PreventiveCareRecord.find({ isArchived: false }).select("_id iptr_id visit_number").lean(),
     RiskStratification.find({ isArchived: false }).select("preventive_id risk_level recommendation").lean(),
   ]);
 
@@ -900,12 +900,27 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
     list.push(String(i._id));
     iptrsByStudent.set(String(i.student_id), list);
   }
+  // This year's own iptr per student, for the treatment-pipeline Status
+  // column below -- a returning pupil who finished both visits LAST year
+  // is "For Oral Exam" again this year, not "Completed" forever.
+  const currentYear = schoolYearLabel();
+  const currentIptrByStudent = new Map(
+    (iptrs as any[]).filter((i) => String(i.school_year) === currentYear).map((i) => [String(i.student_id), String(i._id)]),
+  );
   const chartDatesByIptr = new Map<string, Date[]>();
+  const hasChartByIptr = new Set<string>();
   for (const c of charts as any[]) {
+    hasChartByIptr.add(String(c.iptr_id));
     if (!c.date_charted) continue;
     const list = chartDatesByIptr.get(String(c.iptr_id)) ?? [];
     list.push(new Date(c.date_charted));
     chartDatesByIptr.set(String(c.iptr_id), list);
+  }
+  const visitNumbersByIptr = new Map<string, Set<number>>();
+  for (const p of preventives as any[]) {
+    const iptrId = String(p.iptr_id);
+    if (!visitNumbersByIptr.has(iptrId)) visitNumbersByIptr.set(iptrId, new Set());
+    if (p.visit_number === 1 || p.visit_number === 2) visitNumbersByIptr.get(iptrId)!.add(p.visit_number);
   }
   const preventiveIptrById = new Map((preventives as any[]).map((p) => [String(p._id), String(p.iptr_id)]));
   const riskByIptr = new Map<string, string>();
@@ -925,6 +940,22 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
       : risk === "Medium" ? "Under Treatment"
         : risk === "Low" ? "Orally Fit"
           : "Not Yet Screened";
+
+  // Student Records' Status column (user, 2026-09-28) -- the treatment
+  // PIPELINE for THIS school year specifically, distinct from riskLevel's
+  // clinical severity above. No current-year iptr, or an iptr with no
+  // dental chart on it yet, means the oral exam itself hasn't happened;
+  // once charted, RPC Visit 1 then Visit 2 are what "First"/"Second
+  // Treatment" refer to (see shared/rpcTracking.ts for the same two-visit
+  // model this mirrors).
+  const derivePipelineStatus = (studentId: string): "For Oral Exam" | "For First Treatment" | "For Second Treatment" | "Completed" => {
+    const iptrId = currentIptrByStudent.get(studentId);
+    if (!iptrId || !hasChartByIptr.has(iptrId)) return "For Oral Exam";
+    const visits = visitNumbersByIptr.get(iptrId);
+    if (!visits?.has(1)) return "For First Treatment";
+    if (!visits.has(2)) return "For Second Treatment";
+    return "Completed";
+  };
 
   const rows = (students as any[]).map((s) => {
     const studentIptrs = iptrsByStudent.get(String(s._id)) ?? [];
@@ -955,6 +986,7 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
       oralStatus: deriveOralStatus(riskLevel),
       riskLevel,
       recommendation,
+      pipelineStatus: derivePipelineStatus(String(s._id)),
       consentStatus: s.consent_status,
     };
   });

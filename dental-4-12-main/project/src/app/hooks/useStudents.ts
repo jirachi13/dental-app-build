@@ -27,6 +27,11 @@ export interface StudentRow {
   /** The dentist-validated recommendation text from the same RiskStratification
    *  record `riskLevel` came from. Empty string when unassessed. */
   recommendation: string;
+  /** This school year's treatment pipeline stage (user, 2026-09-28) --
+   *  distinct from riskLevel/oralStatus's clinical severity. Resets to
+   *  "For Oral Exam" each new school year even for a pupil who finished
+   *  both RPC visits last year. */
+  pipelineStatus: 'For Oral Exam' | 'For First Treatment' | 'For Second Treatment' | 'Completed';
   /** From the student's LATEST STUDENT_IPTR (consent is per school year).
    *  null means no IPTR exists yet — a different fact from "pending". */
   consentStatus: 'pending' | 'complete' | null;
@@ -114,6 +119,7 @@ export function useStudents() {
         oralStatus: 'Not Yet Screened',
         riskLevel: null,
         recommendation: '',
+        pipelineStatus: 'For Oral Exam',
         consentStatus: 'pending',
         pending: true,
       };

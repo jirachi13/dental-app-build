@@ -8,6 +8,7 @@ import { OCR_CONFIDENCE_THRESHOLD, type IptrOcrFieldKey, type IptrCheckboxFindin
 import { getGradeColor } from '../utils/gradeColors';
 import { getSchoolColor, getSchoolShortName } from '../utils/schoolColors';
 import { GradePill } from './GradePill';
+import { PipelineStatusPill } from './PipelineStatusPill';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { useToast } from './Toast';
 import { Modal } from './Modal';
@@ -1379,12 +1380,13 @@ export const PatientList = () => {
                 <th className="sticky top-0 z-10 bg-gray-100 text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Section</th>
                 <th className="sticky top-0 z-10 bg-gray-100 text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Gender</th>
                 <th className="sticky top-0 z-10 bg-gray-100 text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Age</th>
+                <th className="sticky top-0 z-10 bg-gray-100 text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
                 <th className="sticky top-0 z-10 bg-gray-100 text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground sm:pr-6">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
               {filtered.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-14 text-muted-foreground">{hasActiveFilters ? <>No students match your filters. <button onClick={clearFilters} className="text-primary hover:underline font-medium">Clear filters</button></> : 'No students at this school yet — use Add Student to register one.'}</td></tr>
+                <tr><td colSpan={8} className="text-center py-14 text-muted-foreground">{hasActiveFilters ? <>No students match your filters. <button onClick={clearFilters} className="text-primary hover:underline font-medium">Clear filters</button></> : 'No students at this school yet — use Add Student to register one.'}</td></tr>
               ) : paged.map((student, i) => {
                 const age = calculateAge(student.birthdate);
                 const queuePosition = queuedStudentIds.indexOf(student.id);
@@ -1446,6 +1448,7 @@ export const PatientList = () => {
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground">{student.gender}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{age ?? '—'}</td>
+                    <td className="px-4 py-2.5">{!student.pending && <PipelineStatusPill status={student.pipelineStatus} />}</td>
                     <td className="px-4 py-2.5 sm:pr-6">
                       {!student.pending && (
                         <button
