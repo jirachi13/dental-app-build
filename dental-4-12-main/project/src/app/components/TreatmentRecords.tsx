@@ -258,8 +258,9 @@ export const TreatmentRecords = () => {
           description, search up top, one bordered card holding the whole
           list instead of a separate filter box above a separate table box. */}
       <div className="bg-card rounded-2xl border border-border shadow-sm overflow-clip">
-        {/* Green top accent bar (user, 2026-09-28). */}
-        <div className="h-1.5 bg-green-500" />
+        {/* Dark green top accent bar (user, 2026-09-28 -- corrected from a
+            brighter green-500 to this darker teal-green). */}
+        <div className="h-1.5 bg-[#0F9D74]" />
         <div className="p-5 sm:p-6 border-b border-border bg-card">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0 flex items-center gap-3">
