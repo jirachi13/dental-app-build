@@ -526,18 +526,18 @@ export const DentalChartNav = () => {
               )}
               <div className="w-full border-t border-border mt-2 pt-2 text-xs">
                 <div className="flex items-center justify-between py-0.5">
+                  <span className="text-muted-foreground">Queue No.</span>
+                  <span className="font-semibold text-foreground">
+                    {queuedStudentIds.includes(spotlightStudent.id) ? effectiveQueueOrder.indexOf(spotlightStudent.id) + 1 : '—'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-0.5">
                   <span className="text-muted-foreground">Last Dental Visit</span>
                   <span className="font-semibold text-foreground">{formatDate(spotlightStudent.lastVisit)}</span>
                 </div>
                 <div className="flex items-center justify-between py-0.5">
                   <span className="text-muted-foreground">Status</span>
                   <PipelineStatusPill status={spotlightStudent.pipelineStatus} />
-                </div>
-                <div className="flex items-center justify-between py-0.5">
-                  <span className="text-muted-foreground">Queue No.</span>
-                  <span className="font-semibold text-foreground">
-                    {queuedStudentIds.includes(spotlightStudent.id) ? effectiveQueueOrder.indexOf(spotlightStudent.id) + 1 : '—'}
-                  </span>
                 </div>
               </div>
               <button
