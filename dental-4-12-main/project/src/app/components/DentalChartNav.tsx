@@ -268,6 +268,12 @@ export const DentalChartNav = () => {
       return formattedName.includes(query) || p.grade.toLowerCase().includes(query) || p.section.toLowerCase().includes(query);
     });
     return [...rows].sort((a, b) => {
+      // Appointments-today students sort first (user, 2026-09-27) -- ahead
+      // of raw queue position, since they're the ones physically at the
+      // clinic today. Ties within that group still break by queue position.
+      const apptA = appointmentsTodayIds.has(a.id) ? 0 : 1;
+      const apptB = appointmentsTodayIds.has(b.id) ? 0 : 1;
+      if (apptA !== apptB) return apptA - apptB;
       const qa = queuedStudentIds.indexOf(a.id);
       const qb = queuedStudentIds.indexOf(b.id);
       const posA = qa >= 0 ? qa : Infinity;
@@ -852,9 +858,16 @@ export const DentalChartNav = () => {
                       {queuePosition >= 0 ? (
                         <button
                           onClick={(e) => { e.stopPropagation(); setPendingDequeue({ ids: [p.id], label: p.name }); }}
-                          title="Remove from charting queue"
+                          title={appointmentsTodayIds.has(p.id) ? 'Has an appointment today. Remove from charting queue' : 'Remove from charting queue'}
                           aria-label={`Remove ${p.name} from the charting queue`}
-                          style={{ backgroundColor: kickerColor.light, color: kickerColor.solid }}
+                          // Amber, matching the Appointments Today stat card
+                          // exactly, when this student has one today (user,
+                          // 2026-09-27) -- otherwise the usual school color.
+                          style={
+                            appointmentsTodayIds.has(p.id)
+                              ? { backgroundColor: '#FFFBEB', color: '#B45309' }
+                              : { backgroundColor: kickerColor.light, color: kickerColor.solid }
+                          }
                           className="inline-flex w-6 h-6 rounded-full items-center justify-center text-xs font-bold hover:opacity-75"
                         >
                           {queuePosition + 1}
