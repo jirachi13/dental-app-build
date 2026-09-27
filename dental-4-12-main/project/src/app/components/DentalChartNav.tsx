@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
-import { Eye, Users, Calendar, Clipboard, Shield, Stethoscope, SlidersHorizontal, PanelLeftClose, PanelLeftOpen, X, ChevronDown, MoreVertical } from 'lucide-react';
+import { Eye, Users, Calendar, Clipboard, ClipboardList, Shield, Stethoscope, SlidersHorizontal, PanelLeftClose, PanelLeftOpen, X, ChevronDown, MoreVertical } from 'lucide-react';
 import { GradePill } from './GradePill';
 import { getSchoolColor } from '../utils/schoolColors';
 import { getGradeColor } from '../utils/gradeColors';
@@ -14,6 +14,7 @@ import type { ApiAppointment, ApiStudentIptr, ApiTreatment } from '../api/types'
 import { toLocalDateString, formatDate } from '../utils/localDate';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
+import { Modal } from './Modal';
 import { activatable } from '../utils/a11y';
 
 // Gender-specific avatar glyphs for the Up Next card (user, 2026-09-26) --
@@ -122,6 +123,11 @@ export const DentalChartNav = () => {
   // also covers a selection that's since left the filtered list (e.g. a
   // search that no longer matches them).
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  // Confirms before leaving the page (user, 2026-09-27, Option A of the
+  // design review: solid navy modal) -- the other three stat cards stay on
+  // this page, so "For Treatment" is the only one that needs a "you're
+  // about to leave" step.
+  const [showTreatmentConfirm, setShowTreatmentConfirm] = useState(false);
 
   // Dequeue, with confirmation (user, 2026-09-26) -- one shared pending-
   // removal state for both the single Queue # badge click AND the bulk
@@ -400,7 +406,7 @@ export const DentalChartNav = () => {
     setViewMode('queued');
     setExtraFilter('appointments-today');
   };
-  const handleForTreatmentClick = () => navigate('/treatment-records');
+  const handleForTreatmentClick = () => setShowTreatmentConfirm(true);
   const handleRpcClick = () => {
     setViewMode('full');
     setExtraFilter('rpc-outstanding');
@@ -919,6 +925,40 @@ export const DentalChartNav = () => {
         onConfirm={confirmDequeue}
         onCancel={() => setPendingDequeue(null)}
       />
+
+      {/* "For Treatment" leaves this page entirely, so it gets a step to
+          confirm first, unlike the other three cards (user, 2026-09-27 --
+          Option A of the design review: solid navy fill, not the app's
+          usual white dialog). Custom-built rather than a ConfirmDialog
+          `tone`, since the full-bleed navy card is a one-off look, not a
+          reusable variant. */}
+      {showTreatmentConfirm && (
+        <Modal onClose={() => setShowTreatmentConfirm(false)} maxWidth="max-w-sm">
+          <div className="-m-px rounded-xl bg-[#1B2A63] p-6 text-center">
+            <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
+              <ClipboardList className="h-6 w-6 text-white" />
+            </span>
+            <h3 className="text-base font-bold text-white">Go to Treatment Records?</h3>
+            <p className="mt-2 text-sm leading-relaxed text-white/70">
+              This is where students who are for treatment are located. You'll leave Dental Charts to view them there.
+            </p>
+            <div className="mt-6 flex gap-2.5">
+              <button
+                onClick={() => setShowTreatmentConfirm(false)}
+                className="flex-1 rounded-lg border border-white/25 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setShowTreatmentConfirm(false); navigate('/treatment-records'); }}
+                className="flex-1 rounded-lg bg-white px-4 py-2.5 text-sm font-bold text-[#1B2A63] hover:bg-white/90"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };
