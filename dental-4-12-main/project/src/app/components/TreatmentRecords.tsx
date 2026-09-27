@@ -228,7 +228,16 @@ export const TreatmentRecords = () => {
   }
 
   return (
-    <div ref={regionRef} className="space-y-4 overflow-y-auto no-scrollbar -mb-4 md:-mb-8" style={{ height: regionHeight ?? undefined }}>
+    <div
+      ref={regionRef}
+      // Negative margin only while Hide is on (user, 2026-09-28, "like this
+      // pls" -- matching Student Records' own container exactly): the
+      // default view keeps <main>'s ordinary bottom padding as a real gap
+      // below the card, same as PatientList, rather than forcing the region
+      // pixel-flush against the literal viewport edge.
+      className={`space-y-4 overflow-y-auto no-scrollbar ${hidePagination ? '-mb-4 md:-mb-8' : ''}`}
+      style={{ height: regionHeight ?? undefined }}
+    >
       {/* Same header pattern as Dental Charts' own page title (user,
           2026-09-27, "i want the same but for Treatment submodule") -- icon
           badge sized/colored the same way (getSchoolColor, not a flat
@@ -321,22 +330,17 @@ export const TreatmentRecords = () => {
       {/* Pinned Treatment Queue card -- same shape as the Charting Queue card
           (icon badge, eyebrow with a count pill, title, description, search
           + Filter + "⋮" up top), now also sticky/height-bound like it (user,
-          2026-09-28). Adaptive on top of that (user, 2026-09-28, "the
-          container should be adaptive as well... rounded corners and fix
-          in the page that only extends when hide is clicked") -- fixed
-          `height` normally, `maxHeight` once Hide renders every row so the
-          card can shrink to fit a short queue or extend to the page edge
-          for a long one, same as Student Records' own Hide.
-          Bottom corners round ONLY when the card actually ends with room to
-          spare below it (Hide + a short queue) -- in the default paginated
-          view the card is ALWAYS pinned flush against the bottom of the
-          viewport (user, 2026-09-28: "when i scroll till the part where it
-          will fix stop, it should be the same size at the bottom of the
-          nav bar"), so a rounded corner there would cut into content that
-          is genuinely flush, not floating above empty space. Hide + a long
-          queue is the same flush case (hideAtEdge). */}
+          2026-09-28). Adaptive on top of that -- fixed `height` normally,
+          `maxHeight` once Hide renders every row so the card can shrink to
+          fit a short queue or stay capped for a long one.
+          Corners match Student Records' own container exactly (user,
+          2026-09-28, "like this pls" with a PatientList screenshot):
+          rounded-2xl by default, square bottom (rounded-t-2xl) only when
+          Hide is on AND the list still overflows the cap (hideAtEdge) --
+          the one case where the card is genuinely cut off mid-scroll with
+          nothing below it, same as PatientList's own hideAtEdge rule. */}
       <div
-        className={`sticky top-0 z-30 flex flex-col bg-card border border-border shadow-sm overflow-clip ${hidePagination && !hideAtEdge ? 'rounded-2xl' : 'rounded-t-2xl'}`}
+        className={`sticky top-0 z-30 flex flex-col bg-card border border-border shadow-sm overflow-clip ${hideAtEdge ? 'rounded-t-2xl' : 'rounded-2xl'}`}
         style={hidePagination ? { maxHeight: regionHeight ?? undefined } : { height: regionHeight ?? undefined }}
       >
         {/* Dark green top accent bar. */}
