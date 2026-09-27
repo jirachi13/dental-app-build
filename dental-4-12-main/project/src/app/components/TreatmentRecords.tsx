@@ -160,7 +160,7 @@ export const TreatmentRecords = () => {
                 <Icon className="w-4 h-4" />
               </span>
               <div className="min-w-0">
-                <div className="text-[12px] font-semibold text-foreground truncate">{meta.label}</div>
+                <div className="text-[12px] font-bold text-foreground truncate">{meta.label}</div>
                 <div className="text-[22px] leading-none font-extrabold text-foreground mt-1">{count === null ? '—' : count}</div>
                 <div className="text-[9px] font-thin text-muted-foreground mt-0.5">{count === 1 ? 'student' : 'students'}</div>
               </div>
