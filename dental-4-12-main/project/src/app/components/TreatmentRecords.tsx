@@ -133,8 +133,12 @@ export const TreatmentRecords = () => {
           A count is PER STUDENT (headcount), not per tooth record -- a pupil
           with 4 sealants charted still counts once, same as one.
           NOT CLICKABLE (user, 2026-09-27 correction) -- these are read-only
-          totals, not a filter into the list below. */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          totals, not a filter into the list below.
+          Typography/spacing matched exactly to the user's hospital-dashboard
+          reference screenshot (2026-09-27): w-10 h-10 rounded-2xl icon badge,
+          mb-4 to the text stack, 15px medium label, 28px bold count, 14px
+          muted unit line -- flat card (border only, no shadow). */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6">
         {treatmentCodes.map((t) => {
           const meta = CATEGORY_META[t.code];
           const Icon = meta.icon;
@@ -143,15 +147,15 @@ export const TreatmentRecords = () => {
             <div
               key={t.code}
               title={t.local ? treatmentLabel(t) : undefined}
-              className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
+              className="flex flex-col rounded-2xl border border-border bg-card p-6"
             >
-              <span style={{ backgroundColor: meta.bg, color: meta.fg }} className="w-7 h-7 flex-shrink-0 rounded-lg grid place-items-center">
-                <Icon className="w-3 h-3" />
+              <span style={{ backgroundColor: meta.bg, color: meta.fg }} className="w-10 h-10 flex-shrink-0 rounded-2xl grid place-items-center mb-4">
+                <Icon className="w-5 h-5" />
               </span>
-              <div className="min-w-0 font-bold">
-                <div className="text-[11px] text-foreground truncate">{meta.label}</div>
-                <div className="text-xl leading-none text-foreground mt-1.5">{count === null ? '—' : count}</div>
-                <div className="text-[10px] text-muted-foreground mt-1">{count === 1 ? 'student' : 'students'} this school year</div>
+              <div className="min-w-0">
+                <div className="text-[15px] font-medium text-foreground truncate">{meta.label}</div>
+                <div className="text-[28px] leading-tight font-bold text-foreground mt-1">{count === null ? '—' : count}</div>
+                <div className="text-sm text-muted-foreground mt-0.5">{count === 1 ? 'student' : 'students'} this school year</div>
               </div>
             </div>
           );
