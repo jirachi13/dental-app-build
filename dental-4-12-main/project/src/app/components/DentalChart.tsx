@@ -18,7 +18,7 @@ import { TOPBAR_H } from '../utils/layout';
 import { surnameFirst, surnameFirstWithInitial } from '../utils/studentName';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
-import { removeQueuedStudentId } from '../utils/queueStorage';
+import { removeQueuedStudentId, getQueuedStudentIds } from '../utils/queueStorage';
 import { Modal } from './Modal';
 import { useSchools } from '../hooks/useSchools';
 import { SERVICES as CONSENT_SERVICES } from './ConsentForm';
@@ -204,20 +204,38 @@ export const DentalChart = () => {
   const { student, schoolName, years, dentists, loading, error, reload } = useDentalChartData(id);
   const currentDentist = dentists.find((d) => d.user_id === user?.id);
 
-  // Real patient nav (school-scoped like every list page, sorted by name for a stable, predictable order)
-  const navList = useMemo(
-    () => (selectedSchool ? allStudents.filter((s) => s.school === selectedSchool) : [...allStudents]).sort((a, b) => a.name.localeCompare(b.name)),
-    [allStudents, selectedSchool],
-  );
-  const navIndex = navList.findIndex((s) => s.id === id);
-  const prevPatient = navIndex > 0 ? navList[navIndex - 1] : null;
-  const nextPatient = navIndex >= 0 && navIndex < navList.length - 1 ? navList[navIndex + 1] : null;
-
   // ⚠ 'appointments' (the Consent tab) is gone as of Sprint 171 — six tabs,
   // hers. Consent lives on the History banner, which is where she put it.
   type TabKey = 'history' | 'chart' | 'records' | 'treatments' | 'referrals' | 'ai';
   type IptrContext = 'default' | 'dental-queue' | 'risk' | 'treatment';
   const iptrContext = (searchParams.get('context') as IptrContext) || 'default';
+  // Layout/tabs treat dental-queue exactly like default (user, 2026-09-27):
+  // opening a chart from the Charting Queue now shows every tab and every
+  // panel the Students module's own "Open chart" does. `iptrContext` itself
+  // stays distinct for the two things that SHOULD still differ -- the
+  // prev/next nav order below, and the save-then-navigate-to-AI-Analytics
+  // behavior further down.
+  const layoutContext = iptrContext === 'dental-queue' ? 'default' : iptrContext;
+
+  // Real patient nav (school-scoped like every list page, sorted by name for
+  // a stable, predictable order) -- EXCEPT from the Charting Queue (user,
+  // 2026-09-27): "the next student should be the next student in the
+  // charting queue", not the next one alphabetically. queueNavList is that
+  // queue's own persisted order, resolved against the slim nav roster.
+  const queueNavList = useMemo(() => {
+    if (iptrContext !== 'dental-queue') return null;
+    const byId = new Map(allStudents.map((s) => [s.id, s]));
+    return getQueuedStudentIds().map((qid) => byId.get(qid)).filter((s): s is (typeof allStudents)[number] => !!s);
+  }, [iptrContext, allStudents]);
+  const navList = useMemo(
+    () =>
+      queueNavList ??
+      (selectedSchool ? allStudents.filter((s) => s.school === selectedSchool) : [...allStudents]).sort((a, b) => a.name.localeCompare(b.name)),
+    [queueNavList, allStudents, selectedSchool],
+  );
+  const navIndex = navList.findIndex((s) => s.id === id);
+  const prevPatient = navIndex > 0 ? navList[navIndex - 1] : null;
+  const nextPatient = navIndex >= 0 && navIndex < navList.length - 1 ? navList[navIndex + 1] : null;
   const [chartingMode, setChartingModeState] = useState(chartingModeMemo);
   const setChartingMode = (on: boolean) => { chartingModeMemo = on; setChartingModeState(on); };
   // An explicit ?tab= still wins — a deep link says where to land. Otherwise a
@@ -241,12 +259,13 @@ export const DentalChart = () => {
     { key: 'records', label: 'Dental History' },
     { key: 'referrals', label: 'Notes & Referrals' },
   ];
+  // Keyed on layoutContext, not iptrContext (user, 2026-09-27) -- dental-
+  // queue used to restrict this to just History + Chart; it now shows every
+  // tab, same as opening a chart from the Students module.
   const visibleTabs = (
-    iptrContext === 'dental-queue'
-      ? allTabs.filter((tab) => tab.key === 'history' || tab.key === 'chart')
-      : iptrContext === 'risk'
+    layoutContext === 'risk'
       ? allTabs.filter((tab) => tab.key === 'ai')
-      : iptrContext === 'treatment'
+      : layoutContext === 'treatment'
       ? allTabs.filter((tab) => tab.key === 'chart' || tab.key === 'treatments')
       : allTabs
   );
@@ -549,10 +568,15 @@ export const DentalChart = () => {
   // header's prev/next buttons; charting mode makes stepping the main loop, so
   // it is guarded here for both. Confirm-and-lose, never lose silently.
   const [pendingNav, setPendingNav] = useState<{ id: string; name: string } | null>(null);
+  // Preserves ?context= across Prev/Next (user, 2026-09-27): without this,
+  // the FIRST click off a dental-queue (or risk/treatment) link worked, but
+  // landing on a bare `/dental-chart/:id` dropped the context, so the very
+  // next Prev/Next silently fell back to the default alphabetical nav list.
+  const navQuery = iptrContext !== 'default' ? `?context=${iptrContext}` : '';
   const goToStudent = (target: { id: string; name: string } | null) => {
     if (!target) return;
     if (editMode) { setPendingNav(target); return; }
-    navigate(`/dental-chart/${target.id}`);
+    navigate(`/dental-chart/${target.id}${navQuery}`);
   };
 
   const currentChart = draftChart;
@@ -2250,9 +2274,9 @@ export const DentalChart = () => {
                 The view-mode notice itself lives on the Oral Conditions bar above. */}
             <div className={`${editingChart ? 'bg-primary text-white' : 'bg-slate-200 text-slate-600'} px-4 py-2 text-[11px] font-semibold uppercase tracking-wider`}>Charting Codes</div>
             <div className={`p-4 ${!editingChart ? 'opacity-60 pointer-events-none select-none' : ''}`}>
-              <div className={`grid grid-cols-1 ${iptrContext === 'default' ? 'lg:grid-cols-2' : ''} gap-4`}>
-                {iptrContext !== 'treatment' && (
-                <div className={iptrContext === 'default' ? 'lg:pr-4' : undefined}>
+              <div className={`grid grid-cols-1 ${layoutContext === 'default' ? 'lg:grid-cols-2' : ''} gap-4`}>
+                {layoutContext !== 'treatment' && (
+                <div className={layoutContext === 'default' ? 'lg:pr-4' : undefined}>
                   <div className="flex items-center justify-between gap-2 mb-2 min-h-[26px]">
                     <div className="text-sm font-bold text-primary uppercase tracking-wide">Condition Codes</div>
                     {editingChart && chartedConditionCount > 0 && (
@@ -2303,13 +2327,15 @@ export const DentalChart = () => {
                   })()}
                 </div>
                 )}
-                {iptrContext !== 'dental-queue' && (
-                // Conditions and treatments are different vocabularies -- one
-                // records what IS, the other what was DONE -- but unselected
-                // buttons in both groups look identical, so without a rule the
-                // two grids read as one long palette. Divider only when both
-                // are on screen: side by side from lg, stacked below it.
-                <div className={iptrContext === 'default' ? 'border-t border-border pt-4 lg:border-t-0 lg:pt-0 lg:border-l lg:pl-4' : undefined}>
+                {/* Conditions and treatments are different vocabularies -- one
+                    records what IS, the other what was DONE -- but unselected
+                    buttons in both groups look identical, so without a rule the
+                    two grids read as one long palette. Divider only when both
+                    are on screen: side by side from lg, stacked below it.
+                    Unconditional now (user, 2026-09-27) -- was hidden for
+                    iptrContext === 'dental-queue', which no longer strips
+                    functionality down from the default view. */}
+                <div className={layoutContext === 'default' ? 'border-t border-border pt-4 lg:border-t-0 lg:pt-0 lg:border-l lg:pl-4' : undefined}>
                   <div className="flex items-center justify-between gap-2 mb-2 min-h-[26px]">
                     <div className="text-sm font-bold text-primary uppercase tracking-wide">Treatment Codes</div>
                     {editingChart && chartedTreatmentCount > 0 && (
@@ -2346,7 +2372,6 @@ export const DentalChart = () => {
                     );
                   })()}
                 </div>
-                )}
               </div>
             </div>
             </div>
@@ -2953,7 +2978,7 @@ export const DentalChart = () => {
         title="Leave this chart unsaved?"
         message={`Nothing on this chart has been saved yet. Going to ${pendingNav?.name ?? 'the next student'} discards it. Cancel, then use Save Chart if you want to keep it.`}
         confirmLabel="Discard and continue"
-        onConfirm={() => { const t = pendingNav; setPendingNav(null); setEditMode(false); if (t) navigate(`/dental-chart/${t.id}`); }}
+        onConfirm={() => { const t = pendingNav; setPendingNav(null); setEditMode(false); if (t) navigate(`/dental-chart/${t.id}${navQuery}`); }}
         onCancel={() => setPendingNav(null)}
       />
       <ConfirmDialog
