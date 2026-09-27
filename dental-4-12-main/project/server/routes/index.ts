@@ -818,19 +818,27 @@ router.get("/stats/treatment-categories", requireAuth, asyncHandler(async (req, 
   const studentFilter = scope ? { isArchived: false, ...scope } : { isArchived: false };
 
   const studentIds = (await Student.find(studentFilter).select("_id").lean()).map((s: any) => String(s._id));
-  if (studentIds.length === 0) return res.json([]);
+  if (studentIds.length === 0) return res.json({ rows: [], schoolYearOptions: [], schoolYear: schoolYearLabel() });
 
-  // Current school year only (user, 2026-09-27) -- a headcount for "students
-  // given this treatment" that quietly summed every year the clinic has ever
-  // recorded would overstate the current roll's actual need.
-  const iptrs = await StudentIptr.find({
-    isArchived: false,
-    student_id: { $in: studentIds },
-    school_year: schoolYearLabel(),
-  }).select("_id student_id").lean();
+  // Current school year only by default (user, 2026-09-27) -- a headcount
+  // for "students given this treatment" that quietly summed every year the
+  // clinic has ever recorded would overstate the current roll's actual
+  // need. `school_year` is a TEMPORARY validation filter (user, 2026-09-27,
+  // "for now make it a filter so i can validate if its showing the right
+  // numbers") -- once the count is confirmed correct, the plan is to drop
+  // back to always-current-year with no picker.
+  const allIptrsInScope = await StudentIptr.find({ isArchived: false, student_id: { $in: studentIds } })
+    .select("_id student_id school_year").lean();
+  // The current year is always offered, even with zero IPTRs recorded yet --
+  // otherwise a brand-new school year would have no way to select itself.
+  const schoolYearOptions = [...new Set([schoolYearLabel(), ...(allIptrsInScope as any[]).map((i) => String(i.school_year))])]
+    .filter(Boolean).sort().reverse();
+  const requestedYear = typeof req.query.school_year === "string" && req.query.school_year ? req.query.school_year : schoolYearLabel();
+
+  const iptrs = (allIptrsInScope as any[]).filter((i) => String(i.school_year) === requestedYear);
   const studentIdByIptr = new Map(iptrs.map((i: any) => [String(i._id), String(i.student_id)]));
   const iptrIds = iptrs.map((i: any) => String(i._id));
-  if (iptrIds.length === 0) return res.json([]);
+  if (iptrIds.length === 0) return res.json({ rows: [], schoolYearOptions, schoolYear: requestedYear });
 
   const [charts, preventives] = await Promise.all([
     DentalChart.find({ isArchived: false, iptr_id: { $in: iptrIds } }).select("_id iptr_id").lean(),
@@ -867,8 +875,8 @@ router.get("/stats/treatment-categories", requireAuth, asyncHandler(async (req, 
     }
   }
 
-  const result = [...studentIdsByCode.entries()].map(([code, ids]) => ({ code, studentIds: [...ids] }));
-  res.json(result);
+  const rows = [...studentIdsByCode.entries()].map(([code, ids]) => ({ code, studentIds: [...ids] }));
+  res.json({ rows, schoolYearOptions, schoolYear: requestedYear });
 }));
 
 router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => {

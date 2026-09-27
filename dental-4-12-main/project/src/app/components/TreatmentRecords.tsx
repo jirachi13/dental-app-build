@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { X, Clipboard, Search, Droplet, ShieldCheck, Sparkles, Wrench, Timer, RotateCcw, Scissors, Syringe, MessageCircle, type LucideIcon } from 'lucide-react';
 import { GradePill } from './GradePill';
@@ -10,6 +10,7 @@ import { useStudents } from '../hooks/useStudents';
 import { useTreatmentCategories } from '../hooks/useTreatmentCategories';
 import { useAuth } from '../context/AuthContext';
 import { treatmentCodes, treatmentLabel } from '../utils/dentalChartCodes';
+import { schoolYearLabel } from '../utils/schoolYear';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { activatable } from '../utils/a11y';
 import { Pagination, usePagination } from './Pagination';
@@ -73,7 +74,19 @@ export const TreatmentRecords = () => {
     () => (selectedSchool ? allStudents.filter((s) => s.school === selectedSchool) : allStudents),
     [allStudents, selectedSchool],
   );
-  const { rows: categoryRows, loading: categoriesLoading } = useTreatmentCategories();
+  // TEMPORARY validation control (user, 2026-09-27, "for now make it a
+  // filter so i can validate if its showing the right numbers") -- defaults
+  // to the current school year; picking another year re-queries the same
+  // aggregation for that year so the count can be checked against it.
+  const [yearFilter, setYearFilter] = useState<string>(schoolYearLabel());
+  const [yearMenuOpen, setYearMenuOpen] = useState(false);
+  const yearMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => { if (!yearMenuRef.current?.contains(e.target as Node)) setYearMenuOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, []);
+  const { rows: categoryRows, schoolYearOptions, loading: categoriesLoading } = useTreatmentCategories(yearFilter);
   const studentIdsByCode = useMemo(() => new Map(categoryRows.map((r) => [r.code, new Set(r.studentIds)])), [categoryRows]);
 
   const filtered = useMemo(() => allPatients.filter(t => {
@@ -154,6 +167,43 @@ export const TreatmentRecords = () => {
           true -- the count itself is year-scoped, see above -- just no
           longer spelled out on the card). Still one font family throughout
           (Inter Variable). */}
+      {/* School-year picker (user, 2026-09-27, design "B" -- a single pill,
+          no icons, opens a dropdown of the other years on click). TEMPORARY
+          per the user ("for now make it a filter so i can validate if its
+          showing the right numbers") -- once the current-year count is
+          confirmed correct, the plan is to remove this and always show the
+          current year with no picker. */}
+      <div className="flex justify-end">
+        <div ref={yearMenuRef} className="relative">
+          <button
+            type="button"
+            role="combobox"
+            aria-haspopup="listbox"
+            aria-expanded={yearMenuOpen}
+            onClick={() => setYearMenuOpen((o) => !o)}
+            className="rounded-full bg-primary-surface px-3 py-1.5 text-sm font-bold text-primary hover:bg-primary-surface/80"
+          >
+            {yearFilter}
+          </button>
+          {yearMenuOpen && (
+            <div className="absolute right-0 z-20 mt-1 min-w-[140px] rounded-lg border border-border bg-card shadow-md py-1">
+              {schoolYearOptions.map((y) => (
+                <button
+                  key={y}
+                  type="button"
+                  onClick={() => { setYearFilter(y); setYearMenuOpen(false); }}
+                  className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-canvas ${
+                    y === yearFilter ? 'font-semibold text-primary' : 'text-foreground'
+                  }`}
+                >
+                  {y}
+                  {y === schoolYearLabel() && <span className="text-[10px] font-bold text-green-600">Current</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         {treatmentCodes.map((t) => {
           const meta = CATEGORY_META[t.code];
