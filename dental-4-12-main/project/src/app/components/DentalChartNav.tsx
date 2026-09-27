@@ -5,7 +5,7 @@ import { GradePill } from './GradePill';
 import { getSchoolColor } from '../utils/schoolColors';
 import { getGradeColor } from '../utils/gradeColors';
 import { ListSearchInput } from './ListSearchInput';
-import { getQueuedStudentIds, setQueuedStudentIds as persistQueuedStudentIds } from '../utils/queueStorage';
+import { getQueuedStudentIds, setQueuedStudentIds as persistQueuedStudentIds, getEffectiveQueueOrder } from '../utils/queueStorage';
 import { useStudents } from '../hooks/useStudents';
 import { useRPCTracking } from '../hooks/useRPCTracking';
 import { useAuth } from '../context/AuthContext';
@@ -259,16 +259,12 @@ export const DentalChartNav = () => {
   // number a student shows is stable regardless of what's currently
   // searched or filtered -- only the visible ROWS should shrink with a
   // search, never the numbers themselves.
+  // Shared with DentalChart.tsx's own Prev/Next nav (user, 2026-09-27: "Next"
+  // from an opened chart must agree with the Queue # shown here, not just
+  // the raw order students were added in) via getEffectiveQueueOrder.
   const effectiveQueueOrder = useMemo(() => {
-    const queued = allPatients.filter((p) => queuedStudentIds.includes(p.id));
-    return [...queued]
-      .sort((a, b) => {
-        const apptA = appointmentsTodayIds.has(a.id) ? 0 : 1;
-        const apptB = appointmentsTodayIds.has(b.id) ? 0 : 1;
-        if (apptA !== apptB) return apptA - apptB;
-        return queuedStudentIds.indexOf(a.id) - queuedStudentIds.indexOf(b.id);
-      })
-      .map((p) => p.id);
+    const queuedIdsAtSchool = queuedStudentIds.filter((qid) => allPatients.some((p) => p.id === qid));
+    return getEffectiveQueueOrder(queuedIdsAtSchool, appointmentsTodayIds);
   }, [allPatients, queuedStudentIds, appointmentsTodayIds]);
 
   // No grade/section/gender/age filters (user, 2026-09-25 — removed in

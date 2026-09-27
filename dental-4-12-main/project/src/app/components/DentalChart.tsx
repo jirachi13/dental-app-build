@@ -18,7 +18,7 @@ import { TOPBAR_H } from '../utils/layout';
 import { surnameFirst, surnameFirstWithInitial } from '../utils/studentName';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
-import { removeQueuedStudentId, getQueuedStudentIds } from '../utils/queueStorage';
+import { removeQueuedStudentId, getQueuedStudentIds, getEffectiveQueueOrder } from '../utils/queueStorage';
 import { Modal } from './Modal';
 import { useSchools } from '../hooks/useSchools';
 import { SERVICES as CONSENT_SERVICES } from './ConsentForm';
@@ -30,7 +30,7 @@ import { TreatmentHistoryTab } from './TreatmentHistoryTab';
 import { ReferralsTab } from './ReferralsTab';
 import { HistoryTab } from './HistoryTab';
 import { emptyMed, medDraftFrom, emptyDiet, emptyOral, type MedicalHistoryDraft, type DietDraft, type OralDraft } from './iptrDrafts';
-import type { ReferralType } from '../api/types';
+import type { ReferralType, ApiAppointment } from '../api/types';
 import {
   sectionBRows,
   teethByTreatment as teethByTreatmentCode,
@@ -217,16 +217,43 @@ export const DentalChart = () => {
   // behavior further down.
   const layoutContext = iptrContext === 'dental-queue' ? 'default' : iptrContext;
 
+  // Appointments-today, fetched ONLY for the dental-queue nav below (user,
+  // 2026-09-27): "Next" has to agree with the Queue # shown on the Dental
+  // Charts page itself, which bypasses raw queue position for students with
+  // an appointment today -- not just the order they were added to the
+  // queue. getEffectiveQueueOrder (shared with DentalChartNav) needs this
+  // same set to compute that identical order.
+  const [queueAppointmentsTodayIds, setQueueAppointmentsTodayIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (iptrContext !== 'dental-queue') return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const appts = await apiClient.get<ApiAppointment[]>('/appointments');
+        const today = toLocalDateString(new Date());
+        const ids = new Set(
+          appts.filter((a) => !a.isArchived && toLocalDateString(new Date(a.appointment_datetime)) === today).map((a) => a.student_id),
+        );
+        if (!cancelled) setQueueAppointmentsTodayIds(ids);
+      } catch {
+        // Best-effort -- nav just falls back to raw queue order below.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [iptrContext]);
+
   // Real patient nav (school-scoped like every list page, sorted by name for
   // a stable, predictable order) -- EXCEPT from the Charting Queue (user,
   // 2026-09-27): "the next student should be the next student in the
-  // charting queue", not the next one alphabetically. queueNavList is that
-  // queue's own persisted order, resolved against the slim nav roster.
+  // charting queue", BY QUEUE NUMBER (the same appointments-today-bypass
+  // order the queue table itself shows), not the raw order students were
+  // added to the queue.
   const queueNavList = useMemo(() => {
     if (iptrContext !== 'dental-queue') return null;
     const byId = new Map(allStudents.map((s) => [s.id, s]));
-    return getQueuedStudentIds().map((qid) => byId.get(qid)).filter((s): s is (typeof allStudents)[number] => !!s);
-  }, [iptrContext, allStudents]);
+    const ordered = getEffectiveQueueOrder(getQueuedStudentIds(), queueAppointmentsTodayIds);
+    return ordered.map((qid) => byId.get(qid)).filter((s): s is (typeof allStudents)[number] => !!s);
+  }, [iptrContext, allStudents, queueAppointmentsTodayIds]);
   const navList = useMemo(
     () =>
       queueNavList ??
