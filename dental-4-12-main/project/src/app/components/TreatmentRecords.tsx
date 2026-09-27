@@ -137,10 +137,13 @@ export const TreatmentRecords = () => {
           Typography/spacing matched to the user's RAMHIS "Department
           Overview" reference screenshot, then scaled everything inside (and
           the card itself) down ~30% per feedback (2026-09-27): w-8 h-8
-          rounded-xl icon badge, mb-4 to the text stack, 11px semibold label,
-          22px extrabold count, 10px muted unit line, p-4 card padding --
-          flat card (border only, no shadow). Still one font family
-          throughout (Inter Variable). */}
+          rounded-xl icon badge, mb-4 to the text stack, 22px extrabold
+          count, p-4 card padding -- flat card (border only, no shadow).
+          Label bumped +3px to 14px semibold and the unit line shortened to
+          just "student(s)" in 9px thin, dropping "this school year" (still
+          true -- the count itself is year-scoped, see above -- just no
+          longer spelled out on the card). Still one font family throughout
+          (Inter Variable). */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         {treatmentCodes.map((t) => {
           const meta = CATEGORY_META[t.code];
@@ -156,9 +159,9 @@ export const TreatmentRecords = () => {
                 <Icon className="w-4 h-4" />
               </span>
               <div className="min-w-0">
-                <div className="text-[11px] font-semibold text-foreground truncate">{meta.label}</div>
+                <div className="text-[14px] font-semibold text-foreground truncate">{meta.label}</div>
                 <div className="text-[22px] leading-none font-extrabold text-foreground mt-1">{count === null ? '—' : count}</div>
-                <div className="text-[10px] text-muted-foreground mt-0.5">{count === 1 ? 'student' : 'students'} this school year</div>
+                <div className="text-[9px] font-thin text-muted-foreground mt-0.5">{count === 1 ? 'student' : 'students'}</div>
               </div>
             </div>
           );
