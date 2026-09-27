@@ -1,14 +1,14 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router';
-import { X, Clipboard } from 'lucide-react';
+import { X, Clipboard, Search, Droplet, ShieldCheck, Sparkles, Wrench, Timer, RotateCcw, Scissors, Syringe, MessageCircle, type LucideIcon } from 'lucide-react';
 import { PageHeader } from './PageHeader';
 import { GradeTableCell } from './GradeTableCell';
 import { ListSearchInput } from './ListSearchInput';
 import { studentListTableStyles } from './StudentListTableStyles';
 import { useStudents } from '../hooks/useStudents';
+import { useTreatmentCategories } from '../hooks/useTreatmentCategories';
 import { useAuth } from '../context/AuthContext';
-import { apiClient } from '../api/client';
-import type { ApiStudentIptr, ApiTreatment } from '../api/types';
+import { treatmentCodes, treatmentLabel } from '../utils/dentalChartCodes';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { activatable } from '../utils/a11y';
 import { Pagination, usePagination } from './Pagination';
@@ -32,9 +32,31 @@ const getAgeGroup = (age: number) => {
   return '20 & above';
 };
 
+// Icon + tint per treatment code (user, 2026-09-27, design review "Style 1"
+// -- real lucide icons, colored badge per card, matching the stat-card
+// pattern already on Dental Charts). "OEX" renders as "Oral Examination"
+// here (user correction), not its full treatmentCodes label "Oral Exam /
+// Checkup" -- the vocabulary itself is unchanged, only this page's display.
+const CATEGORY_META: Record<string, { label: string; icon: LucideIcon; bg: string; fg: string }> = {
+  OEX: { label: 'Oral Examination', icon: Search, bg: '#E8ECF6', fg: '#273A78' },
+  FV: { label: 'Fluoride Varnish', icon: Droplet, bg: '#ECFDF5', fg: '#059669' },
+  PFS: { label: 'Pit & Fissure Sealant', icon: ShieldCheck, bg: '#FEF3E2', fg: '#C2760C' },
+  OP: { label: 'Oral Prophylaxis', icon: Sparkles, bg: '#F0F9FF', fg: '#0369A1' },
+  PF: { label: 'Permanent Filling', icon: Wrench, bg: '#FDF2F8', fg: '#BE185D' },
+  TF: { label: 'Temporary Filling', icon: Timer, bg: '#F5F3FF', fg: '#7C3AED' },
+  TR: { label: 'Tooth Restoration', icon: RotateCcw, bg: '#FFF7ED', fg: '#C2410C' },
+  X: { label: 'Extraction', icon: Scissors, bg: '#FEF2F2', fg: '#DC2626' },
+  SDF: { label: 'Silver Diamine Fluoride', icon: Syringe, bg: '#ECFEFF', fg: '#0E7490' },
+  CONS: { label: 'Consultation', icon: MessageCircle, bg: '#F3F4F6', fg: '#4B5563' },
+};
+
 export const TreatmentRecords = () => {
   const navigate = useNavigate();
-  const [viewMode, setViewMode] = useState<'treatment' | 'full'>('treatment');
+  // Which category card is active -- null means "Full List" (every student
+  // at this school), same meaning the old viewMode='full' had. Selecting a
+  // category is now the ONLY way to narrow to it; clicking the active card
+  // again clears back to Full List (user, 2026-09-27 redesign).
+  const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const [gradeFilter, setGradeFilter] = useState('all');
   const [sectionFilter, setSectionFilter] = useState('all');
   const [genderFilter, setGenderFilter] = useState('all');
@@ -48,29 +70,12 @@ export const TreatmentRecords = () => {
     () => (selectedSchool ? allStudents.filter((s) => s.school === selectedSchool) : allStudents),
     [allStudents, selectedSchool],
   );
-  const [treatmentIds, setTreatmentIds] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const [iptrs, treatments] = await Promise.all([
-        apiClient.get<ApiStudentIptr[]>('/student-iptrs'),
-        apiClient.get<ApiTreatment[]>('/treatments'),
-      ]);
-      const studentIdByIptr = new Map(iptrs.map((i) => [i._id, i.student_id]));
-      const ids = new Set(
-        treatments.map((t) => studentIdByIptr.get(t.iptr_id)).filter((id): id is string => !!id),
-      );
-      if (!cancelled) setTreatmentIds(ids);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { rows: categoryRows, loading: categoriesLoading } = useTreatmentCategories();
+  const studentIdsByCode = useMemo(() => new Map(categoryRows.map((r) => [r.code, new Set(r.studentIds)])), [categoryRows]);
 
   const sourcePatients = useMemo(
-    () => (viewMode === 'treatment' ? allPatients.filter((p) => treatmentIds.has(p.id)) : allPatients),
-    [viewMode, treatmentIds, allPatients],
+    () => (selectedCode ? allPatients.filter((p) => studentIdsByCode.get(selectedCode)?.has(p.id)) : allPatients),
+    [selectedCode, studentIdsByCode, allPatients],
   );
 
   const filtered = useMemo(() => sourcePatients.filter(t => {
@@ -90,7 +95,7 @@ export const TreatmentRecords = () => {
   // Paged (Sprint 58): this list rendered EVERY filtered row, which is fine at
   // demo scale and thousands of DOM rows at ~8,000 students. Reset keys are the
   // filter inputs, never `filtered` — see Pagination.tsx.
-  const pager = usePagination(filtered, [gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm]);
+  const pager = usePagination(filtered, [selectedCode, gradeFilter, sectionFilter, genderFilter, ageGroupFilter, searchTerm]);
 
   const hasActiveFilters = [gradeFilter, sectionFilter, genderFilter, ageGroupFilter].some(f => f !== 'all') || searchTerm !== '';
   const clearFilters = () => { setGradeFilter('all'); setSectionFilter('all'); setGenderFilter('all'); setAgeGroupFilter('all'); setSearchTerm(''); };
@@ -111,26 +116,72 @@ export const TreatmentRecords = () => {
     );
   }
 
+  const activeMeta = selectedCode ? CATEGORY_META[selectedCode] : null;
+
   return (
     <div className="space-y-4">
-      {/* ⚠ STUDENTS, not treatment records. The rows come from
-          `useStudents()` — this is the picker you choose a pupil from.
-          TREATMENT held ZERO rows on dev when this was checked
-          (2026-09-06) while the page announced "26 records found", which
-          is a fabricated figure on a clinical screen. */}
       <PageHeader
         icon={Clipboard}
         eyebrow="Clinical Care"
-        title="Treatment"
-        description={`${filtered.length} student${filtered.length !== 1 ? 's' : ''} to pick a treatment record for.`}
-        action={
-          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-            <button onClick={() => setViewMode('treatment')} className={`px-3 py-1.5 rounded-md text-sm font-medium ${viewMode === 'treatment' ? 'bg-white text-[#1E40AF] shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Treatment List</button>
-            <button onClick={() => setViewMode('full')} className={`px-3 py-1.5 rounded-md text-sm font-medium ${viewMode === 'full' ? 'bg-white text-[#1E40AF] shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Full List</button>
-          </div>
-        }
+        title="Treatment Records"
+        description="Pick a treatment category to see which students have actually been given it, or browse the full list below."
       />
+
+      {/* Category cards (user, 2026-09-27 redesign): each one is a REAL count
+          of students with that treatment on record -- ToothRecord.
+          treatment_code for the 6 per-tooth codes, PreventiveCareRecord's
+          booleans for the 4 whole-mouth ones (see /stats/treatment-
+          categories). Never the free-text TREATMENT.treatment_done field,
+          which can't be reliably bucketed into a code. */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        {treatmentCodes.map((t) => {
+          const meta = CATEGORY_META[t.code];
+          const Icon = meta.icon;
+          const count = categoriesLoading ? null : (studentIdsByCode.get(t.code)?.size ?? 0);
+          const active = selectedCode === t.code;
+          return (
+            <div
+              key={t.code}
+              {...activatable(() => setSelectedCode(active ? null : t.code))}
+              title={t.local ? treatmentLabel(t) : undefined}
+              className={`flex flex-col gap-4 rounded-2xl border bg-card p-6 shadow-[0_4px_20px_rgba(0,0,0,0.06)] cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_10px_30px_rgba(15,23,42,0.08)] focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2 ${
+                active ? 'border-primary/40 shadow-[0_10px_30px_rgba(15,23,42,0.08)]' : 'border-border'
+              }`}
+            >
+              <span style={{ backgroundColor: meta.bg, color: meta.fg }} className="w-10 h-10 flex-shrink-0 rounded-xl grid place-items-center">
+                <Icon className="w-4 h-4" />
+              </span>
+              <div className="min-w-0">
+                <div className="text-[15px] font-medium text-foreground truncate">{meta.label}</div>
+                <div className="text-[28px] leading-none font-extrabold text-foreground mt-2">{count === null ? '—' : count}</div>
+                <div className="text-xs text-muted-foreground mt-1">{count === 1 ? 'student' : 'students'}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
       <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="min-w-0 flex items-center gap-3">
+            <span className="w-10 h-10 rounded-xl bg-gray-100 grid place-items-center flex-shrink-0">
+              <Clipboard className="w-4.5 h-4.5 text-muted-foreground" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold text-foreground">{activeMeta ? activeMeta.label : 'Full List'}</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {activeMeta
+                  ? `${filtered.length} student${filtered.length !== 1 ? 's' : ''} with ${activeMeta.label} on record.`
+                  : `${filtered.length} student${filtered.length !== 1 ? 's' : ''} at this school.`}
+              </p>
+            </div>
+          </div>
+          {selectedCode && (
+            <button onClick={() => setSelectedCode(null)} className="flex items-center gap-1 px-3 py-2 text-sm text-primary border border-primary/20 rounded-lg hover:bg-primary-surface">
+              <X className="w-3 h-3" /> Clear category
+            </button>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2">
           <ListSearchInput value={searchTerm} onChange={setSearchTerm} />
           <FS value={gradeFilter} onChange={g => { setGradeFilter(g); setSectionFilter('all'); }} label="All Grades" opts={GRADES.map(g => ({ v: g, l: g }))} />
@@ -159,7 +210,7 @@ export const TreatmentRecords = () => {
             </thead>
             <tbody className={studentListTableStyles.body}>
               {filtered.length === 0 ? (
-                <tr><td colSpan={5} className={studentListTableStyles.emptyCell}>{viewMode === 'treatment' && !hasActiveFilters ? 'No students with treatment records at this school yet — switch to Full List to browse all students.' : 'No treatment records match the selected filters.'}</td></tr>
+                <tr><td colSpan={5} className={studentListTableStyles.emptyCell}>{selectedCode && !hasActiveFilters ? `No students with ${activeMeta?.label} on record at this school yet.` : 'No students match the selected filters.'}</td></tr>
               ) : pager.paged.map(t => {
                 const age = calculateAge(t.birthdate);
                 return (

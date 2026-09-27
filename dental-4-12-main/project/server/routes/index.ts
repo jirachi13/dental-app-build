@@ -16,6 +16,7 @@ import { buildRpcRows, filterRpcRows } from "../../shared/rpcTracking.js";
 import { buildSchoolSummary } from "../../shared/schoolSummary.js";
 import { buildFhsisCounts } from "../../shared/fhsis.js";
 import { buildReportsPanels } from "../../shared/reportsPanels.js";
+import { perToothTreatmentCodes, WHOLE_MOUTH_CODE_TO_PREVENTIVE_FIELD } from "../../shared/treatmentCodes.js";
 import { findDuplicateStudents } from "../utils/studentDuplicates.js";
 import {
   School,
@@ -797,6 +798,70 @@ router.get("/stats/student-nav", requireAuth, asyncHandler(async (req, res) => {
     };
   });
   res.json(rows);
+}));
+
+// Treatment Records' category cards (user, 2026-09-27). Each of the 10
+// treatment codes is bucketed from REAL structured data, not the free-text
+// TREATMENT.treatment_done field (a dentist's typed note -- "Extracted tooth
+// #36" -- which cannot be reliably parsed back into a code without guessing,
+// and a wrong count on a clinical screen is worse than none):
+//   - The 6 per-tooth codes (PFS/PF/TF/TR/X/SDF) come from ToothRecord.
+//     treatment_code, joined up through DentalChart -> StudentIptr.
+//   - The 4 whole-mouth codes (OEX/FV/OP/CONS) come from PreventiveCare
+//     Record's own boolean fields, joined through StudentIptr directly.
+// Aggregated server-side so the browser never pulls every tooth record in
+// the school just to count them (the exact pattern /stats/student-rows'
+// own history warns against -- see its comment above).
+router.get("/stats/treatment-categories", requireAuth, asyncHandler(async (req, res) => {
+  const scope = await scopeFilter("Student", req);
+  const studentFilter = scope ? { isArchived: false, ...scope } : { isArchived: false };
+
+  const studentIds = (await Student.find(studentFilter).select("_id").lean()).map((s: any) => String(s._id));
+  if (studentIds.length === 0) return res.json([]);
+
+  const iptrs = await StudentIptr.find({ isArchived: false, student_id: { $in: studentIds } })
+    .select("_id student_id").lean();
+  const studentIdByIptr = new Map(iptrs.map((i: any) => [String(i._id), String(i.student_id)]));
+  const iptrIds = iptrs.map((i: any) => String(i._id));
+  if (iptrIds.length === 0) return res.json([]);
+
+  const [charts, preventives] = await Promise.all([
+    DentalChart.find({ isArchived: false, iptr_id: { $in: iptrIds } }).select("_id iptr_id").lean(),
+    PreventiveCareRecord.find({ isArchived: false, iptr_id: { $in: iptrIds } })
+      .select("iptr_id oral_screening oral_prophylaxis fluoride_varnish consultation").lean(),
+  ]);
+  const iptrIdByChart = new Map(charts.map((c: any) => [String(c._id), String(c.iptr_id)]));
+  const chartIds = charts.map((c: any) => String(c._id));
+
+  const perToothCodeSet = new Set(perToothTreatmentCodes.map((t) => t.code));
+  const toothRecords = chartIds.length
+    ? await ToothRecord.find({ isArchived: false, chart_id: { $in: chartIds }, treatment_code: { $in: [...perToothCodeSet] } })
+        .select("chart_id treatment_code").lean()
+    : [];
+
+  // code -> Set of student ids, built from whichever source (per-tooth or
+  // whole-mouth) actually holds that code.
+  const studentIdsByCode = new Map<string, Set<string>>();
+  const add = (code: string, studentId: string | undefined) => {
+    if (!studentId) return;
+    if (!studentIdsByCode.has(code)) studentIdsByCode.set(code, new Set());
+    studentIdsByCode.get(code)!.add(studentId);
+  };
+
+  for (const t of toothRecords as any[]) {
+    const iptrId = iptrIdByChart.get(String(t.chart_id));
+    const studentId = iptrId ? studentIdByIptr.get(iptrId) : undefined;
+    if (t.treatment_code) add(String(t.treatment_code), studentId);
+  }
+  for (const p of preventives as any[]) {
+    const studentId = studentIdByIptr.get(String(p.iptr_id));
+    for (const [code, field] of Object.entries(WHOLE_MOUTH_CODE_TO_PREVENTIVE_FIELD)) {
+      if ((p as any)[field] === true) add(code, studentId);
+    }
+  }
+
+  const result = [...studentIdsByCode.entries()].map(([code, ids]) => ({ code, studentIds: [...ids] }));
+  res.json(result);
 }));
 
 router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => {
