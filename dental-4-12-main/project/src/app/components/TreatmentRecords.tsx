@@ -211,7 +211,11 @@ export const TreatmentRecords = () => {
       // flush to it -- collapses to window.innerHeight below md, where the
       // aside is an off-canvas h-screen drawer).
       const cappedHeight = sidebar ? Math.max(sidebar.getBoundingClientRect().bottom - top, 200) : flushHeight;
-      setRegionHeight(pinnedToSidebar.current ? cappedHeight : flushHeight);
+      // Hide always stays flush to the true screen edge, full stop (user,
+      // 2026-09-28: "when pagination is hidden, the container should
+      // always touch the edge of the screen") -- the sidebar-cap is a
+      // pagination-shown-only behavior, never applied in Hide.
+      setRegionHeight(!hidePagination && pinnedToSidebar.current ? cappedHeight : flushHeight);
     };
     // Only the sidebar-cap should apply once the user has actually scrolled
     // this region to its own bottom -- and only when there's real overflow
