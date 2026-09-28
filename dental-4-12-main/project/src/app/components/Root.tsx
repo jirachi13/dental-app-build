@@ -419,9 +419,19 @@ export const Root = () => {
     // moment a dentist opened a student from the queue (user, 2026-09-25).
     // These extra prefixes are the family the group actually covers.
     const familyActive = (path: string) => location.pathname.startsWith(path);
-    const inDentalChart = familyActive('/dental-chart/');
+    // `/dental-chart/:id` is shared by more than one module (Dental Charts'
+    // own queue, Treatment Records, Risk Classification, ...) -- which CHILD
+    // it belongs to depends on `?context=`, not the path alone (user,
+    // 2026-09-28: "when IPTR is access in treatment submodule, the highlight
+    // should be in treatment submodule, not in the dental chart"). Opening a
+    // chart from Treatment must light up Treatment's own row, not Dental
+    // Charts'.
+    const chartContext = new URLSearchParams(location.search).get('context');
+    const onChartPage = familyActive('/dental-chart/');
+    const inDentalChart = onChartPage && chartContext !== 'treatment';
+    const inTreatmentViaChart = onChartPage && chartContext === 'treatment';
     const isActive = isTabActive(studentsTab.path) || familyActive('/students/');
-    const childActive = children.some((c) => isTabActive(c.path)) || inDentalChart;
+    const childActive = children.some((c) => isTabActive(c.path)) || inDentalChart || inTreatmentViaChart;
     // Highlight tracks the REAL route only -- never the manual expand/collapse
     // state. Using `isOpen` here was the bug: toggle the group open, then
     // navigate to an unrelated page, and the gold pill stayed lit because
@@ -478,9 +488,12 @@ export const Root = () => {
         {isOpen && !collapsed && (
           <div className="mt-1.5 ml-[30px] mr-7 pl-3 border-l border-white/15 flex flex-col gap-1">
             {children.map((child) => {
-              // Dental Charts also covers `/dental-chart/:id`, an individual
-              // pupil's chart -- see inDentalChart above.
-              const childIsActive = isTabActive(child.path) || (child.path === '/dental-charts' && inDentalChart);
+              // Dental Charts and Treatment both cover `/dental-chart/:id`,
+              // an individual pupil's chart -- which one depends on
+              // `?context=`, see inDentalChart/inTreatmentViaChart above.
+              const childIsActive = isTabActive(child.path)
+                || (child.path === '/dental-charts' && inDentalChart)
+                || (child.path === '/treatment-records' && inTreatmentViaChart);
               const ChildIcon = child.icon;
               return (
                 <Link
