@@ -548,6 +548,10 @@ export const DentalChartNav = () => {
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-0.5">
+                  <span className="text-muted-foreground">Age</span>
+                  <span className="font-semibold text-foreground">{calculateAge(spotlightStudent.birthdate)}</span>
+                </div>
+                <div className="flex items-center justify-between py-0.5">
                   <span className="text-muted-foreground">Last Dental Visit</span>
                   <span className="font-semibold text-foreground">{formatDate(spotlightStudent.lastVisit)}</span>
                 </div>
