@@ -394,14 +394,10 @@ export const TreatmentRecords = () => {
             plain gray page below it, which is fine. Bottom corners SQUARE
             in this state, always, not just when the list overflows the cap. */}
       <div
-        // Shadow toned down in Hide (user, 2026-09-28: "excess gray sharp
-        // corner bottom edges ... too gray so it's emphasized") -- square
-        // bottom corners in this state mean the shadow's blur runs the
-        // card's full width as one flat, hard-edged gray band instead of
-        // tapering off at each rounded corner the way it does in the
-        // default view, so it reads as a much harsher stripe at the same
-        // strength. Not removed, just quieter.
-        className={`sticky top-0 z-30 flex flex-col bg-card border border-border overflow-clip ${hidePagination ? 'rounded-t-2xl shadow-[0_4px_10px_rgba(15,23,42,0.04)]' : 'rounded-2xl shadow-[0_10px_30px_rgba(15,23,42,0.10)]'}`}
+        // No shadow (user, 2026-09-28: "remove the shadows for both the
+        // bottom corner of the treatment queue") -- was toned down per
+        // Hide/shown state earlier the same day, now removed outright.
+        className={`sticky top-0 z-30 flex flex-col bg-card border border-border overflow-clip ${hidePagination ? 'rounded-t-2xl' : 'rounded-2xl'}`}
         style={hidePagination ? { maxHeight: regionHeight ?? undefined } : { height: regionHeight ?? undefined }}
       >
         {/* Dark green top accent bar. */}
