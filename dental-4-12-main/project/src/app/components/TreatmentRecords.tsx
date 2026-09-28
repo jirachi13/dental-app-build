@@ -394,7 +394,7 @@ export const TreatmentRecords = () => {
             plain gray page below it, which is fine. Bottom corners SQUARE
             in this state, always, not just when the list overflows the cap. */}
       <div
-        className={`sticky top-0 z-30 flex flex-col bg-card border border-border shadow-sm overflow-clip ${hidePagination ? 'rounded-t-2xl' : 'rounded-2xl'}`}
+        className={`sticky top-0 z-30 flex flex-col bg-card border border-border shadow-[0_10px_30px_rgba(15,23,42,0.10)] overflow-clip ${hidePagination ? 'rounded-t-2xl' : 'rounded-2xl'}`}
         style={hidePagination ? { maxHeight: regionHeight ?? undefined } : { height: regionHeight ?? undefined }}
       >
         {/* Dark green top accent bar. */}
