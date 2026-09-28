@@ -889,9 +889,9 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
     School.find({ isArchived: false }).select("_id school_name").lean(),
     StudentIptr.find({ isArchived: false }).select("_id student_id school_year").lean(),
     DentalChart.find({ isArchived: false }).select("_id iptr_id date_charted").lean(),
-    PreventiveCareRecord.find({ isArchived: false }).select("_id iptr_id visit_number").lean(),
+    PreventiveCareRecord.find({ isArchived: false }).select("_id iptr_id visit_number visit_date oral_screening oral_prophylaxis fluoride_varnish oral_hygiene_instruction consultation").lean(),
     RiskStratification.find({ isArchived: false }).select("preventive_id risk_level recommendation").lean(),
-    ToothRecord.find({ isArchived: false }).select("chart_id condition").lean(),
+    ToothRecord.find({ isArchived: false }).select("chart_id condition visit_number").lean(),
     OralHealthCondition.find({ isArchived: false }).select("iptr_id gingivitis periodontal_disease debris calculus abnormal_growth cleft_lip_palate others").lean(),
   ]);
 
@@ -932,19 +932,46 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
     const ticked = o.gingivitis || o.periodontal_disease || o.debris || o.calculus || o.abnormal_growth || o.cleft_lip_palate || (typeof o.others === "string" && o.others.trim() !== "");
     if (ticked) hasRealChartDataByIptr.add(String(o.iptr_id));
   }
-  // "Last Dental Visit" (below) is the LATEST date_charted among charts
-  // that actually have real content -- same reasoning as the Status column
-  // above (user, 2026-09-28: "the last dental visit should be the last
-  // latest recorded date on the dental chart"). An empty chart shell (a
-  // date was stamped, e.g. by opening charting mode, but nothing real was
-  // ever ticked or charted) is not a visit that happened, so its date must
-  // not count as one.
+  // "Last Dental Visit" (below) is the LATEST of the oral condition's
+  // Date examined (DENTAL_CHART.date_charted) AND either RPC visit's own
+  // Date treated -- same reasoning as the Status column above (user,
+  // 2026-09-28, first pass: "the last dental visit should be the last
+  // latest recorded date on the dental chart"; second pass: "it should
+  // reflect any latest date recorded ... may it be the oral condition date,
+  // treatment date for visit 1 or 2" -- date_charted alone missed a visit
+  // treated on a LATER date than the oral exam). An empty chart shell or an
+  // empty preventive record (a date was stamped but nothing real was ever
+  // ticked or charted) is not a visit that happened, so its date must not
+  // count as one -- same "real content" test DentalChart.tsx's own
+  // hasRealVisitData uses client-side.
   const chartDatesByIptr = new Map<string, Date[]>();
   for (const c of charts as any[]) {
     if (!c.date_charted || !hasRealChartDataByIptr.has(String(c.iptr_id))) continue;
     const list = chartDatesByIptr.get(String(c.iptr_id)) ?? [];
     list.push(new Date(c.date_charted));
     chartDatesByIptr.set(String(c.iptr_id), list);
+  }
+  const toothRecordsByIptr = new Map<string, any[]>();
+  for (const t of toothRecords as any[]) {
+    const iptrId = iptrIdByChart.get(String(t.chart_id));
+    if (!iptrId) continue;
+    const list = toothRecordsByIptr.get(iptrId) ?? [];
+    list.push(t);
+    toothRecordsByIptr.set(iptrId, list);
+  }
+  const hasRealPreventiveData = (p: any) => {
+    if ([p.oral_screening, p.oral_prophylaxis, p.fluoride_varnish, p.oral_hygiene_instruction, p.consultation].some((v: any) => v === true)) return true;
+    const teeth = toothRecordsByIptr.get(String(p.iptr_id)) ?? [];
+    return p.visit_number === 2
+      ? teeth.some((t: any) => t.condition && t.visit_number === 2)
+      : teeth.some((t: any) => t.condition && (t.visit_number ?? 1) !== 2);
+  };
+  for (const p of preventives as any[]) {
+    if (!p.visit_date || !hasRealPreventiveData(p)) continue;
+    const iptrId = String(p.iptr_id);
+    const list = chartDatesByIptr.get(iptrId) ?? [];
+    list.push(new Date(p.visit_date));
+    chartDatesByIptr.set(iptrId, list);
   }
   const visitNumbersByIptr = new Map<string, Set<number>>();
   for (const p of preventives as any[]) {
