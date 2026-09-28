@@ -436,29 +436,13 @@ export const TreatmentRecords = () => {
                 </p>
               </div>
             </div>
-            {/* Search + pill filter + "⋮" -- the Filter dropdown was
-                replaced (user, 2026-09-28) with an inline segmented pill
-                toggle, same visual pattern as an All/Priority switch: a
-                gray track, fully rounded segments, active segment filled
-                solid navy. All/Visit 1/Visit 2 narrows by pipeline stage,
-                same as the old dropdown did, just always visible instead
-                of hidden behind a click. */}
+            {/* Search + "⋮" on top, right-aligned; the All/Visit 1/Visit 2
+                pill toggle sits on its own row below, also right-aligned
+                (user, 2026-09-28). Same visual pattern as an All/Priority
+                switch: a gray track, fully rounded segments, active
+                segment filled solid navy. */}
             <div className="flex items-center gap-3 flex-wrap">
               <ListSearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Search student, grade, or section" />
-              <div role="radiogroup" aria-label="Filter by treatment stage" className="inline-flex shrink-0 rounded-full bg-gray-100 p-1">
-                {PIPELINE_FILTER_OPTS.map((o) => (
-                  <button
-                    key={o.v}
-                    type="button"
-                    role="radio"
-                    aria-checked={pipelineFilter === o.v}
-                    onClick={() => setPipelineFilter(o.v)}
-                    className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${pipelineFilter === o.v ? 'bg-sidebar-bg text-white' : 'text-muted-foreground hover:text-foreground'}`}
-                  >
-                    {o.l}
-                  </button>
-                ))}
-              </div>
               {/* "⋮" -- clears the whole Treatment Queue at once, for a
                   pupil queued in error or otherwise handled outside the
                   normal (now automatic) done-detection. Only meaningful on
@@ -489,6 +473,22 @@ export const TreatmentRecords = () => {
                     </button>
                   </div>
                 )}
+              </div>
+            </div>
+            <div className="flex justify-end mt-2">
+              <div role="radiogroup" aria-label="Filter by treatment stage" className="inline-flex shrink-0 rounded-full bg-gray-100 p-1">
+                {PIPELINE_FILTER_OPTS.map((o) => (
+                  <button
+                    key={o.v}
+                    type="button"
+                    role="radio"
+                    aria-checked={pipelineFilter === o.v}
+                    onClick={() => setPipelineFilter(o.v)}
+                    className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${pipelineFilter === o.v ? 'bg-sidebar-bg text-white' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    {o.l}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
