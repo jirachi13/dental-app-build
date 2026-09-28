@@ -189,10 +189,21 @@ export const TreatmentRecords = () => {
   const [regionHeight, setRegionHeight] = useState<number | null>(null);
 
   useEffect(() => {
+    // Target the sidebar's OWN rendered bottom edge, not window.innerHeight
+    // (user, 2026-09-28: a taskbar screenshot showed the sidebar itself
+    // stops 20px short of the true viewport edge -- Root.tsx's <aside> is
+    // `md:top-5 md:bottom-5`, a floating card inset from the screen at
+    // desktop widths, not flush to it. Flush-to-viewport was overshooting
+    // the sidebar's actual bottom by that inset. Reading #main-nav's real
+    // getBoundingClientRect().bottom tracks whatever that inset is (or
+    // isn't, below md where the aside is an off-canvas h-screen drawer and
+    // its bottom IS window.innerHeight) instead of hardcoding 20px.
     const measure = () => {
       if (!regionRef.current) return;
       const top = regionRef.current.getBoundingClientRect().top;
-      setRegionHeight(Math.max(window.innerHeight - top, 200));
+      const sidebar = document.getElementById('main-nav');
+      const bottomTarget = sidebar ? sidebar.getBoundingClientRect().bottom : window.innerHeight;
+      setRegionHeight(Math.max(bottomTarget - top, 200));
     };
     measure();
     window.addEventListener('resize', measure);

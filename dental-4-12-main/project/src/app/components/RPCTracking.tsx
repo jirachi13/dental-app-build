@@ -176,10 +176,21 @@ export const RPCTracking = () => {
   const [cardHeight, setCardHeight] = useState<number | null>(null);
 
   useEffect(() => {
+    // Target the sidebar's OWN rendered bottom edge, not window.innerHeight
+    // (user, 2026-09-28, found on the Treatment Queue's twin of this card --
+    // a taskbar screenshot showed the sidebar itself stops 20px short of the
+    // true viewport edge: Root.tsx's <aside> is `md:top-5 md:bottom-5`, a
+    // floating card inset from the screen at desktop widths, not flush to
+    // it. Reading #main-nav's real getBoundingClientRect().bottom tracks
+    // whatever that inset is (or isn't, below md where the aside is an
+    // off-canvas h-screen drawer and its bottom IS window.innerHeight)
+    // instead of hardcoding 20px.
     const measure = () => {
       if (!cardRef.current) return;
       const top = cardRef.current.getBoundingClientRect().top;
-      setCardHeight(Math.max(window.innerHeight - top, 160));
+      const sidebar = document.getElementById('main-nav');
+      const bottomTarget = sidebar ? sidebar.getBoundingClientRect().bottom : window.innerHeight;
+      setCardHeight(Math.max(bottomTarget - top, 160));
     };
     measure();
     window.addEventListener('resize', measure);
@@ -188,7 +199,7 @@ export const RPCTracking = () => {
     // correction pass below only ever SHRINKS, so without this, leaving Hide
     // (which cancels the bottom-padding overflow that pass was shrinking
     // for) would keep the old, already-shrunk height instead of settling
-    // back at the true window.innerHeight - top.
+    // back at the true sidebar-bottom - top.
   }, [loading, pageSize]);
 
   // Trims any stray page scroll the estimate above leaves behind (e.g.
