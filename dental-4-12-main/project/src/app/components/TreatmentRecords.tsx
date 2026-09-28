@@ -445,7 +445,7 @@ export const TreatmentRecords = () => {
                 justify-between row above -- as two separate siblings there,
                 the outer row's justify-between spaced them apart
                 side-by-side instead of stacking. */}
-            <div className="flex flex-col items-end gap-2">
+            <div className="flex flex-col items-end gap-4">
               <div className="flex items-center gap-3 flex-wrap">
                 <ListSearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Search student, grade, or section" />
                 {/* "⋮" -- clears the whole Treatment Queue at once, for a

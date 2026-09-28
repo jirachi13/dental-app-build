@@ -11,14 +11,26 @@ const META: Record<StudentRow['pipelineStatus'], { bg: string; fg: string }> = {
   Completed: { bg: '#DCFCE7', fg: '#15803D' },
 };
 
+// Display text only (user, 2026-09-28: "For Visit 1"/"For Visit 2" read
+// clearer than "For First/Second Treatment") -- the underlying
+// StudentRow['pipelineStatus'] values are unchanged, since filtering
+// (TreatmentRecords.tsx's pipelineFilter) and the server both match against
+// the original strings.
+const LABEL: Record<StudentRow['pipelineStatus'], string> = {
+  'For Oral Exam': 'For Oral Exam',
+  'For First Treatment': 'For Visit 1',
+  'For Second Treatment': 'For Visit 2',
+  Completed: 'Completed',
+};
+
 export const PipelineStatusPill = ({ status }: { status: StudentRow['pipelineStatus'] }) => {
   const meta = META[status];
   return (
     <span
       style={{ backgroundColor: meta.bg, color: meta.fg }}
-      className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-normal"
+      className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold"
     >
-      {status}
+      {LABEL[status]}
     </span>
   );
 };
