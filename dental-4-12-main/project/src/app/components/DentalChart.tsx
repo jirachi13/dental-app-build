@@ -465,11 +465,29 @@ export const DentalChart = () => {
   // tooth records are shown (there's only ever the one).
   const visit1 = currentYearData?.preventivesByVisitNumber?.[1];
   const visit2 = currentYearData?.preventivesByVisitNumber?.[2];
+  // Whether a visit's RECORD is backed by real content (any service ticked,
+  // or any tooth tagged to it), not just whether the row exists (user,
+  // 2026-09-28: "when oral conditions and treatment and dental chart is
+  // empty ... visit 2 should be hidden again too"). Visit 1's record is
+  // exempt from archiving (it always stays), so it can go back to "empty"
+  // after a clear-everything save while still technically existing --
+  // Visit 2 should only be offered once Visit 1 has real data again, not
+  // merely because its row is still sitting there. "Visit 1" here is the
+  // same catch-all Treatment Summary's own V1/V2 split uses: visit_number 1
+  // AND untagged/legacy teeth.
+  const hasRealVisitData = (visitNumber: 1 | 2, record?: typeof visit1) => {
+    if (!record) return false;
+    if ([record.oral_screening, record.oral_prophylaxis, record.fluoride_varnish, record.oral_hygiene_instruction, record.consultation].some((v) => v === true)) return true;
+    const teeth = currentYearData?.toothRecords ?? [];
+    return visitNumber === 2 ? teeth.some((tr) => tr.visit_number === 2) : teeth.some((tr) => (tr.visit_number ?? 1) !== 2);
+  };
+  const visit1HasData = hasRealVisitData(1, visit1);
+  const visit2HasData = hasRealVisitData(2, visit2);
   const [explicitVisit, setExplicitVisit] = useState<1 | 2 | null>(null);
   // No explicit pick yet — default to Visit 2 once Visit 1 is recorded and
   // Visit 2 isn't: the next thing to do, not a re-read of what's already
   // recorded.
-  const activeVisit: 1 | 2 = explicitVisit ?? (visit1 && !visit2 ? 2 : 1);
+  const activeVisit: 1 | 2 = explicitVisit ?? (visit1HasData && !visit2 ? 2 : 1);
   const activeVisitRecord = activeVisit === 1 ? visit1 : visit2;
 
   // Draft (editable) copies of the current year's real data -- initialized
@@ -578,7 +596,13 @@ export const DentalChart = () => {
   // from source data on every dependency change).
   useEffect(() => {
     const visit = activeVisitRecord;
-    setDraftVisitDate(visit ? new Date(visit.visit_date).toISOString().slice(0, 10) : '');
+    // A visit's own visit_date is a REQUIRED field server-side, so Visit 1's
+    // record (exempt from archiving) keeps whatever date it last had even
+    // once fully cleared -- shown here only while the visit still has real
+    // content (user, 2026-09-28: "the date should be erased too"), not
+    // whenever the row merely still exists.
+    const hasData = activeVisit === 1 ? visit1HasData : visit2HasData;
+    setDraftVisitDate(visit && hasData ? new Date(visit.visit_date).toISOString().slice(0, 10) : '');
     setDraftServices({
       oral_screening: visit?.oral_screening ?? null,
       oral_prophylaxis: visit?.oral_prophylaxis ?? null,
@@ -586,7 +610,7 @@ export const DentalChart = () => {
       oral_hygiene_instruction: visit?.oral_hygiene_instruction ?? null,
       consultation: visit?.consultation ?? null,
     });
-  }, [activeVisitRecord]);
+  }, [activeVisitRecord, activeVisit, visit1HasData, visit2HasData]);
 
   // Effective edit rights: role AND edit mode. Aides keep read-only here —
   // they could tick history boxes before, but Save was always dentist-only,
@@ -2330,10 +2354,13 @@ export const DentalChart = () => {
                       right-aligned on this same row. Visit 1 is ALWAYS
                       visible -- a pupil pending their first visit still
                       needs a tab to land on. Visit 2 only appears once
-                      Visit 1 has actually been recorded, and never carries
-                      a "+" prefix -- the default (no explicit pick) is
-                      Visit 2 once it can show, since recording Visit 1
-                      makes Visit 2 the next thing to do. */}
+                      Visit 1 has REAL content (visit1HasData, not just a
+                      surviving row -- Visit 1's record is exempt from
+                      archiving, so it can go back to empty and still
+                      technically exist), and never carries a "+" prefix --
+                      the default (no explicit pick) is Visit 2 once it can
+                      show, since recording Visit 1 makes Visit 2 the next
+                      thing to do. */}
                   <div className="ml-auto flex items-center gap-1.5">
                     <button type="button" onClick={() => setExplicitVisit(1)}
                       className={`px-2.5 py-1 text-xs font-semibold rounded-full border transition-colors ${
@@ -2343,7 +2370,7 @@ export const DentalChart = () => {
                       }`}>
                       Visit 1
                     </button>
-                    {visit1 && (
+                    {(visit1HasData || visit2HasData) && (
                       <button type="button" onClick={() => setExplicitVisit(2)}
                         className={`px-2.5 py-1 text-xs font-semibold rounded-full border transition-colors ${
                           activeVisit === 2
