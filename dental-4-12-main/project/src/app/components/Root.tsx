@@ -587,8 +587,15 @@ export const Root = () => {
         // the content area, hidden by z-index, same as the real RAMHIS layout
         // does it -- its own content div's marginLeft is the sidebar's raw
         // width, not width+inset.
+        //
+        // Shadow blur trimmed from 38px to 20px (user, 2026-09-28): the
+        // sidebar sits only ~44px left of routed content, and a 38px blur
+        // reached far enough to paint a visible gray smudge behind the
+        // Treatment Queue card's corner once that card's own bottom edge
+        // landed level with the sidebar's. 20px keeps the floating-card
+        // look without the bleed.
         className={`bg-sidebar-bg flex flex-col fixed left-0 top-0 h-screen z-[70]
-          md:left-5 md:top-5 md:bottom-5 md:h-auto md:rounded-[24px] md:border md:border-white/10 md:shadow-[0_15px_38px_rgba(15,23,42,0.22)]
+          md:left-5 md:top-5 md:bottom-5 md:h-auto md:rounded-[24px] md:border md:border-white/10 md:shadow-[0_15px_20px_rgba(15,23,42,0.22)]
           w-[238px] transition-transform duration-200
           ${drawerOpen ? 'translate-x-0 visible' : '-translate-x-full invisible'}
           md:visible md:translate-x-0 md:transition-[width]
