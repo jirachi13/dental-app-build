@@ -440,42 +440,46 @@ export const TreatmentRecords = () => {
                 pill toggle sits on its own row below, also right-aligned
                 (user, 2026-09-28). Same visual pattern as an All/Priority
                 switch: a gray track, fully rounded segments, active
-                segment filled solid navy. */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <ListSearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Search student, grade, or section" />
-              {/* "⋮" -- clears the whole Treatment Queue at once, for a
-                  pupil queued in error or otherwise handled outside the
-                  normal (now automatic) done-detection. Only meaningful on
-                  the Queue tab, since Done isn't manually managed. */}
-              <div ref={bulkMenuRef} className="relative shrink-0">
-                <button
-                  type="button"
-                  aria-haspopup="menu"
-                  aria-expanded={bulkMenuOpen}
-                  aria-label="Queue actions"
-                  title="Queue actions"
-                  disabled={viewTab !== 'queue' || treatmentQueueIds.length === 0}
-                  onClick={() => setBulkMenuOpen((o) => !o)}
-                  className={`flex items-center justify-center w-7 h-9 rounded-lg border border-border bg-card ${
-                    viewTab !== 'queue' || treatmentQueueIds.length === 0 ? 'text-muted-foreground/40 cursor-not-allowed' : 'text-foreground hover:bg-muted'
-                  }`}
-                >
-                  <MoreVertical className="w-4 h-4" />
-                </button>
-                {bulkMenuOpen && (
-                  <div className="absolute right-0 z-20 mt-1 w-max rounded-lg border border-border bg-card shadow-md py-1">
-                    <button
-                      type="button"
-                      onClick={() => { setClearQueueConfirmOpen(true); setBulkMenuOpen(false); }}
-                      className="block px-3 py-2 text-sm font-medium text-destructive hover:bg-canvas"
-                    >
-                      Clear queue
-                    </button>
-                  </div>
-                )}
+                segment filled solid navy. Both rows wrapped in ONE flex-col
+                so they stack as a single item in the header's own
+                justify-between row above -- as two separate siblings there,
+                the outer row's justify-between spaced them apart
+                side-by-side instead of stacking. */}
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex items-center gap-3 flex-wrap">
+                <ListSearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Search student, grade, or section" />
+                {/* "⋮" -- clears the whole Treatment Queue at once, for a
+                    pupil queued in error or otherwise handled outside the
+                    normal (now automatic) done-detection. Only meaningful on
+                    the Queue tab, since Done isn't manually managed. */}
+                <div ref={bulkMenuRef} className="relative shrink-0">
+                  <button
+                    type="button"
+                    aria-haspopup="menu"
+                    aria-expanded={bulkMenuOpen}
+                    aria-label="Queue actions"
+                    title="Queue actions"
+                    disabled={viewTab !== 'queue' || treatmentQueueIds.length === 0}
+                    onClick={() => setBulkMenuOpen((o) => !o)}
+                    className={`flex items-center justify-center w-7 h-9 rounded-lg border border-border bg-card ${
+                      viewTab !== 'queue' || treatmentQueueIds.length === 0 ? 'text-muted-foreground/40 cursor-not-allowed' : 'text-foreground hover:bg-muted'
+                    }`}
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+                  {bulkMenuOpen && (
+                    <div className="absolute right-0 z-20 mt-1 w-max rounded-lg border border-border bg-card shadow-md py-1">
+                      <button
+                        type="button"
+                        onClick={() => { setClearQueueConfirmOpen(true); setBulkMenuOpen(false); }}
+                        className="block px-3 py-2 text-sm font-medium text-destructive hover:bg-canvas"
+                      >
+                        Clear queue
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="flex justify-end mt-2">
               <div role="radiogroup" aria-label="Filter by treatment stage" className="inline-flex shrink-0 rounded-full bg-gray-100 p-1">
                 {PIPELINE_FILTER_OPTS.map((o) => (
                   <button
