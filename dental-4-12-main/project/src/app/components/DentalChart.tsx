@@ -2588,11 +2588,13 @@ export const DentalChart = () => {
                   </div>
                 </div>
                 <div className={editingChart ? '' : 'opacity-60 pointer-events-none select-none'}>
-                  {/* Hidden (not just disabled) until an Oral Condition is
-                      marked -- real time, both ways: ticking the first chip
-                      reveals this grid immediately, unticking the last one
-                      hides it again, no save needed. */}
-                  {hasOralConditionMarked ? (
+                  {/* Hidden ENTIRELY (not disabled, not even an explanatory
+                      line -- user, 2026-09-28: "hide these words too so
+                      literally when hidden, it blank and white") until an
+                      Oral Condition is marked -- real time, both ways:
+                      ticking the first chip reveals this grid immediately,
+                      unticking the last one hides it again, no save needed. */}
+                  {hasOralConditionMarked && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-2">
                       {serviceChips.map(({ label, field }) => (
                         <label key={field}
@@ -2609,8 +2611,6 @@ export const DentalChart = () => {
                         </label>
                       ))}
                     </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Mark an Oral Condition or chart a Tooth Condition Code to record Treatments Given.</p>
                   )}
                   {/* Unlocked 2026-09-25 -- ticking a service here now creates
                       the active visit's RPC record on save instead of
@@ -2734,13 +2734,13 @@ export const DentalChart = () => {
                       still carrying one shows it on the chart and in the
                       Treatment Summary, and is cleared with the eraser (paint
                       the tooth with no code selected). */}
-                  {/* Hidden until a Tooth Condition Code exists (user,
-                      2026-09-28: "Tooth Treatment Codes should only show
-                      when there are Tooth Condition Codes marked ... it
-                      should be real time, hidden again when ... empty") --
-                      the same "no treatment without a condition" rule as
-                      Treatments Given above, at the per-tooth level. */}
-                  {chartedConditionCount > 0 ? (
+                  {/* Hidden ENTIRELY (no explanatory line either -- user,
+                      2026-09-28: "hide these words too so literally when
+                      hidden, it blank and white") until a Tooth Condition
+                      Code exists -- the same "no treatment without a
+                      condition" rule as Treatments Given above, at the
+                      per-tooth level. */}
+                  {chartedConditionCount > 0 && (
                     <>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {perToothTreatmentCodes.map((t) => (
@@ -2763,8 +2763,6 @@ export const DentalChart = () => {
                         );
                       })()}
                     </>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Chart a Tooth Condition Code to unlock treatment codes.</p>
                   )}
                 </div>
               </div>
