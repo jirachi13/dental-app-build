@@ -1162,7 +1162,6 @@ export const DentalChart = () => {
         Object.values(draftChart).some((e) => e.condition || e.treatment) ||
         Object.values(draftOral).some((v) => v === true || (typeof v === 'string' && v.trim() !== ''));
       if (hasChartOrOralConditionData) addTreatmentQueueStudentId(id);
-      if (iptrContext === 'dental-queue') setTimeout(() => navigate('/ai-analytics'), 450);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'Failed to save';
       setSaveError(message);
