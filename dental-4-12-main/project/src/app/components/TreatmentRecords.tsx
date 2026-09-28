@@ -187,26 +187,48 @@ export const TreatmentRecords = () => {
   const regionRef = useRef<HTMLDivElement | null>(null);
   const rowsBoxRef = useRef<HTMLDivElement | null>(null);
   const [regionHeight, setRegionHeight] = useState<number | null>(null);
+  // Whether the region is scrolled all the way to ITS OWN bottom -- the
+  // point where the sticky queue card has been fully scrolled into its
+  // pinned position and there's nothing left above it to reveal. Only in
+  // that state do we cap the card's height to the sidebar's real bottom
+  // edge (user, 2026-09-28: "if its not scrolled at the end of the page,
+  // of course the container should be normal, touching or reaching the
+  // edge of the screen. when i scroll ... reach the end of the page, the
+  // size of the container would be the same size as the navbar"). Capping
+  // unconditionally (the previous fix) left a permanent gray strip below
+  // the footer even at rest, which is exactly what they didn't want.
+  const pinnedToSidebar = useRef(false);
 
   useEffect(() => {
-    // Target the sidebar's OWN rendered bottom edge, not window.innerHeight
-    // (user, 2026-09-28: a taskbar screenshot showed the sidebar itself
-    // stops 20px short of the true viewport edge -- Root.tsx's <aside> is
-    // `md:top-5 md:bottom-5`, a floating card inset from the screen at
-    // desktop widths, not flush to it. Flush-to-viewport was overshooting
-    // the sidebar's actual bottom by that inset. Reading #main-nav's real
-    // getBoundingClientRect().bottom tracks whatever that inset is (or
-    // isn't, below md where the aside is an off-canvas h-screen drawer and
-    // its bottom IS window.innerHeight) instead of hardcoding 20px.
     const measure = () => {
       if (!regionRef.current) return;
-      const top = regionRef.current.getBoundingClientRect().top;
+      const el = regionRef.current;
+      const top = el.getBoundingClientRect().top;
       const sidebar = document.getElementById('main-nav');
-      const bottomTarget = sidebar ? sidebar.getBoundingClientRect().bottom : window.innerHeight;
-      setRegionHeight(Math.max(bottomTarget - top, 200));
+      const flushHeight = Math.max(window.innerHeight - top, 200);
+      // Sidebar's OWN rendered bottom (Root.tsx's <aside> is `md:top-5
+      // md:bottom-5`, inset from the true viewport at desktop widths, not
+      // flush to it -- collapses to window.innerHeight below md, where the
+      // aside is an off-canvas h-screen drawer).
+      const cappedHeight = sidebar ? Math.max(sidebar.getBoundingClientRect().bottom - top, 200) : flushHeight;
+      setRegionHeight(pinnedToSidebar.current ? cappedHeight : flushHeight);
+    };
+    // Only the sidebar-cap should apply once the user has actually scrolled
+    // this region to its own bottom -- and only when there's real overflow
+    // to scroll (a short list that already fits needs no capping at all,
+    // it should just stay flush).
+    const onScroll = () => {
+      const el = regionRef.current;
+      if (!el) return;
+      const atBottom = el.scrollHeight > el.clientHeight + 1 && el.scrollTop + el.clientHeight >= el.scrollHeight - 2;
+      if (atBottom !== pinnedToSidebar.current) {
+        pinnedToSidebar.current = atBottom;
+        measure();
+      }
     };
     measure();
     window.addEventListener('resize', measure);
+    regionRef.current?.addEventListener('scroll', onScroll);
     // ResizeObserver on <body> too (user, 2026-09-28: the container was
     // taller than the sidebar in production, only at the real page's real
     // data volume/width -- the one-time measure + the deps below missed a
@@ -217,8 +239,10 @@ export const TreatmentRecords = () => {
     // handful of state changes this effect used to key on.
     const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
     resizeObserver?.observe(document.body);
+    const regionEl = regionRef.current;
     return () => {
       window.removeEventListener('resize', measure);
+      regionEl?.removeEventListener('scroll', onScroll);
       resizeObserver?.disconnect();
     };
     // hidePagination is ALSO a dep (ported from PatientList's own version of
