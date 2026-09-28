@@ -909,15 +909,8 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
   const currentIptrByStudent = new Map(
     (iptrs as any[]).filter((i) => String(i.school_year) === currentYear).map((i) => [String(i.student_id), String(i._id)]),
   );
-  const chartDatesByIptr = new Map<string, Date[]>();
   const iptrIdByChart = new Map<string, string>();
-  for (const c of charts as any[]) {
-    iptrIdByChart.set(String(c._id), String(c.iptr_id));
-    if (!c.date_charted) continue;
-    const list = chartDatesByIptr.get(String(c.iptr_id)) ?? [];
-    list.push(new Date(c.date_charted));
-    chartDatesByIptr.set(String(c.iptr_id), list);
-  }
+  for (const c of charts as any[]) iptrIdByChart.set(String(c._id), String(c.iptr_id));
   // "Has had the oral exam this year" for the Status column below -- NOT
   // just "a DentalChart row exists for this iptr" (user, 2026-09-28: a
   // pupil whose chart was created, then had every condition/treatment
@@ -938,6 +931,20 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
   for (const o of oralConditions as any[]) {
     const ticked = o.gingivitis || o.periodontal_disease || o.debris || o.calculus || o.abnormal_growth || o.cleft_lip_palate || (typeof o.others === "string" && o.others.trim() !== "");
     if (ticked) hasRealChartDataByIptr.add(String(o.iptr_id));
+  }
+  // "Last Dental Visit" (below) is the LATEST date_charted among charts
+  // that actually have real content -- same reasoning as the Status column
+  // above (user, 2026-09-28: "the last dental visit should be the last
+  // latest recorded date on the dental chart"). An empty chart shell (a
+  // date was stamped, e.g. by opening charting mode, but nothing real was
+  // ever ticked or charted) is not a visit that happened, so its date must
+  // not count as one.
+  const chartDatesByIptr = new Map<string, Date[]>();
+  for (const c of charts as any[]) {
+    if (!c.date_charted || !hasRealChartDataByIptr.has(String(c.iptr_id))) continue;
+    const list = chartDatesByIptr.get(String(c.iptr_id)) ?? [];
+    list.push(new Date(c.date_charted));
+    chartDatesByIptr.set(String(c.iptr_id), list);
   }
   const visitNumbersByIptr = new Map<string, Set<number>>();
   for (const p of preventives as any[]) {
