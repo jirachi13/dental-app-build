@@ -1072,7 +1072,12 @@ router.use("/dental-charts", createCrudRouter(DentalChart, { writeRoles: CLINICA
 // tooth at all and the old codes returned on reload. Restore stays admin-only.
 router.use("/tooth-records", createCrudRouter(ToothRecord, { writeRoles: CLINICAL_WRITE_ROLES, archiveRoles: ["system_admin", "dentist"], filterable: ["chart_id"] }));
 router.use("/treatments", createCrudRouter(Treatment, { writeRoles: CLINICAL_WRITE_ROLES, filterable: ["iptr_id"] }));
-router.use("/preventive-care-records", createCrudRouter(PreventiveCareRecord, { writeRoles: CLINICAL_WRITE_ROLES, filterable: ["iptr_id"] }));
+// archiveRoles: CLINICAL_WRITE_ROLES (2026-09-28) -- DentalChart.tsx's own
+// save archives a visit whose services/teeth were all cleared out (see
+// handleSave), and that save is available to dentist AND dental_aide, same
+// as the write itself; defaulting to ADMIN_ONLY here would 403 an aide's
+// own save the moment it tried to clear a visit empty.
+router.use("/preventive-care-records", createCrudRouter(PreventiveCareRecord, { writeRoles: CLINICAL_WRITE_ROLES, archiveRoles: CLINICAL_WRITE_ROLES, filterable: ["iptr_id"] }));
 // The audit action records whether the dentist accepted the AI suggestion
 // as-is or changed it (Chapter 4 evidence for the dentist-validates-model
 // gate). `model_risk_level` / `recommendation_edited` ride in the request

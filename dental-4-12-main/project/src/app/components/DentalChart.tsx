@@ -1128,11 +1128,29 @@ export const DentalChart = () => {
         temperature_c: num(draftMeasure.temperature_c),
         blood_pressure: draftMeasure.blood_pressure.trim(),
       }));
+      // A visit emptied completely (every service unticked, no tooth work
+      // left tagged to it) is RETIRED like a cleared tooth above -- archived,
+      // not left behind as a phantom "visit exists but has nothing in it"
+      // record. Visit 1 is exempt (it stays visible even empty -- see the
+      // tab above), so only Visit 2 can disappear this way (user,
+      // 2026-09-28: "i remove all the treatment and conditions in the visit
+      // 2 ... there is not visit 2 anymore"). Everything downstream
+      // (pipeline status, RPC due dates) reads LIVE preventive-care-records,
+      // so this one archive is what makes "no Visit 2" propagate everywhere
+      // else automatically, without a second update pass.
+      const remainingActiveVisitTeeth = pendingTeeth.length > 0
+        || Array.from(existingByTooth.values()).some((tr) => tr.visit_number === activeVisit && !clearedRecords.includes(tr));
+      const activeVisitNowEmpty = !hasAnyService && !remainingActiveVisitTeeth;
+
       if (activeVisitRecord) {
-        extraWrites.push(apiClient.put(`/preventive-care-records/${activeVisitRecord._id}`, {
-          ...draftServices,
-          ...(draftVisitDate ? { visit_date: draftVisitDate } : {}),
-        }));
+        if (activeVisit === 2 && activeVisitNowEmpty) {
+          extraWrites.push(apiClient.patch(`/preventive-care-records/${activeVisitRecord._id}/archive`));
+        } else {
+          extraWrites.push(apiClient.put(`/preventive-care-records/${activeVisitRecord._id}`, {
+            ...draftServices,
+            ...(draftVisitDate ? { visit_date: draftVisitDate } : {}),
+          }));
+        }
       } else if (hasAnyService || chartsTreatment) {
         extraWrites.push(apiClient.post('/preventive-care-records', {
           iptr_id: currentYearData.iptr._id,
