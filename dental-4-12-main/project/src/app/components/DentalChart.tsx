@@ -2475,8 +2475,15 @@ export const DentalChart = () => {
                   <div className="text-sm font-bold text-primary uppercase tracking-wide">Treatments Given</div>
                   <label className="flex items-center gap-2 text-xs text-muted-foreground">
                     Date treated
-                    <input type="date" value={draftVisitDate} disabled={!editingChart} min={visitDateMin || undefined}
-                      title={visitDateMin ? `Can't be before ${formatDate(visitDateMin)}` : undefined}
+                    {/* Only editable once THIS visit has something ticked or
+                        charted (user, 2026-09-28: "the date can only be
+                        edited in the oral condition when there is marked
+                        filled, it should be the same with the treatment
+                        given date") -- same rule as Date examined above,
+                        reusing the same live per-visit check the Visit 2
+                        button itself watches. */}
+                    <input type="date" value={draftVisitDate} disabled={!editingChart || !draftVisitHasData(activeVisit)} min={visitDateMin || undefined}
+                      title={!draftVisitHasData(activeVisit) ? 'Filled in when a service is ticked or a tooth is charted for this visit' : visitDateMin ? `Can't be before ${formatDate(visitDateMin)}` : undefined}
                       onChange={(e) => setDraftVisitDate(e.target.value)}
                       className="border border-border rounded px-2 py-1 text-xs bg-card text-foreground disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-ring" />
                   </label>
