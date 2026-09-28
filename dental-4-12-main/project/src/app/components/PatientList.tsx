@@ -16,6 +16,7 @@ import { activatable } from '../utils/a11y';
 import { ListSearchInput } from './ListSearchInput';
 import { addQueuedStudentId, getQueuedStudentIds, removeQueuedStudentId, setQueuedStudentIds as persistQueuedStudentIds } from '../utils/queueStorage';
 import { useStudents } from '../hooks/useStudents';
+import { useRPCTracking } from '../hooks/useRPCTracking';
 import { usePagination, PAGE_SIZE_OPTIONS } from './Pagination';
 import { apiClient, ApiError } from '../api/client';
 import type { ApiSchool } from '../api/types';
@@ -559,6 +560,11 @@ export const PatientList = () => {
   };
 
   const { students: allStudents, loading: studentsLoading, reload: reloadStudents } = useStudents();
+  // For the Status column's RPC chip (user, 2026-09-28: "the RPC should
+  // only show if they are due this month") -- same 'due_this_month' rule
+  // Treatment Queue's own auto-enqueue and RPC Monitoring's sort/filter use.
+  const { records: rpcDueThisMonth } = useRPCTracking({ school: selectedSchool ?? undefined, sort: 'due_this_month', limit: 1000 });
+  const rpcDueThisMonthIds = useMemo(() => new Set(rpcDueThisMonth.map((r) => r.id)), [rpcDueThisMonth]);
 
   useEffect(() => {
     apiClient.get<ApiSchool[]>('/schools').then(setSchools).catch(() => {});
@@ -1474,7 +1480,7 @@ export const PatientList = () => {
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground">{student.gender}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{age ?? '—'}</td>
-                    <td className="px-4 py-2.5">{!student.pending && <PipelineStatusPill status={student.pipelineStatus} />}</td>
+                    <td className="px-4 py-2.5">{!student.pending && <PipelineStatusPill status={student.pipelineStatus} isRpcDueThisMonth={rpcDueThisMonthIds.has(student.id)} />}</td>
                     <td className="px-4 py-2.5 sm:pr-6">
                       {!student.pending && (
                         <button

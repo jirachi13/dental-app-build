@@ -257,6 +257,12 @@ export const DentalChartNav = () => {
   // this cap.
   const { total: rpcOutstandingCount, records: rpcOutstandingRecords } = useRPCTracking({ school: selectedSchool ?? undefined, status: 'outstanding', limit: 1000 });
   const rpcOutstandingIds = useMemo(() => new Set(rpcOutstandingRecords.map((r) => r.id)), [rpcOutstandingRecords]);
+  // For the Up Next card's Status pill RPC chip (user, 2026-09-28: "the RPC
+  // should only show if they are due this month") -- same 'due_this_month'
+  // rule Treatment Queue's own auto-enqueue and RPC Monitoring's sort/filter
+  // use, not the broader "outstanding" set above.
+  const { records: rpcDueThisMonthRecords } = useRPCTracking({ school: selectedSchool ?? undefined, sort: 'due_this_month', limit: 1000 });
+  const rpcDueThisMonthIds = useMemo(() => new Set(rpcDueThisMonthRecords.map((r) => r.id)), [rpcDueThisMonthRecords]);
 
   // The actual "Queue #" every queued student is given (user, 2026-09-27):
   // appointments-today students BYPASS raw queue position entirely and get
@@ -547,7 +553,7 @@ export const DentalChartNav = () => {
                 </div>
                 <div className="flex items-center justify-between py-0.5">
                   <span className="text-muted-foreground">Status</span>
-                  <PipelineStatusPill status={spotlightStudent.pipelineStatus} />
+                  <PipelineStatusPill status={spotlightStudent.pipelineStatus} isRpcDueThisMonth={rpcDueThisMonthIds.has(spotlightStudent.id)} />
                 </div>
               </div>
               <button

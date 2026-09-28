@@ -153,6 +153,10 @@ export const TreatmentRecords = () => {
       return next;
     });
   }, [rpcDueThisMonth]);
+  // For the Status pill's RPC chip (user, 2026-09-28: "the RPC should only
+  // show if they are due this month") -- same records that drove the
+  // auto-enqueue above, just as a lookup set instead of a merge target.
+  const rpcDueThisMonthIds = useMemo(() => new Set(rpcDueThisMonth.map((r) => r.id)), [rpcDueThisMonth]);
 
   const sourcePatients = useMemo(() => {
     if (viewTab === 'queue') {
@@ -613,7 +617,7 @@ export const TreatmentRecords = () => {
                         <span className="text-muted-foreground/50">Not assessed</span>
                       )}
                     </td>
-                    <td className="px-4 py-2.5"><PipelineStatusPill status={t.pipelineStatus} /></td>
+                    <td className="px-4 py-2.5"><PipelineStatusPill status={t.pipelineStatus} isRpcDueThisMonth={rpcDueThisMonthIds.has(t.id)} /></td>
                     <td className="px-4 py-2.5 text-muted-foreground max-w-xs truncate" title={t.recommendation || undefined}>
                       {t.recommendation || <span className="text-muted-foreground/50">Not yet assessed</span>}
                     </td>

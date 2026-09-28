@@ -23,7 +23,22 @@ const LABEL: Record<StudentRow['pipelineStatus'], string> = {
   Completed: 'Completed',
 };
 
-export const PipelineStatusPill = ({ status }: { status: StudentRow['pipelineStatus'] }) => {
+export const PipelineStatusPill = ({
+  status,
+  isRpcDueThisMonth = false,
+}: {
+  status: StudentRow['pipelineStatus'];
+  /** Whether THIS pupil's RPC Visit 2 falls due within the current calendar
+   *  month -- the same 'due_this_month' rule Treatment Queue's auto-enqueue
+   *  and RPC Monitoring's own sort/filter both use. Every "For Second
+   *  Treatment" row IS structurally a pending RPC Visit 2, but the chip
+   *  should only call out the ones that need attention NOW (user,
+   *  2026-09-28: "the RPC should only show if they are due this month") --
+   *  not every pupil who merely hasn't had Visit 2 yet, which could be
+   *  months away. Callers pass this from their own useRPCTracking({ sort:
+   *  'due_this_month' }) result; omitted entirely, the chip stays hidden. */
+  isRpcDueThisMonth?: boolean;
+}) => {
   const meta = META[status];
   return (
     <span
@@ -31,12 +46,7 @@ export const PipelineStatusPill = ({ status }: { status: StudentRow['pipelineSta
       className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold"
     >
       {LABEL[status]}
-      {/* Visit 2 IS the RPC protocol's second visit -- derivePipelineStatus
-          (server) only reaches "For Second Treatment" once a Visit 1
-          PreventiveCareRecord exists and Visit 2 doesn't yet, which is
-          exactly what RPC Monitoring tracks. Small solid chip, "Option C"
-          from the design review (user, 2026-09-28). */}
-      {status === 'For Second Treatment' && (
+      {status === 'For Second Treatment' && isRpcDueThisMonth && (
         <span style={{ backgroundColor: meta.fg }} className="ml-1.5 rounded-full px-1.5 py-px text-[8px] font-extrabold tracking-wide text-white">
           RPC
         </span>
