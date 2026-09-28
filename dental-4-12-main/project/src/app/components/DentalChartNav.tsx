@@ -800,8 +800,8 @@ export const DentalChartNav = () => {
                 <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Student</th>
                 <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Grade</th>
                 <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Section</th>
-                <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Gender</th>
-                <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Age</th>
+                <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Risk</th>
+                <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
                 {/* Position in the actual queue (queueStorage's stored order,
                     user 2026-09-25) — NOT the row index in `#`, which follows
                     this list's own alphabetical sort and can disagree with
@@ -838,7 +838,6 @@ export const DentalChartNav = () => {
                 </tr>
               ) : filtered.map((p, i) => {
                 const queuePosition = queuedStudentIds.indexOf(p.id);
-                const age = calculateAge(p.birthdate);
                 const gc = getGradeColor(p.grade);
                 const open = () => navigate(`/dental-chart/${p.id}?tab=chart&context=dental-queue`);
                 // Row click previews the student in the left panel (user,
@@ -895,8 +894,14 @@ export const DentalChartNav = () => {
                         p.section
                       )}
                     </td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{p.gender}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{age}</td>
+                    <td className="px-4 py-2.5">
+                      {p.riskLevel ? (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${RISK_BADGE[p.riskLevel]}`}>{p.riskLevel.toUpperCase()}</span>
+                      ) : (
+                        <span className="text-muted-foreground/50">Not assessed</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5"><PipelineStatusPill status={p.pipelineStatus} isRpcDueThisMonth={rpcDueThisMonthIds.has(p.id)} /></td>
                     <td className="px-4 py-2.5 text-center">
                       {queuePosition >= 0 ? (
                         <button
