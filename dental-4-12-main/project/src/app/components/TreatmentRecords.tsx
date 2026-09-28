@@ -504,7 +504,7 @@ export const TreatmentRecords = () => {
                     <p className="text-sm font-bold text-foreground">No patients found</p>
                     <p className="text-xs text-muted-foreground mt-1">
                       {viewTab === 'queue'
-                        ? 'No students in the treatment queue. Saving a dental chart with a condition or treatment code queues a student here.'
+                        ? 'No students in the treatment queue. Saving a dental chart with a condition queues a student here.'
                         : viewTab === 'done'
                           ? `No students treated during SY ${yearFilter} yet.`
                           : 'No students match the selected filters.'}
