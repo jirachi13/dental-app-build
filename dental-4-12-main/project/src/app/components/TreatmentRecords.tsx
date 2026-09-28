@@ -227,12 +227,14 @@ export const TreatmentRecords = () => {
   return (
     <div
       ref={regionRef}
-      // Negative margin only while Hide is on (user, 2026-09-28, "like this
-      // pls" -- matching Student Records' own container exactly): the
-      // default view keeps <main>'s ordinary bottom padding as a real gap
-      // below the card, same as PatientList, rather than forcing the region
-      // pixel-flush against the literal viewport edge.
-      className={`space-y-4 overflow-y-auto no-scrollbar ${hidePagination ? '-mb-4 md:-mb-8' : ''}`}
+      // Negative margin UNCONDITIONAL again (user, 2026-09-28: "even when
+      // pagination is not hidden, the container should still touch the
+      // edge of the screen") -- reverted the previous "leave a PatientList-
+      // style gap by default" change. Cancels <main>'s own bottom padding
+      // so the region (and the pinned card inside it) always reaches the
+      // true bottom of the viewport once scrolled all the way, same as
+      // Charting Queue's own region.
+      className="space-y-4 overflow-y-auto no-scrollbar -mb-4 md:-mb-8"
       style={{ height: regionHeight ?? undefined }}
     >
       {/* Same header pattern as Dental Charts' own page title (user,
