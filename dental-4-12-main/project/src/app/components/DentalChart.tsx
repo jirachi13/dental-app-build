@@ -739,6 +739,17 @@ export const DentalChart = () => {
 
   const currentChart = draftChart;
 
+  // Earliest a visit's "Date treated" is allowed to be (user, 2026-09-28:
+  // "it should be impossible to mark a date for treatment past the oral
+  // condition ... same with visit 2, it cannot be past treatment visit 1").
+  // Visit 1 can't be earlier than the oral exam that found what it treats;
+  // Visit 2 can't be earlier than either that exam OR Visit 1. Feeds the
+  // date input's `min` (greys out the disallowed range in the calendar
+  // picker) -- handleSave re-checks the same ordering server-side-adjacent,
+  // since `min` alone doesn't stop a typed value.
+  const visitDateMin = activeVisit === 1
+    ? draftChartDate
+    : [draftChartDate, draftVisitDateByVisit[1]].filter(Boolean).sort().pop() || '';
 
   // ── IPTR Section B + per-tooth treatment summary (Sprint 151) ───────────
   //
@@ -1118,6 +1129,33 @@ export const DentalChart = () => {
           .map(([toothStr]) => toothStr);
         if (orphaned.length) {
           const message = `Tooth ${orphaned.join(', ')} has a treatment but no condition. Add a condition or remove the treatment, then save.`;
+          setChartError(message);
+          toast.error(message);
+          return;
+        }
+        // A visit cannot have happened before the oral exam that found what
+        // it's treating, and Visit 2 cannot happen before Visit 1 (user,
+        // 2026-09-28: "it should be impossible to mark a date for treatment
+        // past the oral condition ... same with visit 2, it cannot be past
+        // treatment visit 1"). The date inputs' own `min` already greys this
+        // out in the calendar picker, but a typed value bypasses that, so
+        // Save re-checks the same ordering before it ever reaches the server.
+        const v1Date = draftVisitDateByVisit[1];
+        const v2Date = draftVisitDateByVisit[2];
+        if (v1Date && draftChartDate && v1Date < draftChartDate) {
+          const message = `Visit 1's Date treated (${formatDate(v1Date)}) can't be before the oral exam's Date examined (${formatDate(draftChartDate)}).`;
+          setChartError(message);
+          toast.error(message);
+          return;
+        }
+        if (v2Date && v1Date && v2Date < v1Date) {
+          const message = `Visit 2's Date treated (${formatDate(v2Date)}) can't be before Visit 1's Date treated (${formatDate(v1Date)}).`;
+          setChartError(message);
+          toast.error(message);
+          return;
+        }
+        if (v2Date && !v1Date && draftChartDate && v2Date < draftChartDate) {
+          const message = `Visit 2's Date treated (${formatDate(v2Date)}) can't be before the oral exam's Date examined (${formatDate(draftChartDate)}).`;
           setChartError(message);
           toast.error(message);
           return;
@@ -2437,7 +2475,8 @@ export const DentalChart = () => {
                   <div className="text-sm font-bold text-primary uppercase tracking-wide">Treatments Given</div>
                   <label className="flex items-center gap-2 text-xs text-muted-foreground">
                     Date treated
-                    <input type="date" value={draftVisitDate} disabled={!editingChart}
+                    <input type="date" value={draftVisitDate} disabled={!editingChart} min={visitDateMin || undefined}
+                      title={visitDateMin ? `Can't be before ${formatDate(visitDateMin)}` : undefined}
                       onChange={(e) => setDraftVisitDate(e.target.value)}
                       className="border border-border rounded px-2 py-1 text-xs bg-card text-foreground disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-ring" />
                   </label>
