@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { Clipboard, Search, Droplet, ShieldCheck, Sparkles, Wrench, Timer, RotateCcw, Scissors, Syringe, MessageCircle, Eye, SlidersHorizontal, ChevronDown, ChevronUp, MoreVertical, Trash2, type LucideIcon } from 'lucide-react';
+import { Clipboard, Search, Droplet, ShieldCheck, Sparkles, Wrench, Timer, RotateCcw, Scissors, Syringe, MessageCircle, Eye, SlidersHorizontal, ChevronDown, ChevronUp, MoreVertical, Trash2, Users, type LucideIcon } from 'lucide-react';
 import { GradePill } from './GradePill';
 import { ListSearchInput } from './ListSearchInput';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -492,12 +492,23 @@ export const TreatmentRecords = () => {
             <tbody className="divide-y divide-border">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 pt-20 pb-10 text-center text-sm text-muted-foreground">
-                    {viewTab === 'queue'
-                      ? 'No students in the treatment queue. Saving a dental chart with a condition or treatment code queues a student here.'
-                      : viewTab === 'done'
-                        ? `No students treated during SY ${yearFilter} yet.`
-                        : 'No students match the selected filters.'}
+                  {/* Same empty-state pattern as the Charting Queue table
+                      (user, 2026-09-28, "apply the no patients found,
+                      exactly the same with size, height, font and space
+                      from the label rows") -- icon badge, bold title, muted
+                      subtitle, same pt-20 pb-10 padding. */}
+                  <td colSpan={8} className="px-4 pt-20 pb-10 text-center">
+                    <div className="w-10 h-10 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                      <Users className="w-4 h-4 text-muted-foreground/60" />
+                    </div>
+                    <p className="text-sm font-bold text-foreground">No patients found</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {viewTab === 'queue'
+                        ? 'No students in the treatment queue. Saving a dental chart with a condition or treatment code queues a student here.'
+                        : viewTab === 'done'
+                          ? `No students treated during SY ${yearFilter} yet.`
+                          : 'No students match the selected filters.'}
+                    </p>
                   </td>
                 </tr>
               ) : rowsToRender.map((t, i) => {
