@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { Clipboard, Search, Droplet, ShieldCheck, Sparkles, Wrench, Timer, RotateCcw, Scissors, Syringe, MessageCircle, Eye, SlidersHorizontal, ChevronDown, ChevronUp, MoreVertical, Trash2, Users, type LucideIcon } from 'lucide-react';
+import { Clipboard, Search, Droplet, ShieldCheck, Sparkles, Wrench, Timer, RotateCcw, Scissors, Syringe, MessageCircle, Eye, ChevronUp, MoreVertical, Trash2, Users, type LucideIcon } from 'lucide-react';
 import { GradePill } from './GradePill';
 import { PipelineStatusPill } from './PipelineStatusPill';
 import { ListSearchInput } from './ListSearchInput';
@@ -49,24 +49,24 @@ const RISK_BADGE: Record<string, string> = {
 };
 
 type PipelineFilter = 'all' | 'For First Treatment' | 'For Second Treatment';
+// Labels shortened to "Visit 1"/"Visit 2" for the pill toggle (user,
+// 2026-09-28) -- underlying values are unchanged (still match
+// StudentRow.pipelineStatus's own "For First/Second Treatment" strings).
 const PIPELINE_FILTER_OPTS: { v: PipelineFilter; l: string }[] = [
   { v: 'all', l: 'All' },
-  { v: 'For First Treatment', l: 'For First Treatment' },
-  { v: 'For Second Treatment', l: 'For Second Treatment' },
+  { v: 'For First Treatment', l: 'Visit 1' },
+  { v: 'For Second Treatment', l: 'Visit 2' },
 ];
 
 export const TreatmentRecords = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [pipelineFilter, setPipelineFilter] = useState<PipelineFilter>('all');
-  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
-  const filterMenuRef = useRef<HTMLDivElement>(null);
   const [bulkMenuOpen, setBulkMenuOpen] = useState(false);
   const bulkMenuRef = useRef<HTMLDivElement>(null);
   const [clearQueueConfirmOpen, setClearQueueConfirmOpen] = useState(false);
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
-      if (!filterMenuRef.current?.contains(e.target as Node)) setFilterMenuOpen(false);
       if (!bulkMenuRef.current?.contains(e.target as Node)) setBulkMenuOpen(false);
     };
     document.addEventListener('mousedown', onDown);
@@ -436,38 +436,28 @@ export const TreatmentRecords = () => {
                 </p>
               </div>
             </div>
-            {/* Search + Filter + "⋮" -- same layout as the Charting Queue
-                card (user, 2026-09-28, "implement the same design with the
-                treatment submodule"). Filter narrows by pipeline stage
-                instead of grade/section/gender/age, which the removed
-                dropdown row used to do. */}
+            {/* Search + pill filter + "⋮" -- the Filter dropdown was
+                replaced (user, 2026-09-28) with an inline segmented pill
+                toggle, same visual pattern as an All/Priority switch: a
+                gray track, fully rounded segments, active segment filled
+                solid navy. All/Visit 1/Visit 2 narrows by pipeline stage,
+                same as the old dropdown did, just always visible instead
+                of hidden behind a click. */}
             <div className="flex items-center gap-3 flex-wrap">
               <ListSearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Search student, grade, or section" />
-              <div ref={filterMenuRef} className="relative shrink-0">
-                <button
-                  type="button"
-                  role="combobox"
-                  aria-haspopup="listbox"
-                  aria-expanded={filterMenuOpen}
-                  onClick={() => setFilterMenuOpen((o) => !o)}
-                  className="flex items-center gap-1.5 text-sm font-medium rounded-lg px-3 py-2 bg-primary text-white hover:bg-primary-hover"
-                >
-                  <SlidersHorizontal className="w-3.5 h-3.5" /> Filter <ChevronDown className="w-3.5 h-3.5" />
-                </button>
-                {filterMenuOpen && (
-                  <div className="absolute right-0 z-20 mt-1 min-w-[180px] rounded-lg border border-border bg-card shadow-md py-1">
-                    {PIPELINE_FILTER_OPTS.map((o) => (
-                      <button
-                        key={o.v}
-                        type="button"
-                        onClick={() => { setPipelineFilter(o.v); setFilterMenuOpen(false); }}
-                        className={`w-full text-left px-3 py-2 text-sm hover:bg-canvas ${pipelineFilter === o.v ? 'text-primary font-semibold' : 'text-foreground'}`}
-                      >
-                        {o.l}
-                      </button>
-                    ))}
-                  </div>
-                )}
+              <div role="radiogroup" aria-label="Filter by treatment stage" className="inline-flex shrink-0 rounded-full bg-gray-100 p-1">
+                {PIPELINE_FILTER_OPTS.map((o) => (
+                  <button
+                    key={o.v}
+                    type="button"
+                    role="radio"
+                    aria-checked={pipelineFilter === o.v}
+                    onClick={() => setPipelineFilter(o.v)}
+                    className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${pipelineFilter === o.v ? 'bg-sidebar-bg text-white' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    {o.l}
+                  </button>
+                ))}
               </div>
               {/* "⋮" -- clears the whole Treatment Queue at once, for a
                   pupil queued in error or otherwise handled outside the
