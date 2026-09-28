@@ -628,7 +628,7 @@ export const TreatmentRecords = () => {
                           onClick={() => navigate(`/dental-chart/${t.id}?tab=chart&context=treatment`)}
                           className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
                         >
-                          <Eye className="w-3.5 h-3.5" /> Open chart
+                          <Eye className="w-3.5 h-3.5" /> Open Chart
                         </button>
                         {/* Per-row manual removal (user, 2026-09-28, "also
                             the delete queue") -- pulls just this pupil out,

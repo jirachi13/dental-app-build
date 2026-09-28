@@ -445,7 +445,7 @@ export const RPCTracking = () => {
                         onClick={() => navigate(`/dental-chart/${r.id}?tab=treatments`)}
                         className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium border border-border rounded-lg hover:bg-gray-50 whitespace-nowrap"
                       >
-                        <Eye className="w-3.5 h-3.5" /> Open chart
+                        <Eye className="w-3.5 h-3.5" /> Open Chart
                       </button>
                     </td>
                   </tr>
