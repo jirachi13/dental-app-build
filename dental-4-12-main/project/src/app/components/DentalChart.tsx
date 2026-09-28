@@ -871,10 +871,36 @@ export const DentalChart = () => {
       || Object.values(currentChart).some((e) => e.condition);
     setDraftChartDate(anyTicked ? (draftChartDate || toLocalDateString(new Date())) : '');
   };
-  // Same rule for "Date treated" against the Treatments Given chips.
+  // Same rule for "Date treated" against the Treatments Given chips -- ALSO
+  // checks a tooth charted for the active visit (2026-09-28 fix, same
+  // reasoning as Date examined above): a visit recorded purely as tooth
+  // work, no whole-mouth service ticked, is still a real visit.
   const syncVisitDateFromServices = (services: Record<ServiceField, boolean | null>) => {
-    const anyTicked = serviceChips.some(({ field }) => services[field] === true);
+    const anyTicked = serviceChips.some(({ field }) => services[field] === true)
+      || Object.values(currentChart).some((e) => e.condition && (activeVisit === 2 ? e.visitNumber === 2 : (e.visitNumber ?? 1) !== 2));
     setDraftVisitDate(anyTicked ? (draftVisitDate || toLocalDateString(new Date())) : '');
+  };
+  // Re-derives BOTH dates from a chart snapshot that already includes the
+  // tooth mutation just made (user, 2026-09-28, repeated report: "the date
+  // should be emptied too when there is no marked oral conditions and Tooth
+  // Condition Codes ... it must be real time when changes are made").
+  // Painting/erasing a tooth previously only touched draftChart -- nothing
+  // re-checked the dates afterward, so a tooth that was the LAST thing
+  // keeping a date alive left it stuck once cleared. Takes the merged
+  // snapshot as an argument rather than reading `draftChart` back, which
+  // would still be this render's PRE-mutation value (the same stale-read
+  // trap the comment above already calls out for the checkbox handlers).
+  const syncDatesFromChart = (mergedChart: Record<number, ChartEntry>) => {
+    const anyOralReal = oralConditionChips.some(({ field }) => draftOral[field]) || othersOralOpen
+      || Object.values(mergedChart).some((e) => e.condition);
+    if (!anyOralReal) setDraftChartDate('');
+    ([1, 2] as const).forEach((n) => {
+      const anyServiceTicked = Object.values(draftServicesByVisit[n]).some((v) => v === true);
+      const anyToothReal = Object.values(mergedChart).some((e) => e.condition && (n === 2 ? e.visitNumber === 2 : (e.visitNumber ?? 1) !== 2));
+      if (!anyServiceTicked && !anyToothReal) {
+        setDraftVisitDateByVisit((prev) => (prev[n] ? { ...prev, [n]: '' } : prev));
+      }
+    });
   };
 
   // Paint-stroke state (2026-09-25) -- "hold and continuously mark": pressing
@@ -891,18 +917,13 @@ export const DentalChart = () => {
 
   const applyToothPaint = (toothNumber: number, action: 'condition' | 'treatment' | 'erase', value: string) => {
     const isTemp = temporaryTeeth.has(toothNumber);
+    let nextEntry: ChartEntry;
     if (action === 'condition') {
       const codeObj = conditionCodes.find((c) => c.code === value);
       const code = value ? (codeObj ? (isTemp ? codeObj.temp : codeObj.perm) : value) : '';
-      setDraftChart((prev) => ({
-        ...prev,
-        [toothNumber]: { condition: code, treatment: prev[toothNumber]?.treatment || '', visitNumber: activeVisit },
-      }));
+      nextEntry = { condition: code, treatment: currentChart[toothNumber]?.treatment || '', visitNumber: activeVisit };
     } else if (action === 'treatment') {
-      setDraftChart((prev) => ({
-        ...prev,
-        [toothNumber]: { condition: prev[toothNumber]?.condition || '', treatment: value, visitNumber: activeVisit },
-      }));
+      nextEntry = { condition: currentChart[toothNumber]?.condition || '', treatment: value, visitNumber: activeVisit };
     } else {
       // No code selected: painting a tooth empties it. This used to be a dead
       // click, which meant the ONLY way to remove a code was to first hunt down
@@ -914,11 +935,17 @@ export const DentalChart = () => {
       // possible the precise way — select that exact code and paint the tooth
       // to toggle it off. Nothing persists until Save Chart, and Cancel Edit
       // discards it.
-      setDraftChart((prev) => ({
-        ...prev,
-        [toothNumber]: { condition: '', treatment: '', visitNumber: null },
-      }));
+      nextEntry = { condition: '', treatment: '', visitNumber: null };
     }
+    setDraftChart((prev) => ({ ...prev, [toothNumber]: nextEntry }));
+    // Toggling a code OFF or erasing empties the date the instant nothing
+    // real is left -- toggling one ON is already handled by
+    // stampConditionDate/stampTreatmentDate below, which unconditionally
+    // stamp today whenever a real value is applied. Merges against
+    // `currentChart` (this render's pre-mutation snapshot) plus THIS
+    // tooth's new entry, not a re-read of draftChart, which wouldn't
+    // reflect this change yet.
+    syncDatesFromChart({ ...currentChart, [toothNumber]: nextEntry });
   };
 
   const handleToothPointerDown = (toothNumber: number) => {
@@ -1549,13 +1576,15 @@ export const DentalChart = () => {
   // Clears one vocabulary across every tooth, leaving the other untouched.
   // Draft-only: nothing reaches the DB until Save, so Cancel still undoes it.
   const clearAll = (field: 'condition' | 'treatment') => {
-    setDraftChart((prev) => {
-      const next: Record<number, ChartEntry> = {};
-      Object.entries(prev).forEach(([tooth, entry]) => {
-        next[Number(tooth)] = { ...entry, [field]: '' };
-      });
-      return next;
+    const next: Record<number, ChartEntry> = {};
+    Object.entries(currentChart).forEach(([tooth, entry]) => {
+      next[Number(tooth)] = { ...entry, [field]: '' };
     });
+    setDraftChart(next);
+    // Same live re-derivation as a single tooth paint/erase -- clearing
+    // every condition at once can just as easily be the thing that empties
+    // the last real content behind a date.
+    syncDatesFromChart(next);
     setConfirmClear(null);
   };
 
