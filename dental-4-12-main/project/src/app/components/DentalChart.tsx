@@ -2650,7 +2650,14 @@ export const DentalChart = () => {
             <div className={`${editingChart ? 'bg-primary text-white' : 'bg-slate-200 text-slate-600'} px-4 py-2 text-[11px] font-semibold uppercase tracking-wider`}>Charting Codes</div>
             <div className={`p-4 ${!editingChart ? 'opacity-60 pointer-events-none select-none' : ''}`}>
               <div className={`grid grid-cols-1 ${layoutContext === 'default' ? 'lg:grid-cols-2' : ''} gap-4`}>
-                {layoutContext !== 'treatment' && (
+                {/* Unconditional (user, 2026-09-28: "when IPTR is accessed
+                    in the treatment submodule, all functions ... should be
+                    accessible ... literally all functions of the IPTR") --
+                    was hidden for layoutContext === 'treatment', the same
+                    stripped-down-by-context pattern already removed for
+                    dental-queue below on 2026-09-27. Tooth Condition Codes
+                    is a normal part of charting regardless of which module
+                    opened this record. */}
                 <div className={layoutContext === 'default' ? 'lg:pr-4' : undefined}>
                   <div className="flex items-center justify-between gap-2 mb-2 min-h-[26px]">
                     <div className="text-sm font-bold text-primary uppercase tracking-wide">Tooth Condition Codes</div>
@@ -2701,7 +2708,6 @@ export const DentalChart = () => {
                     );
                   })()}
                 </div>
-                )}
                 {/* Conditions and treatments are different vocabularies -- one
                     records what IS, the other what was DONE -- but unselected
                     buttons in both groups look identical, so without a rule the
