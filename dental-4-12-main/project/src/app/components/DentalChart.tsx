@@ -2341,26 +2341,31 @@ export const DentalChart = () => {
                 )}
               </div>
 
-              <div className={`border-t border-border pt-4 lg:border-t-0 lg:pt-0 lg:border-l lg:border-border lg:pl-4 ${editingChart ? '' : 'opacity-60 pointer-events-none select-none'}`}>
+              <div className="border-t border-border pt-4 lg:border-t-0 lg:pt-0 lg:border-l lg:border-border lg:pl-4">
                 <div className="flex flex-wrap items-center gap-3 mb-2">
                   <div className="text-sm font-bold text-primary uppercase tracking-wide">Treatments Given</div>
                   <label className="flex items-center gap-2 text-xs text-muted-foreground">
                     Date treated
-                    <input type="date" value={draftVisitDate}
+                    <input type="date" value={draftVisitDate} disabled={!editingChart}
                       onChange={(e) => setDraftVisitDate(e.target.value)}
                       className="border border-border rounded px-2 py-1 text-xs bg-card text-foreground disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-ring" />
                   </label>
-                  {/* Visit 1 / Visit 2 (2026-09-25, reworked 2026-09-28),
-                      right-aligned on this same row. Visit 1 is ALWAYS
-                      visible -- a pupil pending their first visit still
-                      needs a tab to land on. Visit 2 only appears once
-                      Visit 1 has REAL content (visit1HasData, not just a
-                      surviving row -- Visit 1's record is exempt from
-                      archiving, so it can go back to empty and still
+                  {/* Visit 1 / Visit 2 (2026-09-25, reworked 2026-09-28 and
+                      again 2026-09-28), right-aligned on this same row.
+                      Visit 1 is ALWAYS visible -- a pupil pending their
+                      first visit still needs a tab to land on. Visit 2 only
+                      appears once Visit 1 has REAL content (visit1HasData,
+                      not just a surviving row -- Visit 1's record is exempt
+                      from archiving, so it can go back to empty and still
                       technically exist), and never carries a "+" prefix --
                       the default (no explicit pick) is Visit 2 once it can
                       show, since recording Visit 1 makes Visit 2 the next
-                      thing to do. */}
+                      thing to do. Deliberately OUTSIDE the view-mode
+                      pointer-events-none wrapper below (user, 2026-09-28:
+                      "the Visit 1 and Visit 2 shouldnt be locked in the view
+                      mode, so we can still view records") -- switching which
+                      visit's data is on screen is a READ action, not an
+                      edit, and view mode only needs to block the latter. */}
                   <div className="ml-auto flex items-center gap-1.5">
                     <button type="button" onClick={() => setExplicitVisit(1)}
                       className={`px-2.5 py-1 text-xs font-semibold rounded-full border transition-colors ${
@@ -2382,31 +2387,33 @@ export const DentalChart = () => {
                     )}
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-2">
-                  {serviceChips.map(({ label, field }) => (
-                    <label key={field}
-                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs cursor-pointer transition-colors ${draftServices[field] ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-blue-200 text-foreground hover:bg-canvas'}`}>
-                      {/* Unticking writes null, not false — see the state above. */}
-                      <input type="checkbox" checked={draftServices[field] === true}
-                        onChange={(e) => {
-                          const next = { ...draftServices, [field]: e.target.checked ? true : null };
-                          setDraftServices(next);
-                          syncVisitDateFromServices(next);
-                        }}
-                        className="w-4 h-4 rounded accent-primary" />
-                      {label}
-                    </label>
-                  ))}
+                <div className={editingChart ? '' : 'opacity-60 pointer-events-none select-none'}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-2">
+                    {serviceChips.map(({ label, field }) => (
+                      <label key={field}
+                        className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs cursor-pointer transition-colors ${draftServices[field] ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-blue-200 text-foreground hover:bg-canvas'}`}>
+                        {/* Unticking writes null, not false — see the state above. */}
+                        <input type="checkbox" checked={draftServices[field] === true}
+                          onChange={(e) => {
+                            const next = { ...draftServices, [field]: e.target.checked ? true : null };
+                            setDraftServices(next);
+                            syncVisitDateFromServices(next);
+                          }}
+                          className="w-4 h-4 rounded accent-primary" />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                  {/* Unlocked 2026-09-25 -- ticking a service here now creates
+                      the active visit's RPC record on save instead of
+                      requiring one to already exist. Shown only pre-save so it
+                      doesn't linger once the visit is real. */}
+                  {!activeVisitRecord && (
+                    <p className="mt-2 text-[10px] text-muted-foreground">
+                      Recording a service or charting a treatment creates this school year's Visit {activeVisit} when you save.
+                    </p>
+                  )}
                 </div>
-                {/* Unlocked 2026-09-25 -- ticking a service here now creates
-                    the active visit's RPC record on save instead of
-                    requiring one to already exist. Shown only pre-save so it
-                    doesn't linger once the visit is real. */}
-                {!activeVisitRecord && (
-                  <p className="mt-2 text-[10px] text-muted-foreground">
-                    Recording a service or charting a treatment creates this school year's Visit {activeVisit} when you save.
-                  </p>
-                )}
               </div>
             </div>
             </div>
