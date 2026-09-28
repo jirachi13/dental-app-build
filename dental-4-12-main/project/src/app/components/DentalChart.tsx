@@ -508,10 +508,34 @@ export const DentalChart = () => {
   // typed inside the Edit Student Info panel and read back as three grey rows
   // on the patient card — two different places for one record. One editor now.
   const [draftMeasure, setDraftMeasure] = useState({ height_cm: '', weight_kg: '', temperature_c: '', blood_pressure: '' });
-  const [draftServices, setDraftServices] = useState<Record<ServiceField, boolean | null>>({
+  // Kept ONE PER VISIT, not one shared slot for "whichever tab is active"
+  // (fixed 2026-09-28: "when i uncheck anything in visit 2 ... go to visit 1
+  // and made edits ... when i save, the unchecked boxes in visit 2 gets
+  // checked again"). A single shared draft meant switching tabs overwrote
+  // whatever was in progress for the visit being left with that visit's
+  // last-SAVED data, and Save only ever wrote the currently-active visit —
+  // so an in-progress Visit 2 uncheck was silently discarded the moment the
+  // dentist switched to Visit 1, never reaching the server at all.
+  const emptyServiceDraft: Record<ServiceField, boolean | null> = {
     oral_screening: null, oral_prophylaxis: null, fluoride_varnish: null, oral_hygiene_instruction: null, consultation: null,
+  };
+  const [draftServicesByVisit, setDraftServicesByVisit] = useState<Record<1 | 2, Record<ServiceField, boolean | null>>>({
+    1: emptyServiceDraft, 2: emptyServiceDraft,
   });
-  const [draftVisitDate, setDraftVisitDate] = useState('');
+  const [draftVisitDateByVisit, setDraftVisitDateByVisit] = useState<Record<1 | 2, string>>({ 1: '', 2: '' });
+  // Everything below this line still reads/writes "draftServices" /
+  // "draftVisitDate" as if it were the old single slot — these are thin
+  // views onto the active visit's slot in the map above, so none of that
+  // code had to change.
+  const draftServices = draftServicesByVisit[activeVisit];
+  const draftVisitDate = draftVisitDateByVisit[activeVisit];
+  const setDraftServices = (next: Record<ServiceField, boolean | null>) =>
+    setDraftServicesByVisit((prev) => ({ ...prev, [activeVisit]: next }));
+  const setDraftVisitDate = (next: string | ((prev: string) => string)) =>
+    setDraftVisitDateByVisit((prev) => ({
+      ...prev,
+      [activeVisit]: typeof next === 'function' ? (next as (prev: string) => string)(prev[activeVisit]) : next,
+    }));
   const [draftChartDate, setDraftChartDate] = useState('');
   const [othersOralOpen, setOthersOralOpen] = useState(false);
   // Her card collapses (Sprint 164). Identity is checked once on arrival and
@@ -537,8 +561,6 @@ export const DentalChart = () => {
       setDraftOral(emptyOral());
       setOthersOralOpen(false);
       setDraftMeasure({ height_cm: '', weight_kg: '', temperature_c: '', blood_pressure: '' });
-      setDraftServices({ oral_screening: null, oral_prophylaxis: null, fluoride_varnish: null, oral_hygiene_instruction: null, consultation: null });
-      setDraftVisitDate('');
       setDraftChartDate('');
       setEditMode(false);
       return;
@@ -588,29 +610,34 @@ export const DentalChart = () => {
     );
   }, [selectedYear, currentYearData, user?.role]);
 
-  // Treatments Given's services/date follow the ACTIVE VISIT, not the whole
-  // draft-population effect above -- a SEPARATE effect on purpose, so
-  // switching the Visit 1 / Visit 2 tab only refreshes the services card, not
-  // in-progress unsaved teeth/history edits (which would be lost if this were
-  // folded into the effect above, since that one fully re-syncs everything
-  // from source data on every dependency change).
+  // Treatments Given's services/date follow BOTH visits' own SOURCE records,
+  // not the whole draft-population effect above -- a SEPARATE effect on
+  // purpose, so loading a new student/year only refreshes the services
+  // cards, not in-progress unsaved teeth/history edits (which would be lost
+  // if this were folded into the effect above, since that one fully
+  // re-syncs everything from source data on every dependency change).
+  // ⚠ Deliberately NOT keyed on `activeVisit`/`activeVisitRecord` -- that was
+  // the bug (see the draft-state comment above): re-deriving on every tab
+  // switch overwrote whichever visit's checkboxes were being left. This
+  // fires once per real data load (or after Save's `reload()`) and fills
+  // BOTH visits' slots, so switching tabs afterward just changes which slot
+  // is on screen -- it never touches either slot's contents.
   useEffect(() => {
-    const visit = activeVisitRecord;
-    // A visit's own visit_date is a REQUIRED field server-side, so Visit 1's
-    // record (exempt from archiving) keeps whatever date it last had even
-    // once fully cleared -- shown here only while the visit still has real
-    // content (user, 2026-09-28: "the date should be erased too"), not
-    // whenever the row merely still exists.
-    const hasData = activeVisit === 1 ? visit1HasData : visit2HasData;
-    setDraftVisitDate(visit && hasData ? new Date(visit.visit_date).toISOString().slice(0, 10) : '');
-    setDraftServices({
-      oral_screening: visit?.oral_screening ?? null,
-      oral_prophylaxis: visit?.oral_prophylaxis ?? null,
-      fluoride_varnish: visit?.fluoride_varnish ?? null,
-      oral_hygiene_instruction: visit?.oral_hygiene_instruction ?? null,
-      consultation: visit?.consultation ?? null,
+    const forVisit = (visit: typeof visit1, hasData: boolean) => ({
+      date: visit && hasData ? new Date(visit.visit_date).toISOString().slice(0, 10) : '',
+      services: {
+        oral_screening: visit?.oral_screening ?? null,
+        oral_prophylaxis: visit?.oral_prophylaxis ?? null,
+        fluoride_varnish: visit?.fluoride_varnish ?? null,
+        oral_hygiene_instruction: visit?.oral_hygiene_instruction ?? null,
+        consultation: visit?.consultation ?? null,
+      },
     });
-  }, [activeVisitRecord, activeVisit, visit1HasData, visit2HasData]);
+    const v1 = forVisit(visit1, visit1HasData);
+    const v2 = forVisit(visit2, visit2HasData);
+    setDraftServicesByVisit({ 1: v1.services, 2: v2.services });
+    setDraftVisitDateByVisit({ 1: v1.date, 2: v2.date });
+  }, [currentYearData, visit1, visit2, visit1HasData, visit2HasData]);
 
   // Effective edit rights: role AND edit mode. Aides keep read-only here —
   // they could tick history boxes before, but Save was always dentist-only,
@@ -667,7 +694,8 @@ export const DentalChart = () => {
   // flags/text, dietary/social habits, and oral conditions.
   const hasUnsavedChartContent =
     Object.values(draftChart).some((e) => e.condition || e.treatment) ||
-    Object.values(draftServices).some((v) => v === true) ||
+    Object.values(draftServicesByVisit[1]).some((v) => v === true) ||
+    Object.values(draftServicesByVisit[2]).some((v) => v === true) ||
     Object.values(draftMed).some((v) => v === true || (typeof v === 'string' && v.trim() !== '')) ||
     Object.values(draftDiet).some((v) => v === true) ||
     Object.values(draftOral).some((v) => v === true || (typeof v === 'string' && v.trim() !== ''));
@@ -1076,9 +1104,12 @@ export const DentalChart = () => {
       // A service ticked with zero tooth changes (2026-09-25) must still get a
       // chart to attach its new RPC visit to -- not only pendingTeeth.length,
       // or a Treatments-Given-only save on a pupil's first-ever charting this
-      // year would have nowhere to write the visit.
-      const hasAnyService = Object.values(draftServices).some((v) => v === true);
-      // A treatment charted on a tooth also opens the active visit (user,
+      // year would have nowhere to write the visit. Checked across BOTH
+      // visits' drafts (2026-09-28 fix) -- Save now persists whichever visit
+      // was actually edited, not just whichever tab happens to be open.
+      const hasAnyServiceForVisit = (n: 1 | 2) => Object.values(draftServicesByVisit[n]).some((v) => v === true);
+      const hasAnyService = hasAnyServiceForVisit(1) || hasAnyServiceForVisit(2);
+      // A treatment charted on a tooth also opens its visit (user,
       // 2026-09-24): the treatment is tagged with this visit's number, so the
       // visit it belongs to must exist even when no service is ticked.
       const chartsTreatment = pendingTeeth.some(([, entry]) => entry.treatment !== '');
@@ -1098,11 +1129,15 @@ export const DentalChart = () => {
       // visit_number tags which visit this tooth's CURRENT treatment belongs
       // to (2026-09-25) -- Visit 1 and Visit 2 share this one chart, so this
       // is what lets the odontogram and Treatment Summary show "(V1)"/"(V2)"
-      // instead of the two visits' teeth work being indistinguishable.
+      // instead of the two visits' teeth work being indistinguishable. Reads
+      // each tooth's OWN tag (set when it was painted -- see applyToothPaint
+      // below), not the tab active at save time (2026-09-28 fix): a tooth
+      // painted under Visit 2 then left behind by switching to Visit 1 must
+      // still save as Visit 2's, not get silently relabeled Visit 1's.
       const toothWrites = pendingTeeth.map(([toothStr, entry]) => {
         const toothNumber = Number(toothStr);
         const existing = existingByTooth.get(toothNumber);
-        const body = { chart_id: chartId, tooth_number: toothNumber, condition: entry.condition, treatment_code: entry.treatment, visit_number: activeVisit };
+        const body = { chart_id: chartId, tooth_number: toothNumber, condition: entry.condition, treatment_code: entry.treatment, visit_number: entry.visitNumber ?? activeVisit };
         return existing ? apiClient.put(`/tooth-records/${existing._id}`, body) : apiClient.post('/tooth-records', body);
       });
       toothWrites.push(...clearedRecords.map((tr) => apiClient.patch(`/tooth-records/${tr._id}/archive`)));
@@ -1162,27 +1197,42 @@ export const DentalChart = () => {
       // (pipeline status, RPC due dates) reads LIVE preventive-care-records,
       // so this one archive is what makes "no Visit 2" propagate everywhere
       // else automatically, without a second update pass.
-      const remainingActiveVisitTeeth = pendingTeeth.length > 0
-        || Array.from(existingByTooth.values()).some((tr) => tr.visit_number === activeVisit && !clearedRecords.includes(tr));
-      const activeVisitNowEmpty = !hasAnyService && !remainingActiveVisitTeeth;
-
-      if (activeVisitRecord) {
-        if (activeVisit === 2 && activeVisitNowEmpty) {
-          extraWrites.push(apiClient.patch(`/preventive-care-records/${activeVisitRecord._id}/archive`));
-        } else {
-          extraWrites.push(apiClient.put(`/preventive-care-records/${activeVisitRecord._id}`, {
-            ...draftServices,
-            ...(draftVisitDate ? { visit_date: draftVisitDate } : {}),
-          }));
+      //
+      // Built for BOTH visits, not just the active tab (2026-09-28 fix): the
+      // per-visit draft slots above mean either visit's checkboxes may have
+      // been edited this session, so Save must persist whichever one(s)
+      // actually changed, not only whichever tab happened to be open when
+      // the button was clicked.
+      const remainingVisitTeeth = (n: 1 | 2) => pendingTeeth.some(([, entry]) => (entry.visitNumber ?? activeVisit) === n)
+        || Array.from(existingByTooth.values()).some((tr) => tr.visit_number === n && !clearedRecords.includes(tr));
+      const chartsTreatmentForVisit = (n: 1 | 2) => pendingTeeth.some(([, entry]) => entry.treatment !== '' && (entry.visitNumber ?? activeVisit) === n);
+      const buildVisitWrite = (n: 1 | 2) => {
+        const services = draftServicesByVisit[n];
+        const visitDate = draftVisitDateByVisit[n];
+        const record = n === 1 ? visit1 : visit2;
+        const hasAnyServiceN = hasAnyServiceForVisit(n);
+        const nowEmptyN = !hasAnyServiceN && !remainingVisitTeeth(n);
+        if (record) {
+          if (n === 2 && nowEmptyN) return apiClient.patch(`/preventive-care-records/${record._id}/archive`);
+          return apiClient.put(`/preventive-care-records/${record._id}`, {
+            ...services,
+            ...(visitDate ? { visit_date: visitDate } : {}),
+          });
         }
-      } else if (hasAnyService || chartsTreatment) {
-        extraWrites.push(apiClient.post('/preventive-care-records', {
-          iptr_id: currentYearData.iptr._id,
-          visit_date: draftVisitDate || draftChartDate || toLocalDateString(new Date()),
-          visit_number: activeVisit,
-          ...draftServices,
-        }));
-      }
+        if (hasAnyServiceN || chartsTreatmentForVisit(n)) {
+          return apiClient.post('/preventive-care-records', {
+            iptr_id: currentYearData.iptr._id,
+            visit_date: visitDate || draftChartDate || toLocalDateString(new Date()),
+            visit_number: n,
+            ...services,
+          });
+        }
+        return null;
+      };
+      const visit1Write = buildVisitWrite(1);
+      const visit2Write = buildVisitWrite(2);
+      if (visit1Write) extraWrites.push(visit1Write);
+      if (visit2Write) extraWrites.push(visit2Write);
       const savedChartId = currentYearData.dentalChart?._id;
       if (savedChartId && draftChartDate
           && draftChartDate !== new Date(currentYearData.dentalChart!.date_charted).toISOString().slice(0, 10)) {
@@ -2709,14 +2759,12 @@ export const DentalChart = () => {
                     </tr>
                   </thead>
                   {(() => {
-                    const visitCol = (n: 1 | 2) => {
-                      if (n === activeVisit) return { date: draftVisitDate, services: draftServices };
-                      const rec = n === 1 ? visit1 : visit2;
-                      return {
-                        date: rec ? new Date(rec.visit_date).toISOString().slice(0, 10) : '',
-                        services: Object.fromEntries(serviceChips.map(({ field }) => [field, rec?.[field] ?? null])) as Record<ServiceField, boolean | null>,
-                      };
-                    };
+                    // Both visits' drafts are always live now (per-visit
+                    // slots, not one shared "whichever tab is active" slot),
+                    // so this table reads them directly for either column --
+                    // it no longer needs to fall back to the last-SAVED
+                    // record for the visit not currently on screen.
+                    const visitCol = (n: 1 | 2) => ({ date: draftVisitDateByVisit[n], services: draftServicesByVisit[n] });
                     const cols = [visitCol(1), visitCol(2)];
                     return (
                       <>
