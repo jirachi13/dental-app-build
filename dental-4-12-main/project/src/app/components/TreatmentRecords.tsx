@@ -196,7 +196,20 @@ export const TreatmentRecords = () => {
     };
     measure();
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    // ResizeObserver on <body> too (user, 2026-09-28: the container was
+    // taller than the sidebar in production, only at the real page's real
+    // data volume/width -- the one-time measure + the deps below missed a
+    // LATER layout shift, e.g. /stats/treatment-categories resolving after
+    // /stats/student-rows and changing a tab's count, or text wrapping
+    // differently at a real window width than in testing). Any actual
+    // change to the page's rendered height now re-measures, not just the
+    // handful of state changes this effect used to key on.
+    const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    resizeObserver?.observe(document.body);
+    return () => {
+      window.removeEventListener('resize', measure);
+      resizeObserver?.disconnect();
+    };
     // hidePagination is ALSO a dep (ported from PatientList's own version of
     // this bug fix): without it, toggling Hide never re-measures a fresh
     // baseline, so the card kept the paginated view's already-shrunk
