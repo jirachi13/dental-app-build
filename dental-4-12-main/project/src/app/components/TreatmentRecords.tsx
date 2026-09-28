@@ -130,14 +130,19 @@ export const TreatmentRecords = () => {
     });
   }, [doneIds]);
 
-  const sourcePatients = useMemo(
-    () => (viewTab === 'queue'
-      ? allPatients.filter((p) => treatmentQueueIds.includes(p.id))
-      : viewTab === 'done'
-        ? allPatients.filter((p) => doneIds.has(p.id))
-        : allPatients),
-    [viewTab, allPatients, treatmentQueueIds, doneIds],
-  );
+  const sourcePatients = useMemo(() => {
+    if (viewTab === 'queue') {
+      // Queue order, not alphabetical (user, 2026-09-28: "the default list
+      // should appear based on the first treatment queue then next
+      // treatment queue added") -- `allPatients.filter` would have kept
+      // that hook's own alphabetical order instead of the order students
+      // were actually queued in, so this maps treatmentQueueIds (already in
+      // queue order) to their patient records directly.
+      const byId = new Map(allPatients.map((p) => [p.id, p]));
+      return treatmentQueueIds.map((id) => byId.get(id)).filter((p): p is (typeof allPatients)[number] => !!p);
+    }
+    return viewTab === 'done' ? allPatients.filter((p) => doneIds.has(p.id)) : allPatients;
+  }, [viewTab, allPatients, treatmentQueueIds, doneIds]);
 
   // Per-row manual removal (user, 2026-09-28, "also the delete queue") --
   // alongside automatic done-detection and the bulk "Clear queue" action,
