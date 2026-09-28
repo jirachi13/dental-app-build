@@ -9,6 +9,7 @@ import { getGradeColor } from '../utils/gradeColors';
 import { getSchoolColor } from '../utils/schoolColors';
 import { useStudents } from '../hooks/useStudents';
 import { useTreatmentCategories } from '../hooks/useTreatmentCategories';
+import { useRPCTracking } from '../hooks/useRPCTracking';
 import { useAuth } from '../context/AuthContext';
 import { treatmentCodes, treatmentLabel } from '../utils/dentalChartCodes';
 import { schoolYearLabel } from '../utils/schoolYear';
@@ -128,6 +129,30 @@ export const TreatmentRecords = () => {
       return next;
     });
   }, [doneIds]);
+
+  // Auto-queued from RPC Monitoring too (user, 2026-09-28): a pupil whose
+  // Visit 2 falls due THIS calendar month is added here automatically, same
+  // 'due_this_month' definition RPC Monitoring's own sort/filter already
+  // uses (Visit 1 done, Visit 2 not yet, due date = Visit 1 + 4 months) --
+  // one shared rule instead of a second guess at what "due" means. Always
+  // lands as a Visit 2 entry: a due Visit 2 cannot exist without Visit 1
+  // already done, which is exactly derivePipelineStatus's own condition for
+  // "For Second Treatment".
+  const { records: rpcDueThisMonth } = useRPCTracking({ school: selectedSchool ?? undefined, sort: 'due_this_month', limit: 1000 });
+  useEffect(() => {
+    if (rpcDueThisMonth.length === 0) return;
+    setTreatmentQueueIdsState((prev) => {
+      const merged = new Set(prev);
+      let changed = false;
+      for (const r of rpcDueThisMonth) {
+        if (!merged.has(r.id)) { merged.add(r.id); changed = true; }
+      }
+      if (!changed) return prev;
+      const next = [...merged];
+      setTreatmentQueueStudentIds(next);
+      return next;
+    });
+  }, [rpcDueThisMonth]);
 
   const sourcePatients = useMemo(() => {
     if (viewTab === 'queue') {

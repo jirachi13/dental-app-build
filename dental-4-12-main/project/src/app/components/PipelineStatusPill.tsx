@@ -31,6 +31,16 @@ export const PipelineStatusPill = ({ status }: { status: StudentRow['pipelineSta
       className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold"
     >
       {LABEL[status]}
+      {/* Visit 2 IS the RPC protocol's second visit -- derivePipelineStatus
+          (server) only reaches "For Second Treatment" once a Visit 1
+          PreventiveCareRecord exists and Visit 2 doesn't yet, which is
+          exactly what RPC Monitoring tracks. Small solid chip, "Option C"
+          from the design review (user, 2026-09-28). */}
+      {status === 'For Second Treatment' && (
+        <span style={{ backgroundColor: meta.fg }} className="ml-1.5 rounded-full px-1.5 py-px text-[8px] font-extrabold tracking-wide text-white">
+          RPC
+        </span>
+      )}
     </span>
   );
 };
