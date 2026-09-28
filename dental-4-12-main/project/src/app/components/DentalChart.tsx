@@ -82,11 +82,19 @@ const formatDateStamp = (dateString?: string | null) => formatDate(dateString, '
 // 2026-09-25): DENTAL_CHART.date_charted, shown only while an oral condition
 // is recorded, so the chip and the field can never disagree. Replaces the
 // separate "Edit date" menu item.
+// ⚠ "An oral condition is recorded" also means a TOOTH condition (user,
+// 2026-09-28: "there is condition marked in the dental chart but there is no
+// date in the Oral Conditions Date examined") -- the whole-mouth chips
+// (Debris, Gingivitis, ...) are not the only thing this form calls an oral
+// condition, and a mouth charted tooth-by-tooth with no whole-mouth finding
+// ticked is still an examined mouth.
 const examinedDate = (
   oc: { debris?: boolean; gingivitis?: boolean; calculus?: boolean; periodontal_disease?: boolean; cleft_lip_palate?: boolean; abnormal_growth?: boolean; others?: string } | null | undefined,
   chart: { date_charted?: string } | null | undefined,
+  toothRecords?: { condition?: string }[] | null,
 ): string | null => {
-  const examined = !!oc && (oc.debris || oc.gingivitis || oc.calculus || oc.periodontal_disease || oc.cleft_lip_palate || oc.abnormal_growth || !!oc.others?.trim());
+  const examined = (!!oc && (oc.debris || oc.gingivitis || oc.calculus || oc.periodontal_disease || oc.cleft_lip_palate || oc.abnormal_growth || !!oc.others?.trim()))
+    || !!toothRecords?.some((tr) => !!tr.condition);
   return examined && chart?.date_charted ? chart.date_charted : null;
 };
 
@@ -580,7 +588,7 @@ export const DentalChart = () => {
       betelNut: dh.betel_nut_chewer, bodyPiercing: dh.body_piercing, nailBiting: dh.nail_biting, thumbsucking: dh.thumb_sucking,
     } : emptyDiet());
 
-    const examined = examinedDate(currentYearData.oralCondition, currentYearData.dentalChart);
+    const examined = examinedDate(currentYearData.oralCondition, currentYearData.dentalChart, currentYearData.toothRecords);
     setDraftChartDate(examined ? new Date(examined).toISOString().slice(0, 10) : '');
     setDraftMeasure({
       height_cm: currentYearData.iptr.height_cm != null ? String(currentYearData.iptr.height_cm) : '',
@@ -819,8 +827,13 @@ export const DentalChart = () => {
   // unticked. Takes the post-toggle values directly rather than reading
   // state back after setDraftOral/setOthersOralOpen, which would still be
   // last render's values inside the same event handler.
+  // ⚠ Only clears the date when no CHARTED TOOTH is left either (2026-09-28
+  // fix) -- a mouth charted tooth-by-tooth with no whole-mouth chip ticked
+  // is still examined, so untoggling the last chip must not blank a date
+  // that a tooth condition still justifies.
   const syncChartDateFromConditions = (oral: OralDraft, othersOpen: boolean) => {
-    const anyTicked = oralConditionChips.some(({ field }) => oral[field]) || othersOpen;
+    const anyTicked = oralConditionChips.some(({ field }) => oral[field]) || othersOpen
+      || Object.values(currentChart).some((e) => e.condition);
     setDraftChartDate(anyTicked ? (draftChartDate || toLocalDateString(new Date())) : '');
   };
   // Same rule for "Date treated" against the Treatments Given chips.
@@ -2023,7 +2036,7 @@ export const DentalChart = () => {
                         <div style={{ fontSize: '10px', marginTop: '2px' }} className={isActive ? 'text-blue-600' : 'text-muted-foreground'} >DMFT: {yrDmftLabel}</div>
                       )}
                       <div style={{ fontSize: '10px', marginTop: '2px' }} className={isActive ? 'text-blue-600' : 'text-muted-foreground'}>
-                        {formatDateStamp(examinedDate(y.oralCondition, y.dentalChart))}
+                        {formatDateStamp(examinedDate(y.oralCondition, y.dentalChart, y.toothRecords))}
                       </div>
                     </button>
                     {false && (
@@ -2337,9 +2350,13 @@ export const DentalChart = () => {
                   <div className="text-sm font-bold text-primary uppercase tracking-wide">Oral Conditions</div>
                   <label className="flex items-center gap-2 text-xs text-muted-foreground">
                     Date examined
-                    <input type="date" value={draftChartDate} disabled={!(oralConditionChips.some(({ field }) => draftOral[field]) || othersOralOpen)}
+                    {/* Enabled whenever a whole-mouth chip OR any tooth
+                        condition is present (2026-09-28 fix) -- a mouth
+                        charted tooth-by-tooth with no chip ticked still
+                        counts as examined. */}
+                    <input type="date" value={draftChartDate} disabled={!(oralConditionChips.some(({ field }) => draftOral[field]) || othersOralOpen || Object.values(currentChart).some((e) => e.condition))}
                       onChange={(e) => setDraftChartDate(e.target.value)}
-                      title="Filled in when an oral condition is ticked"
+                      title="Filled in when an oral condition is ticked or a tooth condition is charted"
                       className="border border-border rounded px-2 py-1 text-xs bg-card text-foreground disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-ring" />
                   </label>
                 </div>
