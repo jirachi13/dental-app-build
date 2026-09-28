@@ -772,15 +772,17 @@ export const DentalChart = () => {
     return null;
   };
   const dateOrderError = editingChart ? computeDateOrderError() : null;
-  // Gates the Treatments Given checkboxes on Oral Conditions having
-  // something marked -- the whole-mouth counterpart of "no treatment
-  // without a condition" (user, 2026-09-28: "Treatments Given should only
-  // show when there is filled marked in the Oral Conditions ... it should
-  // be real time, it should be hidden again when the oral conditions are
-  // empty"). Deliberately the whole-mouth chips only, not tooth conditions
-  // -- the per-tooth version of this same rule is hasOralConditionMarked's
-  // sibling below (chartedConditionCount), gating Tooth Treatment Codes.
-  const hasOralConditionMarked = oralConditionChips.some(({ field }) => draftOral[field]) || othersOralOpen;
+  // Gates the Treatments Given checkboxes on EITHER Oral Conditions OR a
+  // charted Tooth Condition Code having something marked -- the "no
+  // treatment without a condition" rule, widened 2026-09-28 after the
+  // whole-mouth-chips-only version hid Treatments Given even with a real
+  // tooth condition charted and nothing else: "either Oral Conditions or
+  // the Tooth Condition Codes is filled then the Treatments Given will
+  // show, but for Tooth Treatment Codes to show, Tooth Condition Codes
+  // should be marked" -- Tooth Treatment Codes stays gated on
+  // chartedConditionCount alone (its sibling check below), unchanged.
+  const hasOralConditionMarked = oralConditionChips.some(({ field }) => draftOral[field]) || othersOralOpen
+    || Object.values(currentChart).some((e) => e.condition);
 
   // ── IPTR Section B + per-tooth treatment summary (Sprint 151) ───────────
   //
@@ -2608,7 +2610,7 @@ export const DentalChart = () => {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-muted-foreground">Mark an Oral Condition to record Treatments Given.</p>
+                    <p className="text-xs text-muted-foreground">Mark an Oral Condition or chart a Tooth Condition Code to record Treatments Given.</p>
                   )}
                   {/* Unlocked 2026-09-25 -- ticking a service here now creates
                       the active visit's RPC record on save instead of
