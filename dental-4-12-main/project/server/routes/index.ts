@@ -884,13 +884,15 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
   // schools' students to a school_admin pinned to one.
   const scope = await scopeFilter("Student", req);
   const studentFilter = scope ? { isArchived: false, ...scope } : { isArchived: false };
-  const [students, schools, iptrs, charts, preventives, risks] = await Promise.all([
+  const [students, schools, iptrs, charts, preventives, risks, toothRecords, oralConditions] = await Promise.all([
     Student.find(studentFilter),
     School.find({ isArchived: false }).select("_id school_name").lean(),
     StudentIptr.find({ isArchived: false }).select("_id student_id school_year").lean(),
-    DentalChart.find({ isArchived: false }).select("iptr_id date_charted").lean(),
+    DentalChart.find({ isArchived: false }).select("_id iptr_id date_charted").lean(),
     PreventiveCareRecord.find({ isArchived: false }).select("_id iptr_id visit_number").lean(),
     RiskStratification.find({ isArchived: false }).select("preventive_id risk_level recommendation").lean(),
+    ToothRecord.find({ isArchived: false }).select("chart_id condition").lean(),
+    OralHealthCondition.find({ isArchived: false }).select("iptr_id gingivitis periodontal_disease debris calculus abnormal_growth cleft_lip_palate others").lean(),
   ]);
 
   const schoolNameById = new Map(schools.map((s: any) => [String(s._id), String(s.school_name)]));
@@ -908,13 +910,34 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
     (iptrs as any[]).filter((i) => String(i.school_year) === currentYear).map((i) => [String(i.student_id), String(i._id)]),
   );
   const chartDatesByIptr = new Map<string, Date[]>();
-  const hasChartByIptr = new Set<string>();
+  const iptrIdByChart = new Map<string, string>();
   for (const c of charts as any[]) {
-    hasChartByIptr.add(String(c.iptr_id));
+    iptrIdByChart.set(String(c._id), String(c.iptr_id));
     if (!c.date_charted) continue;
     const list = chartDatesByIptr.get(String(c.iptr_id)) ?? [];
     list.push(new Date(c.date_charted));
     chartDatesByIptr.set(String(c.iptr_id), list);
+  }
+  // "Has had the oral exam this year" for the Status column below -- NOT
+  // just "a DentalChart row exists for this iptr" (user, 2026-09-28: a
+  // pupil whose chart was created, then had every condition/treatment
+  // cleared back out and saved empty, still showed "For Visit 1" forever
+  // after that, because the row itself never gets archived -- see
+  // DentalChart.tsx's handleSave, which only ever ADDS tooth records or
+  // archives individually CLEARED ones, never the chart row as a whole).
+  // Real content is a live ToothRecord with a condition, OR a ticked oral
+  // condition -- the exact same "hasChartOrOralConditionData" test the
+  // client itself uses to decide whether a save queues the pupil for
+  // Treatment, so the two can't disagree about what "real" means here.
+  const hasRealChartDataByIptr = new Set<string>();
+  for (const t of toothRecords as any[]) {
+    if (!t.condition) continue;
+    const iptrId = iptrIdByChart.get(String(t.chart_id));
+    if (iptrId) hasRealChartDataByIptr.add(iptrId);
+  }
+  for (const o of oralConditions as any[]) {
+    const ticked = o.gingivitis || o.periodontal_disease || o.debris || o.calculus || o.abnormal_growth || o.cleft_lip_palate || (typeof o.others === "string" && o.others.trim() !== "");
+    if (ticked) hasRealChartDataByIptr.add(String(o.iptr_id));
   }
   const visitNumbersByIptr = new Map<string, Set<number>>();
   for (const p of preventives as any[]) {
@@ -950,7 +973,7 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
   // model this mirrors).
   const derivePipelineStatus = (studentId: string): "For Oral Exam" | "For First Treatment" | "For Second Treatment" | "Completed" => {
     const iptrId = currentIptrByStudent.get(studentId);
-    if (!iptrId || !hasChartByIptr.has(iptrId)) return "For Oral Exam";
+    if (!iptrId || !hasRealChartDataByIptr.has(iptrId)) return "For Oral Exam";
     const visits = visitNumbersByIptr.get(iptrId);
     if (!visits?.has(1)) return "For First Treatment";
     if (!visits.has(2)) return "For Second Treatment";
