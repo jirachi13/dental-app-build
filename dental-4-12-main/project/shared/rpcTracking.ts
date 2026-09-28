@@ -257,22 +257,38 @@ const rows: RPCRow[] = students.map((s) => {
   // school year's iptr (a completed round in 2025-2026, a fresh one started
   // in 2026-2027) -- `.find()` picked whichever happened to sit first in
   // `studentIptrs`' array order, which is really insertion order, not
-  // relevance. That silently pinned this row to a STALE, unrelated visit:
-  // editing the CURRENT year's Visit 1 date kept showing the OLD year's
-  // date here no matter how fresh the fetch was (user, 2026-09-28: "it
-  // should reflect real time after the changes" -- verified via
-  // scratch-rpc-repro.ts that a single-iptr pupil already updates
-  // correctly; a two-iptr pupil with a Visit 1 in each year reproduced the
-  // exact bug). Visit 1 is now the MOST RECENT visit_number:1 record by
-  // date; Visit 2 is the earliest visit_number:2 record that actually
-  // FOLLOWS it (preserving the legitimate case where Visit 2 lands in the
-  // NEXT school year, 4-6 months later -- see syCutoff/syDeadline below).
-  const byDateDesc = (a: RpcPreventive, b: RpcPreventive) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime();
-  const visit1 = allVisits.filter((v) => v.visit_number === 1).sort(byDateDesc)[0] ?? null;
+  // relevance. That silently pinned this row to a STALE, unrelated visit
+  // (user, 2026-09-28, reproduced with Aguilar Kristine's Visit 1).
+  //
+  // ⚠ FIRST FIX (kept as history, wrong on its own): picking the visit with
+  // the LATEST visit_date. That still failed the SAME report after a real
+  // restart, because visit_date is user-editable clinical data, not a
+  // freshness signal -- an OLDER year's row can easily carry a LATER
+  // calendar date than a just-edited current-year row (nothing ties a
+  // visit's date to which iptr/year it's actually filed under). Sorting by
+  // date can therefore favor the stale record just as easily as insertion
+  // order did.
+  //
+  // Real fix: pick by the iptr's own school_year (descending, plain string
+  // compare works -- "2026-2027" > "2025-2026"), matching what the page's
+  // own header promises ("two required RPC visits PER SCHOOL YEAR") and
+  // what the school-year filter already assumes. Visit 1 is the
+  // visit_number:1 record belonging to the MOST RECENT school year that
+  // has one; Visit 2 is still found by date (earliest visit_number:2 on or
+  // after Visit 1's date, from ANY year), preserving the legitimate case
+  // where Visit 2 lands in the NEXT school year 4-6 months later -- see
+  // syCutoff/syDeadline below.
+  const iptrsByYearDesc = [...studentIptrs].sort((a, b) => b.school_year.localeCompare(a.school_year));
+  let visit1: RpcPreventive | null = null;
+  for (const iptr of iptrsByYearDesc) {
+    const v = (preventivesByIptr.get(iptr._id) ?? []).find((v) => v.visit_number === 1);
+    if (v) { visit1 = v; break; }
+  }
   const visit2Candidates = allVisits.filter((v) => v.visit_number === 2);
+  const byDateDesc = (a: RpcPreventive, b: RpcPreventive) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime();
   const visit2 = visit1
     ? (visit2Candidates
-        .filter((v) => new Date(v.visit_date).getTime() >= new Date(visit1.visit_date).getTime())
+        .filter((v) => new Date(v.visit_date).getTime() >= new Date(visit1!.visit_date).getTime())
         .sort((a, b) => new Date(a.visit_date).getTime() - new Date(b.visit_date).getTime())[0] ?? null)
     : (visit2Candidates.sort(byDateDesc)[0] ?? null);
   const servicesOf = (v: RpcPreventive | null): VisitServices | null =>
