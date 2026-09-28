@@ -19,7 +19,7 @@ import { surnameFirst, surnameFirstWithInitial } from '../utils/studentName';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
 import { removeQueuedStudentId, getQueuedStudentIds, getEffectiveQueueOrder } from '../utils/queueStorage';
-import { addTreatmentQueueStudentId } from '../utils/treatmentQueueStorage';
+import { addTreatmentQueueStudentId, getTreatmentQueueStudentIds } from '../utils/treatmentQueueStorage';
 import { invalidateCached } from '../utils/apiCache';
 import { Modal } from './Modal';
 import { useSchools } from '../hooks/useSchools';
@@ -252,12 +252,22 @@ export const DentalChart = () => {
   // 2026-09-27): "the next student should be the next student in the
   // charting queue", BY QUEUE NUMBER (the same appointments-today-bypass
   // order the queue table itself shows), not the raw order students were
-  // added to the queue.
+  // added to the queue. Opened from Treatment (user, 2026-09-28: "the next
+  // student should also be based depending on whose the student in the
+  // next treatment queue") gets the same treatment, against the Treatment
+  // Queue's own order instead -- that queue has no appointments-today
+  // bypass, so it's just the stored order as-is.
   const queueNavList = useMemo(() => {
-    if (iptrContext !== 'dental-queue') return null;
-    const byId = new Map(allStudents.map((s) => [s.id, s]));
-    const ordered = getEffectiveQueueOrder(getQueuedStudentIds(), queueAppointmentsTodayIds);
-    return ordered.map((qid) => byId.get(qid)).filter((s): s is (typeof allStudents)[number] => !!s);
+    if (iptrContext === 'dental-queue') {
+      const byId = new Map(allStudents.map((s) => [s.id, s]));
+      const ordered = getEffectiveQueueOrder(getQueuedStudentIds(), queueAppointmentsTodayIds);
+      return ordered.map((qid) => byId.get(qid)).filter((s): s is (typeof allStudents)[number] => !!s);
+    }
+    if (iptrContext === 'treatment') {
+      const byId = new Map(allStudents.map((s) => [s.id, s]));
+      return getTreatmentQueueStudentIds().map((qid) => byId.get(qid)).filter((s): s is (typeof allStudents)[number] => !!s);
+    }
+    return null;
   }, [iptrContext, allStudents, queueAppointmentsTodayIds]);
   const navList = useMemo(() => {
     if (queueNavList) return queueNavList;
@@ -266,8 +276,9 @@ export const DentalChart = () => {
     // sorts the SAME way that module's own table does -- grade, section,
     // gender, surname, first name -- not plain alphabetical (user,
     // 2026-09-27: "the next student should be the next student in the
-    // student list, not alphabetical"). risk/treatment contexts keep the
-    // simple alphabetical fallback, unaffected.
+    // student list, not alphabetical"). risk context keeps the simple
+    // alphabetical fallback, unaffected (dental-queue and treatment never
+    // reach here -- queueNavList above already returned for both).
     if (iptrContext === 'default') {
       return [...scoped].sort((a, b) =>
         (GRADES.indexOf(a.grade) - GRADES.indexOf(b.grade)) ||
@@ -287,7 +298,10 @@ export const DentalChart = () => {
   // An explicit ?tab= still wins — a deep link says where to land. Otherwise a
   // remount inside charting mode has to come back to the CHART tab, or the
   // dentist arrives at the next child on History with the mode still on.
-  const initialTab = (searchParams.get('tab') as TabKey) || (chartingModeMemo ? 'chart' : 'history');
+  // Opened from Treatment (user, 2026-09-28: "the dental chart should be
+  // the default view") always lands on Chart too, same as charting mode,
+  // independent of whether charting mode itself is on.
+  const initialTab = (searchParams.get('tab') as TabKey) || (chartingModeMemo || iptrContext === 'treatment' ? 'chart' : 'history');
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   // Her labels and her order (Sprint 162). "Caries Risk Assessment" says what
   // the tab actually holds where "Risk Classification" only named the output,
@@ -307,12 +321,14 @@ export const DentalChart = () => {
   ];
   // Keyed on layoutContext, not iptrContext (user, 2026-09-27) -- dental-
   // queue used to restrict this to just History + Chart; it now shows every
-  // tab, same as opening a chart from the Students module.
+  // tab, same as opening a chart from the Students module. Treatment used to
+  // restrict this to just Chart + Treatment too; user, 2026-09-28: "all tabs
+  // in the IPTR should still be accessible" from there as well -- only the
+  // DEFAULT tab (see initialTab below) is treatment-specific now, not which
+  // tabs are reachable.
   const visibleTabs = (
     layoutContext === 'risk'
       ? allTabs.filter((tab) => tab.key === 'ai')
-      : layoutContext === 'treatment'
-      ? allTabs.filter((tab) => tab.key === 'chart' || tab.key === 'treatments')
       : allTabs
   );
 
