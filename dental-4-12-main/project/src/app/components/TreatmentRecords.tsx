@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Clipboard, Search, Droplet, ShieldCheck, Sparkles, Wrench, Timer, RotateCcw, Scissors, Syringe, MessageCircle, Eye, SlidersHorizontal, ChevronDown, ChevronUp, MoreVertical, Trash2, Users, type LucideIcon } from 'lucide-react';
 import { GradePill } from './GradePill';
+import { PipelineStatusPill } from './PipelineStatusPill';
 import { ListSearchInput } from './ListSearchInput';
 import { ConfirmDialog } from './ConfirmDialog';
 import { getGradeColor } from '../utils/gradeColors';
@@ -22,15 +23,6 @@ import { Pagination, usePagination } from './Pagination';
 const initials = (name: string) =>
   name.split(/[\s,]+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('');
 
-const calculateAge = (birthdate: string) => {
-  const today = new Date();
-  const birth = new Date(birthdate);
-  let age = today.getFullYear() - birth.getFullYear();
-  const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-  return age;
-};
-
 // Icon + tint per treatment code (user, 2026-09-27, design review "Style 1"
 // -- real lucide icons, colored badge per card, matching the stat-card
 // pattern already on Dental Charts). "OEX" renders as "Oral Examination"
@@ -47,6 +39,13 @@ const CATEGORY_META: Record<string, { label: string; icon: LucideIcon; bg: strin
   X: { label: 'Extraction', icon: Scissors, bg: '#FEF2F2', fg: '#DC2626' },
   SDF: { label: 'Silver Diamine Fluoride', icon: Syringe, bg: '#ECFEFF', fg: '#0E7490' },
   CONS: { label: 'Consultation', icon: MessageCircle, bg: '#F3F4F6', fg: '#4B5563' },
+};
+
+// Same badge convention as AI Analytics' and Dental Charts' own RISK_BADGE.
+const RISK_BADGE: Record<string, string> = {
+  High: 'bg-red-100 text-red-700',
+  Medium: 'bg-yellow-100 text-yellow-700',
+  Low: 'bg-green-100 text-green-800',
 };
 
 type PipelineFilter = 'all' | 'For First Treatment' | 'For Second Treatment';
@@ -545,8 +544,8 @@ export const TreatmentRecords = () => {
                 <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Student</th>
                 <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Grade</th>
                 <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Section</th>
-                <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Gender</th>
-                <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Age</th>
+                <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Risk</th>
+                <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
                 <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Recommended Treatment</th>
                 <th className="sticky top-0 z-10 text-left px-4 py-3 bg-gray-100 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Actions</th>
               </tr>
@@ -574,7 +573,6 @@ export const TreatmentRecords = () => {
                   </td>
                 </tr>
               ) : rowsToRender.map((t, i) => {
-                const age = calculateAge(t.birthdate);
                 const gc = getGradeColor(t.grade);
                 return (
                   <tr key={t.id} {...activatable(() => navigate(`/dental-chart/${t.id}?tab=chart&context=treatment`))} className="cursor-pointer hover:bg-canvas">
@@ -589,8 +587,14 @@ export const TreatmentRecords = () => {
                     </td>
                     <td className="px-4 py-2.5"><GradePill grade={t.grade} /></td>
                     <td className="px-4 py-2.5 text-muted-foreground">{t.section}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{t.gender}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{age}</td>
+                    <td className="px-4 py-2.5">
+                      {t.riskLevel ? (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${RISK_BADGE[t.riskLevel]}`}>{t.riskLevel.toUpperCase()}</span>
+                      ) : (
+                        <span className="text-muted-foreground/50">Not assessed</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5"><PipelineStatusPill status={t.pipelineStatus} /></td>
                     <td className="px-4 py-2.5 text-muted-foreground max-w-xs truncate" title={t.recommendation || undefined}>
                       {t.recommendation || <span className="text-muted-foreground/50">Not yet assessed</span>}
                     </td>
