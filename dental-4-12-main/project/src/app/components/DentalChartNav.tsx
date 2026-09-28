@@ -551,7 +551,7 @@ export const DentalChartNav = () => {
                 </div>
               </div>
               <button
-                onClick={() => navigate(`/dental-chart/${spotlightStudent.id}?tab=history&context=dental-queue`)}
+                onClick={() => navigate(`/dental-chart/${spotlightStudent.id}?tab=chart&context=dental-queue`)}
                 className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
               >
                 <Eye className="w-3.5 h-3.5" /> Open chart
@@ -830,7 +830,7 @@ export const DentalChartNav = () => {
                 const queuePosition = queuedStudentIds.indexOf(p.id);
                 const age = calculateAge(p.birthdate);
                 const gc = getGradeColor(p.grade);
-                const open = () => navigate(`/dental-chart/${p.id}?tab=history&context=dental-queue`);
+                const open = () => navigate(`/dental-chart/${p.id}?tab=chart&context=dental-queue`);
                 // Row click previews the student in the left panel (user,
                 // 2026-09-28 -- reverted back from opening the chart
                 // directly: "i forgot that when this is clicked, the
