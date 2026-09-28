@@ -2308,32 +2308,34 @@ export const DentalChart = () => {
                       onChange={(e) => setDraftVisitDate(e.target.value)}
                       className="border border-border rounded px-2 py-1 text-xs bg-card text-foreground disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-ring" />
                   </label>
-                  {/* Visit 1 / Visit 2 (2026-09-25), right-aligned on this same
-                      row. Only appears once Visit 1 has actually been
-                      recorded -- before that there is nothing to switch
-                      between. Visit 1 stays selectable/editable via its own
-                      tab; the default (no explicit pick) is Visit 2, since
-                      recording Visit 1 makes Visit 2 the next thing to do. */}
-                  {visit1 && (
-                    <div className="ml-auto flex items-center gap-1.5">
-                      <button type="button" onClick={() => setExplicitVisit(1)}
-                        className={`px-2.5 py-1 text-xs font-semibold rounded-full border transition-colors ${
-                          activeVisit === 1
-                            ? 'border-primary bg-primary text-white'
-                            : 'border-border text-muted-foreground hover:bg-canvas'
-                        }`}>
-                        Visit 1
-                      </button>
+                  {/* Visit 1 / Visit 2 (2026-09-25, reworked 2026-09-28),
+                      right-aligned on this same row. Visit 1 is ALWAYS
+                      visible -- a pupil pending their first visit still
+                      needs a tab to land on. Visit 2 only appears once
+                      Visit 1 has actually been recorded, and never carries
+                      a "+" prefix -- the default (no explicit pick) is
+                      Visit 2 once it can show, since recording Visit 1
+                      makes Visit 2 the next thing to do. */}
+                  <div className="ml-auto flex items-center gap-1.5">
+                    <button type="button" onClick={() => setExplicitVisit(1)}
+                      className={`px-2.5 py-1 text-xs font-semibold rounded-full border transition-colors ${
+                        activeVisit === 1
+                          ? 'border-primary bg-primary text-white'
+                          : 'border-border text-muted-foreground hover:bg-canvas'
+                      }`}>
+                      Visit 1
+                    </button>
+                    {visit1 && (
                       <button type="button" onClick={() => setExplicitVisit(2)}
                         className={`px-2.5 py-1 text-xs font-semibold rounded-full border transition-colors ${
                           activeVisit === 2
                             ? 'border-primary bg-primary text-white'
                             : 'border-border text-muted-foreground hover:bg-canvas'
                         }`}>
-                        {visit2 ? 'Visit 2' : '+ Visit 2'}
+                        Visit 2
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-2">
                   {serviceChips.map(({ label, field }) => (
@@ -2393,7 +2395,7 @@ export const DentalChart = () => {
                 {layoutContext !== 'treatment' && (
                 <div className={layoutContext === 'default' ? 'lg:pr-4' : undefined}>
                   <div className="flex items-center justify-between gap-2 mb-2 min-h-[26px]">
-                    <div className="text-sm font-bold text-primary uppercase tracking-wide">Condition Codes</div>
+                    <div className="text-sm font-bold text-primary uppercase tracking-wide">Tooth Condition Codes</div>
                     {editingChart && chartedConditionCount > 0 && (
                       <button onClick={() => setConfirmClear('condition')}
                         className="flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-[11px] font-semibold text-foreground transition-all hover:border-red-400 hover:text-destructive">
@@ -2452,7 +2454,7 @@ export const DentalChart = () => {
                     functionality down from the default view. */}
                 <div className={layoutContext === 'default' ? 'border-t border-border pt-4 lg:border-t-0 lg:pt-0 lg:border-l lg:pl-4' : undefined}>
                   <div className="flex items-center justify-between gap-2 mb-2 min-h-[26px]">
-                    <div className="text-sm font-bold text-primary uppercase tracking-wide">Treatment Codes</div>
+                    <div className="text-sm font-bold text-primary uppercase tracking-wide">Tooth Treatment Codes</div>
                     {editingChart && chartedTreatmentCount > 0 && (
                       <button onClick={() => setConfirmClear('treatment')}
                         className="flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-[11px] font-semibold text-foreground transition-all hover:border-red-400 hover:text-destructive">
