@@ -215,26 +215,6 @@ export const TreatmentRecords = () => {
     // overflow once Hide changes what's actually rendered.
   }, [regionHeight, hidePagination]);
 
-  // Adaptive height/corners when the pagination footer is hidden (user,
-  // 2026-09-28: "the container should be adaptive as well... rounded
-  // corners and fix in the page that only extends when hide is clicked") --
-  // same rule as Student Records' own Hide: rounded bottom corners when the
-  // card ends on its own (a short queue), square when it's actually pressed
-  // flush against the region's bottom (a long queue hitting the cap and
-  // scrolling internally) -- a curve with nothing beneath it reads as a
-  // render glitch, not a corner.
-  const [hideAtEdge, setHideAtEdge] = useState(false);
-  useLayoutEffect(() => {
-    if (!hidePagination) { setHideAtEdge(false); return; }
-    const el = rowsBoxRef.current;
-    if (!el) return;
-    const check = () => setHideAtEdge(el.scrollHeight > el.clientHeight + 1);
-    check();
-    const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(check) : null;
-    resizeObserver?.observe(el);
-    return () => resizeObserver?.disconnect();
-  }, [hidePagination, regionHeight, filtered.length]);
-
   if (studentsLoading) {
     return (
       <div className="space-y-4">
@@ -346,18 +326,21 @@ export const TreatmentRecords = () => {
 
       {/* Pinned Treatment Queue card -- same shape as the Charting Queue card
           (icon badge, eyebrow with a count pill, title, description, search
-          + Filter + "⋮" up top), now also sticky/height-bound like it (user,
-          2026-09-28). Adaptive on top of that -- fixed `height` normally,
-          `maxHeight` once Hide renders every row so the card can shrink to
-          fit a short queue or stay capped for a long one.
-          Corners match Student Records' own container exactly (user,
-          2026-09-28, "like this pls" with a PatientList screenshot):
-          rounded-2xl by default, square bottom (rounded-t-2xl) only when
-          Hide is on AND the list still overflows the cap (hideAtEdge) --
-          the one case where the card is genuinely cut off mid-scroll with
-          nothing below it, same as PatientList's own hideAtEdge rule. */}
+          + Filter + "⋮" up top), sticky/height-bound like it.
+          Exact states per the user's spec (2026-09-28):
+          - Pagination SHOWN (default): fixed `height` = regionHeight always,
+            so the card is the same size/position regardless of queue
+            length, pinned flush with the sidebar's own bottom edge, with
+            the page's ordinary bottom padding as a gap beneath it. Bottom
+            corners ROUNDED.
+          - Pagination HIDDEN: `maxHeight` = regionHeight so the card
+            shrinks from the BOTTOM to fit however many rows are actually
+            there (top stays anchored -- a `sticky` element's own position
+            never moves when its height changes) -- a short list leaves
+            plain gray page below it, which is fine. Bottom corners SQUARE
+            in this state, always, not just when the list overflows the cap. */}
       <div
-        className={`sticky top-0 z-30 flex flex-col bg-card border border-border shadow-sm overflow-clip ${hideAtEdge ? 'rounded-t-2xl' : 'rounded-2xl'}`}
+        className={`sticky top-0 z-30 flex flex-col bg-card border border-border shadow-sm overflow-clip ${hidePagination ? 'rounded-t-2xl' : 'rounded-2xl'}`}
         style={hidePagination ? { maxHeight: regionHeight ?? undefined } : { height: regionHeight ?? undefined }}
       >
         {/* Dark green top accent bar. */}
