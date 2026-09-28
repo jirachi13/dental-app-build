@@ -222,13 +222,21 @@ export const DentalChart = () => {
   type TabKey = 'history' | 'chart' | 'records' | 'treatments' | 'referrals' | 'ai';
   type IptrContext = 'default' | 'dental-queue' | 'risk' | 'treatment';
   const iptrContext = (searchParams.get('context') as IptrContext) || 'default';
-  // Layout/tabs treat dental-queue exactly like default (user, 2026-09-27):
-  // opening a chart from the Charting Queue now shows every tab and every
-  // panel the Students module's own "Open chart" does. `iptrContext` itself
-  // stays distinct for the two things that SHOULD still differ -- the
-  // prev/next nav order below, and the save-then-navigate-to-AI-Analytics
-  // behavior further down.
-  const layoutContext = iptrContext === 'dental-queue' ? 'default' : iptrContext;
+  // Layout/tabs treat dental-queue AND treatment exactly like default (user,
+  // 2026-09-27 for dental-queue; user, 2026-09-28 for treatment, after
+  // several rounds of individually patching context-specific hides kept
+  // missing spots: "rewrite the code that when open chart is click in the
+  // treatment queue submodule, then it will access the IPTR page with all
+  // the functions" -- rather than keep threading `layoutContext ===
+  // 'treatment'` exceptions through every panel one at a time, treatment now
+  // collapses into 'default' at this single point, same as dental-queue
+  // already does, so nothing downstream needs its own case for it.
+  // `iptrContext` itself (NOT layoutContext) stays distinct for the things
+  // that SHOULD still differ per module: the prev/next nav order below, the
+  // save-then-navigate-to-AI-Analytics behavior further down, the sidebar
+  // highlight (Root.tsx reads the raw ?context= query param, not this
+  // value), and the Back button's destination.
+  const layoutContext = (iptrContext === 'dental-queue' || iptrContext === 'treatment') ? 'default' : iptrContext;
 
   // Appointments-today, fetched ONLY for the dental-queue nav below (user,
   // 2026-09-27): "Next" has to agree with the Queue # shown on the Dental
@@ -2653,12 +2661,10 @@ export const DentalChart = () => {
             <div className={`${editingChart ? 'bg-primary text-white' : 'bg-slate-200 text-slate-600'} px-4 py-2 text-[11px] font-semibold uppercase tracking-wider`}>Charting Codes</div>
             <div className={`p-4 ${!editingChart ? 'opacity-60 pointer-events-none select-none' : ''}`}>
               <div className={`grid grid-cols-1 ${layoutContext === 'default' ? 'lg:grid-cols-2' : ''} gap-4`}>
-                {/* Unconditional (user, 2026-09-28: "when IPTR is accessed
-                    in the treatment submodule, all functions ... should be
-                    accessible ... literally all functions of the IPTR") --
-                    was hidden for layoutContext === 'treatment', the same
-                    stripped-down-by-context pattern already removed for
-                    dental-queue below on 2026-09-27. Tooth Condition Codes
+                {/* Unconditional -- layoutContext now collapses 'treatment'
+                    into 'default' at its one declaration above, so this
+                    renders the full two-column layout there too, same as
+                    Students module and Dental Charts. Tooth Condition Codes
                     is a normal part of charting regardless of which module
                     opened this record. */}
                 <div className={layoutContext === 'default' ? 'lg:pr-4' : undefined}>
