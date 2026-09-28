@@ -497,15 +497,6 @@ export const DentalChart = () => {
   // recorded.
   const activeVisit: 1 | 2 = explicitVisit ?? (visit1HasData && !visit2 ? 2 : 1);
   const activeVisitRecord = activeVisit === 1 ? visit1 : visit2;
-  // Visit 2's button hides the moment Visit 1 goes empty (above), but an
-  // explicit pick of Visit 2 from BEFORE that happened would otherwise stick
-  // -- `??` only falls back to the default when explicitVisit is null, so a
-  // save that empties Visit 1 while Visit 2 is the open tab would leave the
-  // panel showing Visit 2's (now-hidden-button) content with no visible way
-  // back. Snap back to the default the instant that combination occurs.
-  useEffect(() => {
-    if (!visit1HasData && explicitVisit === 2) setExplicitVisit(null);
-  }, [visit1HasData, explicitVisit]);
 
   // Draft (editable) copies of the current year's real data -- initialized
   // from real records when the selected year changes, persisted for real on
@@ -553,6 +544,30 @@ export const DentalChart = () => {
       ...prev,
       [activeVisit]: typeof next === 'function' ? (next as (prev: string) => string)(prev[activeVisit]) : next,
     }));
+  // LIVE version of "has real content", reflecting the in-progress DRAFT
+  // rather than the last-SAVED record (user, 2026-09-28: "it should be real
+  // time ... the moment that visit 1 is empty, it should hide the visit 2
+  // button automatically"). visit1HasData/visit2HasData above are
+  // deliberately saved-data-only (they seed the initial date display on
+  // load, see the population effect below); this is what the Visit 2 button
+  // and the tab-reset safeguard watch, so unchecking Visit 1's last service
+  // or clearing its last tooth hides Visit 2 immediately while editing,
+  // without waiting for Save.
+  const draftVisitHasData = (n: 1 | 2) =>
+    Object.values(draftServicesByVisit[n]).some((v) => v === true)
+    || Object.values(draftChart).some((e) => e.condition && (n === 2 ? e.visitNumber === 2 : (e.visitNumber ?? 1) !== 2));
+  const visit1HasDataLive = draftVisitHasData(1);
+  // Visit 2's button hides the moment Visit 1 goes empty (live, above), but
+  // an explicit pick of Visit 2 from BEFORE that happened would otherwise
+  // stick -- `??` only falls back to the default when explicitVisit is null,
+  // so unchecking Visit 1 down to empty while Visit 2 is the open tab would
+  // leave the panel showing Visit 2's (now-hidden-button) content with no
+  // visible way back. Snap back to the default the instant that combination
+  // occurs.
+  useEffect(() => {
+    if (!visit1HasDataLive && explicitVisit === 2) setExplicitVisit(null);
+  }, [visit1HasDataLive, explicitVisit]);
+
   const [draftChartDate, setDraftChartDate] = useState('');
   const [othersOralOpen, setOthersOralOpen] = useState(false);
   // Her card collapses (Sprint 164). Identity is checked once on arrival and
@@ -2426,21 +2441,22 @@ export const DentalChart = () => {
                       onChange={(e) => setDraftVisitDate(e.target.value)}
                       className="border border-border rounded px-2 py-1 text-xs bg-card text-foreground disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-ring" />
                   </label>
-                  {/* Visit 1 / Visit 2 (2026-09-25, reworked 2026-09-28 x3),
+                  {/* Visit 1 / Visit 2 (2026-09-25, reworked 2026-09-28 x4),
                       right-aligned on this same row. Visit 1 is ALWAYS
                       visible -- a pupil pending their first visit still needs
                       a tab to land on. Visit 2 only appears once Visit 1 has
-                      REAL content (visit1HasData ALONE, 2026-09-28 fix -- it
-                      used to also show for a stray visit2HasData with an
-                      empty Visit 1, which can happen mid-edit or from a
-                      record predating this rule; "Visit 1 empty" means no
-                      Visit 2 tab full stop, not just no Visit 2 to switch
-                      into). Visit 1's record is exempt from archiving, so it
-                      can go back to empty and still technically exist -- that
-                      is exactly the case this hides. Never carries a "+"
-                      prefix -- the default (no explicit pick) is Visit 2 once
-                      it can show, since recording Visit 1 makes Visit 2 the
-                      next thing to do. Deliberately OUTSIDE the view-mode
+                      REAL content, read LIVE off the draft (visit1HasDataLive,
+                      2026-09-28 fix -- "it should be real time ... the moment
+                      that visit 1 is empty, it should hide the visit 2 button
+                      automatically": the saved-data version only caught up
+                      after Save, so unchecking Visit 1's last box mid-edit
+                      left the button showing until the page reloaded). Visit
+                      1's record is exempt from archiving, so it can go back
+                      to empty and still technically exist -- that is exactly
+                      the case this hides, live. Never carries a "+" prefix --
+                      the default (no explicit pick) is Visit 2 once it can
+                      show, since recording Visit 1 makes Visit 2 the next
+                      thing to do. Deliberately OUTSIDE the view-mode
                       pointer-events-none wrapper below (user, 2026-09-28:
                       "the Visit 1 and Visit 2 shouldnt be locked in the view
                       mode, so we can still view records") -- switching which
@@ -2455,7 +2471,7 @@ export const DentalChart = () => {
                       }`}>
                       Visit 1
                     </button>
-                    {visit1HasData && (
+                    {visit1HasDataLive && (
                       <button type="button" onClick={() => setExplicitVisit(2)}
                         className={`px-2.5 py-1 text-xs font-semibold rounded-full border transition-colors ${
                           activeVisit === 2
