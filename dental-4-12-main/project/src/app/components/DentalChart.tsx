@@ -497,6 +497,15 @@ export const DentalChart = () => {
   // recorded.
   const activeVisit: 1 | 2 = explicitVisit ?? (visit1HasData && !visit2 ? 2 : 1);
   const activeVisitRecord = activeVisit === 1 ? visit1 : visit2;
+  // Visit 2's button hides the moment Visit 1 goes empty (above), but an
+  // explicit pick of Visit 2 from BEFORE that happened would otherwise stick
+  // -- `??` only falls back to the default when explicitVisit is null, so a
+  // save that empties Visit 1 while Visit 2 is the open tab would leave the
+  // panel showing Visit 2's (now-hidden-button) content with no visible way
+  // back. Snap back to the default the instant that combination occurs.
+  useEffect(() => {
+    if (!visit1HasData && explicitVisit === 2) setExplicitVisit(null);
+  }, [visit1HasData, explicitVisit]);
 
   // Draft (editable) copies of the current year's real data -- initialized
   // from real records when the selected year changes, persisted for real on
@@ -2417,17 +2426,21 @@ export const DentalChart = () => {
                       onChange={(e) => setDraftVisitDate(e.target.value)}
                       className="border border-border rounded px-2 py-1 text-xs bg-card text-foreground disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-ring" />
                   </label>
-                  {/* Visit 1 / Visit 2 (2026-09-25, reworked 2026-09-28 and
-                      again 2026-09-28), right-aligned on this same row.
-                      Visit 1 is ALWAYS visible -- a pupil pending their
-                      first visit still needs a tab to land on. Visit 2 only
-                      appears once Visit 1 has REAL content (visit1HasData,
-                      not just a surviving row -- Visit 1's record is exempt
-                      from archiving, so it can go back to empty and still
-                      technically exist), and never carries a "+" prefix --
-                      the default (no explicit pick) is Visit 2 once it can
-                      show, since recording Visit 1 makes Visit 2 the next
-                      thing to do. Deliberately OUTSIDE the view-mode
+                  {/* Visit 1 / Visit 2 (2026-09-25, reworked 2026-09-28 x3),
+                      right-aligned on this same row. Visit 1 is ALWAYS
+                      visible -- a pupil pending their first visit still needs
+                      a tab to land on. Visit 2 only appears once Visit 1 has
+                      REAL content (visit1HasData ALONE, 2026-09-28 fix -- it
+                      used to also show for a stray visit2HasData with an
+                      empty Visit 1, which can happen mid-edit or from a
+                      record predating this rule; "Visit 1 empty" means no
+                      Visit 2 tab full stop, not just no Visit 2 to switch
+                      into). Visit 1's record is exempt from archiving, so it
+                      can go back to empty and still technically exist -- that
+                      is exactly the case this hides. Never carries a "+"
+                      prefix -- the default (no explicit pick) is Visit 2 once
+                      it can show, since recording Visit 1 makes Visit 2 the
+                      next thing to do. Deliberately OUTSIDE the view-mode
                       pointer-events-none wrapper below (user, 2026-09-28:
                       "the Visit 1 and Visit 2 shouldnt be locked in the view
                       mode, so we can still view records") -- switching which
@@ -2442,7 +2455,7 @@ export const DentalChart = () => {
                       }`}>
                       Visit 1
                     </button>
-                    {(visit1HasData || visit2HasData) && (
+                    {visit1HasData && (
                       <button type="button" onClick={() => setExplicitVisit(2)}
                         className={`px-2.5 py-1 text-xs font-semibold rounded-full border transition-colors ${
                           activeVisit === 2
