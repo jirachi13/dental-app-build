@@ -253,8 +253,28 @@ const now = input.now ?? Date.now();
 const rows: RPCRow[] = students.map((s) => {
   const studentIptrs = iptrsByStudent.get(s._id) ?? [];
   const allVisits = studentIptrs.flatMap((iptr) => preventivesByIptr.get(iptr._id) ?? []);
-  const visit1 = allVisits.find((v) => v.visit_number === 1) ?? null;
-  const visit2 = allVisits.find((v) => v.visit_number === 2) ?? null;
+  // A pupil can carry a Visit-1-tagged PreventiveCareRecord in MORE THAN ONE
+  // school year's iptr (a completed round in 2025-2026, a fresh one started
+  // in 2026-2027) -- `.find()` picked whichever happened to sit first in
+  // `studentIptrs`' array order, which is really insertion order, not
+  // relevance. That silently pinned this row to a STALE, unrelated visit:
+  // editing the CURRENT year's Visit 1 date kept showing the OLD year's
+  // date here no matter how fresh the fetch was (user, 2026-09-28: "it
+  // should reflect real time after the changes" -- verified via
+  // scratch-rpc-repro.ts that a single-iptr pupil already updates
+  // correctly; a two-iptr pupil with a Visit 1 in each year reproduced the
+  // exact bug). Visit 1 is now the MOST RECENT visit_number:1 record by
+  // date; Visit 2 is the earliest visit_number:2 record that actually
+  // FOLLOWS it (preserving the legitimate case where Visit 2 lands in the
+  // NEXT school year, 4-6 months later -- see syCutoff/syDeadline below).
+  const byDateDesc = (a: RpcPreventive, b: RpcPreventive) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime();
+  const visit1 = allVisits.filter((v) => v.visit_number === 1).sort(byDateDesc)[0] ?? null;
+  const visit2Candidates = allVisits.filter((v) => v.visit_number === 2);
+  const visit2 = visit1
+    ? (visit2Candidates
+        .filter((v) => new Date(v.visit_date).getTime() >= new Date(visit1.visit_date).getTime())
+        .sort((a, b) => new Date(a.visit_date).getTime() - new Date(b.visit_date).getTime())[0] ?? null)
+    : (visit2Candidates.sort(byDateDesc)[0] ?? null);
   const servicesOf = (v: RpcPreventive | null): VisitServices | null =>
     v
       ? {
