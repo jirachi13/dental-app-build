@@ -751,6 +751,37 @@ export const DentalChart = () => {
     ? draftChartDate
     : [draftChartDate, draftVisitDateByVisit[1]].filter(Boolean).sort().pop() || '';
 
+  // Same ordering rule as `visitDateMin`, as an always-current message
+  // instead of a min/max comparison -- shared by the live banner below AND
+  // handleSave's own guard, so the two can never disagree (user, 2026-09-28:
+  // "this warning should be real time to changes too. it should show and
+  // hide when necessary"). `min` alone only stops the calendar picker; this
+  // is what catches a typed value and what the live banner explains.
+  const computeDateOrderError = (): string | null => {
+    const v1Date = draftVisitDateByVisit[1];
+    const v2Date = draftVisitDateByVisit[2];
+    if (v1Date && draftChartDate && v1Date < draftChartDate) {
+      return `Visit 1's Date treated (${formatDate(v1Date)}) can't be before the oral exam's Date examined (${formatDate(draftChartDate)}).`;
+    }
+    if (v2Date && v1Date && v2Date < v1Date) {
+      return `Visit 2's Date treated (${formatDate(v2Date)}) can't be before Visit 1's Date treated (${formatDate(v1Date)}).`;
+    }
+    if (v2Date && !v1Date && draftChartDate && v2Date < draftChartDate) {
+      return `Visit 2's Date treated (${formatDate(v2Date)}) can't be before the oral exam's Date examined (${formatDate(draftChartDate)}).`;
+    }
+    return null;
+  };
+  const dateOrderError = editingChart ? computeDateOrderError() : null;
+  // Gates the Treatments Given checkboxes on Oral Conditions having
+  // something marked -- the whole-mouth counterpart of "no treatment
+  // without a condition" (user, 2026-09-28: "Treatments Given should only
+  // show when there is filled marked in the Oral Conditions ... it should
+  // be real time, it should be hidden again when the oral conditions are
+  // empty"). Deliberately the whole-mouth chips only, not tooth conditions
+  // -- the per-tooth version of this same rule is hasOralConditionMarked's
+  // sibling below (chartedConditionCount), gating Tooth Treatment Codes.
+  const hasOralConditionMarked = oralConditionChips.some(({ field }) => draftOral[field]) || othersOralOpen;
+
   // ── IPTR Section B + per-tooth treatment summary (Sprint 151) ───────────
   //
   // Design adopted from the collaborator's `majorUpdates` branch; the rows and
@@ -1165,26 +1196,15 @@ export const DentalChart = () => {
         // 2026-09-28: "it should be impossible to mark a date for treatment
         // past the oral condition ... same with visit 2, it cannot be past
         // treatment visit 1"). The date inputs' own `min` already greys this
-        // out in the calendar picker, but a typed value bypasses that, so
-        // Save re-checks the same ordering before it ever reaches the server.
-        const v1Date = draftVisitDateByVisit[1];
-        const v2Date = draftVisitDateByVisit[2];
-        if (v1Date && draftChartDate && v1Date < draftChartDate) {
-          const message = `Visit 1's Date treated (${formatDate(v1Date)}) can't be before the oral exam's Date examined (${formatDate(draftChartDate)}).`;
-          setChartError(message);
-          toast.error(message);
-          return;
-        }
-        if (v2Date && v1Date && v2Date < v1Date) {
-          const message = `Visit 2's Date treated (${formatDate(v2Date)}) can't be before Visit 1's Date treated (${formatDate(v1Date)}).`;
-          setChartError(message);
-          toast.error(message);
-          return;
-        }
-        if (v2Date && !v1Date && draftChartDate && v2Date < draftChartDate) {
-          const message = `Visit 2's Date treated (${formatDate(v2Date)}) can't be before the oral exam's Date examined (${formatDate(draftChartDate)}).`;
-          setChartError(message);
-          toast.error(message);
+        // out in the calendar picker, but a typed value bypasses that.
+        // `computeDateOrderError` is the SAME function the live banner below
+        // reads on every render, so Save can never block on a message the
+        // banner didn't already show (or vice versa) -- no setChartError
+        // here, since that banner is already on screen; the toast is just
+        // Save's own "that's why nothing happened" confirmation.
+        const dateOrderMessage = computeDateOrderError();
+        if (dateOrderMessage) {
+          toast.error(dateOrderMessage);
           return;
         }
       }
@@ -1572,6 +1592,13 @@ export const DentalChart = () => {
 
   const chartedConditionCount = Object.values(currentChart).filter((e) => e.condition).length;
   const chartedTreatmentCount = Object.values(currentChart).filter((e) => e.treatment).length;
+  // Tooth Treatment Codes hides once no tooth carries a condition (below) --
+  // an armed selectedTreatment would otherwise still apply on the next
+  // tooth click even while its own palette (and "Click teeth to apply" hint)
+  // is off screen. Cleared the instant the palette itself would hide.
+  useEffect(() => {
+    if (chartedConditionCount === 0) setSelectedTreatment(null);
+  }, [chartedConditionCount]);
 
   // Clears one vocabulary across every tooth, leaving the other untouched.
   // Draft-only: nothing reaches the DB until Save, so Cancel still undoes it.
@@ -2559,27 +2586,35 @@ export const DentalChart = () => {
                   </div>
                 </div>
                 <div className={editingChart ? '' : 'opacity-60 pointer-events-none select-none'}>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-2">
-                    {serviceChips.map(({ label, field }) => (
-                      <label key={field}
-                        className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs cursor-pointer transition-colors ${draftServices[field] ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-blue-200 text-foreground hover:bg-canvas'}`}>
-                        {/* Unticking writes null, not false — see the state above. */}
-                        <input type="checkbox" checked={draftServices[field] === true}
-                          onChange={(e) => {
-                            const next = { ...draftServices, [field]: e.target.checked ? true : null };
-                            setDraftServices(next);
-                            syncVisitDateFromServices(next);
-                          }}
-                          className="w-4 h-4 rounded accent-primary" />
-                        {label}
-                      </label>
-                    ))}
-                  </div>
+                  {/* Hidden (not just disabled) until an Oral Condition is
+                      marked -- real time, both ways: ticking the first chip
+                      reveals this grid immediately, unticking the last one
+                      hides it again, no save needed. */}
+                  {hasOralConditionMarked ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-2">
+                      {serviceChips.map(({ label, field }) => (
+                        <label key={field}
+                          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs cursor-pointer transition-colors ${draftServices[field] ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-blue-200 text-foreground hover:bg-canvas'}`}>
+                          {/* Unticking writes null, not false — see the state above. */}
+                          <input type="checkbox" checked={draftServices[field] === true}
+                            onChange={(e) => {
+                              const next = { ...draftServices, [field]: e.target.checked ? true : null };
+                              setDraftServices(next);
+                              syncVisitDateFromServices(next);
+                            }}
+                            className="w-4 h-4 rounded accent-primary" />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Mark an Oral Condition to record Treatments Given.</p>
+                  )}
                   {/* Unlocked 2026-09-25 -- ticking a service here now creates
                       the active visit's RPC record on save instead of
                       requiring one to already exist. Shown only pre-save so it
                       doesn't linger once the visit is real. */}
-                  {!activeVisitRecord && (
+                  {hasOralConditionMarked && !activeVisitRecord && (
                     <p className="mt-2 text-[10px] text-muted-foreground">
                       Recording a service or charting a treatment creates this school year's Visit {activeVisit} when you save.
                     </p>
@@ -2691,26 +2726,38 @@ export const DentalChart = () => {
                       still carrying one shows it on the chart and in the
                       Treatment Summary, and is cleared with the eraser (paint
                       the tooth with no code selected). */}
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {perToothTreatmentCodes.map((t) => (
-                      <button key={t.code} title={treatmentLabel(t)}
-                        onClick={() => { setSelectedTreatment(selectedTreatment === t.code ? null : t.code); setSelectedCondition(null); }}
-                        className={`${paletteBtn} ${selectedTreatment === t.code ? 'bg-blue-600 text-white ring-2 ring-blue-300 border-blue-600' : 'bg-card border-border text-foreground hover:border-blue-400'}`}>
-                        {t.code}
-                      </button>
-                    ))}
-                  </div>
-                  {selectedTreatment && (() => {
-                    const t = treatmentCodes.find((x) => x.code === selectedTreatment);
-                    return (
-                      <div className="mt-3 flex items-center gap-2">
-                        <span className="font-palette text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                          {selectedTreatment} · {t?.label} (Click teeth to apply)
-                        </span>
-                        <button onClick={() => setSelectedTreatment(null)} className="text-xs text-muted-foreground hover:text-foreground underline">Clear</button>
+                  {/* Hidden until a Tooth Condition Code exists (user,
+                      2026-09-28: "Tooth Treatment Codes should only show
+                      when there are Tooth Condition Codes marked ... it
+                      should be real time, hidden again when ... empty") --
+                      the same "no treatment without a condition" rule as
+                      Treatments Given above, at the per-tooth level. */}
+                  {chartedConditionCount > 0 ? (
+                    <>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {perToothTreatmentCodes.map((t) => (
+                          <button key={t.code} title={treatmentLabel(t)}
+                            onClick={() => { setSelectedTreatment(selectedTreatment === t.code ? null : t.code); setSelectedCondition(null); }}
+                            className={`${paletteBtn} ${selectedTreatment === t.code ? 'bg-blue-600 text-white ring-2 ring-blue-300 border-blue-600' : 'bg-card border-border text-foreground hover:border-blue-400'}`}>
+                            {t.code}
+                          </button>
+                        ))}
                       </div>
-                    );
-                  })()}
+                      {selectedTreatment && (() => {
+                        const t = treatmentCodes.find((x) => x.code === selectedTreatment);
+                        return (
+                          <div className="mt-3 flex items-center gap-2">
+                            <span className="font-palette text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                              {selectedTreatment} · {t?.label} (Click teeth to apply)
+                            </span>
+                            <button onClick={() => setSelectedTreatment(null)} className="text-xs text-muted-foreground hover:text-foreground underline">Clear</button>
+                          </div>
+                        );
+                      })()}
+                    </>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Chart a Tooth Condition Code to unlock treatment codes.</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -2720,6 +2767,19 @@ export const DentalChart = () => {
               <div role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-danger-surface px-3 py-2 text-xs font-medium text-destructive">
                 <AlertTriangle className="mt-px h-3.5 w-3.5 flex-shrink-0" />
                 <span>{chartError}</span>
+              </div>
+            )}
+
+            {/* Live, not save-time (user, 2026-09-28: "this warning should be
+                real time to changes too. it should show and hide when
+                necessary") -- recomputed from the current draft on every
+                render via computeDateOrderError, so it appears the instant a
+                typed date violates the ordering rule and disappears the
+                instant it no longer does, with no Save click either way. */}
+            {dateOrderError && (
+              <div role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-danger-surface px-3 py-2 text-xs font-medium text-destructive">
+                <AlertTriangle className="mt-px h-3.5 w-3.5 flex-shrink-0" />
+                <span>{dateOrderError}</span>
               </div>
             )}
 
