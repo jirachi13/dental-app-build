@@ -614,7 +614,7 @@ export const TreatmentRecords = () => {
                       {t.riskLevel ? (
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${RISK_BADGE[t.riskLevel]}`}>{t.riskLevel.toUpperCase()}</span>
                       ) : (
-                        <span className="text-muted-foreground/50">Not assessed</span>
+                        <span className="text-[10px] font-light text-muted-foreground/50">Not assessed</span>
                       )}
                     </td>
                     <td className="px-4 py-2.5"><PipelineStatusPill status={t.pipelineStatus} isRpcDueThisMonth={rpcDueThisMonthIds.has(t.id)} /></td>
