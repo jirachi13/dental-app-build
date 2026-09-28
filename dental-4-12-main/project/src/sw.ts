@@ -6,7 +6,7 @@
 import { clientsClaim } from 'workbox-core';
 import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
 import { registerRoute, NavigationRoute } from 'workbox-routing';
-import { NetworkFirst, CacheFirst } from 'workbox-strategies';
+import { NetworkFirst, NetworkOnly, CacheFirst } from 'workbox-strategies';
 import { processQueue } from './app/offline/queueProcessor';
 
 declare const self: ServiceWorkerGlobalScope;
@@ -29,10 +29,31 @@ registerRoute(
   new CacheFirst({ cacheName: 'google-fonts-cache' }),
 );
 
-// NetworkFirst for API reads: always prefer live data when there's any
-// connection, only fall back to the last-cached response when the network
-// genuinely fails. GET only — writes are handled entirely by the app's own
-// offline queue (src/app/api/client.ts), never cached/replayed by the SW.
+// /stats/* is COMPUTED, frequently-changing data (queue membership, RPC due
+// dates, pipeline status) with its own careful React-level cache +
+// invalidation (src/app/utils/apiCache.ts) already sitting on top of it.
+// Registered BEFORE the general NetworkFirst route below (Workbox matches
+// registration order, first wins) so it never touches Cache Storage at all
+// -- NetworkFirst's 4s timeout was silently handing back a STALE cached
+// response on nothing worse than a slow response (the encrypted-field
+// decryption these routes do is real backend work, per apiCache.ts's own
+// comment), and no amount of invalidating the React-level cache could ever
+// reach into the SW's separate Cache Storage to clear that copy. A reload
+// "fixed" it only because it happened to retry inside the 4s window (user,
+// 2026-09-28: needed a tab switch + reload before a real change showed up
+// in the Treatment Queue). Better to fail loudly offline (the app already
+// shows an offline banner) than silently show numbers that were true four
+// seconds — or four requests — ago.
+registerRoute(
+  ({ url, request }) => request.method === 'GET' && url.pathname.startsWith('/api/stats/'),
+  new NetworkOnly(),
+);
+
+// NetworkFirst for every OTHER API read: always prefer live data when
+// there's any connection, only fall back to the last-cached response when
+// the network genuinely fails. GET only — writes are handled entirely by
+// the app's own offline queue (src/app/api/client.ts), never cached/
+// replayed by the SW.
 registerRoute(
   ({ url, request }) => request.method === 'GET' && url.pathname.startsWith('/api/'),
   new NetworkFirst({ cacheName: 'api-cache', networkTimeoutSeconds: 4 }),
