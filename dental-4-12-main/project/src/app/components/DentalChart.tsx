@@ -2528,6 +2528,14 @@ export const DentalChart = () => {
                 )}
               </div>
 
+              {/* The WHOLE column -- title, Date treated, Visit 1/2, and the
+                  checkboxes -- hidden until an Oral Condition (or a Tooth
+                  Condition Code) is marked, not just the checkbox grid
+                  (user, 2026-09-28: "Treatments Given / Date treated / Visit
+                  1 / Visit 2 ... these words too should be hidden and only
+                  show when there are changes"). Same hasOralConditionMarked
+                  as the grid below already used. */}
+              {hasOralConditionMarked && (
               <div className="border-t border-border pt-4 lg:border-t-0 lg:pt-0 lg:border-l lg:border-border lg:pl-4">
                 <div className="flex flex-wrap items-center gap-3 mb-2">
                   <div className="text-sm font-bold text-primary uppercase tracking-wide">Treatments Given</div>
@@ -2588,41 +2596,34 @@ export const DentalChart = () => {
                   </div>
                 </div>
                 <div className={editingChart ? '' : 'opacity-60 pointer-events-none select-none'}>
-                  {/* Hidden ENTIRELY (not disabled, not even an explanatory
-                      line -- user, 2026-09-28: "hide these words too so
-                      literally when hidden, it blank and white") until an
-                      Oral Condition is marked -- real time, both ways:
-                      ticking the first chip reveals this grid immediately,
-                      unticking the last one hides it again, no save needed. */}
-                  {hasOralConditionMarked && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-2">
-                      {serviceChips.map(({ label, field }) => (
-                        <label key={field}
-                          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs cursor-pointer transition-colors ${draftServices[field] ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-blue-200 text-foreground hover:bg-canvas'}`}>
-                          {/* Unticking writes null, not false — see the state above. */}
-                          <input type="checkbox" checked={draftServices[field] === true}
-                            onChange={(e) => {
-                              const next = { ...draftServices, [field]: e.target.checked ? true : null };
-                              setDraftServices(next);
-                              syncVisitDateFromServices(next);
-                            }}
-                            className="w-4 h-4 rounded accent-primary" />
-                          {label}
-                        </label>
-                      ))}
-                    </div>
-                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-2">
+                    {serviceChips.map(({ label, field }) => (
+                      <label key={field}
+                        className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs cursor-pointer transition-colors ${draftServices[field] ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-blue-200 text-foreground hover:bg-canvas'}`}>
+                        {/* Unticking writes null, not false — see the state above. */}
+                        <input type="checkbox" checked={draftServices[field] === true}
+                          onChange={(e) => {
+                            const next = { ...draftServices, [field]: e.target.checked ? true : null };
+                            setDraftServices(next);
+                            syncVisitDateFromServices(next);
+                          }}
+                          className="w-4 h-4 rounded accent-primary" />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
                   {/* Unlocked 2026-09-25 -- ticking a service here now creates
                       the active visit's RPC record on save instead of
                       requiring one to already exist. Shown only pre-save so it
                       doesn't linger once the visit is real. */}
-                  {hasOralConditionMarked && !activeVisitRecord && (
+                  {!activeVisitRecord && (
                     <p className="mt-2 text-[10px] text-muted-foreground">
                       Recording a service or charting a treatment creates this school year's Visit {activeVisit} when you save.
                     </p>
                   )}
                 </div>
               </div>
+              )}
             </div>
             </div>
 
@@ -2718,6 +2719,13 @@ export const DentalChart = () => {
                     Unconditional now (user, 2026-09-27) -- was hidden for
                     iptrContext === 'dental-queue', which no longer strips
                     functionality down from the default view. */}
+                {/* The WHOLE column -- title, Clear All, and the codes --
+                    hidden until a Tooth Condition Code exists, not just the
+                    codes themselves (user, 2026-09-28: "these words too
+                    should be hidden and only show when there are changes"),
+                    same "no treatment without a condition" rule as
+                    Treatments Given's column. */}
+                {chartedConditionCount > 0 && (
                 <div className={layoutContext === 'default' ? 'border-t border-border pt-4 lg:border-t-0 lg:pt-0 lg:border-l lg:pl-4' : undefined}>
                   <div className="flex items-center justify-between gap-2 mb-2 min-h-[26px]">
                     <div className="text-sm font-bold text-primary uppercase tracking-wide">Tooth Treatment Codes</div>
@@ -2734,37 +2742,28 @@ export const DentalChart = () => {
                       still carrying one shows it on the chart and in the
                       Treatment Summary, and is cleared with the eraser (paint
                       the tooth with no code selected). */}
-                  {/* Hidden ENTIRELY (no explanatory line either -- user,
-                      2026-09-28: "hide these words too so literally when
-                      hidden, it blank and white") until a Tooth Condition
-                      Code exists -- the same "no treatment without a
-                      condition" rule as Treatments Given above, at the
-                      per-tooth level. */}
-                  {chartedConditionCount > 0 && (
-                    <>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {perToothTreatmentCodes.map((t) => (
-                          <button key={t.code} title={treatmentLabel(t)}
-                            onClick={() => { setSelectedTreatment(selectedTreatment === t.code ? null : t.code); setSelectedCondition(null); }}
-                            className={`${paletteBtn} ${selectedTreatment === t.code ? 'bg-blue-600 text-white ring-2 ring-blue-300 border-blue-600' : 'bg-card border-border text-foreground hover:border-blue-400'}`}>
-                            {t.code}
-                          </button>
-                        ))}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {perToothTreatmentCodes.map((t) => (
+                      <button key={t.code} title={treatmentLabel(t)}
+                        onClick={() => { setSelectedTreatment(selectedTreatment === t.code ? null : t.code); setSelectedCondition(null); }}
+                        className={`${paletteBtn} ${selectedTreatment === t.code ? 'bg-blue-600 text-white ring-2 ring-blue-300 border-blue-600' : 'bg-card border-border text-foreground hover:border-blue-400'}`}>
+                        {t.code}
+                      </button>
+                    ))}
+                  </div>
+                  {selectedTreatment && (() => {
+                    const t = treatmentCodes.find((x) => x.code === selectedTreatment);
+                    return (
+                      <div className="mt-3 flex items-center gap-2">
+                        <span className="font-palette text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                          {selectedTreatment} · {t?.label} (Click teeth to apply)
+                        </span>
+                        <button onClick={() => setSelectedTreatment(null)} className="text-xs text-muted-foreground hover:text-foreground underline">Clear</button>
                       </div>
-                      {selectedTreatment && (() => {
-                        const t = treatmentCodes.find((x) => x.code === selectedTreatment);
-                        return (
-                          <div className="mt-3 flex items-center gap-2">
-                            <span className="font-palette text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                              {selectedTreatment} · {t?.label} (Click teeth to apply)
-                            </span>
-                            <button onClick={() => setSelectedTreatment(null)} className="text-xs text-muted-foreground hover:text-foreground underline">Clear</button>
-                          </div>
-                        );
-                      })()}
-                    </>
-                  )}
+                    );
+                  })()}
                 </div>
+                )}
               </div>
             </div>
             </div>
