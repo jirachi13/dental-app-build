@@ -1912,10 +1912,21 @@ export const DentalChart = () => {
                 const yrDmft = computeDMFT(yrChart);
                 const yrDmftLabel = `${yrDmft.T + yrDmft.t}`; // 0 when nothing is charted (user, 2026-09-25)
                 const isActive = selectedYear === idx;
+                // Marks the actual current school year regardless of which
+                // year is SELECTED (user, 2026-09-28: "highlight or maybe a
+                // label that emphasize the current school year") -- a solid
+                // green pill around the year label itself, so it reads at a
+                // glance even when a different (older) year is the one being
+                // viewed, distinct from the blue selected-tab styling above.
+                const isCurrentYear = y.iptr.school_year === schoolYearLabel();
                 return (
                   <div key={y.iptr._id} className={`mr-1 flex flex-shrink-0 items-stretch border-b-2 ${isActive ? 'border-blue-700 bg-blue-50 text-blue-700' : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-gray-50'}`}>
                     <button type="button" onClick={() => { setSelectedYear(idx); setSelectedChartId(null); setExplicitVisit(null); }} className="px-4 py-2.5 text-left text-xs font-medium transition-all">
-                      <div>{y.iptr.school_year}</div>
+                      {isCurrentYear ? (
+                        <span className="inline-block rounded-full bg-emerald-600 px-2 py-0.5 text-white">{y.iptr.school_year}</span>
+                      ) : (
+                        <div>{y.iptr.school_year}</div>
+                      )}
                       {activeTab === 'chart' && (
                         <div style={{ fontSize: '10px', marginTop: '2px' }} className={isActive ? 'text-blue-600' : 'text-muted-foreground'} >DMFT: {yrDmftLabel}</div>
                       )}
