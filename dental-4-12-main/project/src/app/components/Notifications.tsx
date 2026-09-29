@@ -63,7 +63,7 @@ export const Notifications = () => {
   // against an ancestor.
   const [popupAnchor, setPopupAnchor] = useState<{ top: number; left: number } | null>(null);
   const [activeTier, setActiveTier] = useState<string | null>(null);
-  const [readFilter, setReadFilter] = useState<'all' | 'unread' | 'read'>('unread');
+  const [readFilter, setReadFilter] = useState<'all' | 'unread' | 'read'>('all');
   const [readFilterOpen, setReadFilterOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const popupRef = useRef<HTMLDivElement | null>(null);
@@ -644,10 +644,10 @@ export const Notifications = () => {
                 type="button"
                 onClick={() => setReadFilterOpen((v) => !v)}
                 aria-expanded={readFilterOpen}
-                className="flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-base font-semibold text-white hover:bg-primary-hover"
+                className="flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-white hover:bg-primary-hover"
               >
                 {readFilter === 'all' ? 'All' : readFilter === 'unread' ? 'Unread' : 'Read'}
-                <ChevronDown className={`w-5 h-5 transition-transform ${readFilterOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 transition-transform ${readFilterOpen ? 'rotate-180' : ''}`} />
               </button>
               {readFilterOpen && (
                 <div className="absolute right-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
