@@ -379,7 +379,7 @@ export const Root = () => {
           collapsed ? 'md:justify-center md:px-0' : ''
         } ${
           isActive
-            ? 'bg-sidebar-active text-sidebar-bg font-bold'
+            ? 'bg-[linear-gradient(135deg,#FBD965_0%,#F4C542_55%,#E5AE24_100%)] text-sidebar-bg font-bold'
             : 'text-white/70 hover:bg-white/10 hover:text-white font-medium'
         }`}
       >
@@ -467,7 +467,7 @@ export const Root = () => {
             collapsed ? 'md:justify-center md:px-0' : ''
           } ${
             highlighted
-              ? 'bg-sidebar-active text-sidebar-bg font-bold'
+              ? 'bg-[linear-gradient(135deg,#FBD965_0%,#F4C542_55%,#E5AE24_100%)] text-sidebar-bg font-bold'
               : 'text-white/70 hover:bg-white/10 hover:text-white font-medium'
           }`}
         >
