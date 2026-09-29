@@ -380,7 +380,7 @@ export const Notifications = () => {
     // the top with dead space below it.
     return (
       <li key={r.id} className={`relative grid grid-cols-[3fr_0.35fr_auto] items-center gap-0 p-3.5 ${isRead ? '' : 'bg-primary-surface/60'}`}>
-        <div className="flex items-start gap-4 min-w-0">
+        <div className="flex items-center gap-4 min-w-0">
           <div className="relative shrink-0">
             <span className={`flex h-11 w-11 items-center justify-center rounded-full ${r.iconBg}`}>
               <r.Icon className={`w-5 h-5 ${r.iconFg}`} />
