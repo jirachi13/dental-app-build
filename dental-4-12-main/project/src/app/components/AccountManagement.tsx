@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit, Power, Search, KeyRound, Mail, UserCog } from 'lucide-react';
+import { Plus, Edit, Power, Search, KeyRound, Mail, UserCog, Users, UserCheck, UserX, Filter } from 'lucide-react';
 import { PageHeader } from './PageHeader';
 import { useUsers, ROLE_LABELS } from '../hooks/useUsers';
 import { apiClient, ApiError } from '../api/client';
@@ -94,6 +94,8 @@ export const AccountManagement = () => {
   const [deactivating, setDeactivating] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'Active' | 'Inactive'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | ApiRole>('all');
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ full_name: '', email: '', role: 'dentist' as ApiRole, school_ids: [] as string[], password: '' });
@@ -189,10 +191,14 @@ export const AccountManagement = () => {
   };
 
   const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (statusFilter === 'all' || user.status === statusFilter) &&
+    (roleFilter === 'all' || user.role === roleFilter) &&
+    (user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.roleLabel.toLowerCase().includes(searchTerm.toLowerCase())
+    user.roleLabel.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+  const activeCount = users.filter((u) => u.status === 'Active').length;
+  const inactiveCount = users.filter((u) => u.status === 'Inactive').length;
 
   const handleCreate = async () => {
     setFormError(null);
@@ -317,7 +323,7 @@ export const AccountManagement = () => {
         icon={UserCog}
         eyebrow="Administration"
         title="Account Management"
-        description={`${filteredUsers.length} user accounts across every role, school assignment and status.`}
+        description="Manage system users, roles, school assignments and account status."
         action={
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
@@ -331,17 +337,65 @@ export const AccountManagement = () => {
 
       {error && <Notice variant="error">{error}</Notice>}
 
-      {/* Search */}
-      <div className="bg-card rounded-xl border border-border p-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search by name, email, or role..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
-          />
+      {/* Stat cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {[
+          { label: 'Total Users', value: users.length, icon: Users, bg: '#E8ECF6', fg: '#273A78' },
+          { label: 'Active Accounts', value: activeCount, icon: UserCheck, bg: '#ECFDF5', fg: '#047857' },
+          { label: 'Inactive Accounts', value: inactiveCount, icon: UserX, bg: '#FFF1F2', fg: '#BE123C' },
+        ].map(({ label, value, icon: Icon, bg, fg }) => (
+          <div key={label} className="flex items-start justify-between gap-3 rounded-2xl border border-border bg-card p-5 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+            <div className="min-w-0">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+              <div className="text-2xl font-bold text-foreground mt-2">{value}</div>
+            </div>
+            <span style={{ backgroundColor: bg, color: fg }} className="w-10 h-10 flex-shrink-0 rounded-xl grid place-items-center">
+              <Icon className="w-4 h-4" />
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Search & Filters */}
+      <div className="bg-card rounded-2xl border border-border shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
+          <span className="w-10 h-10 rounded-xl grid place-items-center bg-[#E8ECF6] text-[#273A78] flex-shrink-0"><Filter className="w-4 h-4" /></span>
+          <div>
+            <div className="text-sm font-bold text-foreground">Search &amp; Filters</div>
+            <div className="text-xs text-muted-foreground">Find and organize user accounts.</div>
+          </div>
+        </div>
+        <div className="p-5 space-y-5">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search by name, email, or role..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+            />
+          </div>
+          <div className="flex flex-col lg:flex-row lg:justify-between gap-4">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Account Status</div>
+              <div className="flex flex-wrap gap-2">
+                {([['all', 'All'], ['Active', 'Active'], ['Inactive', 'Deactivated']] as const).map(([v, l]) => (
+                  <button key={v} type="button" onClick={() => setStatusFilter(v)}
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${statusFilter === v ? 'bg-[#16214F] text-white border-[#16214F]' : 'bg-card text-foreground border-border hover:bg-gray-50'}`}>{l}</button>
+                ))}
+              </div>
+            </div>
+            <div className="lg:text-right">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">User Role</div>
+              <div className="flex flex-wrap gap-2 lg:justify-end">
+                {(['all', ...ROLES] as const).map((r) => (
+                  <button key={r} type="button" onClick={() => setRoleFilter(r)}
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${roleFilter === r ? 'bg-[#16214F] text-white border-[#16214F]' : 'bg-card text-foreground border-border hover:bg-gray-50'}`}>{r === 'all' ? 'All' : ROLE_LABELS[r]}</button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -424,8 +478,18 @@ export const AccountManagement = () => {
       )}
 
       {/* Desktop Table */}
-      <div className="hidden md:block bg-card rounded-xl border border-border overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="hidden md:block bg-card rounded-2xl border border-border overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+        <div className="flex items-center justify-between gap-3 px-5 py-4">
+          <div className="flex items-center gap-3">
+            <span className="w-10 h-10 rounded-xl grid place-items-center bg-[#E8ECF6] text-[#273A78] flex-shrink-0"><Users className="w-4 h-4" /></span>
+            <div>
+              <div className="text-base font-bold text-foreground">System Users</div>
+              <div className="text-xs text-muted-foreground">Review and manage user accounts.</div>
+            </div>
+          </div>
+          <span className="px-3 py-1.5 rounded-lg border border-border bg-gray-50 text-xs font-semibold text-muted-foreground">{filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'} found</span>
+        </div>
+        <div className="overflow-x-auto border-t border-border">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-border">
               <tr>
