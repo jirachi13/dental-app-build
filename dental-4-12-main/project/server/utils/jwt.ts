@@ -7,6 +7,8 @@ export interface AuthTokenPayload {
   sub: string;
   role: string;
   school_ids: string[];
+  /** Issue time in seconds. jsonwebtoken sets it on sign; read back on verify. */
+  iat?: number;
 }
 
 // The refresh token carries whether this login opted into "Remember me".

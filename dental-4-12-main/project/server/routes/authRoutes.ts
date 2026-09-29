@@ -27,7 +27,7 @@ router.post("/verify-otp", makeAuthLimiter(), asyncHandler(verifyOtp));
 router.post("/forgot-password", makeAuthLimiter(), asyncHandler(forgotPassword));
 router.post("/reset-password", makeAuthLimiter(), asyncHandler(resetPassword));
 router.post("/refresh", asyncHandler(refresh));
-router.post("/logout", logout);
+router.post("/logout", asyncHandler(logout));
 router.get("/me", requireAuth, asyncHandler(me));
 router.patch("/change-password", requireAuth, asyncHandler(changePassword));
 // Step-up for bulk/structural actions. Rate-limited like every other

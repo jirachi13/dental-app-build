@@ -13,9 +13,13 @@
 
 ## ▶ RESUME HERE — PARKED 2026-09-14 (11th session). ✅ **ALL PUSHED**
 
-**2026-09-29 (12th session): SEC-22 FIXED** — the bell's `appointmentsToday` is now scoped through
-`inScope` like the other two counts. tsc both configs + `npm test` 96/96; **not exercised live**
-(SEC-00 — this PC still points at production).
+**2026-09-29 (12th session): SEC-22, BUG-09, BUG-10, BUG-11, BUG-13 and SEC-12 FIXED**, all pushed.
+`npm test` **101/101**, tsc both configs clean. **None exercised against a live DB** (SEC-00 — this
+PC still points at production). Model strategy changed: **no Fable** — see CLAUDE.md.
+⚠ **SEC-12 changed live behaviour: Logout now signs the account out on EVERY device** (your
+decision) — other devices drop within 15 min. Changing or resetting a password does the same, except
+the device that changed its own password stays signed in. **Worth one manual check after deploy:**
+log in on two browsers, log out of one, and confirm the other is sent to login within 15 minutes.
 **Nothing is in progress.** Working tree clean, `main` level with origin, **`npm test` 91/91**, `tsc`
 both configs and `npm run build` clean at the park point. Dev servers **stopped** (verified by port,
 not assumed — 4000 and 5173 both free).
@@ -130,12 +134,11 @@ The browser pass was done against live data for that reason, read-only and savin
 
 Also open: SEC-04 (an empty `school_ids` still means "all schools"; SEC-18 fixed the instance, not
 the design) · SEC-19/SEC-20 (⚠ **check whether the grant is still load-bearing before narrowing it**
-— grep which hooks the two non-clinical roles' screens actually use) · SEC-12 (no way to revoke a
-session) · SEC-30 (one dashboard
+— grep which hooks the two non-clinical roles' screens actually use) · SEC-30 (one dashboard
 look) · BUG-02, BUG-05, BUG-06, BUG-08, **BUG-14**, and the `dohAggregate.ts:207` school-year parse left from BUG-11.
 
 ✅ **Closed:** SEC-05, SEC-06, SEC-07 (all NOT-A-BUG, with reasons) · BUG-00, BUG-01 (already fixed
-before the audit began) · **BUG-12 (fixed 09-14)** · **SEC-22 + BUG-09 + BUG-10 + BUG-11 + BUG-13 (fixed 09-29; BUG-10 changes `schoolYearEnd` to 23:59:59.999 — RPC 'tight'/'impossible' and the appointments fetch window both shift by up to a day, correctly; BUG-13 year strip now `DMFT 14 · dmft 2`, not browser-checked)** · SEC-01 re-verified against the API. **All three
+before the audit began) · **BUG-12 (fixed 09-14)** · **SEC-12 + SEC-22 + BUG-09 + BUG-10 + BUG-11 + BUG-13 (fixed 09-29; SEC-12 = `User.sessions_valid_from`, logout revokes all devices; BUG-10 changes `schoolYearEnd` to 23:59:59.999 — RPC 'tight'/'impossible' and the appointments fetch window both shift by up to a day, correctly; BUG-13 year strip now `DMFT 14 · dmft 2`, not browser-checked)** · SEC-01 re-verified against the API. **All three
 seeded SEC rows are now re-verified**, so no ledger row rests on an unchecked claim about the past.
 
 ### Next sprint

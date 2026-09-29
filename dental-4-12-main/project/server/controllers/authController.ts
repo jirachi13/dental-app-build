@@ -8,9 +8,11 @@ import {
   signAccessToken,
   signRefreshToken,
   verifyRefreshToken,
+  verifyAccessToken,
   ACCESS_COOKIE_MAX_AGE_MS,
   REFRESH_COOKIE_MAX_AGE_MS,
 } from "../utils/jwt.js";
+import { isRevoked } from "../../shared/sessionValidity.js";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -120,7 +122,9 @@ export async function refresh(req: Request, res: Response) {
     // stale permissions for up to 7 days (the refresh token's lifetime),
     // since minting a new access token from the old payload never noticed.
     const user = await User.findById(payload.sub);
-    if (!user || user.isArchived) {
+    // SEC-12: a token issued before the account's last logout or password
+    // change is dead, even though its signature and expiry are still good.
+    if (!user || user.isArchived || isRevoked(payload.iat, user.sessions_valid_from)) {
       res.status(401).json({ error: "Invalid or expired refresh token" });
       return;
     }
@@ -141,7 +145,33 @@ export async function refresh(req: Request, res: Response) {
   }
 }
 
-export function logout(_req: Request, res: Response) {
+// Whose session is this request carrying? Logout is not behind requireAuth (an
+// expired access token must still be able to log out), so read either cookie.
+function sessionOwner(req: Request): string | null {
+  const candidates = [
+    [req.cookies?.refresh_token, verifyRefreshToken],
+    [req.cookies?.access_token, verifyAccessToken],
+  ] as const;
+  for (const [cookie, verify] of candidates) {
+    if (!cookie) continue;
+    try { return verify(cookie).sub; } catch { /* try the other one */ }
+  }
+  return null;
+}
+
+// SEC-12: logout ends EVERY session for the account, not just this browser's
+// cookies. That is the user's decision (2026-09-29), chosen over a per-device
+// session list. Other devices drop at their next refresh, so within the
+// 15-minute access-token life, because the access token itself is not checked
+// against the DB (that would cost a read per request). The cookies are cleared
+// whatever happens to the stamp.
+export async function logout(req: Request, res: Response) {
+  const userId = sessionOwner(req);
+  if (userId) {
+    try {
+      await User.updateOne({ _id: userId }, { $set: { sessions_valid_from: new Date() } });
+    } catch { /* still log this browser out */ }
+  }
   res.clearCookie("access_token", baseCookieOptions);
   res.clearCookie("refresh_token", baseCookieOptions);
   res.json({ ok: true });
@@ -185,7 +215,19 @@ export async function changePassword(req: Request, res: Response) {
   }
 
   user.password_hash = await hashPassword(newPassword);
+  // SEC-12: a password change evicts every existing session, so the ordinary
+  // remedy for a suspected compromise actually works.
+  user.sessions_valid_from = new Date();
   await user.save();
+
+  // ...except this one: re-issue the caller's cookies so changing your own
+  // password does not sign you out. They are minted after the stamp, so they
+  // survive it (see the same-second case in sessionValidity.test.ts). Keeps the
+  // original login's Remember-me choice when the refresh token still carries it.
+  let remember = false;
+  try { remember = verifyRefreshToken(req.cookies?.refresh_token).remember === true; } catch { /* session-only */ }
+  const payload = { sub: user._id.toString(), role: user.role, school_ids: (user.school_ids ?? []).map((s: unknown) => String(s)) };
+  setAuthCookies(res, signAccessToken(payload), signRefreshToken({ ...payload, remember }), remember);
 
   await logAudit(user._id.toString(), "Changed Password", user._id.toString(), "User");
 
@@ -288,6 +330,7 @@ export async function resetPassword(req: Request, res: Response) {
   user.password_hash = await hashPassword(String(password));
   user.reset_token_hash = null;
   user.reset_token_expires = null;
+  user.sessions_valid_from = new Date(); // SEC-12: evict every existing session
   await user.save();
 
   await logAudit(user._id.toString(), "Reset Password via Email", user._id.toString(), "User");

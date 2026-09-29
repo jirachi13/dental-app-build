@@ -82,6 +82,7 @@ export async function resetPassword(req: Request, res: Response) {
   }
 
   user.password_hash = await hashPassword(password);
+  user.sessions_valid_from = new Date(); // SEC-12: evict every existing session
   await user.save();
 
   await logAudit(req.user!.id, "Reset Password", user._id.toString(), "User");

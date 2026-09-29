@@ -33,6 +33,10 @@ const userSchema = new mongoose.Schema(
     otp_expires: { type: Date, default: null },
     reset_token_hash: { type: String, default: null, select: false },
     reset_token_expires: { type: Date, default: null },
+    // SEC-12: refresh tokens issued before this instant are dead. Stamped by
+    // logout (every device, by decision) and all three password paths. The
+    // rule is `shared/sessionValidity.ts`.
+    sessions_valid_from: { type: Date, default: null },
     ...softDeleteFields,
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },

@@ -324,7 +324,18 @@ inference to confirmed · SEC-10 severity raised and re-aimed.
   (`autoComplete="username"` / current-password), with a comment explaining that storing a password
   anywhere itself would be "a waiting to happen".
 
-### SEC-12 · `server/controllers/authController.ts` logout / changePassword / resetPassword · MED · OPEN
+### SEC-12 · `server/controllers/authController.ts` logout / changePassword / resetPassword · MED · ✅ FIXED 2026-09-29
+Resolved: `User.sessions_valid_from`, checked in `refresh` against the token's `iat` through
+          `shared/sessionValidity.ts` (floored to the second, fails closed on a missing `iat`; 5
+          tests). Stamped by **logout — every device, the user's decision** over a per-device
+          session list — and by all three password paths (self change, emailed reset, admin reset).
+          `changePassword` re-issues the caller's own cookies after the stamp, keeping Remember-me,
+          so changing your password does not sign you out. ⚠ **Bounded by the 15-minute access
+          token, not zero** — the access token is still not checked against the DB, as scoped.
+          Verified: tsc both configs, `npm test` 101/101, and a scratch run against the real
+          jsonwebtoken (old token revoked, re-issued one survives the same-second stamp).
+          **Not exercised against a live DB** (SEC-00). First deploy revokes nothing: the field
+          starts null for every account.
 Claim:    **There is no way to revoke a session.** Logout clears cookies only; changing or resetting
           a password does not invalidate tokens already issued.
 Evidence: `authController.logout` is three lines — `clearCookie("access_token")`,
