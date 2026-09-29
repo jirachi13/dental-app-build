@@ -288,43 +288,48 @@ export const Notifications = () => {
           </p>
         </div>
 
-        <div className="relative shrink-0" ref={openMenuId === r.id ? menuRef : undefined}>
-          <button
-            type="button"
-            onClick={() => setOpenMenuId(openMenuId === r.id ? null : r.id)}
-            aria-label="Notification options"
-            className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
+        {/* "Go to [module]" sits UNDER the three-dot button -- its own
+            always-visible link in this column, not a selectable item inside
+            the dropdown (user, 2026-09-29, correcting the previous round:
+            "under the 3 dot, not become an option in the 3 dot"). */}
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <div className="relative" ref={openMenuId === r.id ? menuRef : undefined}>
+            <button
+              type="button"
+              onClick={() => setOpenMenuId(openMenuId === r.id ? null : r.id)}
+              aria-label="Notification options"
+              className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+            {openMenuId === r.id && (
+              <div className="absolute right-0 top-8 z-20 w-64 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+                <button
+                  type="button"
+                  onClick={() => toggleRead(r.id)}
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-foreground hover:bg-muted"
+                >
+                  {isRead ? <Circle className="w-4 h-4 flex-shrink-0" /> : <CheckCircle2 className="w-4 h-4 flex-shrink-0" />}
+                  Mark as {isRead ? 'unread' : 'read'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => dismiss(r.id)}
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm whitespace-nowrap text-destructive hover:bg-danger-surface"
+                >
+                  <Trash2 className="w-4 h-4 flex-shrink-0" />
+                  Delete this notification
+                </button>
+              </div>
+            )}
+          </div>
+          <Link
+            to={r.linkTo}
+            onClick={() => markRead(r.id)}
+            className="flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-primary hover:underline"
           >
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
-          {openMenuId === r.id && (
-            <div className="absolute right-0 top-8 z-20 w-72 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
-              <Link
-                to={r.linkTo}
-                onClick={() => { markRead(r.id); setOpenMenuId(null); }}
-                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm font-semibold text-primary hover:bg-muted"
-              >
-                <ArrowRight className="w-4 h-4 flex-shrink-0" />
-                {r.linkLabel}
-              </Link>
-              <button
-                type="button"
-                onClick={() => toggleRead(r.id)}
-                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-foreground hover:bg-muted"
-              >
-                {isRead ? <Circle className="w-4 h-4 flex-shrink-0" /> : <CheckCircle2 className="w-4 h-4 flex-shrink-0" />}
-                Mark as {isRead ? 'unread' : 'read'}
-              </button>
-              <button
-                type="button"
-                onClick={() => dismiss(r.id)}
-                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm whitespace-nowrap text-destructive hover:bg-danger-surface"
-              >
-                <Trash2 className="w-4 h-4 flex-shrink-0" />
-                Delete this notification
-              </button>
-            </div>
-          )}
+            {r.linkLabel} <ArrowRight className="w-3 h-3" />
+          </Link>
         </div>
       </li>
     );
