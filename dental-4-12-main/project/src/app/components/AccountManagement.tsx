@@ -541,8 +541,8 @@ export const AccountManagement = () => {
                       const st = ROLE_STYLE[user.role] ?? ROLE_STYLE.dentist;
                       const RoleIcon = st.icon;
                       return (
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-bold ${st.cls}`}>
-                          <RoleIcon className="w-4 h-4" />
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs font-bold ${st.cls}`}>
+                          <RoleIcon className="w-3.5 h-3.5" />
                           {user.roleLabel}
                         </span>
                       );
@@ -552,12 +552,12 @@ export const AccountManagement = () => {
                     {user.school}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-bold ${
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs font-bold ${
                       user.status === 'Active'
                         ? 'bg-[#ECFDF5] text-[#047857] border-[#A7F3D0]'
                         : 'bg-[#F1F5F9] text-[#475569] border-[#E2E8F0]'
                     }`}>
-                      {user.status === 'Active' ? <CheckCircle className="w-4 h-4" /> : <UserX className="w-4 h-4" />}
+                      {user.status === 'Active' ? <CheckCircle className="w-3.5 h-3.5" /> : <UserX className="w-3.5 h-3.5" />}
                       {user.status === 'Active' ? 'Active' : 'Deactivated'}
                     </span>
                   </td>
