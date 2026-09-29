@@ -16,8 +16,13 @@ Capstone Thesis — Build Phase — Group 404 — AY 2025-2026
 - **`/docs/technology-documentation.md`** = VERIFIED SNAPSHOT of platforms/services/libraries and where each surfaces in the app. Every entry was confirmed by locating a real `import` — never list a library because it appears in `package.json`. Re-run that import audit after any dependency change and once before defense; a stale snapshot here misrepresents the build in Chapter 4.
 - Every ~5 sprints, do a CLAUDE.md hygiene pass: delete superseded lines, compress resolved sagas to one-liners, verify build-phase status markers.
 
-## MODEL STRATEGY (updated 2026-07-10 → Fable available again)
-- Fable is available again (2026-07-10). Split by task: **Fable = judgment** (scoping, plan mode, reviews, risky work), **Opus/Sonnet = execute written plans and light work** — premium capacity on light work is waste.
+## MODEL STRATEGY (updated 2026-09-29 → NO Fable)
+- Fable is unavailable. Split by task:
+  - **Opus high = judgment/risky** — scoping, plan mode, reviews/audits, clinical screens (e.g. 162 TAB 2), auth/encryption, Phase 3 real data.
+  - **Opus medium = execute a written plan** — multi-file work with file:line targets already decided.
+  - **Sonnet high = small well-specified fixes** — one-liners, single-handler bugs, doc/ledger updates.
+  - **Sonnet medium = light/mechanical** — status checks, reading, commits, HANDOFF refresh.
+- Claude cannot switch models itself: when work crosses tiers, say which one fits and let the user run `/model`.
 - Leave a precise plan in HANDOFF (or a plan-mode plan file) before executing, so any session/model can execute without re-deriving intent.
 
 ## BEHAVIOR RULES
