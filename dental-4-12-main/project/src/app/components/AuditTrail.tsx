@@ -206,7 +206,7 @@ export const AuditTrail = () => {
           reads as the whole history and would understate it silently. */}
       <PageHeader
         icon={ClipboardList}
-        eyebrow="Administration"
+        eyebrow="System Administration"
         title="Audit Trail"
         description="Monitor system activities and administrative actions."
       />
