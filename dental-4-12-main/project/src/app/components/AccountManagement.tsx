@@ -344,7 +344,7 @@ export const AccountManagement = () => {
           { label: 'Active Accounts', value: activeCount, icon: UserCheck, bg: '#ECFDF5', fg: '#047857' },
           { label: 'Inactive Accounts', value: inactiveCount, icon: UserX, bg: '#FFF1F2', fg: '#BE123C' },
         ].map(({ label, value, icon: Icon, bg, fg }) => (
-          <div key={label} className="flex items-start justify-between gap-3 rounded-2xl border border-border bg-card p-5 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+          <div key={label} className="flex items-start justify-between gap-3 min-h-[8.5rem] rounded-2xl border border-border bg-card p-6 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
             <div className="min-w-0">
               <div className="text-[11px] font-bold uppercase tracking-wider text-foreground">{label}</div>
               <div className="text-2xl font-bold text-foreground mt-2">{value}</div>
