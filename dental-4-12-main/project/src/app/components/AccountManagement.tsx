@@ -748,34 +748,30 @@ export const AccountManagement = () => {
               <p className="text-xs text-muted-foreground">Password isn't changed here — use the Reset Password action instead.</p>
 
               {/* Two-factor authentication */}
-              <div className="border border-border rounded-lg p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Two-Factor Authentication</p>
-                    <p className="text-xs text-muted-foreground">
-                      {editingUser?.twofaEnabled
-                        ? 'Enabled — login requires an emailed code.'
-                        : 'Off. Enabling sends a test code to the account email that must be entered here first — this proves the mailbox is real before 2FA can lock the account.'}
-                    </p>
-                  </div>
-                  {editingUser?.twofaEnabled ? (
-                    <button
-                      onClick={handleTwofaDisable}
-                      disabled={twofaBusy}
-                      className="shrink-0 px-3 py-1.5 text-sm border border-border text-foreground rounded-lg hover:bg-gray-50 disabled:opacity-60"
-                    >
-                      Disable
-                    </button>
-                  ) : twofaStep === 'idle' ? (
-                    <button
-                      onClick={handleTwofaInitiate}
-                      disabled={twofaBusy}
-                      className="shrink-0 px-3 py-1.5 text-sm border border-primary text-primary rounded-lg hover:bg-primary-surface disabled:opacity-60"
-                    >
-                      {twofaBusy ? 'Sending…' : 'Enable (send code)'}
-                    </button>
-                  ) : null}
-                </div>
+              <div className="space-y-3">
+                <div className={POPUP_SECTION}>Two-Factor Authentication</div>
+                <p className="text-sm text-muted-foreground">
+                  {editingUser?.twofaEnabled
+                    ? 'Enabled. Login requires an emailed code.'
+                    : 'Off. Enabling sends a test code to the account email that must be entered here first. This proves the mailbox is real before 2FA can lock the account.'}
+                </p>
+                {editingUser?.twofaEnabled ? (
+                  <button
+                    onClick={handleTwofaDisable}
+                    disabled={twofaBusy}
+                    className="px-5 py-2.5 rounded-xl border border-[#FECDD3] bg-[#FFF1F2] text-sm font-semibold text-[#E11D48] hover:bg-[#FFE4E6] disabled:opacity-60 transition-colors"
+                  >
+                    Disable
+                  </button>
+                ) : twofaStep === 'idle' ? (
+                  <button
+                    onClick={handleTwofaInitiate}
+                    disabled={twofaBusy}
+                    className="px-5 py-2.5 rounded-xl border border-[#DCE3F5] bg-[#F4F7FF] text-sm font-semibold text-[#273A78] hover:bg-[#E8ECF6] disabled:opacity-60 transition-colors"
+                  >
+                    {twofaBusy ? 'Sending…' : 'Enable (send code)'}
+                  </button>
+                ) : null}
                 {!editingUser?.twofaEnabled && twofaStep === 'code-sent' && (
                   <div className="flex gap-2">
                     <input
@@ -785,12 +781,13 @@ export const AccountManagement = () => {
                       value={twofaCode}
                       onChange={(e) => setTwofaCode(e.target.value.replace(/\D/g, ''))}
                       placeholder="6-digit code"
-                      className="flex-1 px-3 py-1.5 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                      className="flex-1 px-4 py-2.5 text-sm text-[#475569] bg-[#F8FAFC] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#16214F]/30"
+                      style={POPUP_FIELD_STYLE}
                     />
                     <button
                       onClick={handleTwofaConfirm}
                       disabled={twofaBusy || twofaCode.length !== 6}
-                      className="px-3 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-60"
+                      className={POPUP_PRIMARY}
                     >
                       {twofaBusy ? 'Confirming…' : 'Confirm'}
                     </button>
