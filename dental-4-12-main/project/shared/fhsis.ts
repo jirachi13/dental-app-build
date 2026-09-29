@@ -39,14 +39,14 @@ export interface FhsisOutput {
   monthsWithData: string[];
 }
 
+import { ageOn } from './age.js';
+
+// BUG-02: the one age rule, plus this form's own guard — a birthday after the
+// visit date is no age at all, not a negative one. (The FHSIS bands below are
+// this form's own and are NOT the DOH IPTR brackets; they stay here.)
 const ageAt = (birthday: string, on: Date): number | null => {
-  if (!birthday) return null;
-  const b = new Date(birthday);
-  if (Number.isNaN(b.getTime())) return null;
-  let age = on.getFullYear() - b.getFullYear();
-  const m = on.getMonth() - b.getMonth();
-  if (m < 0 || (m === 0 && on.getDate() < b.getDate())) age -= 1;
-  return age < 0 ? null : age;
+  const age = ageOn(birthday, on);
+  return age === null || age < 0 ? null : age;
 };
 
 /** The form's age bands, in printed order. `min`/`max` are inclusive years. */

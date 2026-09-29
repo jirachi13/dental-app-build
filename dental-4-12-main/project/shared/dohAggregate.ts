@@ -16,6 +16,8 @@
 // it with lean documents, and the types below are the intersection both sides
 // agree on.
 
+import { ageOn, ageBracketIndex, DOH_AGE_BRACKETS } from './age.js';
+
 export interface AggStudent {
   _id: string;
   school_id: string;
@@ -183,21 +185,15 @@ export const GRADE_ALL = '__all__';
  *  during 2026 when they are still 10, so roughly a twelfth of pupils landed
  *  one age bracket too high on a form submitted to the City Health Office. */
 export function ageAt(birthdate: string | Date, on: Date): number | null {
-  const b = new Date(birthdate);
-  if (Number.isNaN(b.getTime())) return null;
-  let age = on.getFullYear() - b.getFullYear();
-  const m = on.getMonth() - b.getMonth();
-  if (m < 0 || (m === 0 && on.getDate() < b.getDate())) age--;
-  return age;
+  // BUG-02: delegates to the one age rule in `age.ts`; kept under this name
+  // because the report code and its tests read it as "age AT examination".
+  return ageOn(birthdate, on);
 }
 
+/** The DOH form's bracket label — boundaries from `age.ts`, labels as printed. */
 function bracketOf(age: number | null): string {
-  if (age === null) return 'unknown';
-  if (age <= 4) return '4 yrs & below';
-  if (age <= 9) return '5-9 yrs';
-  if (age <= 14) return '10-14 yrs';
-  if (age <= 19) return '15-19 yrs';
-  return '20 yrs & above';
+  const i = ageBracketIndex(age);
+  return i === null ? 'unknown' : DOH_AGE_BRACKETS[i];
 }
 
 /** June 1 of a "YYYY-YYYY" school year — the anchor a pupil's age is reported

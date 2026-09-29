@@ -164,7 +164,7 @@ The browser pass was done against live data for that reason, read-only and savin
 Also open: SEC-04 (an empty `school_ids` still means "all schools"; SEC-18 fixed the instance, not
 the design) · SEC-19/SEC-20 (⚠ **check whether the grant is still load-bearing before narrowing it**
 — grep which hooks the two non-clinical roles' screens actually use) · SEC-30 (one dashboard
-look) · BUG-02, BUG-05, BUG-06, BUG-08, **BUG-14**, and the `dohAggregate.ts:207` school-year parse left from BUG-11.
+look) · BUG-05, BUG-06, BUG-08, **BUG-14**, and the `dohAggregate.ts:207` school-year parse left from BUG-11.
 
 ✅ **Closed:** SEC-05, SEC-06, SEC-07 (all NOT-A-BUG, with reasons) · BUG-00, BUG-01 (already fixed
 before the audit began) · **BUG-12 (fixed 09-14)** · **SEC-12 + SEC-22 + BUG-09 + BUG-10 + BUG-11 + BUG-13 (fixed 09-29; SEC-12 = `User.sessions_valid_from`, logout revokes all devices; BUG-10 changes `schoolYearEnd` to 23:59:59.999 — RPC 'tight'/'impossible' and the appointments fetch window both shift by up to a day, correctly; BUG-13 year strip now `DMFT 14 · dmft 2`, not browser-checked)** · SEC-01 re-verified against the API. **All three
@@ -175,7 +175,7 @@ seeded SEC rows are now re-verified**, so no ledger row rests on an unchecked cl
 **The audit program's build work is DONE — Track A, Track B 158-162, and the self-contained SEC/BUG
 fixes.** What remains is blocked on YOU, not on a sprint: **SEC-00** (a dev `.env` on this PC — it
 unblocks SEC-03/SEC-19 live checks), **SEC-30** (one Render dashboard look), **BUG-14** (the paper
-DOH form's referral rows), plus SEC-04, SEC-19/20, BUG-02/05/06/08 and the `dohAggregate.ts:207`
+DOH form's referral rows), plus SEC-04, BUG-05/06/08 and the `dohAggregate.ts:207`
 duplicate, all of which need reading before scoping.
 
 ### ▶ PLANNED: Sprint 163 — non-clinical roles stop reading clinical data (SEC-03/19/20/33/34)
@@ -213,34 +213,9 @@ data exists, the upcoming-visits list renders, the Internal tab has no referral 
 `/api/medical-histories` returns 403. Then log in as bho_staff: Dashboard renders, and every
 Reports tab renders per the Part B decision.
 
-### ▶ PLANNED: BUG-02 — one age rule (scoped 2026-09-29, nothing changed yet)
-
-Findings are in `LEDGER-bug.md` BUG-02: 8 age calculations, 6 bracket functions, and one wrong on
-screen today (the BHO dashboard's Age Bracket table). **~9 files, low-to-medium complexity, verified
-by `npm test` — needs NO live DB.** Execute on Opus medium; the arithmetic is simple, but the filed
-DOH figures sit on it.
-
-1. **`shared/age.ts` becomes the only definition.** Add `ageOn(birth: string | Date, on: Date =
-   new Date()): number | null` (null on empty or unparseable). `calculateAge(b)` = `ageOn(b)`.
-   Brackets are one boundary table with TWO label sets: the screen labels (`'5-9'`) and the DOH
-   form labels (`'5-9 yrs'`). ⚠ **The form labels must stay byte-identical**, because they key the
-   DOH report.
-2. **`dohAggregate.ts`**: `ageAt` and `bracketOf` delegate to it. **Its existing tests must pass
-   unchanged** — this is the proof that no filed figure moved.
-3. **`studentValidation.ts:ageOn`** delegates too. `validateBirthdate` already rejects an
-   unparseable date first, so null never reaches its comparisons; handle it anyway.
-4. **Delete the five local copies** (DentalChartNav, PatientList, TreatmentRecords, useAppointments,
-   DentalChart `computeAge`) and import from `utils/age`. DentalChart then prints "Age —" instead of
-   "Age 0" when the birthday is missing (CLAUDE.md: never a filler number).
-5. **BHO dashboard `bracketOf` (`Dashboard.tsx:1112`)**: use `ageOn` + the shared brackets. **Which
-   brackets — see the decision below.**
-6. **Tests:** replace the "three implementations must agree" block in `age.test.ts` with direct
-   cases: null on bad input, birthday-not-yet-this-year, every boundary (4/5, 9/10, 14/15, 19/20),
-   and both label sets.
-
-**DECIDED 2026-09-29 (item 5): the BHO Age Bracket table switches to the DOH brackets** — `4 &
-below / 5-9 / 10-14 / 15-19 / 20 & above`, the screen label set, the same as every other screen.
-The table goes from 3 rows to 5. **No decisions remain; the plan is ready to execute.**
+✅ **BUG-02 DONE 2026-09-29** — one age rule in `shared/age.ts`; 12 copies folded in (4 more than
+scoped). BHO Age Bracket table now the 5 DOH brackets. Details: `LEDGER-bug.md` BUG-02. Not
+browser-checked (needs a bho_staff login, SEC-00).
 
 Sprint 162's seam, for anyone touching these tabs: read-only values are plain props; anything a
 panel can CHANGE arrives in a named bundle (`addForm`; TAB 2 has `actions`, `palette`, `drafts`).

@@ -11,6 +11,7 @@ import { formatDate, toLocalDateString } from '../utils/localDate';
 import { FORM_SECTION_BAND } from '../utils/dohFormStyle';
 import { exportSheetsToXlsx } from '../utils/exportXlsx';
 import { FileSpreadsheet } from 'lucide-react';
+import { ageOn, ageBracketIndex, DOH_AGE_BRACKETS } from '../../../shared/age';
 
 // ─── Target Client List for Oral Health Care and Services ────────────────────
 // Transcribed from the manuscript's APPENDIX E (not D — Appendix D is the DMFX
@@ -53,7 +54,8 @@ import { FileSpreadsheet } from 'lucide-react';
 // session that DID read the file. Re-check the count against the workbook
 // before treating this table as complete.
 
-const AGE_GROUPS = ['4 yrs & below', '5-9 yrs', '10-14 yrs', '15-19 yrs', '20 yrs & above'];
+// The form's printed bracket labels — the shared DOH set (BUG-02), not a copy.
+const AGE_GROUPS: readonly string[] = DOH_AGE_BRACKETS;
 
 type Period = 'daily' | 'monthly' | 'quarterly' | 'annual';
 const PERIODS: { v: Period; l: string }[] = [
@@ -99,24 +101,14 @@ function periodRange(anchor: string, period: Period): { start: Date; end: Date; 
  *  only for a client with no recorded consultation — who is filtered out of
  *  every period anyway. */
 const ageFrom = (birthdate: string, on: string | null = null) => {
-  if (!birthdate) return null;
-  const b = new Date(birthdate);
-  if (Number.isNaN(b.getTime())) return null;
   const t = on ? new Date(on) : new Date();
   if (Number.isNaN(t.getTime())) return null;
-  let a = t.getFullYear() - b.getFullYear();
-  const m = t.getMonth() - b.getMonth();
-  if (m < 0 || (m === 0 && t.getDate() < b.getDate())) a--;
-  return a;
+  return ageOn(birthdate, t); // BUG-02: the one age rule
 };
 
 const ageGroupOf = (age: number | null) => {
-  if (age === null) return '';
-  if (age <= 4) return AGE_GROUPS[0];
-  if (age <= 9) return AGE_GROUPS[1];
-  if (age <= 14) return AGE_GROUPS[2];
-  if (age <= 19) return AGE_GROUPS[3];
-  return AGE_GROUPS[4];
+  const i = ageBracketIndex(age);
+  return i === null ? '' : AGE_GROUPS[i];
 };
 
 /** A column that exists on the paper form but has no data behind it yet. */

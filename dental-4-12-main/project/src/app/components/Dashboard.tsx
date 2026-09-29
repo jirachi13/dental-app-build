@@ -40,6 +40,7 @@ import { apiClient } from '../api/client';
 import type { ApiUser, ApiTreatment, ApiStudentIptr, ApiAuditTrail, ApiRiskStratification } from '../api/types';
 import { windowStart, AUDIT_WINDOW_DAYS } from '../hooks/useAuditTrail';
 import { treatmentCodes, treatmentLabel } from '../utils/dentalChartCodes';
+import { calculateAge, getAgeGroup, AGE_GROUPS } from '../utils/age';
 
 export const Dashboard = () => {
   const { user, selectedSchool } = useAuth();
@@ -1109,13 +1110,16 @@ export const Dashboard = () => {
     });
 
 
-    const bracketOf = (birthdate: string) => {
-      const age = new Date().getFullYear() - new Date(birthdate).getFullYear();
-      if (age <= 5) return '0-5 years';
-      if (age <= 14) return '6-14 years';
-      return '15-19 years';
-    };
-    const ageGroupData = ['0-5 years', '6-14 years', '15-19 years'].map((bracket) => {
+    // BUG-02 (2026-09-29): the shared age rule and the DOH brackets, as every
+    // other screen and the filed forms use. This used to be `year − birth year`
+    // (a year too old for anyone whose birthday had not come yet) bucketed into
+    // 0-5 / 6-14 / 15-19 with no 20+ row, so 20-year-olds and unreadable
+    // birthdates were both counted as 15-19. An unreadable birthdate now gets
+    // its own row, shown only when it has anyone in it, so the rows still sum
+    // to the total without guessing an age.
+    const bracketOf = (birthdate: string) => getAgeGroup(calculateAge(birthdate));
+    const unknownAgeCount = allStudentsRaw.filter((s) => bracketOf(s.birthdate) === 'Unknown').length;
+    const ageGroupData = [...AGE_GROUPS, ...(unknownAgeCount ? ['Unknown'] : [])].map((bracket) => {
       const inBracket = allStudentsRaw.filter((s) => bracketOf(s.birthdate) === bracket);
       return {
         bracket,
@@ -1274,7 +1278,7 @@ export const Dashboard = () => {
               <tbody className="divide-y divide-gray-100">
                 {ageGroupData.map((group, idx) => (
                   <tr key={idx}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{group.bracket}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{group.bracket === 'Unknown' ? 'Birthdate not recorded' : group.bracket}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{group.total}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-success font-medium">{group.orallyFit}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-destructive font-medium">{group.needsTreatment}</td>

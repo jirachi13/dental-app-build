@@ -5,12 +5,13 @@ import { usePendingWritesFor } from './useOfflineQueue';
 import { toLocalDateString, toLocalTimeString } from '../utils/localDate';
 import type { ApiAppointment, ApiStudent, ApiDentist, ApiSchool } from '../api/types';
 import { surnameFirst } from '../utils/studentName';
+import { calculateAge } from '../utils/age';
 
 export interface SessionStudent {
   id: string;
   name: string;
   gender: string;
-  age: number;
+  age: number | null;
   riskLevel: string | null;
   /** The underlying APPOINTMENT this pupil holds in the session (Sprint 109).
    *  Carried explicitly rather than read positionally out of
@@ -38,14 +39,7 @@ export interface AppointmentSession {
   pending?: boolean;
 }
 
-function calculateAge(birthdate: string) {
-  const today = new Date();
-  const birth = new Date(birthdate);
-  let age = today.getFullYear() - birth.getFullYear();
-  const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-  return age;
-}
+// calculateAge: the shared one (BUG-02) — null, not NaN, on a bad birthdate.
 
 function buildSessions(
   appointments: ApiAppointment[],

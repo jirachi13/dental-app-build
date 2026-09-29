@@ -10,26 +10,13 @@ import { apiClient } from '../api/client';
 import type { ApiStudentIptr, ApiTreatment } from '../api/types';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { activatable } from '../utils/a11y';
+import { calculateAge, getAgeGroup } from '../utils/age';
 import { Pagination, usePagination } from './Pagination';
 
 const GRADES = ['Kinder','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10'];
 
-const calculateAge = (birthdate: string) => {
-  const today = new Date();
-  const birth = new Date(birthdate);
-  let age = today.getFullYear() - birth.getFullYear();
-  const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-  return age;
-};
-
-const getAgeGroup = (age: number) => {
-  if (age <= 4) return '4 & below';
-  if (age <= 9) return '5-9';
-  if (age <= 14) return '10-14';
-  if (age <= 19) return '15-19';
-  return '20 & above';
-};
+// calculateAge / getAgeGroup: the shared ones (BUG-02) — the local copies here
+// filed a pupil with an unreadable birthdate under "20 & above".
 
 export const TreatmentRecords = () => {
   const navigate = useNavigate();
@@ -165,7 +152,7 @@ export const TreatmentRecords = () => {
                     <GradeTableCell grade={t.grade} />
                     <td className={studentListTableStyles.secondaryCell}>{t.section}</td>
                     <td className={studentListTableStyles.secondaryCell}>{t.gender}</td>
-                    <td className={studentListTableStyles.secondaryCell}>{age}</td>
+                    <td className={studentListTableStyles.secondaryCell}>{age ?? '—'}</td>
                   </tr>
                 );
               })}

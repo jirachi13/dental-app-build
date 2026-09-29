@@ -3,6 +3,7 @@ import { usePrintOrientation } from '../hooks/usePrintOrientation';
 import type { IptrYearData } from '../hooks/useDentalChartData';
 import { formatDate } from '../utils/localDate';
 import { surnameFirst } from '../utils/studentName';
+import { ageOn } from '../utils/age';
 import {
   upperPermanent,
   lowerPermanent,
@@ -125,14 +126,8 @@ export function IptrForm({ student, years, dentists }: Props) {
   const cols = Array.from({ length: YEAR_COLUMNS }, (_, i) => shown[i] ?? null);
 
   const age = (() => {
-    if (!student.birthday) return '';
-    const b = new Date(student.birthday);
-    if (Number.isNaN(b.getTime())) return '';
-    const now = new Date();
-    let a = now.getFullYear() - b.getFullYear();
-    const m = now.getMonth() - b.getMonth();
-    if (m < 0 || (m === 0 && now.getDate() < b.getDate())) a--;
-    return String(a);
+    const a = ageOn(student.birthday); // BUG-02: the one age rule
+    return a === null ? '' : String(a);
   })();
 
   const visits = years

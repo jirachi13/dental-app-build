@@ -54,7 +54,22 @@ sprint covers three modules. `dohAggregate`, `rpcTracking`, `riskCandidates`, `s
 
 ---
 
-### BUG-02 · `shared/age.ts`, `shared/dohAggregate.ts`, `shared/studentValidation.ts` · MED · OPEN
+### BUG-02 · `shared/age.ts`, `shared/dohAggregate.ts`, `shared/studentValidation.ts` · MED · ✅ FIXED 2026-09-29
+Resolved: `shared/age.ts` is the only age arithmetic and the only bracket-boundary table
+          (`ageOn`, `ageBracketIndex`, and two label sets: `AGE_GROUPS` for screens and
+          `DOH_AGE_BRACKETS` for forms). **TWELVE implementations folded into it, not eight**:
+          executing turned up four the scoping missed, all correct but duplicated —
+          `IptrForm.tsx`, `IptrFormV2.tsx`, `TargetClientList.tsx` (with its own copy of the DOH
+          labels) and `shared/fhsis.ts`. The FHSIS bands and the per-form row layouts in
+          `Reports.tsx`/`OralHealthProgramReport.tsx` stay: they are form structure keyed on the
+          label strings, which a new test now pins exactly.
+          Visible changes: the **BHO Age Bracket table is now the 5 DOH brackets** (user decision),
+          with real age arithmetic and a "Birthdate not recorded" row only when non-empty · the chart
+          and the chart/treatment lists print **"—" instead of "Age 0"/"NaN"** for a missing birthday
+          · an unreadable birthdate no longer files a pupil under "20 & above" in two filters.
+          **Proof no filed figure moved:** `dohAggregate.test.ts` and `studentValidation.test.ts`
+          are byte-unchanged and pass. tsc both configs, `npm test` 104/104, build clean.
+          **Not browser-checked**; the BHO dashboard needs a bho_staff login (SEC-00).
 Claim:    **There are THREE age implementations and TWO age-bracket implementations in `shared/`**,
           and every filed DOH figure is built on them.
 Evidence: `age.ts:calculateAge(birthdate)` → `number | null`, always relative to today ·

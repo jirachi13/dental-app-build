@@ -13,6 +13,7 @@ import { useAppointments } from '../hooks/useAppointments';
 import { useDentalChartData } from '../hooks/useDentalChartData';
 import { apiClient, ApiError } from '../api/client';
 import { toLocalDateString, formatDate } from '../utils/localDate';
+import { ageOn } from '../utils/age';
 import { schoolYearLabel } from '../utils/schoolYear';
 import { surnameFirst, surnameFirstWithInitial } from '../utils/studentName';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
@@ -464,15 +465,9 @@ export const DentalChart = () => {
   // staleness: viewing a 2025-2026 record showed the age the pupil is now, and
   // on a DOH form age at examination is clinical data. Anchored to that year's
   // charting date when one exists, otherwise to the start of that school year.
-  const computeAge = (birthday: string, on: Date) => {
-    if (!birthday) return 0;
-    const birth = new Date(birthday);
-    if (Number.isNaN(birth.getTime())) return 0;
-    let age = on.getFullYear() - birth.getFullYear();
-    const m = on.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && on.getDate() < birth.getDate())) age--;
-    return age;
-  };
+  // BUG-02: the shared `ageOn`. The local copy returned 0 for a missing or
+  // unreadable birthday, which printed "Age 0" — a fabricated value; it now
+  // prints "—".
 
   /** June 1 of a "YYYY-YYYY" school year. */
   const schoolYearAnchor = (sy: string | undefined): Date | null => {
@@ -1030,7 +1025,7 @@ export const DentalChart = () => {
     (years[selectedYear]?.dentalChart?.date_charted ? new Date(years[selectedYear].dentalChart.date_charted) : null)
     ?? schoolYearAnchor(years[selectedYear]?.iptr.school_year)
     ?? new Date();
-  const patientAge = computeAge(student.birthday, ageAnchor);
+  const patientAge = ageOn(student.birthday, ageAnchor);
 
   // Grade and section AS OF THE SELECTED SCHOOL YEAR (Sprint 57a). These used
   // to read `student.grade_level`, which is a single current value — so opening
@@ -1326,7 +1321,7 @@ export const DentalChart = () => {
                 </div>
                 <div>
                   <div className="font-bold text-foreground">{surnameFirstWithInitial(student)}</div>
-                  <div className="text-xs text-muted-foreground">{yearGradeLabel} • {student.sex} • Age {patientAge}</div>
+                  <div className="text-xs text-muted-foreground">{yearGradeLabel} • {student.sex} • Age {patientAge ?? '—'}</div>
                   <div className="flex items-center gap-2 mt-1">
                     {/* Nothing when the year has no recorded grade — the detail
                         line directly above already says so, and repeating it
@@ -1387,7 +1382,7 @@ export const DentalChart = () => {
                 // Her field ORDER, not just her fields: Birthday, Age, Place of
                 // Birth, Sex — then Address, Occupation, Contact.
                 ['Birthday', student.birthday ? formatDate(student.birthday) : '—'],
-                ['Age', `${patientAge} years`],
+                ['Age', patientAge === null ? '—' : `${patientAge} years`],
                 ['Place of Birth', student.place_of_birth || '—'],
                 ['Sex', student.sex],
                 ['Address', student.address],

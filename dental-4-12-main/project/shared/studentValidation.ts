@@ -32,14 +32,11 @@ export const MAX_NAME_LENGTH = 60;
 export const MIN_AGE_YEARS = 3;
 export const MAX_AGE_YEARS = 25;
 
-/** Age in whole years on `on`, from a yyyy-mm-dd string or Date. */
-export function ageOn(birth: string | Date, on: Date = new Date()): number {
-  const b = typeof birth === 'string' ? new Date(birth) : birth;
-  let age = on.getFullYear() - b.getFullYear();
-  const m = on.getMonth() - b.getMonth();
-  if (m < 0 || (m === 0 && on.getDate() < b.getDate())) age--;
-  return age;
-}
+// BUG-02: the age rule lives in `age.ts` alone. Re-exported so existing
+// imports of `ageOn` from this module keep working. It now returns null (not
+// NaN) on an unparseable date.
+import { ageOn } from './age.js';
+export { ageOn };
 
 /**
  * A birthday must be a real date, not in the future, and inside a plausible
@@ -57,6 +54,7 @@ export function validateBirthdate(value: string): string | null {
   const today = new Date();
   if (d.getTime() > today.getTime()) return 'Birthdate cannot be in the future.';
   const age = ageOn(d, today);
+  if (age === null) return `Birthdate "${value}" is not a real date.`; // unreachable after the check above
   if (age > MAX_AGE_YEARS) return `Birthdate gives an age of ${age} - check the year.`;
   if (age < MIN_AGE_YEARS) return `Birthdate gives an age of ${age} - check the year.`;
   return null;

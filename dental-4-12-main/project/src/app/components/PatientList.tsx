@@ -20,6 +20,7 @@ import { apiClient, ApiError } from '../api/client';
 import type { ApiSchool } from '../api/types';
 import { schoolYearLabel } from '../utils/schoolYear';
 import { Notice } from './Notice';
+import { calculateAge, getAgeGroup } from '../utils/age';
 // Re-applied on top of her file (Sprint 158). Sprints 120/121 added value
 // checks here and the SAME shared rules to the server and the bulk importer,
 // so the three cannot disagree about what a valid birthday is. Taking her
@@ -463,23 +464,8 @@ export const PatientList = () => {
     });
   };
 
-  const calculateAge = (birthdate: string) => {
-    const today = new Date(); const birth = new Date(birthdate);
-    if (isNaN(birth.getTime())) return null;
-    let age = today.getFullYear() - birth.getFullYear();
-    const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-    return age;
-  };
-
-  const getAgeGroup = (age: number | null) => {
-    if (age === null) return 'Unknown';
-    if (age <= 4) return '4 & below';
-    if (age <= 9) return '5-9';
-    if (age <= 14) return '10-14';
-    if (age <= 19) return '15-19';
-    return '20 & above';
-  };
+  // calculateAge / getAgeGroup are the shared ones (BUG-02); this component
+  // carried its own copies despite `utils/age.ts` saying it had given them up.
 
   const { students: allStudents, loading: studentsLoading, reload: reloadStudents } = useStudents();
 

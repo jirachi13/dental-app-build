@@ -21,9 +21,13 @@
 // They AGREE today. These tests pin them together so that if anyone changes
 // one, the disagreement fails loudly here instead of quietly in a report filed
 // with the City Health Office. Recorded as BUG-02.
+//
+// ⚠ BUG-02 FIXED 2026-09-29: `ageAt` and `ageOn` now DELEGATE to `age.ts`, so
+// the agreement below holds by construction. The tests stay as the guard
+// against anyone re-growing a copy.
 
 import { describe, it, expect } from 'vitest';
-import { calculateAge, getAgeGroup, AGE_GROUPS } from './age';
+import { calculateAge, getAgeGroup, AGE_GROUPS, DOH_AGE_BRACKETS, ageBracketIndex } from './age';
 import { ageAt } from './dohAggregate';
 import { ageOn } from './studentValidation';
 
@@ -111,13 +115,37 @@ describe('⚠ the three age implementations must agree', () => {
     }
   });
 
-  it('⚠ ageOn is the ODD ONE OUT on a bad date: NaN, where the others give null', () => {
-    // Pinned, not endorsed. It is safe TODAY only because validateBirthdate
-    // guards with Number.isNaN(d.getTime()) before ever calling ageOn. Any new
-    // caller that skips that guard gets NaN, and NaN silently fails every
-    // comparison rather than failing loudly. See BUG-02.
-    expect(Number.isNaN(ageOn('not-a-date', ON))).toBe(true);
-    expect(calculateAge('not-a-date')).toBeNull();
-    expect(ageAt('not-a-date', ON)).toBeNull();
+  it('all three give null on a bad or missing date — the NaN odd-one-out is gone (BUG-02 fixed)', () => {
+    // ageOn used to return NaN here, and five local copies elsewhere returned
+    // NaN or 0. NaN fails every comparison silently: it filed pupils under
+    // "20 & above" and "15-19". null is the one answer, everywhere.
+    for (const bad of ['not-a-date', '']) {
+      expect(ageOn(bad, ON), bad).toBeNull();
+      expect(calculateAge(bad), bad).toBeNull();
+      expect(ageAt(bad, ON), bad).toBeNull();
+    }
+    expect(ageOn(null, ON)).toBeNull();
+    expect(ageOn(undefined, ON)).toBeNull();
+  });
+});
+
+describe('ageBracketIndex / the two label sets (BUG-02)', () => {
+  it('both label sets index the SAME boundaries', () => {
+    expect(AGE_GROUPS.length).toBe(DOH_AGE_BRACKETS.length);
+    for (const [age, i] of [[0, 0], [4, 0], [5, 1], [9, 1], [10, 2], [14, 2], [15, 3], [19, 3], [20, 4], [99, 4]] as const) {
+      expect(ageBracketIndex(age), `age ${age}`).toBe(i);
+    }
+  });
+
+  it('an unknown age has no bracket — never the last one by fall-through', () => {
+    expect(ageBracketIndex(null)).toBeNull();
+    expect(ageBracketIndex(NaN)).toBeNull();
+    expect(getAgeGroup(NaN)).toBe('Unknown');
+  });
+
+  it('⚠ the DOH form labels are EXACTLY what the report tallies are keyed by', () => {
+    // Changing one of these re-keys a filed DOH figure. Change them only
+    // together with the form.
+    expect([...DOH_AGE_BRACKETS]).toEqual(['4 yrs & below', '5-9 yrs', '10-14 yrs', '15-19 yrs', '20 yrs & above']);
   });
 });

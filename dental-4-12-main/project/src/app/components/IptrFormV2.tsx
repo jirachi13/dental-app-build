@@ -2,6 +2,7 @@ import type { ApiStudent } from '../api/types';
 import { usePrintOrientation } from '../hooks/usePrintOrientation';
 import type { IptrYearData } from '../hooks/useDentalChartData';
 import { formatDate } from '../utils/localDate';
+import { ageOn } from '../utils/age';
 import { sectionBRows, type ChartedTooth } from '../../../shared/iptrSectionB';
 
 // ─── FORM 1 — INDIVIDUAL TREATMENT RECORD (Sprint 137) ─────────────────────
@@ -130,13 +131,8 @@ export function IptrFormV2({ student, schoolName, years }: Props) {
     if (!y || !student.birthday) return '';
     const startYear = Number(y.iptr.school_year.slice(0, 4));
     if (!Number.isFinite(startYear)) return '';
-    const on = new Date(startYear, 5, 1);
-    const b = new Date(student.birthday);
-    if (Number.isNaN(b.getTime())) return '';
-    let a = on.getFullYear() - b.getFullYear();
-    const m = on.getMonth() - b.getMonth();
-    if (m < 0 || (m === 0 && on.getDate() < b.getDate())) a--;
-    return a >= 0 ? String(a) : '';
+    const a = ageOn(student.birthday, new Date(startYear, 5, 1)); // BUG-02: the one age rule
+    return a !== null && a >= 0 ? String(a) : '';
   };
 
   /** ✓ present / ✗ absent, per the form's own "Check (/) if present (x) if
