@@ -459,7 +459,7 @@ export const Root = () => {
     // Elastic like the other rows: open, the group claims about 2.4 rows' worth of
     // the nav height (its own row plus the two children); closed, one row's worth.
     return (
-      <div className={`flex flex-col min-h-0 basis-0 ${isOpen && !collapsed ? 'flex-[2.4_1_0%]' : 'flex-[1_1_0%]'}`}>
+      <div className={`flex flex-col min-h-0 basis-0 ${isOpen && !collapsed ? 'flex-[2.4_1_0%] max-h-[7.5rem]' : 'flex-[1_1_0%] max-h-12'}`}>
         <Link
           to={studentsTab.path}
           onClick={onRowClick}
