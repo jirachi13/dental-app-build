@@ -13,6 +13,7 @@ import { PipelineStatusPill } from './PipelineStatusPill';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { useToast } from './Toast';
 import { Modal } from './Modal';
+import { CameraCapture } from './CameraCapture';
 import { activatable } from '../utils/a11y';
 import { ListSearchInput } from './ListSearchInput';
 import { addQueuedStudentId, getQueuedStudentIds, removeQueuedStudentId, setQueuedStudentIds as persistQueuedStudentIds } from '../utils/queueStorage';
@@ -116,6 +117,45 @@ const normalizeGrade = (g: string): string | null => {
   }
   return null;
 };
+
+// Shared by the bulk-import parser and the single-student OCR spreadsheet
+// path (2026-09-29) -- same header-normalized record shape either way, just
+// bulk import turns every row into a BulkRow and OCR only ever reads the
+// first one. Dynamic-imports exceljs, same bundle-protection as
+// exportToXlsx/handleParseBulk originally had inline.
+async function parseSpreadsheetRecords(file: File): Promise<Record<string, string>[]> {
+  const records: Record<string, string>[] = [];
+  if (/\.(xlsx|xls)$/i.test(file.name)) {
+    const ExcelJS = (await import('exceljs')).default ?? (await import('exceljs'));
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(await file.arrayBuffer());
+    const ws = wb.worksheets[0];
+    if (!ws) throw new Error('No worksheet found in the file.');
+    const headers: string[] = [];
+    ws.getRow(1).eachCell((cell, col) => { headers[col] = normalizeHeader(String(cell.value ?? '')); });
+    ws.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return;
+      const rec: Record<string, string> = {};
+      row.eachCell((cell, col) => {
+        if (headers[col]) rec[headers[col]] = (cell.text ? String(cell.text) : String(cell.value ?? '')).trim();
+      });
+      if (Object.values(rec).some((v) => v)) records.push(rec);
+    });
+  } else {
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).filter((l) => l.trim());
+    if (lines.length < 2) throw new Error('The file has a header but no data rows.');
+    const headers = parseCsvLine(lines[0]).map(normalizeHeader);
+    for (const line of lines.slice(1)) {
+      const vals = parseCsvLine(line);
+      const rec: Record<string, string> = {};
+      headers.forEach((h, i) => { rec[h] = vals[i] ?? ''; });
+      records.push(rec);
+    }
+  }
+  if (records.length === 0) throw new Error('No data rows found in the file.');
+  return records;
+}
 
 const buildBulkRow = (rec: Record<string, string>): BulkRow => {
   const get = (...keys: string[]) => { for (const k of keys) if (rec[k]) return rec[k]; return ''; };
@@ -255,12 +295,17 @@ export const PatientList = () => {
     setShowAddMenu((v) => !v);
   };
   const [showOcrUpload, setShowOcrUpload] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const [ocrProcessing, setOcrProcessing] = useState(false);
   const [ocrProgress, setOcrProgress] = useState(0);
   const [ocrError, setOcrError] = useState<string | null>(null);
   const [ocrConfidences, setOcrConfidences] = useState<Partial<Record<IptrOcrFieldKey, number>>>({});
   const [ocrFindings, setOcrFindings] = useState<IptrCheckboxFinding[]>([]);
   const [ocrFindingsNote, setOcrFindingsNote] = useState<string | null>(null);
+  // Which OCR entry point pre-filled the form -- drives the review banner's
+  // wording ("scanned form" vs "uploaded file") since a spreadsheet read has
+  // no scan confidence to caveat the way an image/PDF read does.
+  const [ocrSourceLabel, setOcrSourceLabel] = useState<'scanned form' | 'uploaded file' | null>(null);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [bulkFile, setBulkFile] = useState<File | null>(null);
   const [bulkPreview, setBulkPreview] = useState<BulkRow[]>([]);
@@ -284,37 +329,7 @@ export const PatientList = () => {
     if (!bulkFile) return;
     setBulkParseError(null);
     try {
-      let records: Record<string, string>[] = [];
-      if (/\.(xlsx|xls)$/i.test(bulkFile.name)) {
-        // same dynamic-import bundle protection as exportToXlsx
-        const ExcelJS = (await import('exceljs')).default ?? (await import('exceljs'));
-        const wb = new ExcelJS.Workbook();
-        await wb.xlsx.load(await bulkFile.arrayBuffer());
-        const ws = wb.worksheets[0];
-        if (!ws) throw new Error('No worksheet found in the file.');
-        const headers: string[] = [];
-        ws.getRow(1).eachCell((cell, col) => { headers[col] = normalizeHeader(String(cell.value ?? '')); });
-        ws.eachRow((row, rowNumber) => {
-          if (rowNumber === 1) return;
-          const rec: Record<string, string> = {};
-          row.eachCell((cell, col) => {
-            if (headers[col]) rec[headers[col]] = (cell.text ? String(cell.text) : String(cell.value ?? '')).trim();
-          });
-          if (Object.values(rec).some((v) => v)) records.push(rec);
-        });
-      } else {
-        const text = await bulkFile.text();
-        const lines = text.split(/\r?\n/).filter((l) => l.trim());
-        if (lines.length < 2) throw new Error('The file has a header but no data rows.');
-        const headers = parseCsvLine(lines[0]).map(normalizeHeader);
-        records = lines.slice(1).map((line) => {
-          const vals = parseCsvLine(line);
-          const rec: Record<string, string> = {};
-          headers.forEach((h, i) => { rec[h] = vals[i] ?? ''; });
-          return rec;
-        });
-      }
-      if (records.length === 0) throw new Error('No data rows found in the file.');
+      const records = await parseSpreadsheetRecords(bulkFile);
       setBulkPreview(records.map(buildBulkRow));
       setBulkStep('preview');
     } catch (err) {
@@ -668,6 +683,7 @@ export const PatientList = () => {
     setOcrConfidences({});
     setOcrFindings([]);
     setOcrFindingsNote(null);
+    setOcrSourceLabel(null);
   };
 
   // Gate between "form looks valid" and actually saving. birthdate/gender/
@@ -781,7 +797,7 @@ export const PatientList = () => {
       );
       setShowAddForm(false);
       setNewPatient(BLANK_NEW_PATIENT);
-      setOcrConfidences({}); setOcrFindings([]); setOcrFindingsNote(null);
+      setOcrConfidences({}); setOcrFindings([]); setOcrFindingsNote(null); setOcrSourceLabel(null);
       // Straight into the new record rather than back to the list — the next
       // thing anyone does after adding a student is open their chart.
       navigate(`/dental-chart/${created._id}?tab=history`);
@@ -837,6 +853,7 @@ export const PatientList = () => {
             ? `${result.unstorableFindings.length} ticked row${result.unstorableFindings.length === 1 ? '' : 's'} cannot be stored by this system: ${result.unstorableFindings.join(', ')}.`
             : null,
       );
+      setOcrSourceLabel('scanned form');
       setShowOcrUpload(false);
       setShowAddForm(true);
     } catch {
@@ -844,6 +861,63 @@ export const PatientList = () => {
     } finally {
       setOcrProcessing(false);
     }
+  };
+
+  // CSV/Excel path for the same "Scan Form (OCR)" entry point (user,
+  // 2026-09-29 — designed on the OCR Student Intake canvas): reuses the bulk
+  // importer's own header-normalized parsing (parseSpreadsheetRecords) but
+  // only ever reads the FIRST data row, since this is one student, not a
+  // roster. No OCR confidence applies to a direct read of typed text, so
+  // fields are filled with no yellow/green highlight -- ocrConfidences stays
+  // empty and ocrSourceLabel drives the review banner text instead. Grade and
+  // Section ARE read here, unlike the printed-form path: that exclusion is
+  // specifically because the IPTR paper form has no such field to read, not
+  // a rule against ever accepting them from a source that does have them.
+  const handleOcrSpreadsheet = async (file: File) => {
+    setOcrError(null);
+    setOcrProcessing(true);
+    setOcrProgress(0);
+    try {
+      const [rec] = await parseSpreadsheetRecords(file);
+      const get = (...keys: string[]) => { for (const k of keys) if (rec[k]) return rec[k]; return ''; };
+      const sexRaw = get('sex', 'gender');
+      const gradeRaw = get('grade_level', 'grade', 'gradelevel');
+      const philhealth = get('philhealth_number', 'philhealthnumber', 'philhealth_no', 'philhealth');
+      setNewPatient((prev) => ({
+        ...prev,
+        lastName: get('last_name', 'lastname', 'surname') || prev.lastName,
+        firstName: get('first_name', 'firstname', 'given_name') || prev.firstName,
+        middleName: get('middle_name', 'middlename') || prev.middleName,
+        birthdate: get('birthday', 'birthdate', 'birth_date', 'date_of_birth') || prev.birthdate,
+        gender: normalizeSex(sexRaw) ?? prev.gender,
+        grade: (gradeRaw ? normalizeGrade(gradeRaw) : null) ?? prev.grade,
+        section: get('section') || prev.section,
+        placeOfBirth: get('place_of_birth', 'placeofbirth', 'birthplace') || prev.placeOfBirth,
+        address: get('address') || prev.address,
+        contactNumber: get('contact_number', 'contact', 'contactnumber', 'phone') || prev.contactNumber,
+        guardianName: get('guardian_name', 'guardianname', 'parent_name') || prev.guardianName,
+        guardianContact: get('guardian_contact', 'guardiancontact', 'guardian_contact_number') || prev.guardianContact,
+        guardianOccupation: get('occupation', 'guardian_occupation') || prev.guardianOccupation,
+        philhealthNumber: philhealth || prev.philhealthNumber,
+      }));
+      setOcrConfidences({});
+      setOcrFindings([]);
+      setOcrFindingsNote(null);
+      setOcrSourceLabel('uploaded file');
+      setShowOcrUpload(false);
+      setShowAddForm(true);
+    } catch (err) {
+      setOcrError(err instanceof Error ? err.message : 'Could not read the file. Check the column headers and try again.');
+    } finally {
+      setOcrProcessing(false);
+    }
+  };
+
+  // Single entry point the dropzone/file-input/camera all call — routes by
+  // what the file actually is rather than making the user pick a path twice.
+  const handleOcrEntry = (file: File) => {
+    if (/\.(csv|xlsx|xls)$/i.test(file.name)) void handleOcrSpreadsheet(file);
+    else void handleOcrFile(file);
   };
 
   const ocrFieldClass = (key: IptrOcrFieldKey) => {
@@ -1226,7 +1300,7 @@ export const PatientList = () => {
                   className="fixed z-50 w-64 overflow-hidden rounded-2xl border border-border bg-card shadow-lg"
                 >
                   <button
-                    onClick={() => { setShowAddMenu(false); setOcrConfidences({}); setOcrFindings([]); setOcrFindingsNote(null); setShowAddForm(true); }}
+                    onClick={() => { setShowAddMenu(false); setOcrConfidences({}); setOcrFindings([]); setOcrFindingsNote(null); setOcrSourceLabel(null); setShowAddForm(true); }}
                     className="flex w-full items-start gap-3 px-3.5 py-3 text-left hover:bg-canvas"
                   >
                     <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-surface text-primary">
@@ -1720,31 +1794,68 @@ export const PatientList = () => {
         </Modal>
       )}
 
-      {/* Upload IPTR Form Modal (upload → OCR; no camera, see backlog 0e) */}
+      {/* Scan Form (OCR) modal -- upload OR camera capture (2026-09-29,
+          designed on the OCR Student Intake canvas; supersedes the
+          upload-only "no camera, see backlog 0e" version). Photos/PDFs go
+          through Tesseract; CSV/Excel are read directly by column header
+          (handleOcrEntry routes by file type) — either way nothing saves
+          until reviewed on the Add Student form that opens next. */}
       {showOcrUpload && (
         <Modal onClose={() => setShowOcrUpload(false)} closeDisabled={ocrProcessing}>
             <div className="flex items-center justify-between p-6 border-b">
-              <h2 className="text-lg font-bold text-foreground">Upload IPTR Form</h2>
+              <h2 className="text-lg font-bold text-foreground">Scan a Student Form</h2>
               <button onClick={() => setShowOcrUpload(false)} className="text-muted-foreground hover:text-muted-foreground"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-6 space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
-                <FileText className="w-3.5 h-3.5 inline mr-1" />
-                Upload a clear photo, scan (JPG/PNG), or PDF of the paper IPTR form. Name, birthday, age, sex, address, contact number, grade level, and section will be extracted automatically — you'll review and correct before saving.
-              </div>
               {!ocrProcessing ? (
-                <div
-                  className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"
-                  onClick={() => document.getElementById('ocr-file-input')?.click()}
-                  onDragOver={e => e.preventDefault()}
-                  onDrop={e => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) handleOcrFile(file); }}
-                >
-                  <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground font-medium">Drop IPTR image here</p>
-                  <p className="text-xs text-muted-foreground mt-1">or click to browse</p>
-                  <input id="ocr-file-input" type="file" accept="image/png,image/jpeg,image/jpg,application/pdf" className="hidden"
-                    onChange={e => { if (e.target.files?.[0]) handleOcrFile(e.target.files[0]); }} />
-                </div>
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => { setShowOcrUpload(false); setShowCamera(true); }}
+                      className="flex flex-col gap-2 rounded-xl border-2 border-border p-4 text-left hover:border-primary transition-colors"
+                    >
+                      <span className="flex items-center gap-2 font-semibold text-sm text-foreground">
+                        <ScanLine className="w-4 h-4 text-primary" /> Take a Photo
+                      </span>
+                      <span className="text-xs text-muted-foreground">Use this device's camera to capture the form.</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('ocr-file-input')?.click()}
+                      className="flex flex-col gap-2 rounded-xl border-2 border-border p-4 text-left hover:border-primary transition-colors"
+                    >
+                      <span className="flex items-center gap-2 font-semibold text-sm text-foreground">
+                        <Upload className="w-4 h-4 text-primary" /> Upload a File
+                      </span>
+                      <span className="text-xs text-muted-foreground">Photo, scan, PDF, or a CSV/Excel export.</span>
+                    </button>
+                  </div>
+                  <div
+                    className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"
+                    onClick={() => document.getElementById('ocr-file-input')?.click()}
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) handleOcrEntry(file); }}
+                  >
+                    <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground font-medium">Drop a file here</p>
+                    <p className="text-xs text-muted-foreground mt-1">or click to browse</p>
+                    <div className="flex flex-wrap justify-center gap-1.5 mt-3">
+                      {['.jpg', '.jpeg', '.png', '.pdf', '.xlsx', '.csv'].map((ext) => (
+                        <span key={ext} className="text-[11px] font-semibold text-muted-foreground bg-muted rounded-full px-2.5 py-0.5">{ext}</span>
+                      ))}
+                    </div>
+                    <input
+                      id="ocr-file-input" type="file" className="hidden"
+                      accept="image/png,image/jpeg,image/jpg,application/pdf,text/csv,.csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                      onChange={e => { if (e.target.files?.[0]) handleOcrEntry(e.target.files[0]); }}
+                    />
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
+                    <FileText className="w-3.5 h-3.5 inline mr-1" />
+                    Photos, scans and PDFs are read with OCR against the printed DOH IPTR layout — name, birthday, sex, address, contact number and PhilHealth # are extracted (grade and section have no printed field, so they stay typed). A CSV or Excel file is read directly by its column headers instead, and can include grade/section if the file has them. Either way, you review and correct everything before saving.
+                  </div>
+                </>
               ) : (
                 <div className="p-8 text-center">
                   <div className="w-10 h-10 border-4 border-blue-200 border-t-primary rounded-full animate-spin mx-auto mb-3" />
@@ -1754,6 +1865,13 @@ export const PatientList = () => {
               {ocrError && <p className="text-sm text-destructive">{ocrError}</p>}
             </div>
         </Modal>
+      )}
+
+      {showCamera && (
+        <CameraCapture
+          onClose={() => setShowCamera(false)}
+          onCapture={(file) => { setShowCamera(false); handleOcrEntry(file); }}
+        />
       )}
 
       {/* Add Student Modal. maxWidth is max-w-4xl, not max-w-2xl — the
@@ -1845,7 +1963,17 @@ export const PatientList = () => {
               {Object.keys(ocrConfidences).length > 0 && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700 flex items-start gap-2">
                   <ScanLine className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                  <span>Pre-filled from scanned IPTR form. Fields outlined in yellow had low scan confidence — double-check them before saving.</span>
+                  <span>Pre-filled from a scanned form. Fields outlined in yellow had low scan confidence — double-check them before saving.</span>
+                </div>
+              )}
+              {/* Spreadsheet path has no scan confidence to caveat — it's a
+                  direct read of typed text, not a probabilistic OCR guess —
+                  so it gets its own banner instead of piggybacking on the
+                  yellow/green field-confidence one above. */}
+              {ocrSourceLabel === 'uploaded file' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700 flex items-start gap-2">
+                  <ScanLine className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  <span>Pre-filled from the uploaded file's columns. Compare against the source and correct anything before saving.</span>
                 </div>
               )}
               {/* Medical / dietary / oral findings read off the form's Year 1-5
