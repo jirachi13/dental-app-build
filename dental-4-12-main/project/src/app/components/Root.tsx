@@ -604,7 +604,10 @@ export const Root = () => {
         // Treatment Queue card's corner once that card's own bottom edge
         // landed level with the sidebar's. 20px keeps the floating-card
         // look without the bleed.
-        className={`bg-sidebar-bg flex flex-col fixed left-0 top-0 h-screen z-[70]
+        // Gradient fill (user, 2026-09-29): a soft lighter-navy glow from the top-left
+        // fading into the sidebar navy and then a deeper navy at the bottom.
+        style={{ background: 'radial-gradient(120% 60% at 0% 0%, #26367A 0%, #17234D 55%, #0F1838 100%)' }}
+        className={`flex flex-col fixed left-0 top-0 h-screen z-[70]
           md:left-5 md:top-5 md:bottom-5 md:h-auto md:rounded-[24px] md:border md:border-white/10 md:shadow-[0_15px_20px_rgba(15,23,42,0.22)]
           w-[238px] transition-transform duration-200
           ${drawerOpen ? 'translate-x-0 visible' : '-translate-x-full invisible'}
