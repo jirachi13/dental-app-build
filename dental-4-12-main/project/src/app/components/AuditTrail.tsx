@@ -20,12 +20,22 @@ const ModulePill = ({ children }: { children: string }) => (
   <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-[#DCE3F5] bg-[#F4F7FF] text-xs font-bold text-[#273A78]">{children}</span>
 );
 
-const UserCell = ({ name }: { name: string }) => (
+const UserCell = ({ name, role }: { name: string; role: string }) => (
   <div className="flex items-center gap-3">
     <span className="w-10 h-10 flex-shrink-0 rounded-xl grid place-items-center bg-[#F4F7FF] text-[#273A78] text-sm font-bold">{name.trim().charAt(0).toUpperCase()}</span>
-    <div className="text-sm font-bold text-foreground">{name}</div>
+    <div className="min-w-0">
+      <div className="text-sm font-bold text-foreground">{name}</div>
+      {role && <div className="text-xs text-muted-foreground">{role}</div>}
+    </div>
   </div>
 );
+
+/** The stored action is one string like "Created Student". Split it so the verb
+ *  reads as the title and the rest as the detail line, with no invented text. */
+const splitAction = (action: string, module: string) => {
+  const [verb, ...rest] = action.trim().split(/\s+/);
+  return { title: verb || action, detail: rest.join(' ') || module };
+};
 
 export const AuditTrail = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -225,9 +235,10 @@ export const AuditTrail = () => {
                   const when = new Date(log.timestamp);
                   return (
                     <tr key={log.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap"><UserCell name={log.user} /></td>
+                      <td className="px-6 py-4 whitespace-nowrap"><UserCell name={log.user} role={log.userRole} /></td>
                       <td className="px-6 py-4">
-                        <span className={`text-sm font-bold ${getActionColor(log.action)}`}>{log.action}</span>
+                        <div className={`text-sm font-bold ${getActionColor(log.action)}`}>{splitAction(log.action, log.module).title}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{splitAction(log.action, log.module).detail}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap"><ModulePill>{log.module}</ModulePill></td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
@@ -251,10 +262,13 @@ export const AuditTrail = () => {
             {filteredLogs.map((log) => (
               <div key={log.id} className="p-4 space-y-3">
                 <div className="flex items-start justify-between gap-3">
-                  <UserCell name={log.user} />
+                  <UserCell name={log.user} role={log.userRole} />
                   <ModulePill>{log.module}</ModulePill>
                 </div>
-                <div className={`text-sm font-bold ${getActionColor(log.action)}`}>{log.action}</div>
+                <div>
+                  <div className={`text-sm font-bold ${getActionColor(log.action)}`}>{splitAction(log.action, log.module).title}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{splitAction(log.action, log.module).detail}</div>
+                </div>
                 <div className="text-xs text-muted-foreground">{formatTimestamp(log.timestamp)}</div>
                 <div className="text-xs text-muted-foreground font-mono">{log.affectedRecordId}</div>
               </div>
