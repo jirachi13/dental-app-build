@@ -252,15 +252,15 @@ export const AuditTrail = () => {
         {/* Desktop table */}
         {filteredLogs.length > 0 && (
           <div className="hidden lg:block overflow-x-auto border-t border-border">
-            <table className="w-full table-fixed min-w-[1000px]">
+            <table className="w-full">
               <thead className="bg-gray-50 border-b border-border">
                 <tr>
-                  <th className={TH} style={{ width: '22%' }}>User</th>
-                  <th className={TH} style={{ width: '18%' }}>Activity</th>
-                  <th className={TH} style={{ width: '18%' }}>Module</th>
-                  <th className={TH} style={{ width: '15%' }}>Date</th>
-                  <th className={TH} style={{ width: '9%' }}>Time</th>
-                  <th className={TH} style={{ width: '18%' }}>Record ID</th>
+                  <th className={`${TH} whitespace-nowrap`}>User</th>
+                  <th className={`${TH} whitespace-nowrap`}>Activity</th>
+                  <th className={`${TH} whitespace-nowrap`}>Module</th>
+                  <th className={`${TH} whitespace-nowrap`}>Date</th>
+                  <th className={`${TH} whitespace-nowrap`}>Time</th>
+                  <th className={`${TH} w-full`}>Record ID</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -269,7 +269,7 @@ export const AuditTrail = () => {
                   return (
                     <tr key={log.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap"><UserCell name={log.user} role={log.userRole} /></td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className={`text-sm font-bold ${getActionColor(log.action)}`}>{splitAction(log.action, log.module).title}</div>
                         <div className="text-xs text-muted-foreground mt-0.5">{splitAction(log.action, log.module).detail}</div>
                       </td>
