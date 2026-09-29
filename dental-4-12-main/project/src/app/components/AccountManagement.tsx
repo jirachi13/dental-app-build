@@ -493,7 +493,7 @@ export const AccountManagement = () => {
             <span className="w-12 h-12 rounded-xl grid place-items-center bg-[#F4F7FF] text-[#273A78] flex-shrink-0"><Users className="w-5 h-5" /></span>
             <div>
               <div className="text-xl font-bold text-foreground">System Users</div>
-              <div className="text-base text-muted-foreground">Review and manage user accounts.</div>
+              <div className="text-sm text-muted-foreground">Review and manage user accounts.</div>
             </div>
           </div>
           <span className="px-4 py-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-xs font-bold text-[#64748B]">{filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'} found</span>
