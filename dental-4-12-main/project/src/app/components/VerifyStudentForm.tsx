@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from './Toast';
 import { useSchools } from '../hooks/useSchools';
+import { PreviewModal } from './PreviewModal';
 import { apiClient, ApiError } from '../api/client';
 import { schoolYearLabel } from '../utils/schoolYear';
 import { GRADES } from './PromoteAssign';
@@ -67,6 +68,7 @@ export const VerifyStudentForm = () => {
   const [error, setError] = useState<string | null>(null);
   const [missing, setMissing] = useState<Set<keyof NewPatientForm>>(new Set());
   const [duplicates, setDuplicates] = useState<DuplicateCandidate[] | null>(null);
+  const [showSourcePreview, setShowSourcePreview] = useState(false);
 
   // No handoff (direct visit, or a page refresh -- router state doesn't
   // survive one) means there's nothing to verify.
@@ -194,7 +196,13 @@ export const VerifyStudentForm = () => {
           </div>
           <div style={{ fontSize: '0.78125rem', fontWeight: 600, wordBreak: 'break-word' }}>{handoff.sourceFileName}</div>
           {handoff.sourcePreviewUrl && (
-            <a href={handoff.sourcePreviewUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.78125rem', color: '#273A78', fontWeight: 600, textDecoration: 'none' }}>View full size &rarr;</a>
+            <button
+              type="button"
+              onClick={() => setShowSourcePreview(true)}
+              style={{ fontSize: '0.78125rem', color: '#273A78', fontWeight: 600, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+            >
+              View full size &rarr;
+            </button>
           )}
         </div>
 
@@ -333,6 +341,21 @@ export const VerifyStudentForm = () => {
           {saving ? 'Saving…' : 'Confirm & Save Student'}
         </button>
       </div>
+
+      <PreviewModal
+        open={showSourcePreview}
+        kind="image"
+        title={handoff.sourceFileName}
+        url={handoff.sourcePreviewUrl}
+        onClose={() => setShowSourcePreview(false)}
+        onDownload={() => {
+          if (!handoff.sourcePreviewUrl) return;
+          const a = document.createElement('a');
+          a.href = handoff.sourcePreviewUrl;
+          a.download = handoff.sourceFileName;
+          a.click();
+        }}
+      />
     </div>
   );
 };

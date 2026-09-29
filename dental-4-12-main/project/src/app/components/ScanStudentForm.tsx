@@ -34,12 +34,13 @@ export const ScanStudentForm = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [file, setFile] = useState<File | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<'photo' | 'file' | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  const pickFile = (f: File) => { setError(null); setFile(f); };
+  const pickFile = (f: File) => { setError(null); setFile(f); setSelectedMethod('file'); };
 
   const extract = async () => {
     if (!file) return;
@@ -129,35 +130,48 @@ export const ScanStudentForm = () => {
         </div>
       </div>
 
-      {/* Two entry options */}
+      {/* Two entry options -- hoverable, and the clicked one gets the dark
+          blue fill (user, 2026-09-29). Neither tile is "selected" by
+          default; picking one is what starts that action (camera / file
+          picker) AND marks it. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
-        <button
-          type="button"
-          onClick={() => setShowCamera(true)}
-          style={{ boxSizing: 'border-box', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '0.625rem', padding: '1.5rem', background: '#fff', border: '0.125rem solid #273A78', borderRadius: '1rem', boxShadow: '0 0.0625rem 0.125rem rgba(15,23,42,0.06)', textAlign: 'left', font: 'inherit', color: 'inherit' }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{ width: '2.75rem', height: '2.75rem', borderRadius: '0.75rem', background: '#F4F7FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="18.7" height="18.7" viewBox="0 0 24 24" fill="none" stroke="#273A78" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.5"/></svg>
-            </div>
-            <div style={{ fontSize: '1rem', fontWeight: 700 }}>Take a Photo</div>
-          </div>
-          <div style={{ fontSize: '0.8125rem', color: '#67687A', textAlign: 'left' }}>Use this device's camera to capture the form directly.</div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          style={{ boxSizing: 'border-box', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '0.625rem', padding: '1.5rem', background: '#fff', border: '0.125rem solid #E2E8F0', borderRadius: '1rem', boxShadow: '0 0.0625rem 0.125rem rgba(15,23,42,0.06)', textAlign: 'left', font: 'inherit', color: 'inherit' }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{ width: '2.75rem', height: '2.75rem', borderRadius: '0.75rem', background: '#ECECF0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="18.7" height="18.7" viewBox="0 0 24 24" fill="none" stroke="#141413" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
-            </div>
-            <div style={{ fontSize: '1rem', fontWeight: 700 }}>Upload a File</div>
-          </div>
-          <div style={{ fontSize: '0.8125rem', color: '#67687A', textAlign: 'left' }}>Choose an existing photo, scan, spreadsheet or document.</div>
-        </button>
+        {(['photo', 'file'] as const).map((method) => {
+          const active = selectedMethod === method;
+          const isPhoto = method === 'photo';
+          return (
+            <button
+              key={method}
+              type="button"
+              className="transition-shadow hover:shadow-md"
+              onClick={() => {
+                setSelectedMethod(method);
+                if (isPhoto) setShowCamera(true); else fileInputRef.current?.click();
+              }}
+              style={{
+                boxSizing: 'border-box', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '0.625rem',
+                padding: '1.5rem', borderRadius: '1rem', boxShadow: '0 0.0625rem 0.125rem rgba(15,23,42,0.06)',
+                textAlign: 'left', font: 'inherit',
+                background: active ? '#273A78' : '#fff',
+                color: active ? '#fff' : 'inherit',
+                border: active ? '0.125rem solid #273A78' : '0.125rem solid #E2E8F0',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ width: '2.75rem', height: '2.75rem', borderRadius: '0.75rem', background: active ? 'rgba(255,255,255,0.16)' : (isPhoto ? '#F4F7FF' : '#ECECF0'), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {isPhoto ? (
+                    <svg width="18.7" height="18.7" viewBox="0 0 24 24" fill="none" stroke={active ? '#fff' : '#273A78'} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.5"/></svg>
+                  ) : (
+                    <svg width="18.7" height="18.7" viewBox="0 0 24 24" fill="none" stroke={active ? '#fff' : '#141413'} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+                  )}
+                </div>
+                <div style={{ fontSize: '1rem', fontWeight: 700 }}>{isPhoto ? 'Take a Photo' : 'Upload a File'}</div>
+              </div>
+              <div style={{ fontSize: '0.8125rem', color: active ? 'rgba(255,255,255,0.75)' : '#67687A', textAlign: 'left' }}>
+                {isPhoto ? "Use this device's camera to capture the form directly." : 'Choose an existing photo, scan, spreadsheet or document.'}
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {/* Dropzone / selected file */}

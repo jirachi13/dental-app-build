@@ -5,7 +5,7 @@ import { X, ExternalLink, Download, Loader2 } from 'lucide-react';
 // FLORAL's files are generated client-side (jsPDF / exceljs), not fetched
 // from a URL, so the blob is built first and handed to this modal as an
 // object URL -- the actual save only happens once the user clicks Download.
-export type PreviewKind = 'pdf' | 'excel';
+export type PreviewKind = 'pdf' | 'excel' | 'image';
 
 interface PreviewModalProps {
   open: boolean;
@@ -38,7 +38,7 @@ export function PreviewModal({ open, kind, title, url, onClose, onDownload }: Pr
     >
       <div
         className={`flex max-h-[90vh] w-full flex-col overflow-hidden rounded-2xl bg-card shadow-2xl ${
-          kind === 'pdf' ? 'max-w-5xl' : 'max-w-md'
+          kind === 'pdf' || kind === 'image' ? 'max-w-5xl' : 'max-w-md'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -72,6 +72,10 @@ export function PreviewModal({ open, kind, title, url, onClose, onDownload }: Pr
                 Excel workbooks can't be previewed in the browser. Download it to open in Excel or Sheets.
               </p>
             </div>
+          )}
+
+          {url && kind === 'image' && (
+            <img src={url} alt={title} className="mx-auto max-h-[75vh] w-auto rounded-lg object-contain" />
           )}
         </div>
 
