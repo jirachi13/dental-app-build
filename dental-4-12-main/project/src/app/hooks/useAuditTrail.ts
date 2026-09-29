@@ -13,6 +13,8 @@ export interface AuditLogRow {
   action: string;
   module: string; // affected_model, e.g. "Student", "Appointment"
   affectedRecordId: string;
+  /** Student whose record the entry touched, '' when it is not patient-linked. */
+  subject: string;
 }
 
 /** Default window, in days. The audit trail has no natural boundary the way
@@ -51,9 +53,12 @@ export function useAuditTrail(from: Date | null = windowStart()) {
     beginLoad();
     try {
       const query = fromKey ? `?from=${encodeURIComponent(fromKey)}` : '';
-      const [entries, users] = await Promise.all([
+      const [entries, users, subjects] = await Promise.all([
         apiClient.get<ApiAuditTrail[]>(`/audit-trails${query}`),
         apiClient.get<ApiUser[]>('/users'),
+        // Whose record each entry touched. Optional: the trail still renders
+        // without names if this call fails.
+        apiClient.get<Record<string, string>>(`/audit-subjects${query}`).catch(() => ({} as Record<string, string>)),
       ]);
       const userNameById = new Map(users.map((u) => [u._id, u.full_name]));
       const userRoleById = new Map(users.map((u) => [u._id, ROLE_LABELS[u.role] ?? u.role]));
@@ -67,6 +72,7 @@ export function useAuditTrail(from: Date | null = windowStart()) {
           action: e.action,
           module: e.affected_model,
           affectedRecordId: e.affected_record_id,
+          subject: subjects[e.affected_record_id] ?? '',
         }))
         .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 

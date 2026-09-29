@@ -70,11 +70,19 @@ const UserCell = ({ name, role }: { name: string; role: string }) => (
 /** The stored action is one code-written string ("Created Student",
  *  "Created RiskStratification (dentist validated: ...)"). Turn it into a bold
  *  title plus ONE short sentence. Only what the string already says is used. */
-const CRUD_VERBS: Record<string, (thing: string, an: string) => string> = {
-  Created: (t, an) => `Created ${an} new ${t} record.`,
-  Updated: (t, an) => `Updated ${an} ${t} record.`,
-  Archived: (t, an) => `Archived ${an} ${t} record.`,
-  Restored: (t, an) => `Restored ${an} archived ${t} record.`,
+const CRUD_VERBS: Record<string, (thing: string, an: string, who: string) => string> = {
+  Created: (t, an, who) => `Created ${an} new ${t}${who ? ` for ${who}` : ''}.`,
+  Updated: (t, an, who) => (who ? `Updated the ${t} of ${who}.` : `Updated ${an} ${t}.`),
+  Archived: (t, an, who) => (who ? `Archived the ${t} of ${who}.` : `Archived ${an} ${t}.`),
+  Restored: (t, an, who) => (who ? `Restored the ${t} of ${who}.` : `Restored ${an} archived ${t}.`),
+};
+
+/** How a stored model name reads inside a sentence. */
+const thingName = (model: string) => {
+  const h = humanize(model).toLowerCase();
+  if (h === 'student iptr') return 'IPTR';
+  if (h === 'student') return 'student record';
+  return /record$/.test(h) ? h : `${h} record`;
 };
 
 const FIXED_SENTENCES: Record<string, string> = {
@@ -91,12 +99,24 @@ const FIXED_SENTENCES: Record<string, string> = {
 
 const aOrAn = (word: string) => (/^[aeiou]/i.test(word) ? 'an' : 'a');
 
-const splitAction = (action: string, module: string) => {
+const splitAction = (action: string, module: string, subject = '') => {
   const clean = action.trim();
   const base = clean.replace(/\s*\(.*$/, '').trim();
   const [verb, model] = base.split(/\s+/);
 
   if (FIXED_SENTENCES[base]) return { title: base, detail: FIXED_SENTENCES[base] };
+
+  if (CRUD_VERBS[verb]) {
+    if (/dentist validated/i.test(clean)) {
+      return { title: verb, detail: subject ? `Dentist validated a risk assessment for ${subject}.` : 'Dentist validated a risk assessment.' };
+    }
+    const thing = thingName(model || module);
+    return { title: verb, detail: CRUD_VERBS[verb](thing, aOrAn(thing), subject) };
+  }
+
+  // Unknown action: keep it short and readable rather than dumping the raw string.
+  return { title: base || clean, detail: `${humanize(module)} activity.` };
+};
 
   if (CRUD_VERBS[verb]) {
     const thing = humanize(model || module).toLowerCase();
@@ -312,11 +332,11 @@ export const AuditTrail = () => {
                     <tr key={log.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap"><UserCell name={log.user} role={log.userRole} /></td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className={`text-sm font-bold ${getActionColor(log.action)}`}>{splitAction(log.action, log.module).title}</div>
+                        <div className={`text-sm font-bold ${getActionColor(log.action)}`}>{splitAction(log.action, log.module, log.subject).title}</div>
                         <div
-                          className="text-xs text-muted-foreground mt-0.5 max-w-[18rem] truncate"
-                          title={splitAction(log.action, log.module).detail}
-                        >{splitAction(log.action, log.module).detail}</div>
+                          className="text-[11px] text-muted-foreground mt-0.5 max-w-full truncate"
+                          title={splitAction(log.action, log.module, log.subject).detail}
+                        >{splitAction(log.action, log.module, log.subject).detail}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap"><ModulePill>{log.module}</ModulePill></td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
@@ -344,8 +364,8 @@ export const AuditTrail = () => {
                   <ModulePill>{log.module}</ModulePill>
                 </div>
                 <div>
-                  <div className={`text-sm font-bold ${getActionColor(log.action)}`}>{splitAction(log.action, log.module).title}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">{splitAction(log.action, log.module).detail}</div>
+                  <div className={`text-sm font-bold ${getActionColor(log.action)}`}>{splitAction(log.action, log.module, log.subject).title}</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">{splitAction(log.action, log.module, log.subject).detail}</div>
                 </div>
                 <div className="text-xs text-muted-foreground">{formatTimestamp(log.timestamp)}</div>
                 <div className="text-xs text-muted-foreground font-mono">{log.affectedRecordId}</div>

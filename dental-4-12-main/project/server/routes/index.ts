@@ -1280,6 +1280,87 @@ router.use("/referrals", createCrudRouter(Referral, {
 // route returned ALL of it. Unlike the appointment window it has no natural
 // boundary, so the client sends an explicit `from`, and "show earlier" widens
 // it. AuditTrail has no isArchived, so the date range is the only filter.
+// Whose record each audit entry touched (System Admin only). The trail stores
+// just a model name and a record id, so "Updated a student IPTR" could not say
+// WHICH student. This walks each patient-linked record up to its student and
+// returns { recordId: studentName } for the same date window the trail uses.
+// Archived records are included on purpose: an "Archived ..." entry points at
+// a record that is archived by then. Names come back decrypted because the
+// Student docs are read as documents, not lean objects.
+router.get("/audit-subjects", requireAuth, requireRole(...ADMIN_ONLY), asyncHandler(async (req, res) => {
+  const from = typeof req.query.from === "string" ? new Date(req.query.from) : null;
+  const filter: Record<string, unknown> = {};
+  if (from && !Number.isNaN(from.getTime())) filter.timestamp = { $gte: from };
+  const entries = await AuditTrail.find(filter).select("affected_model affected_record_id").lean<{ affected_model: string; affected_record_id: string }[]>();
+
+  const valid = (id: unknown): id is string => typeof id === "string" && mongoose.isValidObjectId(id);
+  const idsOf = (models: string[]) =>
+    [...new Set(entries.filter((e) => models.includes(e.affected_model) && valid(e.affected_record_id)).map((e) => e.affected_record_id))];
+  const asStr = (v: unknown) => (v == null ? null : String(v));
+
+  // record id -> student id
+  const studentOf = new Map<string, string>();
+  for (const id of idsOf(["Student"])) studentOf.set(id, id);
+
+  const apps = idsOf(["Appointment"]);
+  if (apps.length) {
+    for (const d of await Appointment.find({ _id: { $in: apps } }).select("student_id").lean<{ _id: unknown; student_id: unknown }[]>()) {
+      const s = asStr(d.student_id); if (s) studentOf.set(String(d._id), s);
+    }
+  }
+
+  // Everything hung off an IPTR: iptr id per record
+  const viaIptr = new Map<string, string>(); // record id -> iptr id
+  const iptrModels: [string, any][] = [
+    ["MedicalHistory", MedicalHistory], ["DietarySocialHabits", DietarySocialHabits], ["OralHealthCondition", OralHealthCondition],
+    ["PreventiveCareRecord", PreventiveCareRecord], ["Treatment", Treatment], ["Referral", Referral], ["DentalChart", DentalChart],
+  ];
+  for (const [name, Model] of iptrModels) {
+    const ids = idsOf([name]);
+    if (!ids.length) continue;
+    for (const d of await Model.find({ _id: { $in: ids } }).select("iptr_id").lean()) {
+      const i = asStr(d.iptr_id); if (i) viaIptr.set(String(d._id), i);
+    }
+  }
+  // Two hops: tooth record -> chart -> iptr, risk assessment -> preventive -> iptr
+  const teeth = idsOf(["ToothRecord"]);
+  if (teeth.length) {
+    const rows = await ToothRecord.find({ _id: { $in: teeth } }).select("chart_id").lean<{ _id: unknown; chart_id: unknown }[]>();
+    const chartIds = rows.map((r) => asStr(r.chart_id)).filter(Boolean) as string[];
+    const charts = await DentalChart.find({ _id: { $in: chartIds } }).select("iptr_id").lean<{ _id: unknown; iptr_id: unknown }[]>();
+    const iptrByChart = new Map(charts.map((c) => [String(c._id), asStr(c.iptr_id)]));
+    for (const r of rows) { const i = iptrByChart.get(String(r.chart_id)); if (i) viaIptr.set(String(r._id), i); }
+  }
+  const risks = idsOf(["RiskStratification"]);
+  if (risks.length) {
+    const rows = await RiskStratification.find({ _id: { $in: risks } }).select("preventive_id").lean<{ _id: unknown; preventive_id: unknown }[]>();
+    const prevIds = rows.map((r) => asStr(r.preventive_id)).filter(Boolean) as string[];
+    const prevs = await PreventiveCareRecord.find({ _id: { $in: prevIds } }).select("iptr_id").lean<{ _id: unknown; iptr_id: unknown }[]>();
+    const iptrByPrev = new Map(prevs.map((p) => [String(p._id), asStr(p.iptr_id)]));
+    for (const r of rows) { const i = iptrByPrev.get(String(r.preventive_id)); if (i) viaIptr.set(String(r._id), i); }
+  }
+
+  // IPTR -> student (covers the StudentIptr entries themselves too)
+  const iptrIds = [...new Set([...idsOf(["StudentIptr"]), ...viaIptr.values()])];
+  const studentByIptr = new Map<string, string>();
+  if (iptrIds.length) {
+    for (const d of await StudentIptr.find({ _id: { $in: iptrIds } }).select("student_id").lean<{ _id: unknown; student_id: unknown }[]>()) {
+      const s = asStr(d.student_id); if (s) studentByIptr.set(String(d._id), s);
+    }
+  }
+  for (const id of idsOf(["StudentIptr"])) { const s = studentByIptr.get(id); if (s) studentOf.set(id, s); }
+  for (const [rec, iptr] of viaIptr) { const s = studentByIptr.get(iptr); if (s) studentOf.set(rec, s); }
+
+  const studentIds = [...new Set(studentOf.values())];
+  const names = new Map<string, string>();
+  if (studentIds.length) {
+    for (const s of await Student.find({ _id: { $in: studentIds } })) names.set(String(s._id), (s as any).full_name ?? "");
+  }
+  const out: Record<string, string> = {};
+  for (const [rec, stu] of studentOf) { const n = names.get(stu); if (n) out[rec] = n; }
+  res.json(out);
+}));
+
 router.use("/audit-trails", createCrudRouter(AuditTrail, { readOnly: true, readRoles: ADMIN_ONLY, dateField: "timestamp" }));
 
 export default router;
