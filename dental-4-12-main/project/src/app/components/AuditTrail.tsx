@@ -147,10 +147,14 @@ export const AuditTrail = () => {
   const modules = useMemo(() => ['all', ...new Set(logs.map((log) => log.module))], [logs]);
 
   const filteredLogs = useMemo(() => logs.filter((log) => {
+    // Searches what the table shows: user, the activity title and sentence
+    // (including the student's name), module (as displayed) and record ID.
+    const q = searchTerm.trim().toLowerCase();
+    const { title, detail } = splitAction(log.action, log.module, log.subject);
     const matchesSearch =
-      log.user.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.module.toLowerCase().includes(searchTerm.toLowerCase());
+      !q ||
+      [log.user, log.userRole, log.action, title, detail, log.module, humanize(log.module), log.subject, log.affectedRecordId]
+        .some((v) => v.toLowerCase().includes(q));
     const matchesUser = userFilter === 'all' || log.user === userFilter;
     const matchesModule = moduleFilter === 'all' || log.module === moduleFilter;
     const logDate = new Date(log.timestamp);
@@ -254,7 +258,7 @@ export const AuditTrail = () => {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
             <input
               type="text"
-              placeholder="Search by user, action, or module..."
+              placeholder="Search by user, activity, module, or record ID"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className={`${FIELD} pl-12 py-3.5`}
