@@ -154,8 +154,7 @@ anything the panel can CHANGE goes in one named bundle (`addForm` in Treatment H
 Referrals), so the seam stays legible. Shared draft shapes live in `components/iptrDrafts.ts` — put
 nothing in a tab component that another tab also needs.
 
-Cheaper alternatives for a short session: (BUG-10/11 done 09-29) (all one-liners),
-or **BUG-14** if you can read the DOH form's referral rows.
+Cheaper alternative for a short session: **BUG-14**, if you can read the DOH form's referral rows.
 
 ⚠ **BUG-00 and BUG-01 are CLOSED — do not start them.** They were already fixed by Sprints 148/149/154
 and were carried OPEN for eleven sprints on a stale seeded claim. Verified live this session: the
