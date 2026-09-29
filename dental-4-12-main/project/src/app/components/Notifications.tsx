@@ -368,7 +368,7 @@ export const Notifications = () => {
   const renderRow = (r: Row) => {
     const isRead = readIds.has(r.id);
     return (
-      <li key={r.id} className={`relative flex items-start gap-6 p-3.5 ${isRead ? '' : 'bg-primary-surface/60'}`}>
+      <li key={r.id} className={`relative flex items-start gap-12 p-3.5 ${isRead ? '' : 'bg-primary-surface/60'}`}>
         <div className="relative shrink-0">
           <span className={`flex h-11 w-11 items-center justify-center rounded-full ${r.iconBg}`}>
             <r.Icon className={`w-5 h-5 ${r.iconFg}`} />
@@ -381,7 +381,8 @@ export const Notifications = () => {
         {/* flex-1 with no max-width: the text fills exactly the space left
             after the icon and the right-hand action column, wrapping only
             when it actually reaches that column, with one consistent
-            `gap-6` between them -- not a fixed box that leaves a second,
+            `gap-12` between them (user, 2026-09-29: "more wider space in
+            between") -- not a fixed box that leaves a second,
             unrelated gap before the action column (user, 2026-09-29: "space
             between the notification text and the three dot... not both of
             them to have space", "the three dot should still be in the right
