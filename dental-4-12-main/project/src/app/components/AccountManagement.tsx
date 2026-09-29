@@ -15,10 +15,10 @@ const ROLES: ApiRole[] = ['dentist', 'dental_aide', 'school_admin', 'bho_staff',
 
 // Popup styling shared by the Edit and Reset Password dialogs. The border is
 // inline because styles/index.css forces a grey border on every input.
-const POPUP_FIELD = 'w-full px-4 py-3 text-sm bg-[#F8FAFC] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#16214F]/30';
+const POPUP_FIELD = 'w-full px-4 py-3 text-sm text-[#475569] bg-[#F8FAFC] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#16214F]/30';
 const POPUP_FIELD_STYLE = { border: '1px solid #E2E8F0' } as const;
-const POPUP_LABEL = 'block text-sm font-bold text-foreground mb-2';
-const POPUP_SECTION = 'text-xs font-bold uppercase tracking-[0.12em] text-[#64748B]';
+const POPUP_LABEL = 'block text-sm font-semibold text-foreground mb-2';
+const POPUP_SECTION = 'text-sm font-semibold uppercase tracking-[0.08em] text-[#64748B]';
 const POPUP_CANCEL = 'px-5 py-2.5 rounded-xl border border-[#E2E8F0] bg-white text-sm font-bold text-foreground hover:bg-gray-50 transition-colors';
 const POPUP_PRIMARY = 'px-5 py-2.5 rounded-xl bg-primary text-sm font-bold text-white hover:bg-primary-hover disabled:opacity-60 transition-colors';
 
@@ -695,10 +695,11 @@ export const AccountManagement = () => {
 
       {/* Edit Account Modal */}
       {editingUserId && (
-        <Modal onClose={() => setEditingUserId(null)} maxWidth="max-w-2xl" rounded="rounded-3xl" closeDisabled={editSubmitting || twofaBusy}>
+        <Modal onClose={() => setEditingUserId(null)} maxWidth="max-w-4xl" rounded="rounded-3xl" closeDisabled={editSubmitting || twofaBusy}>
             <PopupHeader title="Edit Account" subtitle="View and manage this user's information." onClose={() => setEditingUserId(null)} />
             <div className="px-8 py-6 space-y-5">
               <div className={POPUP_SECTION}>Account Information</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
               <div>
                 <label className={POPUP_LABEL}>Full Name</label>
                 <input
@@ -716,6 +717,7 @@ export const AccountManagement = () => {
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                   className={POPUP_FIELD} style={POPUP_FIELD_STYLE}
                 />
+              </div>
               </div>
               <div>
                 <label className={POPUP_LABEL}>Role</label>
@@ -811,7 +813,7 @@ export const AccountManagement = () => {
 
       {/* Reset Password Modal */}
       {resettingUserId && (
-        <Modal onClose={() => setResettingUserId(null)} maxWidth="max-w-2xl" rounded="rounded-3xl" closeDisabled={resetSubmitting || sendingReset}>
+        <Modal onClose={() => setResettingUserId(null)} maxWidth="max-w-4xl" rounded="rounded-3xl" closeDisabled={resetSubmitting || sendingReset}>
             <PopupHeader title="Reset Password" subtitle={`for ${resettingUserName}`} onClose={() => setResettingUserId(null)} />
             <div className="px-8 py-6 space-y-5">
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
