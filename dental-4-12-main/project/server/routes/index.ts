@@ -206,15 +206,6 @@ async function buildAdminNotifications(): Promise<{ items: AdminNotifItem[] }> {
       linkTo: "/accounts", linkLabel: "Go to User Management", at: null,
     });
   }
-  const noTwofa = active.filter((u) => !u.twofa_enabled);
-  if (noTwofa.length) {
-    items.push({
-      id: `no-2fa-${noTwofa.length}`, tier: "needs-action", kind: "security",
-      before: "", bold: `${noTwofa.length} active ${plural(noTwofa.length, "account")}`,
-      after: ` ${noTwofa.length === 1 ? "does" : "do"} not have two-factor authentication turned on.`,
-      linkTo: "/accounts", linkLabel: "Go to User Management", at: null,
-    });
-  }
   const noPrincipal = schools.filter((s) => !s.isArchived && (!s.principal_name || /^\s*tbd\s*$/i.test(s.principal_name)));
   if (noPrincipal.length) {
     items.push({
