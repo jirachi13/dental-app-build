@@ -4,7 +4,7 @@ import { Link } from 'react-router';
 import {
   AlertTriangle, Bell, Calendar, Brain, StickyNote, ClipboardCheck, Clock,
   MoreHorizontal, CheckCircle2, Circle, Trash2, ArrowRight, MapPin, FileText,
-  ListChecks,
+  ListChecks, ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications, NOTIFIED_ROLES } from '../hooks/useNotifications';
@@ -63,9 +63,11 @@ export const Notifications = () => {
   // against an ancestor.
   const [popupAnchor, setPopupAnchor] = useState<{ top: number; left: number } | null>(null);
   const [activeTier, setActiveTier] = useState<string | null>(null);
-  const [readFilter, setReadFilter] = useState<'unread' | 'read'>('unread');
+  const [readFilter, setReadFilter] = useState<'all' | 'unread' | 'read'>('unread');
+  const [readFilterOpen, setReadFilterOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const popupRef = useRef<HTMLDivElement | null>(null);
+  const readFilterRef = useRef<HTMLDivElement | null>(null);
 
   const saveToStorage = (key: string, set: Set<string>) => {
     try { localStorage.setItem(key, JSON.stringify([...set])); } catch { /* storage unavailable */ }
@@ -111,6 +113,15 @@ export const Notifications = () => {
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [openMenuId]);
+
+  useEffect(() => {
+    if (!readFilterOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (readFilterRef.current && !readFilterRef.current.contains(e.target as Node)) setReadFilterOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [readFilterOpen]);
 
   // Clicking the row itself (not the three-dot or the "Go to" link, which
   // stop their own click from bubbling here) opens a small popover -- the
@@ -471,7 +482,7 @@ export const Notifications = () => {
   const tierCount = (key: string) => rows.filter((r) => r.tier === key).length;
 
   const visibleRows = (activeTier ? rows.filter((r) => r.tier === activeTier) : rows)
-    .filter((r) => (readFilter === 'unread' ? !readIds.has(r.id) : readIds.has(r.id)));
+    .filter((r) => readFilter === 'all' || (readFilter === 'unread' ? !readIds.has(r.id) : readIds.has(r.id)));
   const todayRows = visibleRows.filter((r) => r.group === 'today');
   const earlierRows = visibleRows.filter((r) => r.group === 'earlier');
 
@@ -507,7 +518,7 @@ export const Notifications = () => {
           }
           setOpenMenuId(null);
         }}
-        className={`relative grid grid-cols-[3fr_0.35fr_auto] items-center gap-0 p-3.5 cursor-pointer hover:bg-muted/40 ${isRead ? '' : 'bg-[#DCE3F5]'}`}
+        className={`relative grid grid-cols-[3fr_0.35fr_auto] items-center gap-0 p-3.5 cursor-pointer hover:bg-muted/40 ${isRead ? '' : 'bg-gray-200'}`}
       >
         <div className="flex items-center gap-4 min-w-0">
           <div className="relative shrink-0">
@@ -685,49 +696,60 @@ export const Notifications = () => {
           {/* Feed -- wider than the earlier `max-w-2xl` version (user,
               2026-09-29: "make the notifications container wider"); fills
               whatever space the tier panel beside it doesn't take. */}
-          <div className="flex-1 min-w-0 bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
-            {/* Unread/Read only -- no "All" (user, 2026-09-29: "remove the
-                all"). The active segment is a solid dark-blue fill, not the
-                white-on-grey look "All" had in the earlier mockup. */}
-            <div className="flex items-center justify-end border-b border-border px-4 py-2.5">
-              <div className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setReadFilter('unread')}
-                  className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                    readFilter === 'unread' ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  Unread
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setReadFilter('read')}
-                  className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                    readFilter === 'read' ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  Read
-                </button>
-              </div>
+          <div className="flex-1 min-w-0">
+            {/* Above and outside the feed card, not a header bar inside it
+                (user, 2026-09-29, correcting the previous round); a single
+                button, not a segmented All/Unread/Read control -- the
+                dropdown it opens carries the three choices instead (user:
+                "just one, then the options dropdown to all, unread and
+                read"). */}
+            <div className="relative mb-2 flex justify-end" ref={readFilterRef}>
+              <button
+                type="button"
+                onClick={() => setReadFilterOpen((v) => !v)}
+                aria-expanded={readFilterOpen}
+                className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
+              >
+                {readFilter === 'all' ? 'All' : readFilter === 'unread' ? 'Unread' : 'Read'}
+                <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${readFilterOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {readFilterOpen && (
+                <div className="absolute right-0 top-full z-20 mt-1 w-32 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+                  {(['all', 'unread', 'read'] as const).map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => { setReadFilter(f); setReadFilterOpen(false); }}
+                      className={`block w-full px-3.5 py-2 text-left text-sm font-medium capitalize hover:bg-muted ${
+                        readFilter === f ? 'text-primary' : 'text-foreground'
+                      }`}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            {todayRows.length > 0 && (
-              <>
-                <div className="px-4 py-2.5 text-sm font-bold text-foreground bg-card border-b border-border">Today</div>
-                <ul className="divide-y divide-border">{todayRows.map(renderRow)}</ul>
-              </>
-            )}
-            {earlierRows.length > 0 && (
-              <>
-                <div className="px-4 py-2.5 text-sm font-bold text-foreground bg-card border-b border-border">Earlier</div>
-                <ul className="divide-y divide-border">{earlierRows.map(renderRow)}</ul>
-              </>
-            )}
-            {todayRows.length === 0 && earlierRows.length === 0 && (
-              <div className="p-8 text-center text-sm text-muted-foreground">
-                {readFilter === 'unread' ? 'Nothing unread.' : 'Nothing read yet.'}
-              </div>
-            )}
+
+            <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+              {todayRows.length > 0 && (
+                <>
+                  <div className="px-4 py-2.5 text-sm font-bold text-foreground bg-card border-b border-border">Today</div>
+                  <ul className="divide-y divide-border">{todayRows.map(renderRow)}</ul>
+                </>
+              )}
+              {earlierRows.length > 0 && (
+                <>
+                  <div className="px-4 py-2.5 text-sm font-bold text-foreground bg-card border-b border-border">Earlier</div>
+                  <ul className="divide-y divide-border">{earlierRows.map(renderRow)}</ul>
+                </>
+              )}
+              {todayRows.length === 0 && earlierRows.length === 0 && (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  {readFilter === 'unread' ? 'Nothing unread.' : readFilter === 'read' ? 'Nothing read yet.' : 'Nothing in this tier.'}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
