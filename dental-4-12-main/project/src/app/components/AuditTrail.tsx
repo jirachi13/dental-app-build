@@ -67,11 +67,47 @@ const UserCell = ({ name, role }: { name: string; role: string }) => (
   </div>
 );
 
-/** The stored action is one string like "Created Student". Split it so the verb
- *  reads as the title and the rest as the detail line, with no invented text. */
+/** The stored action is one code-written string ("Created Student",
+ *  "Created RiskStratification (dentist validated: ...)"). Turn it into a bold
+ *  title plus ONE short sentence. Only what the string already says is used. */
+const CRUD_VERBS: Record<string, (thing: string, an: string) => string> = {
+  Created: (t, an) => `Created ${an} new ${t} record.`,
+  Updated: (t, an) => `Updated ${an} ${t} record.`,
+  Archived: (t, an) => `Archived ${an} ${t} record.`,
+  Restored: (t, an) => `Restored ${an} archived ${t} record.`,
+};
+
+const FIXED_SENTENCES: Record<string, string> = {
+  'Login': 'Signed in to the system.',
+  '2FA Login': 'Signed in with two-factor authentication.',
+  'Changed Password': 'Changed their own password.',
+  'Reset Password': 'Reset a user password.',
+  'Reset Password via Email': 'Reset their password from an emailed link.',
+  'Sent Password Reset Link': 'Sent a password reset link to a user.',
+  'Enabled 2FA': 'Turned on two-factor authentication for a user.',
+  'Disabled 2FA': 'Turned off two-factor authentication for a user.',
+  'Generated Risk Prediction': 'Generated a risk prediction for a student.',
+};
+
+const aOrAn = (word: string) => (/^[aeiou]/i.test(word) ? 'an' : 'a');
+
 const splitAction = (action: string, module: string) => {
-  const [verb, ...rest] = action.trim().split(/\s+/);
-  return { title: verb || action, detail: humanize(rest.join(' ')) || humanize(module) };
+  const clean = action.trim();
+  const base = clean.replace(/\s*\(.*$/, '').trim();
+  const [verb, model] = base.split(/\s+/);
+
+  if (FIXED_SENTENCES[base]) return { title: base, detail: FIXED_SENTENCES[base] };
+
+  if (CRUD_VERBS[verb]) {
+    const thing = humanize(model || module).toLowerCase();
+    if (/dentist validated/i.test(clean)) {
+      return { title: verb, detail: 'Dentist validated a risk assessment.' };
+    }
+    return { title: verb, detail: CRUD_VERBS[verb](thing, aOrAn(thing)) };
+  }
+
+  // Unknown action: keep it short and readable rather than dumping the raw string.
+  return { title: base || clean, detail: `${humanize(module)} activity.` };
 };
 
 export const AuditTrail = () => {
