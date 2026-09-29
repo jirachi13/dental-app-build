@@ -63,6 +63,7 @@ export const Notifications = () => {
   // against an ancestor.
   const [popupAnchor, setPopupAnchor] = useState<{ top: number; left: number } | null>(null);
   const [activeTier, setActiveTier] = useState<string | null>(null);
+  const [readFilter, setReadFilter] = useState<'unread' | 'read'>('unread');
   const menuRef = useRef<HTMLDivElement | null>(null);
   const popupRef = useRef<HTMLDivElement | null>(null);
 
@@ -469,7 +470,8 @@ export const Notifications = () => {
   ] as const;
   const tierCount = (key: string) => rows.filter((r) => r.tier === key).length;
 
-  const visibleRows = activeTier ? rows.filter((r) => r.tier === activeTier) : rows;
+  const visibleRows = (activeTier ? rows.filter((r) => r.tier === activeTier) : rows)
+    .filter((r) => (readFilter === 'unread' ? !readIds.has(r.id) : readIds.has(r.id)));
   const todayRows = visibleRows.filter((r) => r.group === 'today');
   const earlierRows = visibleRows.filter((r) => r.group === 'earlier');
 
@@ -505,7 +507,7 @@ export const Notifications = () => {
           }
           setOpenMenuId(null);
         }}
-        className={`relative grid grid-cols-[3fr_0.35fr_auto] items-center gap-0 p-3.5 cursor-pointer hover:bg-muted/40 ${isRead ? '' : 'bg-primary-surface/60'}`}
+        className={`relative grid grid-cols-[3fr_0.35fr_auto] items-center gap-0 p-3.5 cursor-pointer hover:bg-muted/40 ${isRead ? '' : 'bg-[#DCE3F5]'}`}
       >
         <div className="flex items-center gap-4 min-w-0">
           <div className="relative shrink-0">
@@ -684,6 +686,31 @@ export const Notifications = () => {
               2026-09-29: "make the notifications container wider"); fills
               whatever space the tier panel beside it doesn't take. */}
           <div className="flex-1 min-w-0 bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+            {/* Unread/Read only -- no "All" (user, 2026-09-29: "remove the
+                all"). The active segment is a solid dark-blue fill, not the
+                white-on-grey look "All" had in the earlier mockup. */}
+            <div className="flex items-center justify-end border-b border-border px-4 py-2.5">
+              <div className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setReadFilter('unread')}
+                  className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                    readFilter === 'unread' ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Unread
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReadFilter('read')}
+                  className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                    readFilter === 'read' ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Read
+                </button>
+              </div>
+            </div>
             {todayRows.length > 0 && (
               <>
                 <div className="px-4 py-2.5 text-sm font-bold text-foreground bg-card border-b border-border">Today</div>
@@ -697,7 +724,9 @@ export const Notifications = () => {
               </>
             )}
             {todayRows.length === 0 && earlierRows.length === 0 && (
-              <div className="p-8 text-center text-sm text-muted-foreground">Nothing in this tier.</div>
+              <div className="p-8 text-center text-sm text-muted-foreground">
+                {readFilter === 'unread' ? 'Nothing unread.' : 'Nothing read yet.'}
+              </div>
             )}
           </div>
         </div>
