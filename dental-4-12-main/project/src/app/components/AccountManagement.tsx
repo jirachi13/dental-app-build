@@ -379,7 +379,7 @@ export const AccountManagement = () => {
           </div>
           <div className="flex flex-col lg:flex-row lg:justify-between gap-5">
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#94A3B8] mb-3">Account Status</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-foreground mb-3">Account Status</div>
               <div className="flex flex-wrap gap-2">
                 {([['all', 'All', Users], ['Active', 'Active', CheckCircle], ['Inactive', 'Deactivated', UserX]] as const).map(([v, l, Icon]) => (
                   <button key={v} type="button" onClick={() => setStatusFilter(v)}
@@ -388,7 +388,7 @@ export const AccountManagement = () => {
               </div>
             </div>
             <div className="lg:text-right">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#94A3B8] mb-3">User Role</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-foreground mb-3">User Role</div>
               <div className="flex flex-wrap gap-2 lg:justify-end">
                 {(['all', ...ROLES] as const).map((r) => (
                   <button key={r} type="button" onClick={() => setRoleFilter(r)}
