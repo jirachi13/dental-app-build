@@ -94,6 +94,7 @@ export const ScanStudentForm = () => {
             firstName: f.firstName ?? '', middleName: f.middleName ?? '', lastName: f.lastName ?? '',
             birthdate: f.birthdate ?? '', gender: f.gender ?? '', address: f.address ?? '',
             contactNumber: f.contactNumber ?? '', philhealthNumber: f.philhealthNumber ?? '',
+            philhealthStatus: f.philhealthStatus ?? 'None',
             fourPsId: f.fourPsId ?? '', is4Ps: !!f.fourPsId,
             // grade/section/placeOfBirth/guardian* (2026-09-29): the printed-
             // form OCR path never filled these before, because the official

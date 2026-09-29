@@ -7,6 +7,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 // Threshold + types live in iptrOcrShared.ts so the UI can import them
 // without dragging tesseract/pdfjs into the main bundle.
 import type { IptrOcrFieldKey, IptrOcrResult, IptrCheckboxFinding } from './iptrOcrShared';
+import { readIptrTickBoxes } from './iptrTickBoxes';
 import { readIptrCheckboxes, IPTR_FORM_ROWS, IPTR_YEARS } from './iptrCheckboxes';
 export { OCR_CONFIDENCE_THRESHOLD } from './iptrOcrShared';
 export type { IptrOcrFieldKey, IptrOcrResult } from './iptrOcrShared';
@@ -183,14 +184,10 @@ function splitName(raw: string): { firstName: string; middleName: string; lastNa
 // the two checkbox ones below extracted correctly once y-band line
 // clustering (next) was added.
 //
-// Checkboxes (Sex, PhilHealth Status) are DELIBERATELY NOT read here. OCR
-// text can find the words "Male"/"Female" but cannot reliably tell which
-// checkbox is ticked -- that needs ink-density detection like
-// iptrCheckboxes.ts's grid reader, calibrated to this form's own checkbox
-// positions, which has not been built. Guessing from garbled nearby text
-// (a real capture on this form's test image read as "mete 7] Female") would
-// silently prefill the wrong sex on some fraction of students, which is
-// worse than leaving it blank for the encoder to tick themselves.
+// Checkboxes (Sex, PhilHealth Status) are NOT read from text here -- OCR can
+// find the words "Male"/"Female" but not which box is ticked (a real capture
+// read as "mete 7] Female"). They are read by ink density in iptrTickBoxes.ts,
+// anchored to these same OCR'd label positions, and declined when ambiguous.
 type GridWord = { text: string; x0: number; x1: number; y0: number; y1: number; confidence: number };
 type GridLine = { x0: number; x1: number; y0: number; y1: number; words: GridWord[] };
 
@@ -513,11 +510,12 @@ export async function extractIptrFields(
 
   // Page 1 in whatever orientation actually read — see recognizePage.
   let firstPageImage: Tesseract.ImageLike | null = null;
+  let firstPageWords: Tesseract.Word[] = [];
 
   try {
     for (; pageIndex < images.length; pageIndex++) {
       const page = await recognizePage(worker, images[pageIndex]);
-      if (pageIndex === 0) firstPageImage = page.image;
+      if (pageIndex === 0) { firstPageImage = page.image; firstPageWords = page.words; }
       allWords.push(...page.words);
       rawTextParts.push(page.text);
       extractFieldsFromPage(page.text, page.words, fields, confidences);
@@ -558,6 +556,29 @@ export async function extractIptrFields(
     // A failure here must never lose the identity fields the text pass already
     // read — the grid is an addition, not a precondition.
     checkboxReason = err instanceof Error ? err.message : 'Checkbox grid could not be read.';
+  }
+
+  // ── Sex + PhilHealth Status tick boxes (page 1) ──────────────────────────
+  // Ink density beside the OCR'd option labels; see iptrTickBoxes.ts. Text
+  // already read for a field wins; a failure here never loses other fields.
+  try {
+    const page1 = await toCanvas(firstPageImage ?? images[0]);
+    const ctx = page1?.getContext('2d');
+    if (page1 && ctx) {
+      const px = ctx.getImageData(0, 0, page1.width, page1.height);
+      const labels = firstPageWords.map((w) => ({ text: w.text, x0: w.bbox.x0, x1: w.bbox.x1, y0: w.bbox.y0, y1: w.bbox.y1 }));
+      const ticks = readIptrTickBoxes(px, labels);
+      if (ticks.gender && !fields.gender) {
+        fields.gender = ticks.gender.value;
+        confidences.gender = ticks.gender.confidence;
+      }
+      if (ticks.philhealthStatus && !fields.philhealthStatus) {
+        fields.philhealthStatus = ticks.philhealthStatus.value;
+        confidences.philhealthStatus = ticks.philhealthStatus.confidence;
+      }
+    }
+  } catch {
+    // Left blank for the encoder to tick.
   }
 
   return {

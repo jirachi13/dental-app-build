@@ -302,10 +302,10 @@ export const VerifyStudentForm = () => {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1rem' }}>
             <div>
-              <Label>PhilHealth Status</Label>
+              <Label extracted={isExtracted('philhealthStatus')}>PhilHealth Status</Label>
               <select style={{ ...inputStyle, appearance: 'auto' }} value={form.philhealthStatus} onChange={(e) => update('philhealthStatus', e.target.value)}>
                 <option>None</option>
-                <option>Member</option>
+                <option>Principal</option>
                 <option>Dependent</option>
               </select>
             </div>

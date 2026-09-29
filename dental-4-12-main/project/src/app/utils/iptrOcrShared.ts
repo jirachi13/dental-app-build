@@ -19,7 +19,9 @@ export const OCR_CONFIDENCE_THRESHOLD = 70;
 export type IptrOcrFieldKey =
   | 'firstName' | 'lastName' | 'middleName' | 'birthdate' | 'age' | 'gender'
   | 'address' | 'contactNumber' | 'philhealthNumber' | 'fourPsId'
-  | 'grade' | 'section' | 'placeOfBirth' | 'guardianName' | 'guardianContact' | 'guardianOccupation';
+  | 'grade' | 'section' | 'placeOfBirth' | 'guardianName' | 'guardianContact' | 'guardianOccupation'
+  // Read from a ticked checkbox (iptrTickBoxes.ts), not from text.
+  | 'philhealthStatus';
 
 /** One detected finding from the form's Year 1-5 tick grid. Kept flat and
  *  label-first because the UI shows these for confirmation, never saves them
