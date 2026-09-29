@@ -495,7 +495,7 @@ export const Notifications = () => {
               }`}
             >
               <span className="text-sm font-bold text-foreground">All</span>
-              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-destructive px-1 text-[11px] font-bold text-white tabular-nums">{rows.length}</span>
+              <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold text-white tabular-nums">{rows.length}</span>
             </button>
             {TIERS.map((t) => {
               const n = tierCount(t.key);
@@ -510,7 +510,7 @@ export const Notifications = () => {
                   }`}
                 >
                   <span className={`text-sm font-bold ${t.tone}`}>{t.label}</span>
-                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-destructive px-1 text-[11px] font-bold text-white tabular-nums">{n}</span>
+                  <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold text-white tabular-nums">{n}</span>
                 </button>
               );
             })}
