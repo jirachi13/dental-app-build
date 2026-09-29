@@ -706,29 +706,38 @@ export const Root = () => {
             white, not red (red is reserved for the real app's confirm-modal
             icon, which FLORAL doesn't have a matching dialog for). */}
         <div className={`h-px bg-[#E2E8F0]/90 mx-8 ${collapsed ? "md:mx-2" : ""}`} />
-        <div className="pt-2 px-8 pb-5">
-          {/* Real spec hides this WHOLE block when collapsed (avatar included,
-              not just the name/role text) -- CSS-based (md:hidden), not a JS
-              conditional, so mobile (which ignores `collapsed`) still shows it
-              regardless of whatever the flag was left at. */}
-          <div className={`flex items-center gap-2.5 pb-[5px] pt-2.5 mb-1 ${collapsed ? 'md:hidden' : ''}`}>
+        <div className="pt-2 px-6 pb-5">
+          {/* Profile row with the logout button on its right (user, 2026-09-29).
+              Expanded: avatar, name and role, then a rounded logout button.
+              Collapsed (md+ only): the profile hides and just the button remains,
+              as before. Mobile ignores `collapsed`, so this row always shows there. */}
+          <div className={`flex items-center gap-2.5 pt-2.5 ${collapsed ? 'md:hidden' : ''}`}>
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-primary-surface text-[0.875rem] font-bold" style={{ color: '#4F63D9' }}>
               {user.name.charAt(0).toUpperCase()}
             </span>
-            <div className="min-w-0 flex flex-col">
-              <strong className="text-[0.75rem] text-white truncate">{user.name}</strong>
+            <div className="min-w-0 flex flex-1 flex-col">
+              <strong className="text-[0.75rem] text-white leading-tight">{user.name}</strong>
               <span className="mt-[2.5px] text-[0.625rem] text-white/55 capitalize">{user.role.replace('_', ' ')}</span>
             </div>
+            <button
+              onClick={handleLogout}
+              title="Logout"
+              aria-label="Logout"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
-
-          <button
-            onClick={handleLogout}
-            title={collapsed ? 'Logout' : undefined}
-            className={`w-full h-11 flex items-center gap-3 px-3.5 text-[0.875rem] font-medium text-white/55 hover:text-white hover:bg-white/10 rounded-[9px] transition-colors justify-start ${collapsed ? 'md:justify-center' : 'md:justify-start'}`}
-          >
-            <LogOut className="w-4 h-4 flex-shrink-0" />
-            <span className={labelCls}>Logout</span>
-          </button>
+          {collapsed && (
+            <button
+              onClick={handleLogout}
+              title="Logout"
+              aria-label="Logout"
+              className="hidden md:flex mx-auto h-9 w-9 items-center justify-center rounded-[10px] bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </aside>
 
