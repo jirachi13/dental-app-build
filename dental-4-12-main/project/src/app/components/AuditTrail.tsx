@@ -2,11 +2,7 @@ import { useMemo, useState } from 'react';
 import { Search, Filter, Calendar, Download, ClipboardList, Hash } from 'lucide-react';
 import { PageHeader } from './PageHeader';
 import { useAuditTrail, windowStart, AUDIT_WINDOW_DAYS } from '../hooks/useAuditTrail';
-import { exportToCsv, downloadBlob, type ExportColumn } from '../utils/exportCsv';
-import { buildXlsx } from '../utils/exportXlsx';
-import { Modal } from './Modal';
-import { ExportMenu, type ExportFormat } from './ExportMenu';
-import { toLocalDateString, formatDateTime } from '../utils/localDate';
+import { formatDateTime } from '../utils/localDate';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 
 // Border is inline because styles/index.css forces a grey border on every input.
@@ -185,38 +181,6 @@ export const AuditTrail = () => {
 
   const formatTimestamp = (iso: string) => formatDateTime(iso);
 
-  // Export always shows a preview first: pick a format, see the rows that will
-  // be exported, then confirm the download.
-  const [exportFormat, setExportFormat] = useState<ExportFormat | null>(null);
-  const [exporting, setExporting] = useState(false);
-  const PREVIEW_ROWS = 10;
-
-  const exportColumns: ExportColumn<(typeof filteredLogs)[number]>[] = [
-    { label: 'Timestamp', value: (log) => formatTimestamp(log.timestamp) },
-    { label: 'User', value: (log) => log.user },
-    { label: 'Role', value: (log) => log.userRole },
-    { label: 'Activity', value: (log) => { const a = splitAction(log.action, log.module, log.subject); return `${a.title}: ${a.detail}`; } },
-    { label: 'Module', value: (log) => humanize(log.module) },
-    { label: 'Record ID', value: (log) => log.affectedRecordId },
-  ];
-
-  const confirmExport = async () => {
-    if (!exportFormat) return;
-    const base = `audit_trail_${toLocalDateString(new Date())}`;
-    setExporting(true);
-    try {
-      if (exportFormat === 'xlsx') {
-        const blob = await buildXlsx(filteredLogs, exportColumns, 'Audit Trail');
-        if (blob) downloadBlob(blob, `${base}.xlsx`);
-      } else {
-        exportToCsv(filteredLogs, exportColumns, `${base}.csv`);
-      }
-      setExportFormat(null);
-    } finally {
-      setExporting(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="space-y-4">
@@ -245,9 +209,6 @@ export const AuditTrail = () => {
         eyebrow="Administration"
         title="Audit Trail"
         description={`${filteredLogs.length} activity ${filteredLogs.length === 1 ? 'log' : 'logs'}, ${fetchFrom === null ? 'all time' : `since ${fetchFrom.toLocaleDateString()}`}.`}
-        action={
-          <ExportMenu onExport={setExportFormat} filled />
-        }
       />
 
       {/* Search & Filters */}
@@ -384,43 +345,6 @@ export const AuditTrail = () => {
         )}
       </div>
 
-      {exportFormat && (
-        <Modal onClose={() => setExportFormat(null)} maxWidth="max-w-4xl" rounded="rounded-3xl" closeDisabled={exporting}>
-          <div className="flex items-start justify-between gap-4 px-8 py-6 border-b border-border">
-            <div>
-              <h2 className="text-xl font-bold text-foreground">Export Preview</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                {filteredLogs.length} {filteredLogs.length === 1 ? 'record' : 'records'} will be exported as {exportFormat === 'xlsx' ? 'Excel (.xlsx)' : 'CSV (.csv)'}.
-                {filteredLogs.length > PREVIEW_ROWS && ` Showing the first ${PREVIEW_ROWS}.`}
-              </p>
-            </div>
-          </div>
-          <div className="px-8 py-6">
-            {filteredLogs.length === 0 ? (
-              <p className="text-sm text-muted-foreground">There are no records to export with the current filters.</p>
-            ) : (
-              <div className="overflow-x-auto rounded-2xl border border-border">
-                <table className="w-full text-left">
-                  <thead className="bg-gray-50 border-b border-border">
-                    <tr>{exportColumns.map((c) => <th key={c.label} className="px-4 py-2.5 text-[12px] font-bold text-[#94A3B8] uppercase tracking-wider whitespace-nowrap">{c.label}</th>)}</tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {filteredLogs.slice(0, PREVIEW_ROWS).map((log) => (
-                      <tr key={log.id}>
-                        {exportColumns.map((c) => <td key={c.label} className="px-4 py-2.5 text-xs text-foreground whitespace-nowrap">{String(c.value(log) ?? '')}</td>)}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-          <div className="flex justify-end gap-3 px-8 py-5 border-t border-border">
-            <button onClick={() => setExportFormat(null)} disabled={exporting} className="px-5 py-2.5 rounded-xl border border-[#E2E8F0] bg-white text-sm font-bold text-foreground hover:bg-gray-50 transition-colors">Cancel</button>
-            <button onClick={confirmExport} disabled={exporting || filteredLogs.length === 0} className="px-5 py-2.5 rounded-xl bg-[#16214F] text-sm font-bold text-white hover:opacity-90 disabled:opacity-60 transition-colors">{exporting ? 'Preparing…' : 'Download'}</button>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 };
