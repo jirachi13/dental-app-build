@@ -346,7 +346,7 @@ export const AccountManagement = () => {
         ].map(({ label, value, icon: Icon, bg, fg }) => (
           <div key={label} className="flex items-start justify-between gap-3 rounded-2xl border border-border bg-card p-5 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
             <div className="min-w-0">
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-foreground">{label}</div>
               <div className="text-2xl font-bold text-foreground mt-2">{value}</div>
             </div>
             <span style={{ backgroundColor: bg, color: fg }} className="w-10 h-10 flex-shrink-0 rounded-xl grid place-items-center">
