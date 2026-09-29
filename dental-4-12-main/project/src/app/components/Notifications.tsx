@@ -637,6 +637,37 @@ export const Notifications = () => {
         eyebrow="Alerts"
         title="Notifications"
         description="Reminders and follow-ups that need your attention, gathered from across the app."
+        action={
+          !loading && !error && rows.length > 0 ? (
+            <div className="relative shrink-0" ref={readFilterRef}>
+              <button
+                type="button"
+                onClick={() => setReadFilterOpen((v) => !v)}
+                aria-expanded={readFilterOpen}
+                className="flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-base font-semibold text-white hover:bg-primary-hover"
+              >
+                {readFilter === 'all' ? 'All' : readFilter === 'unread' ? 'Unread' : 'Read'}
+                <ChevronDown className={`w-5 h-5 transition-transform ${readFilterOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {readFilterOpen && (
+                <div className="absolute right-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+                  {(['all', 'unread', 'read'] as const).map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => { setReadFilter(f); setReadFilterOpen(false); }}
+                      className={`block w-full px-3.5 py-2 text-left text-sm font-medium capitalize hover:bg-muted ${
+                        readFilter === f ? 'text-primary' : 'text-foreground'
+                      }`}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : undefined
+        }
       />
 
       {error && (
@@ -697,40 +728,6 @@ export const Notifications = () => {
               2026-09-29: "make the notifications container wider"); fills
               whatever space the tier panel beside it doesn't take. */}
           <div className="flex-1 min-w-0">
-            {/* Above and outside the feed card, not a header bar inside it
-                (user, 2026-09-29, correcting the previous round); a single
-                button, not a segmented All/Unread/Read control -- the
-                dropdown it opens carries the three choices instead (user:
-                "just one, then the options dropdown to all, unread and
-                read"). */}
-            <div className="relative mb-2 flex justify-end" ref={readFilterRef}>
-              <button
-                type="button"
-                onClick={() => setReadFilterOpen((v) => !v)}
-                aria-expanded={readFilterOpen}
-                className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
-              >
-                {readFilter === 'all' ? 'All' : readFilter === 'unread' ? 'Unread' : 'Read'}
-                <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${readFilterOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {readFilterOpen && (
-                <div className="absolute right-0 top-full z-20 mt-1 w-32 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
-                  {(['all', 'unread', 'read'] as const).map((f) => (
-                    <button
-                      key={f}
-                      type="button"
-                      onClick={() => { setReadFilter(f); setReadFilterOpen(false); }}
-                      className={`block w-full px-3.5 py-2 text-left text-sm font-medium capitalize hover:bg-muted ${
-                        readFilter === f ? 'text-primary' : 'text-foreground'
-                      }`}
-                    >
-                      {f}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
             <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
               {todayRows.length > 0 && (
                 <>
