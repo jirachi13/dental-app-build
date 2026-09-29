@@ -208,7 +208,7 @@ export const AuditTrail = () => {
         icon={ClipboardList}
         eyebrow="Administration"
         title="Audit Trail"
-        description={`${filteredLogs.length} activity ${filteredLogs.length === 1 ? 'log' : 'logs'}, ${fetchFrom === null ? 'all time' : `since ${fetchFrom.toLocaleDateString()}`}.`}
+        description="Monitor system activities and administrative actions."
       />
 
       {/* Search & Filters */}
