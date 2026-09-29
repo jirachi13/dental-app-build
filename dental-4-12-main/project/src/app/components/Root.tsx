@@ -608,9 +608,15 @@ export const Root = () => {
         // look without the bleed.
         // Gradient fill (user, 2026-09-29): a soft lighter-navy glow from the top-left
         // fading into the sidebar navy and then a deeper navy at the bottom.
-        style={{ background: 'radial-gradient(120% 60% at 0% 0%, #26367A 0%, #17234D 55%, #0F1838 100%)' }}
+        style={{
+          background:
+            'linear-gradient(155deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 38%), ' +
+            'radial-gradient(130% 70% at 0% 0%, #4257C4 0%, #26367A 38%, #17234D 68%, #0B1233 100%)',
+          // Glass edge: a bright hairline along the top and a faint inner glow.
+          boxShadow: '0 15px 20px rgba(15,23,42,0.22), inset 0 1px 0 rgba(255,255,255,0.3), inset 0 0 36px rgba(255,255,255,0.05)',
+        }}
         className={`flex flex-col fixed left-0 top-0 h-screen z-[70]
-          md:left-5 md:top-5 md:bottom-5 md:h-auto md:rounded-[24px] md:border md:border-white/10 md:shadow-[0_15px_20px_rgba(15,23,42,0.22)]
+          md:left-5 md:top-5 md:bottom-5 md:h-auto md:rounded-[24px] md:border md:border-white/20
           w-[238px] transition-transform duration-200
           ${drawerOpen ? 'translate-x-0 visible' : '-translate-x-full invisible'}
           md:visible md:translate-x-0 md:transition-[width]
