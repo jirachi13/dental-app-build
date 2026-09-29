@@ -206,7 +206,8 @@ export const Notifications = () => {
         icon={Bell}
         eyebrow="Alerts"
         title="Notifications"
-        description={loading ? 'Loading' : `${rows.length} thing${rows.length === 1 ? '' : 's'} need${rows.length === 1 ? 's' : ''} attention.`}
+        description="Appointments, RPC visits, risk validation, and consent, across every module."
+        badge={unreadCount}
       />
 
       {error && (
