@@ -328,7 +328,7 @@ export const Notifications = () => {
             onClick={() => markRead(r.id)}
             className="flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-primary hover:underline"
           >
-            {r.linkLabel} <ArrowRight className="w-3 h-3" />
+            <ArrowRight className="w-3 h-3" /> {r.linkLabel}
           </Link>
         </div>
       </li>
