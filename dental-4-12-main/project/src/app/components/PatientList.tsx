@@ -1199,19 +1199,15 @@ export const PatientList = () => {
           is what `position: sticky` pins its descendants against, so the
           header block, table headings and footer below would stick to THIS
           div instead of the viewport and never visibly move. */}
-      {/* Hide now also uses `height`, same as the default view (superseding
-          the `maxHeight` version below, user, 2026-09-29 -- "the bottom
-          container doesn't touch the edge of the screen has resurfaced").
-          `maxHeight` let the card shrink-wrap to a few rows, but that left
-          the true gap the user is pointing at — page background, not card,
-          showing between the reveal tab and the screen edge. Filling to the
-          full cap and pinning the reveal tab as its own flex-shrink-0 footer
-          (below, sibling to the rows box, not nested inside it) reaches the
-          edge in both cases: a few rows leaves blank card interior above a
-          tab that still sits flush at the bottom; many rows scroll inside
-          the rows box exactly as before. See RPC Monitoring for the same
-          fix, ported verbatim (user, 2026-09-29). */}
-      <div ref={cardRef} className={`flex flex-col bg-card border border-border shadow-sm overflow-clip ${hideAtEdge ? 'rounded-t-2xl' : 'rounded-2xl'} ${hidePagination ? '-mb-4 md:-mb-8' : ''}`} style={{ height: cardHeight ?? undefined }}>
+      {/* Hide uses `maxHeight`, not `height` (user, 2026-09-29: "when there
+          is only two [students], the container would end in that" -- a
+          short filtered list must shrink-wrap to its real content, not
+          stretch to fill the screen with blank interior). This only works
+          now that the reveal tab lives INSIDE the scrollable rows box
+          (see below) rather than as its own flush-bottom footer sibling --
+          with the tab inside, a short list simply ends after it; a long
+          list caps at `cardHeight` and scrolls internally, tab included. */}
+      <div ref={cardRef} className={`flex flex-col bg-card border border-border shadow-sm overflow-clip ${hideAtEdge ? 'rounded-t-2xl' : 'rounded-2xl'} ${hidePagination ? '-mb-4 md:-mb-8' : ''}`} style={{ [hidePagination ? 'maxHeight' : 'height']: cardHeight ?? undefined }}>
         <div ref={cardHeaderRef} className="sticky z-40 space-y-4 border-b border-border bg-card p-5 sm:p-6" style={{ top: stickyTop.cardHeader }}>
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
