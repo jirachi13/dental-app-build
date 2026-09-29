@@ -130,10 +130,11 @@ export const ScanStudentForm = () => {
         </div>
       </div>
 
-      {/* Two entry options -- hoverable, and the clicked one gets the dark
-          blue fill (user, 2026-09-29). Neither tile is "selected" by
-          default; picking one is what starts that action (camera / file
-          picker) AND marks it. */}
+      {/* Two entry options -- hoverable, and the clicked one gets a dark
+          blue BORDER only (user, 2026-09-29: "not the solid dark blue
+          filled, just the border"). Neither tile is "selected" by default;
+          picking one is what starts that action (camera / file picker) AND
+          marks it. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
         {(['photo', 'file'] as const).map((method) => {
           const active = selectedMethod === method;
@@ -150,23 +151,21 @@ export const ScanStudentForm = () => {
               style={{
                 boxSizing: 'border-box', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '0.625rem',
                 padding: '1.5rem', borderRadius: '1rem', boxShadow: '0 0.0625rem 0.125rem rgba(15,23,42,0.06)',
-                textAlign: 'left', font: 'inherit',
-                background: active ? '#273A78' : '#fff',
-                color: active ? '#fff' : 'inherit',
+                textAlign: 'left', font: 'inherit', background: '#fff', color: 'inherit',
                 border: active ? '0.125rem solid #273A78' : '0.125rem solid #E2E8F0',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <div style={{ width: '2.75rem', height: '2.75rem', borderRadius: '0.75rem', background: active ? 'rgba(255,255,255,0.16)' : (isPhoto ? '#F4F7FF' : '#ECECF0'), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: '2.75rem', height: '2.75rem', borderRadius: '0.75rem', background: isPhoto ? '#F4F7FF' : '#ECECF0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {isPhoto ? (
-                    <svg width="18.7" height="18.7" viewBox="0 0 24 24" fill="none" stroke={active ? '#fff' : '#273A78'} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.5"/></svg>
+                    <svg width="18.7" height="18.7" viewBox="0 0 24 24" fill="none" stroke="#273A78" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.5"/></svg>
                   ) : (
-                    <svg width="18.7" height="18.7" viewBox="0 0 24 24" fill="none" stroke={active ? '#fff' : '#141413'} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+                    <svg width="18.7" height="18.7" viewBox="0 0 24 24" fill="none" stroke="#141413" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
                   )}
                 </div>
                 <div style={{ fontSize: '1rem', fontWeight: 700 }}>{isPhoto ? 'Take a Photo' : 'Upload a File'}</div>
               </div>
-              <div style={{ fontSize: '0.8125rem', color: active ? 'rgba(255,255,255,0.75)' : '#67687A', textAlign: 'left' }}>
+              <div style={{ fontSize: '0.8125rem', color: '#67687A', textAlign: 'left' }}>
                 {isPhoto ? "Use this device's camera to capture the form directly." : 'Choose an existing photo, scan, spreadsheet or document.'}
               </div>
             </button>
