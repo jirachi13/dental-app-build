@@ -377,7 +377,7 @@ export const Notifications = () => {
     // "Go to") sits flush at the true right edge as its own group.
     return (
       <li key={r.id} className={`relative grid grid-cols-[3fr_0.85fr_auto] items-start gap-0 p-3.5 ${isRead ? '' : 'bg-primary-surface/60'}`}>
-        <div className="flex items-start gap-3 min-w-0">
+        <div className="flex items-start gap-4 min-w-0">
           <div className="relative shrink-0">
             <span className={`flex h-11 w-11 items-center justify-center rounded-full ${r.iconBg}`}>
               <r.Icon className={`w-5 h-5 ${r.iconFg}`} />
