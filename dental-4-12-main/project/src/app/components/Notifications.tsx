@@ -459,7 +459,7 @@ export const Notifications = () => {
         icon={Bell}
         eyebrow="Alerts"
         title="Notifications"
-        description="Appointments, RPC visits, risk validation, and consent, across every module."
+        description="Reminders and follow-ups that need your attention, gathered from across the app."
       />
 
       {error && (
