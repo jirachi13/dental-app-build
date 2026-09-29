@@ -391,7 +391,7 @@ export const AccountManagement = () => {
               <div className="flex flex-wrap gap-2 lg:justify-end">
                 {(['all', ...ROLES] as const).map((r) => (
                   <button key={r} type="button" onClick={() => setRoleFilter(r)}
-                    className={`ROLEpx-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${statusFilter === v ? 'bg-[#16214F] text-white border-[#16214F]' : 'bg-white text-[#16214F] border-[#E2E8F0] hover:bg-gray-50'}`}>{r === 'all' ? 'All' : ROLE_LABELS[r]}</button>
+                    className={`px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${roleFilter === r ? 'bg-[#16214F] text-white border-[#16214F]' : 'bg-white text-[#16214F] border-[#E2E8F0] hover:bg-gray-50'}`}>{r === 'all' ? 'All' : ROLE_LABELS[r]}</button>
                 ))}
               </div>
             </div>
