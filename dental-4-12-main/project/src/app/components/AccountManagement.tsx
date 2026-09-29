@@ -502,22 +502,22 @@ export const AccountManagement = () => {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-border">
               <tr>
-                <th className="px-6 py-4 text-left text-sm font-bold text-foreground uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-[13px] font-bold text-foreground uppercase tracking-wider">
                   Name
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-bold text-foreground uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-[13px] font-bold text-foreground uppercase tracking-wider">
                   Role
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-bold text-foreground uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-[13px] font-bold text-foreground uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-bold text-foreground uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-[13px] font-bold text-foreground uppercase tracking-wider">
                   Date Added
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-bold text-foreground uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-[13px] font-bold text-foreground uppercase tracking-wider">
                   School
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-bold text-foreground uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-[13px] font-bold text-foreground uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
