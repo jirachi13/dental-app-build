@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit, Power, Search, KeyRound, Mail, UserCog, Users, UserCheck, UserX, Filter, CheckCircle } from 'lucide-react';
+import { Plus, Edit, Power, Search, KeyRound, Mail, UserCog, Users, UserCheck, UserX, Filter, CheckCircle, User as UserIcon, Shield } from 'lucide-react';
 import { PageHeader } from './PageHeader';
 import { useUsers, ROLE_LABELS } from '../hooks/useUsers';
 import { apiClient, ApiError } from '../api/client';
@@ -12,6 +12,14 @@ import { Modal } from './Modal';
 import { useAuth } from '../context/AuthContext';
 
 const ROLES: ApiRole[] = ['dentist', 'dental_aide', 'school_admin', 'bho_staff', 'system_admin'];
+
+const ROLE_STYLE: Record<ApiRole, { cls: string; icon: typeof UserIcon }> = {
+  dentist: { cls: 'bg-[#F4F7FF] text-[#273A78] border-[#DCE3F5]', icon: UserIcon },
+  dental_aide: { cls: 'bg-[#ECFDF5] text-[#047857] border-[#A7F3D0]', icon: Users },
+  school_admin: { cls: 'bg-[#FFFBEB] text-[#B45309] border-[#FDE68A]', icon: UserCheck },
+  bho_staff: { cls: 'bg-[#F0F9FF] text-[#0369A1] border-[#BAE6FD]', icon: Users },
+  system_admin: { cls: 'bg-[#FAF5FF] text-[#7E22CE] border-[#E9D5FF]', icon: Shield },
+};
 
 /** School assignment picker (Sprint 100). Replaces a single-select dropdown:
  *  one dentist and one aide rotate across all three schools, and other roles
@@ -498,9 +506,6 @@ export const AccountManagement = () => {
                   Name
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Email
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Role
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -518,31 +523,42 @@ export const AccountManagement = () => {
               {filteredUsers.map((user) => (
                 <tr key={user.id} className={`hover:bg-gray-50 ${user.pending ? 'opacity-70' : ''}`}>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-foreground flex items-center">
-                      {user.name}
-                      {user.pending && (
-                        <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200">Pending sync</span>
-                      )}
+                    <div className="flex items-center gap-4">
+                      <span className="w-11 h-11 flex-shrink-0 rounded-xl grid place-items-center bg-[#F4F7FF] text-[#273A78] text-sm font-bold">{user.name.trim().charAt(0).toUpperCase()}</span>
+                      <div className="min-w-0">
+                        <div className="text-base font-bold text-foreground flex items-center">
+                          {user.name}
+                          {user.pending && (
+                            <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200">Pending sync</span>
+                          )}
+                        </div>
+                        <div className="text-sm text-muted-foreground">{user.email}</div>
+                      </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                    {user.email}
-                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
-                      {user.roleLabel}
-                    </span>
+                    {(() => {
+                      const st = ROLE_STYLE[user.role] ?? ROLE_STYLE.dentist;
+                      const RoleIcon = st.icon;
+                      return (
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-bold ${st.cls}`}>
+                          <RoleIcon className="w-4 h-4" />
+                          {user.roleLabel}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="px-6 py-4 text-sm text-muted-foreground">
                     {user.school}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-bold ${
                       user.status === 'Active'
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-gray-100 text-foreground'
+                        ? 'bg-[#ECFDF5] text-[#047857] border-[#A7F3D0]'
+                        : 'bg-[#F1F5F9] text-[#475569] border-[#E2E8F0]'
                     }`}>
-                      {user.status}
+                      {user.status === 'Active' ? <CheckCircle className="w-4 h-4" /> : <UserX className="w-4 h-4" />}
+                      {user.status === 'Active' ? 'Active' : 'Deactivated'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
