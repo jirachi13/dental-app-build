@@ -522,7 +522,7 @@ export const AccountManagement = () => {
         {filteredUsers.length === 0 ? (
           <div className="border-t border-border flex flex-col items-center justify-center text-center px-6 py-20">
             <span className="w-[4.5rem] h-[4.5rem] rounded-2xl grid place-items-center bg-[#F1F5F9] text-[#94A3B8]"><Users className="w-8 h-8" /></span>
-            <div className="mt-6 text-xl font-bold text-foreground">No users found</div>
+            <div className="mt-5 text-base font-bold text-foreground">No users found</div>
             <div className="mt-3 text-sm text-muted-foreground">There are no users matching the current status, role, or search filters.</div>
           </div>
         ) : (
