@@ -252,15 +252,15 @@ export const AuditTrail = () => {
         {/* Desktop table */}
         {filteredLogs.length > 0 && (
           <div className="hidden lg:block overflow-x-auto border-t border-border">
-            <table className="w-full">
+            <table className="w-full table-fixed min-w-[1000px]">
               <thead className="bg-gray-50 border-b border-border">
                 <tr>
-                  <th className={TH}>User</th>
-                  <th className={TH}>Activity</th>
-                  <th className={TH}>Module</th>
-                  <th className={TH}>Date</th>
-                  <th className={TH}>Time</th>
-                  <th className={TH}>Record ID</th>
+                  <th className={TH} style={{ width: '22%' }}>User</th>
+                  <th className={TH} style={{ width: '18%' }}>Activity</th>
+                  <th className={TH} style={{ width: '18%' }}>Module</th>
+                  <th className={TH} style={{ width: '15%' }}>Date</th>
+                  <th className={TH} style={{ width: '9%' }}>Time</th>
+                  <th className={TH} style={{ width: '18%' }}>Record ID</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
