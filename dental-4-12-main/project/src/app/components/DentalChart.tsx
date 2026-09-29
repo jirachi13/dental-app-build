@@ -1575,14 +1575,15 @@ export const DentalChart = () => {
                 const yrChart: Record<number, ChartEntry> = {};
                 for (const tr of y.dmftToothRecords ?? []) yrChart[tr.tooth_number] = { condition: tr.condition, treatment: tr.treatment_code ?? '' };
                 const yrDmft = computeDMFT(yrChart);
-                const yrDmftLabel = y.dmftToothRecords ? `${yrDmft.T + yrDmft.t}` : '—';
+                // BUG-13: permanent (DMFT) and deciduous (dmft) stay separate, as in the History table.
+                const yrDmftLabel = y.dmftToothRecords ? `DMFT ${yrDmft.T} · dmft ${yrDmft.t}` : 'DMFT —';
                 const isActive = selectedYear === idx;
                 return (
                   <div key={y.iptr._id} className={`mr-1 flex flex-shrink-0 items-stretch border-b-2 ${isActive ? 'border-blue-700 bg-blue-50 text-blue-700' : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-gray-50'}`}>
                     <button type="button" onClick={() => setSelectedYear(idx)} className="px-4 py-2.5 text-left text-xs font-medium transition-all">
                       <div>{y.iptr.school_year}</div>
                       {activeTab === 'chart' && (
-                        <div style={{ fontSize: '10px', marginTop: '2px' }} className={isActive ? 'text-blue-600' : 'text-muted-foreground'} title={y.dmftToothRecords ? undefined : 'No charting this school year recorded a tooth'}>DMFT: {yrDmftLabel}</div>
+                        <div style={{ fontSize: '10px', marginTop: '2px' }} className={isActive ? 'text-blue-600' : 'text-muted-foreground'} title={y.dmftToothRecords ? undefined : 'No charting this school year recorded a tooth'}>{yrDmftLabel}</div>
                       )}
                       <div style={{ fontSize: '10px', marginTop: '2px' }} className={isActive ? 'text-blue-600' : 'text-muted-foreground'}>
                         {formatDateStamp(y.dentalChart?.date_charted)}

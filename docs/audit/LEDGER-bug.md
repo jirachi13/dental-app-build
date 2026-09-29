@@ -315,7 +315,11 @@ Fix:      **Read the DOH Oral Health Program Report's printed referral rows and 
           it**, then have the other import it. ⚠ Do not simply pick the longer or the shorter; the
           form decides. The manuscript's appendices or the supplied workbook are where to look.
 
-### BUG-13 · `src/app/components/DentalChart.tsx` year strip · LOW · OPEN
+### BUG-13 · `src/app/components/DentalChart.tsx` year strip · LOW · ✅ FIXED 2026-09-29
+Resolved: the strip now reads `DMFT 14 · dmft 2` (and `DMFT —` when uncharted), matching the History
+          table. Label-only change, no arithmetic touched. tsc clean; **not checked in the browser**
+          (production DB on this PC — SEC-00) — a quick look at a pupil's year strip confirms the
+          wider tab still fits (the strip scrolls inside its own container).
 **Noticed while fixing BUG-12; pre-existing and deliberately not changed.**
 Claim:    The year strip labels `T + t` as "DMFT", while the DMFT History table reports the two
           separately. The same screen uses "DMFT" to mean two different things.
