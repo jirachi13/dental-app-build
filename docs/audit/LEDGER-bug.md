@@ -613,7 +613,11 @@ Note:     **No hook uses `AbortController`.** The in-house guard discards a late
           recorded so nobody reports it again as a separate finding — but it does mean a fast
           switcher still pays the bandwidth for every response it throws away.
 
-### BUG-09 · `src/app/hooks/useAppointments.ts:206` · LOW · OPEN
+### BUG-09 · `src/app/hooks/useAppointments.ts:206` · LOW · ✅ FIXED 2026-09-29
+Resolved: memoised at the source (`usePendingWritesFor` in `useOfflineQueue.ts`, on `[queue, endpoint]`)
+          rather than depending on `.length` — the memo reads the queued bodies, so a length-only
+          dependency would go stale if one write synced while another was queued. useStudents and
+          useUsers call the same helper and get the stable identity too. tsc + `npm test` 96/96.
 Claim:    A `useMemo` never hits its cache, because one dependency changes identity on every render.
 Evidence: `}, [appointments, students, schools, dentists, pendingWrites]);` — `pendingWrites` comes
           from `usePendingWritesFor`, which returns `queue.filter(...)`, **a new array every render**.
