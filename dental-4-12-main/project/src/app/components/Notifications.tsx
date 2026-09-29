@@ -501,7 +501,7 @@ export const Notifications = () => {
                 onClick={() => { markRead(r.id); setOpenPopupId(null); }}
                 className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-primary px-2.5 py-2 text-[12.5px] font-semibold text-white hover:bg-primary/90"
               >
-                {r.linkLabel} <ArrowRight className="w-3.5 h-3.5" />
+                {r.linkLabel}
               </Link>
             </div>
           </div>
