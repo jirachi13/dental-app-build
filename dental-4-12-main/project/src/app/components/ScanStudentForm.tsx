@@ -216,13 +216,6 @@ export const ScanStudentForm = () => {
         />
       </div>
 
-      {/* Note on how each type is read */}
-      <div style={{ display: 'flex', gap: '0.625rem', alignItems: 'flex-start', background: '#F4F7FF', border: '0.0625rem solid #E2E8F0', borderRadius: '0.75rem', padding: '0.75rem 1rem', marginTop: '1rem' }}>
-        <svg width="15.3" height="15.3" viewBox="0 0 24 24" fill="none" stroke="#273A78" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '0.0625rem' }}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-        <div style={{ fontSize: '0.78125rem', color: '#33344a', lineHeight: 1.5 }}>
-          Photos and PDFs are read with OCR against the printed DOH IPTR layout — name, birthday, sex, address, contact number and PhilHealth # are extracted (grade and section have no printed field, so they stay typed). A CSV or Excel file is read directly by its column headers instead, and can include grade/section if the file has them. Either way, nothing is saved until you verify it on the next screen.
-        </div>
-      </div>
 
       {processing && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginTop: '1rem', fontSize: '0.8125rem', color: '#67687A' }}>
