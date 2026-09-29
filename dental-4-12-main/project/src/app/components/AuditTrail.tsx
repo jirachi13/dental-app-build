@@ -16,8 +16,13 @@ const FIELD_STYLE = { border: '1px solid #E2E8F0' } as const;
 const CARD = 'bg-card rounded-2xl border border-border shadow-[0_4px_20px_rgba(0,0,0,0.06)]';
 const TH = 'px-6 py-3 text-left text-[12.5px] font-bold text-[#94A3B8] uppercase tracking-wider';
 
+/** Model names are stored in code form ("MedicalHistory", "StudentIptr"). Put a
+ *  space between words for display; IPTR is an acronym, not a word. */
+const humanize = (name: string) =>
+  name.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/\bIptr\b/g, 'IPTR');
+
 const ModulePill = ({ children }: { children: string }) => (
-  <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-[#DCE3F5] bg-[#F4F7FF] text-xs font-bold text-[#273A78]">{children}</span>
+  <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-[#DCE3F5] bg-[#F4F7FF] text-xs font-bold text-[#273A78]">{humanize(children)}</span>
 );
 
 const UserCell = ({ name, role }: { name: string; role: string }) => (
@@ -34,7 +39,7 @@ const UserCell = ({ name, role }: { name: string; role: string }) => (
  *  reads as the title and the rest as the detail line, with no invented text. */
 const splitAction = (action: string, module: string) => {
   const [verb, ...rest] = action.trim().split(/\s+/);
-  return { title: verb || action, detail: rest.join(' ') || module };
+  return { title: verb || action, detail: humanize(rest.join(' ')) || humanize(module) };
 };
 
 export const AuditTrail = () => {
@@ -188,7 +193,7 @@ export const AuditTrail = () => {
             </select>
             <select value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)} className={FIELD} style={FIELD_STYLE} aria-label="Filter by module">
               {modules.map((module) => (
-                <option key={module} value={module}>{module === 'all' ? 'All Modules' : module}</option>
+                <option key={module} value={module}>{module === 'all' ? 'All Modules' : humanize(module)}</option>
               ))}
             </select>
             <div className="relative">
