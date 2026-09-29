@@ -564,7 +564,7 @@ export const AccountManagement = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                     {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : ''}
                   </td>
-                  <td className="px-6 py-4 text-sm text-muted-foreground">
+                  <td className="px-6 py-4 text-xs text-muted-foreground">
                     {user.school}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
