@@ -371,15 +371,15 @@ export const Notifications = () => {
     // 2026-09-29: "you put space with the icon... when you are supposed to
     // make space between the text and the icons in the right"): icon + text
     // stay close together (their own tight gap-3) in column 1, column 2 is
-    // nothing but empty space (0.76fr against content's 3fr, narrowed
-    // several times from the original 1fr -- user, 2026-09-29, "10 percent
-    // more smaller" most recently), and column 3 (three-dot + "Go to") sits
-    // flush at the true right edge as its own group. `items-center` (not
-    // `items-start`) on the row itself, so a one-line row centers its text
-    // vertically against the icon and action column instead of sitting at
+    // nothing but empty space (0.35fr against content's 3fr, narrowed
+    // several times from the original 1fr -- user, 2026-09-29, "smaller
+    // alloted space" most recently), and column 3 (three-dot + "Go to")
+    // sits flush at the true right edge as its own group. `items-center`
+    // (not `items-start`) on the row itself, so a one-line row centers its
+    // text vertically against the icon and action column instead of sitting at
     // the top with dead space below it.
     return (
-      <li key={r.id} className={`relative grid grid-cols-[3fr_0.76fr_auto] items-center gap-0 p-3.5 ${isRead ? '' : 'bg-primary-surface/60'}`}>
+      <li key={r.id} className={`relative grid grid-cols-[3fr_0.35fr_auto] items-center gap-0 p-3.5 ${isRead ? '' : 'bg-primary-surface/60'}`}>
         <div className="flex items-start gap-4 min-w-0">
           <div className="relative shrink-0">
             <span className={`flex h-11 w-11 items-center justify-center rounded-full ${r.iconBg}`}>
