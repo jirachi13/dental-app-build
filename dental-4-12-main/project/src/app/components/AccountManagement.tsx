@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit, Power, Search, KeyRound, Mail, UserCog, Users, UserCheck, UserX, Filter, CheckCircle, User as UserIcon, Shield } from 'lucide-react';
+import { X as XIcon, Plus, Edit, Power, Search, KeyRound, Mail, UserCog, Users, UserCheck, UserX, Filter, CheckCircle, User as UserIcon, Shield } from 'lucide-react';
 import { PageHeader } from './PageHeader';
 import { useUsers, ROLE_LABELS } from '../hooks/useUsers';
 import { apiClient, ApiError } from '../api/client';
@@ -12,6 +12,27 @@ import { Modal } from './Modal';
 import { useAuth } from '../context/AuthContext';
 
 const ROLES: ApiRole[] = ['dentist', 'dental_aide', 'school_admin', 'bho_staff', 'system_admin'];
+
+// Popup styling shared by the Edit and Reset Password dialogs. The border is
+// inline because styles/index.css forces a grey border on every input.
+const POPUP_FIELD = 'w-full px-4 py-3 text-sm bg-[#F8FAFC] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#16214F]/30';
+const POPUP_FIELD_STYLE = { border: '1px solid #E2E8F0' } as const;
+const POPUP_LABEL = 'block text-sm font-bold text-foreground mb-2';
+const POPUP_SECTION = 'text-xs font-bold uppercase tracking-[0.12em] text-[#64748B]';
+const POPUP_CANCEL = 'px-5 py-2.5 rounded-xl border border-[#E2E8F0] bg-white text-sm font-bold text-foreground hover:bg-gray-50 transition-colors';
+const POPUP_PRIMARY = 'px-5 py-2.5 rounded-xl bg-primary text-sm font-bold text-white hover:bg-primary-hover disabled:opacity-60 transition-colors';
+
+const PopupHeader = ({ title, subtitle, onClose }: { title: string; subtitle: string; onClose: () => void }) => (
+  <div className="flex items-start justify-between gap-4 px-8 py-6 border-b border-border">
+    <div>
+      <h2 className="text-xl font-bold text-foreground">{title}</h2>
+      <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
+    </div>
+    <button type="button" aria-label="Close" onClick={onClose} className="w-11 h-11 flex-shrink-0 grid place-items-center rounded-xl border border-[#E2E8F0] bg-white text-[#475569] hover:bg-gray-50">
+      <XIcon className="w-5 h-5" />
+    </button>
+  </div>
+);
 
 const ROLE_STYLE: Record<ApiRole, { cls: string; icon: typeof UserIcon }> = {
   dentist: { cls: 'bg-[#F4F7FF] text-[#273A78] border-[#DCE3F5]', icon: UserIcon },
@@ -674,35 +695,34 @@ export const AccountManagement = () => {
 
       {/* Edit Account Modal */}
       {editingUserId && (
-        <Modal onClose={() => setEditingUserId(null)} maxWidth="max-w-lg" closeDisabled={editSubmitting || twofaBusy}>
-            <div className="p-6 border-b">
-              <h2 className="text-lg font-bold text-foreground">Edit Account</h2>
-            </div>
-            <div className="p-6 space-y-4">
+        <Modal onClose={() => setEditingUserId(null)} maxWidth="max-w-2xl" rounded="rounded-3xl" closeDisabled={editSubmitting || twofaBusy}>
+            <PopupHeader title="Edit Account" subtitle="View and manage this user's information." onClose={() => setEditingUserId(null)} />
+            <div className="px-8 py-6 space-y-5">
+              <div className={POPUP_SECTION}>Account Information</div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Full Name</label>
+                <label className={POPUP_LABEL}>Full Name</label>
                 <input
                   type="text"
                   value={editForm.full_name}
                   onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
-                  className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                  className={POPUP_FIELD} style={POPUP_FIELD_STYLE}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Email Address</label>
+                <label className={POPUP_LABEL}>Email Address</label>
                 <input
                   type="email"
                   value={editForm.email}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                  className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                  className={POPUP_FIELD} style={POPUP_FIELD_STYLE}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Role</label>
+                <label className={POPUP_LABEL}>Role</label>
                 <select
                   value={editForm.role}
                   onChange={(e) => setEditForm({ ...editForm, role: e.target.value as ApiRole })}
-                  className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                  className={POPUP_FIELD} style={POPUP_FIELD_STYLE}
                 >
                   {ROLES.map(role => (
                     <option key={role} value={role}>{ROLE_LABELS[role]}</option>
@@ -771,17 +791,17 @@ export const AccountManagement = () => {
 
               {editError && <p className="text-sm text-destructive">{editError}</p>}
             </div>
-            <div className="flex gap-3 p-6 border-t">
+            <div className="flex justify-end gap-3 px-8 py-5 border-t border-border">
               <button
                 onClick={() => setEditingUserId(null)}
-                className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-gray-50 transition-colors"
+                className={POPUP_CANCEL}
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveEdit}
                 disabled={editSubmitting}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-60 transition-colors"
+                className={POPUP_PRIMARY}
               >
                 {editSubmitting ? 'Saving…' : 'Save Changes'}
               </button>
@@ -791,12 +811,9 @@ export const AccountManagement = () => {
 
       {/* Reset Password Modal */}
       {resettingUserId && (
-        <Modal onClose={() => setResettingUserId(null)} maxWidth="max-w-lg" closeDisabled={resetSubmitting || sendingReset}>
-            <div className="p-6 border-b">
-              <h2 className="text-lg font-bold text-foreground">Reset Password</h2>
-              <p className="text-sm text-muted-foreground mt-1">for {resettingUserName}</p>
-            </div>
-            <div className="p-6 space-y-4">
+        <Modal onClose={() => setResettingUserId(null)} maxWidth="max-w-2xl" rounded="rounded-3xl" closeDisabled={resetSubmitting || sendingReset}>
+            <PopupHeader title="Reset Password" subtitle={`for ${resettingUserName}`} onClose={() => setResettingUserId(null)} />
+            <div className="px-8 py-6 space-y-5">
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
                 <p className="text-sm text-foreground">Recommended — email {resettingUserName} a secure link so they set their own password (you never see it).</p>
                 <button
@@ -814,39 +831,39 @@ export const AccountManagement = () => {
                   not text. */}
               <div className="text-center text-xs text-muted-foreground">or set a password directly (for accounts without a real mailbox)</div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">New Password</label>
+                <label className={POPUP_LABEL}>New Password</label>
                 <input
                   type="password"
                   autoComplete="new-password"
                   value={resetPassword}
                   onChange={(e) => setResetPassword(e.target.value)}
-                  className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                  className={POPUP_FIELD} style={POPUP_FIELD_STYLE}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Confirm New Password</label>
+                <label className={POPUP_LABEL}>Confirm New Password</label>
                 <input
                   type="password"
                   autoComplete="new-password"
                   value={resetConfirm}
                   onChange={(e) => setResetConfirm(e.target.value)}
-                  className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
+                  className={POPUP_FIELD} style={POPUP_FIELD_STYLE}
                 />
               </div>
               <p className="text-xs text-muted-foreground">Share the new password with {resettingUserName} directly (in person, chat, or phone) — there's no automatic email notification.</p>
               {resetError && <p className="text-sm text-destructive">{resetError}</p>}
             </div>
-            <div className="flex gap-3 p-6 border-t">
+            <div className="flex justify-end gap-3 px-8 py-5 border-t border-border">
               <button
                 onClick={() => setResettingUserId(null)}
-                className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-gray-50 transition-colors"
+                className={POPUP_CANCEL}
               >
                 Cancel
               </button>
               <button
                 onClick={handleResetPassword}
                 disabled={resetSubmitting}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-60 transition-colors"
+                className={POPUP_PRIMARY}
               >
                 {resetSubmitting ? 'Resetting…' : 'Reset Password'}
               </button>
