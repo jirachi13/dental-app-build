@@ -283,7 +283,8 @@ export const Notifications = () => {
               (user, 2026-09-29: "the date must be right after the period"),
               not split onto a separate meta line. */}
           <p className={`text-[13.5px] leading-snug ${isRead ? 'text-foreground' : 'font-semibold text-foreground'}`}>
-            {r.textBefore}<b className="font-bold">{r.textBold}</b>{r.textAfter} {r.timeLabel}.
+            {r.textBefore}<b className="font-bold">{r.textBold}</b>{r.textAfter}{' '}
+            <span className="text-xs font-normal text-muted-foreground">{r.timeLabel}</span>
           </p>
         </div>
 
