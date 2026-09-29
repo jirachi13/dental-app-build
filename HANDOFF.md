@@ -23,13 +23,19 @@ as the dentist on localhost — deliberately NOT logged out, since Logout now re
 **This session: SEC-22, BUG-09, BUG-10, BUG-11, BUG-13, SEC-12 fixed, and Sprint 162 finished.**
 Only 162d was browser-checked; the fixes were verified by tsc + tests (+ a real-jsonwebtoken run
 for SEC-12), **none against a live DB** (SEC-00 — this PC still points at production).
+**Then Sprint 163 was SCOPED, not built** (SEC-03/19/20/33/34, see "PLANNED: Sprint 163" below).
+Two new findings: **SEC-33 HIGH** (a school_admin sees named referrals + reason on Reports →
+Internal) and **SEC-34 LOW** (routes have no role guard). **Your decision: bho_staff KEEPS the named
+Target Client List + Consent Form**, so SEC-20 is an accepted risk. The plan needs no more decisions.
 
 **▶ YOUR NEXT MOVES, in order** (no sprint is unblocked without one of these):
 1. **SEC-12 two-browser check** once Vercel has deployed: log in on two browsers, log out of one —
    the other should land on login within 15 minutes.
-2. **A dev `.env` on this PC (SEC-00)** — the whole file from the laptop, never one line. Unblocks
-   the SEC-03/SEC-19 live checks and makes every later browser pass safe. Then run
+2. **A dev `.env` on this PC (SEC-00)** — the whole file from the laptop, never one line. **This is
+   what unblocks Sprint 163**, which must be verified logged in as school_admin AND bho_staff before
+   it is pushed; it also makes every later browser pass safe. Then run
    `npm run audit:user-schools` (read-only; SEC-18's DATA has still never been checked).
+   → **Then run Sprint 163 on Opus medium, from the plan below.**
 3. **Render dashboard: is `ML_SERVICE_API_KEY` set?** Closes SEC-30 either way.
 4. **The paper DOH form's referral rows** → BUG-14 becomes a quick fix.
 5. The dental chart at 390 px in devtools device emulation (window resize can't get there).
