@@ -1521,27 +1521,26 @@ export const PatientList = () => {
               })}
             </tbody>
           </table>
-        </div>
 
-        {/* Reveal tab moved OUT of the scrollable rows box and pinned here as
-            its own flex-shrink-0 footer (superseding "inside the scrollable
-            box, as the last row" — user, 2026-09-29): nested inside, a short
-            list left it stranded right after the last row with blank card
-            interior and, worse, page background below THAT, never reaching
-            the screen edge. As a sibling of the rows box it always sits
-            flush at the true bottom, visible without scrolling, same as the
-            Showing/Items-per-page bar it replaces. Ported from RPC
-            Monitoring (user, 2026-09-29). */}
-        {hidePagination && (
-          <button
-            type="button"
-            onClick={() => setHidePagination(false)}
-            title="Show pagination controls"
-            className="flex w-full flex-shrink-0 items-center justify-center gap-1.5 border-t border-gray-100 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-canvas hover:text-foreground"
-          >
-            <ChevronUp className="h-3 w-3" /> Show pagination controls
-          </button>
-        )}
+          {/* Reveal tab back INSIDE the scrollable rows box (user, 2026-09-29,
+              overriding the "pinned as its own footer" version this
+              superseded — "it should NEVER be fixed in the page"): as a
+              flex/sticky-footer sibling of this box it stayed on screen at a
+              fixed spot while you scrolled the rows past it, which is
+              exactly the "fixed in the page" behaviour objected to. Inside
+              the scroll container, it scrolls WITH the rows and only comes
+              into view once you actually reach the true end of the list. */}
+          {hidePagination && (
+            <button
+              type="button"
+              onClick={() => setHidePagination(false)}
+              title="Show pagination controls"
+              className="flex w-full items-center justify-center gap-1.5 border-t border-gray-100 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-canvas hover:text-foreground"
+            >
+              <ChevronUp className="h-3 w-3" /> Show pagination controls
+            </button>
+          )}
+        </div>
 
         {/* Footer / pagination — sits right after the bounded, scrollable
             row list above, so it is always in view without its own sticky
