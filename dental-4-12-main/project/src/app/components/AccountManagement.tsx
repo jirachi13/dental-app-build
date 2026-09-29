@@ -374,7 +374,7 @@ export const AccountManagement = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-12 pr-4 py-3.5 text-sm bg-[#F8FAFC] rounded-2xl placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#16214F]/30"
-              style={{ border: "1px solid var(--card)" }}
+              style={{ border: "1px solid #E2E8F0" }}
             />
           </div>
           <div className="flex flex-col lg:flex-row lg:justify-between gap-5">
