@@ -654,7 +654,7 @@ export const Notifications = () => {
       )}
 
       {!loading && !error && rows.length > 0 && (
-        <div className="flex flex-col sm:flex-row gap-4 items-start">
+        <div className="flex flex-col sm:flex-row gap-4 items-start -mt-3">
           {/* Compact tier summary -- sized to its own content (`self-start`,
               no shared height with the feed beside it), not the stretched
               full-height panel an earlier round tried (user, 2026-09-29:
