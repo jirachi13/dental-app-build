@@ -821,7 +821,7 @@ export const AccountManagement = () => {
 
       {/* Reset Password Modal */}
       {resettingUserId && (
-        <Modal onClose={() => setResettingUserId(null)} maxWidth="max-w-4xl" rounded="rounded-3xl" closeDisabled={resetSubmitting || sendingReset}>
+        <Modal onClose={() => setResettingUserId(null)} maxWidth="max-w-lg" rounded="rounded-3xl" closeDisabled={resetSubmitting || sendingReset}>
             <PopupHeader title="Reset Password" subtitle={`for ${resettingUserName}`} onClose={() => setResettingUserId(null)} />
             <div className="px-8 py-6 space-y-5">
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
