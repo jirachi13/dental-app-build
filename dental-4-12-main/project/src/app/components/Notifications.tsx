@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router';
 import {
   AlertTriangle, Bell, Calendar, Brain, StickyNote, ClipboardCheck, Clock,
@@ -56,6 +57,11 @@ export const Notifications = () => {
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => loadIds('floral.notifications.dismissed'));
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [openPopupId, setOpenPopupId] = useState<string | null>(null);
+  // Screen coordinates the popup portal renders at (see below) -- captured
+  // from the clicked row's own bounding box, since the portal renders into
+  // document.body and can no longer rely on CSS `absolute` positioning
+  // against an ancestor.
+  const [popupAnchor, setPopupAnchor] = useState<{ top: number; left: number } | null>(null);
   const [activeTier, setActiveTier] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const popupRef = useRef<HTMLDivElement | null>(null);
@@ -111,13 +117,29 @@ export const Notifications = () => {
   // the three-dot menu offers (approved design: "variant J", user,
   // 2026-09-29). It is a second, faster path to the same two actions, not a
   // replacement for the three-dot menu.
+  //
+  // ⚠ Rendered through a portal into document.body (below), not as a plain
+  // descendant of the row (user, 2026-09-29, screenshot showing the popup's
+  // bottom half cut off): the feed card needs `overflow-hidden` for its own
+  // rounded corners, which was clipping the popup along with it whenever a
+  // row sat near the card's edge. A portal escapes that ancestor entirely.
+  // Since it's no longer positioned via CSS against the row, a scroll or
+  // resize (which would leave it floating over the wrong row) just closes
+  // it instead of trying to track the row's new position.
   useEffect(() => {
     if (!openPopupId) return;
+    const close = () => { setOpenPopupId(null); setPopupAnchor(null); };
     const onDocClick = (e: MouseEvent) => {
-      if (popupRef.current && !popupRef.current.contains(e.target as Node)) setOpenPopupId(null);
+      if (popupRef.current && !popupRef.current.contains(e.target as Node)) close();
     };
     document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
   }, [openPopupId]);
 
   type Row = {
@@ -137,24 +159,42 @@ export const Notifications = () => {
     linkLabel: string;
   };
 
+  // Compact relative age: 1m/1h/1d/1w (user, 2026-09-29: "if the
+  // notification enters in just 1 minute, 1 hr, 1d, 1w, it should be like
+  // that"), floored at 1m rather than a separate "Just now" case, and
+  // capped at weeks -- nothing here is expected to sit unread for months.
   const relTime = (d: Date): string => {
-    const diffH = Math.floor((Date.now() - d.getTime()) / 3600000);
-    if (diffH < 1) return 'Just now';
+    const diffMin = Math.max(1, Math.floor((Date.now() - d.getTime()) / 60000));
+    if (diffMin < 60) return `${diffMin}m`;
+    const diffH = Math.floor(diffMin / 60);
     if (diffH < 24) return `${diffH}h`;
     const diffD = Math.floor(diffH / 24);
     if (diffD < 7) return `${diffD}d`;
-    return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+    const diffW = Math.floor(diffD / 7);
+    return `${diffW}w`;
   };
 
-  // Aggregate rows (overdue RPC, risk validation, consent, the queue) carry
-  // no single due date of their own -- they are recomputed fresh on every
-  // load, so as long as the underlying condition still holds they belong in
-  // "Today" again, same as appointments literally scheduled for today. The
-  // timestamp names when the notification entered THIS feed, not when the
-  // thing it's about is due (user, 2026-09-29: "the date stamp should be by
-  // the time the notification enters the notification, not when it's
-  // due") -- an "Ongoing" label that never changed read as a one-time
-  // notice instead of one that renotifies every day the condition persists.
+  const loadFirstSeen = (): Record<string, number> => {
+    try {
+      const raw = localStorage.getItem('floral.notifications.firstSeen');
+      return raw ? (JSON.parse(raw) as Record<string, number>) : {};
+    } catch {
+      return {};
+    }
+  };
+  const saveFirstSeen = (map: Record<string, number>) => {
+    try { localStorage.setItem('floral.notifications.firstSeen', JSON.stringify(map)); } catch { /* storage unavailable */ }
+  };
+
+  // Every row's timestamp is when it FIRST appeared in this browser's feed,
+  // not the due date of the thing it's about (user, 2026-09-29: "the date
+  // stamp should be by the time the notification enters the notification,
+  // not when it's due"). An aggregate row (overdue RPC, risk validation,
+  // consent, the queue) has no due date of its own to begin with -- it's
+  // recomputed fresh on every load, so as long as the underlying condition
+  // still holds it keeps its ORIGINAL first-seen stamp and just ages
+  // (1h, 1d, 1w...) instead of being reset to "Today" every single day,
+  // while still showing up every day the condition persists.
   const rows = useMemo<Row[]>(() => {
     const list: Row[] = [];
 
@@ -172,7 +212,7 @@ export const Notifications = () => {
         textBefore: 'You have a missed appointment with ',
         textBold: a.studentName,
         textAfter: `. It was scheduled for ${dt.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}, but the visit was never marked as done.`,
-        timeLabel: relTime(dt),
+        timeLabel: '',
         linkTo: '/appointments',
         linkLabel: 'Go to Appointments',
       });
@@ -190,7 +230,7 @@ export const Notifications = () => {
         textBefore: 'You have ',
         textBold: `${counts.overdueRpc} overdue RPC visit${counts.overdueRpc === 1 ? '' : 's'}`,
         textAfter: '. Visit 1 was recorded, but Visit 2 is still due and has already passed the interval between visits.',
-        timeLabel: 'Today',
+        timeLabel: '',
         linkTo: '/rpc',
         linkLabel: 'Go to RPC Monitoring',
       });
@@ -208,7 +248,7 @@ export const Notifications = () => {
         textBefore: 'You have ',
         textBold: `${counts.appointmentsToday} appointment${counts.appointmentsToday === 1 ? '' : 's'} today`,
         textAfter: '. They are scheduled for today, across the school currently in view.',
-        timeLabel: 'Today',
+        timeLabel: '',
         linkTo: '/appointments',
         linkLabel: 'Go to Appointments',
       });
@@ -226,7 +266,7 @@ export const Notifications = () => {
         textBefore: 'You have ',
         textBold: `${counts.appointmentsTomorrow} appointment${counts.appointmentsTomorrow === 1 ? '' : 's'} tomorrow`,
         textAfter: '. They are scheduled for tomorrow, across the school currently in view.',
-        timeLabel: 'Tomorrow',
+        timeLabel: '',
         linkTo: '/appointments',
         linkLabel: 'Go to Appointments',
       });
@@ -244,7 +284,7 @@ export const Notifications = () => {
         textBefore: 'You have a note for today',
         textBold: '',
         textAfter: `, left for the clinic to see: ${counts.dayNoteToday}`,
-        timeLabel: 'Today',
+        timeLabel: '',
         linkTo: '/appointments',
         linkLabel: 'Go to Appointments',
       });
@@ -262,7 +302,7 @@ export const Notifications = () => {
         textBefore: 'You have ',
         textBold: `${counts.awaitingValidation} risk assessment${counts.awaitingValidation === 1 ? '' : 's'}`,
         textAfter: ' awaiting validation. These were predicted by the system and still need to be reviewed by the dentist.',
-        timeLabel: 'Today',
+        timeLabel: '',
         linkTo: '/ai-analytics',
         linkLabel: 'Go to Risk Classification',
       });
@@ -280,7 +320,7 @@ export const Notifications = () => {
         textBefore: 'You have ',
         textBold: `${counts.consentPending} student${counts.consentPending === 1 ? '' : 's'}`,
         textAfter: ' with consent pending. Their latest IPTR form still needs a consent decision recorded.',
-        timeLabel: 'Today',
+        timeLabel: '',
         linkTo: '/patients',
         linkLabel: 'Go to Students',
       });
@@ -302,7 +342,7 @@ export const Notifications = () => {
         textBefore: 'You are rotating to ',
         textBold: schoolNameById(rotToday.school_id),
         textAfter: ' today, per the current rotation schedule.',
-        timeLabel: 'Today',
+        timeLabel: '',
         linkTo: '/appointments',
         linkLabel: 'Go to Appointments',
       });
@@ -320,7 +360,7 @@ export const Notifications = () => {
         textBefore: 'You are rotating to ',
         textBold: schoolNameById(rotTomorrow.school_id),
         textAfter: ' tomorrow, per the current rotation schedule.',
-        timeLabel: 'Tomorrow',
+        timeLabel: '',
         linkTo: '/appointments',
         linkLabel: 'Go to Appointments',
       });
@@ -338,7 +378,7 @@ export const Notifications = () => {
         textBefore: 'You have ',
         textBold: `${queuedCount} student${queuedCount === 1 ? '' : 's'} queued`,
         textAfter: ' for charting or treatment in the Dental Charts module.',
-        timeLabel: 'Today',
+        timeLabel: '',
         linkTo: '/dental-charts',
         linkLabel: 'Go to Dental Charts',
       });
@@ -362,12 +402,28 @@ export const Notifications = () => {
         textBefore: '',
         textBold: 'A new month has started',
         textAfter: '. This is a good time to generate the School Oral Health Status Report and the Consolidated Report for the City Health Office.',
-        timeLabel: 'This month',
+        timeLabel: '',
         linkTo: '/reports',
         linkLabel: 'Go to Reports',
       });
     }
-    return list.filter((r) => !dismissedIds.has(r.id));
+    const filtered = list.filter((r) => !dismissedIds.has(r.id));
+
+    // Record each row's first-appearance time once, then stamp every row
+    // with its age since then -- an id already in the map (still live
+    // today, e.g. 'rpc-overdue') keeps its original moment; a genuinely new
+    // one (a fresh missed appointment, or this same id reappearing after
+    // being pruned once it disappeared) is stamped as of right now.
+    const firstSeen = loadFirstSeen();
+    const nowMs = Date.now();
+    let firstSeenChanged = false;
+    for (const r of filtered) {
+      if (firstSeen[r.id] == null) { firstSeen[r.id] = nowMs; firstSeenChanged = true; }
+    }
+    if (firstSeenChanged) saveFirstSeen(firstSeen);
+    for (const r of filtered) r.timeLabel = relTime(new Date(firstSeen[r.id]));
+
+    return filtered;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [counts, canValidateRisk, dismissedIds, rotationByDay, todayDate, tomorrowDate, schools, queuedCount]);
 
@@ -381,6 +437,15 @@ export const Notifications = () => {
     if (prunedRead.size !== readIds.size) { saveToStorage('floral.notifications.read', prunedRead); setReadIds(prunedRead); }
     const prunedDismissed = new Set([...dismissedIds].filter((id) => liveIds.has(id)));
     if (prunedDismissed.size !== dismissedIds.size) { saveToStorage('floral.notifications.dismissed', prunedDismissed); setDismissedIds(prunedDismissed); }
+    // First-seen entries too, so an id that reappears later (the RPC visit
+    // becomes overdue again after being resolved) is genuinely "new" again
+    // instead of inheriting a stamp from months ago.
+    const firstSeen = loadFirstSeen();
+    let firstSeenPruned = false;
+    for (const id of Object.keys(firstSeen)) {
+      if (!liveIds.has(id)) { delete firstSeen[id]; firstSeenPruned = true; }
+    }
+    if (firstSeenPruned) saveFirstSeen(firstSeen);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, loading]);
 
@@ -425,7 +490,21 @@ export const Notifications = () => {
     return (
       <li
         key={r.id}
-        onClick={() => { setOpenPopupId(openPopupId === r.id ? null : r.id); setOpenMenuId(null); }}
+        onClick={(e) => {
+          if (openPopupId === r.id) {
+            setOpenPopupId(null);
+            setPopupAnchor(null);
+          } else {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const popupWidth = 384; // w-96
+            setPopupAnchor({
+              top: rect.bottom + 8,
+              left: Math.min(rect.left + 16, window.innerWidth - popupWidth - 16),
+            });
+            setOpenPopupId(r.id);
+          }
+          setOpenMenuId(null);
+        }}
         className={`relative grid grid-cols-[3fr_0.35fr_auto] items-center gap-0 p-3.5 cursor-pointer hover:bg-muted/40 ${isRead ? '' : 'bg-primary-surface/60'}`}
       >
         <div className="flex items-center gap-4 min-w-0">
@@ -498,11 +577,12 @@ export const Notifications = () => {
           </Link>
         </div>
 
-        {openPopupId === r.id && (
+        {openPopupId === r.id && popupAnchor && createPortal(
           <div
             ref={popupRef}
             onClick={(e) => e.stopPropagation()}
-            className="absolute left-4 top-full z-20 mt-2 w-96 rounded-2xl border border-border bg-card p-4 shadow-lg"
+            style={{ top: popupAnchor.top, left: popupAnchor.left }}
+            className="fixed z-50 w-96 rounded-2xl border border-border bg-card p-4 shadow-lg"
           >
             <div className="mb-2.5 flex items-center gap-2.5">
               <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${r.iconBg}`}>
@@ -516,7 +596,7 @@ export const Notifications = () => {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => { toggleRead(r.id); setOpenPopupId(null); }}
+                onClick={() => { toggleRead(r.id); setOpenPopupId(null); setPopupAnchor(null); }}
                 className="flex flex-none items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-border px-2.5 py-2 text-[12.5px] font-semibold text-foreground hover:bg-muted"
               >
                 {isRead ? <Circle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
@@ -524,13 +604,14 @@ export const Notifications = () => {
               </button>
               <Link
                 to={r.linkTo}
-                onClick={() => { markRead(r.id); setOpenPopupId(null); }}
+                onClick={() => { markRead(r.id); setOpenPopupId(null); setPopupAnchor(null); }}
                 className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-primary px-2.5 py-2 text-[12.5px] font-semibold text-white hover:bg-primary/90"
               >
                 {r.linkLabel}
               </Link>
             </div>
-          </div>
+          </div>,
+          document.body,
         )}
       </li>
     );
