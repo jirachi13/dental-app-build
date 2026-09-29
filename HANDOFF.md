@@ -11,11 +11,29 @@
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ▶ RESUME HERE — PARKED 2026-09-14 (11th session). ✅ **ALL PUSHED**
+## ▶ RESUME HERE — PARKED 2026-09-29 (12th session). ✅ **ALL PUSHED**
 
-**2026-09-29 (12th session): SEC-22, BUG-09, BUG-10, BUG-11, BUG-13 and SEC-12 FIXED**, all pushed.
-`npm test` **101/101**, tsc both configs clean. **None exercised against a live DB** (SEC-00 — this
-PC still points at production). Model strategy changed: **no Fable** — see CLAUDE.md.
+**Nothing is in progress.** Working tree clean, `main` level with origin (checked by fetch + count,
+0/0). `npm test` **101/101**, `tsc` both configs and `npm run build` clean. Dev servers **stopped**,
+verified by port (4000 and 5173 free). ⚠ The Chrome tab used for the browser pass is still logged in
+as the dentist on localhost — deliberately NOT logged out, since Logout now revokes every device.
+
+**Model strategy changed: no Fable** — Opus high/medium, Sonnet high/medium by task; see CLAUDE.md.
+
+**This session: SEC-22, BUG-09, BUG-10, BUG-11, BUG-13, SEC-12 fixed, and Sprint 162 finished.**
+Only 162d was browser-checked; the fixes were verified by tsc + tests (+ a real-jsonwebtoken run
+for SEC-12), **none against a live DB** (SEC-00 — this PC still points at production).
+
+**▶ YOUR NEXT MOVES, in order** (no sprint is unblocked without one of these):
+1. **SEC-12 two-browser check** once Vercel has deployed: log in on two browsers, log out of one —
+   the other should land on login within 15 minutes.
+2. **A dev `.env` on this PC (SEC-00)** — the whole file from the laptop, never one line. Unblocks
+   the SEC-03/SEC-19 live checks and makes every later browser pass safe. Then run
+   `npm run audit:user-schools` (read-only; SEC-18's DATA has still never been checked).
+3. **Render dashboard: is `ML_SERVICE_API_KEY` set?** Closes SEC-30 either way.
+4. **The paper DOH form's referral rows** → BUG-14 becomes a quick fix.
+5. The dental chart at 390 px in devtools device emulation (window resize can't get there).
+
 ⚠ **SEC-12 changed live behaviour: Logout now signs the account out on EVERY device** (your
 decision) — other devices drop within 15 min. Changing or resetting a password does the same, except
 the device that changed its own password stays signed in. **Worth one manual check after deploy:**
