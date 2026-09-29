@@ -375,7 +375,7 @@ export const Root = () => {
         aria-current={isActive ? 'page' : undefined}
         // Exact RAMHIS getNavStyle spec: 48px min-height, 12px horizontal
         // padding, 16px rounded corners, 13px type (500 idle / 700 active).
-        className={`mx-7 rounded-2xl min-h-12 flex items-center gap-3 px-3 transition-colors ${
+        className={`mx-7 rounded-2xl flex-1 basis-0 min-h-[1.75rem] max-h-12 flex items-center gap-3 px-3 transition-colors ${
           collapsed ? 'md:justify-center md:px-0' : ''
         } ${
           isActive
@@ -456,14 +456,16 @@ export const Root = () => {
         setOpenStudents(false);
       }
     };
+    // Elastic like the other rows: open, the group claims about 2.4 rows' worth of
+    // the nav height (its own row plus the two children); closed, one row's worth.
     return (
-      <div>
+      <div className={`flex flex-col min-h-0 basis-0 ${isOpen && !collapsed ? 'flex-[2.4_1_0%]' : 'flex-[1_1_0%]'}`}>
         <Link
           to={studentsTab.path}
           onClick={onRowClick}
           title={collapsed ? studentsTab.label : undefined}
           aria-current={isActive ? 'page' : undefined}
-          className={`mx-7 rounded-full min-h-12 flex items-center gap-3 px-4 transition-colors ${
+          className={`mx-7 rounded-full flex-1 basis-0 min-h-[1.75rem] max-h-12 flex items-center gap-3 px-4 transition-colors ${
             collapsed ? 'md:justify-center md:px-0' : ''
           } ${
             highlighted
@@ -485,7 +487,7 @@ export const Root = () => {
         </Link>
 
         {isOpen && !collapsed && (
-          <div className="mt-1.5 ml-[30px] mr-7 pl-3 border-l border-white/15 flex flex-col gap-1">
+          <div className="mt-1 ml-[30px] mr-7 pl-3 border-l border-white/15 flex flex-col gap-1 flex-[1.4_1_0%] min-h-0">
             {children.map((child) => {
               // Dental Charts and Treatment both cover `/dental-chart/:id`,
               // an individual pupil's chart -- which one depends on
@@ -500,7 +502,7 @@ export const Root = () => {
                   to={child.path}
                   onClick={() => { setDrawerOpen(false); resetStudentsClicks(); }}
                   aria-current={childIsActive ? 'page' : undefined}
-                  className={`flex items-center gap-2.5 min-h-[32px] pl-2.5 pr-3 rounded-full text-[0.8125rem] transition-colors ${
+                  className={`flex items-center gap-2.5 flex-1 basis-0 min-h-[1.5rem] max-h-8 pl-2.5 pr-3 rounded-full text-[0.8125rem] transition-colors ${
                     childIsActive
                       ? 'bg-card text-primary font-semibold'
                       : 'text-white/60 hover:bg-white/10 hover:text-white font-medium'
@@ -675,9 +677,9 @@ export const Root = () => {
         )}
 
         {/* Tabs */}
-        <nav className="flex-1 overflow-y-auto py-5">
+        <nav className="flex-1 min-h-0 overflow-y-auto flex flex-col py-2">
           {!collapsed && (
-            <div className="px-8 pb-[8px] text-[0.625rem] font-bold uppercase tracking-[1px] text-[#94a3b8]">Main Menu</div>
+            <div className="px-8 pb-[6px] pt-1 text-[0.625rem] font-bold uppercase tracking-[1px] text-[#94a3b8] flex-none">Main Menu</div>
           )}
           {visibleTabs.map((tab) => {
             // Dental Charts (4) and Treatment (6) render nested inside the
@@ -697,7 +699,7 @@ export const Root = () => {
             white, not red (red is reserved for the real app's confirm-modal
             icon, which FLORAL doesn't have a matching dialog for). */}
         <div className={`h-px bg-[#E2E8F0]/90 mx-8 ${collapsed ? "md:mx-2" : ""}`} />
-        <div className="pt-3 px-8 pb-8">
+        <div className="pt-2 px-8 pb-5">
           {/* Real spec hides this WHOLE block when collapsed (avatar included,
               not just the name/role text) -- CSS-based (md:hidden), not a JS
               conditional, so mobile (which ignores `collapsed`) still shows it
