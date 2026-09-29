@@ -612,7 +612,7 @@ export const Root = () => {
           background:
             // Bottom glow: a second, softer blue rising from the bottom-right corner.
             'radial-gradient(120% 45% at 100% 100%, rgba(66,87,196,0.34) 0%, rgba(66,87,196,0) 62%), ' +
-            'radial-gradient(130% 70% at 0% 0%, #2F4192 0%, #212F75 38%, #17234D 68%, #101A40 100%)',
+            'radial-gradient(130% 70% at 0% 0%, #243579 0%, #1D2B69 38%, #17234D 68%, #101A40 100%)',
           // Only a faint inner edge; no bright top hairline or white sheen, so it reads as colour, not glass.
           boxShadow: '0 15px 20px rgba(15,23,42,0.22), inset 0 0 0 1px rgba(255,255,255,0.04)',
         }}
