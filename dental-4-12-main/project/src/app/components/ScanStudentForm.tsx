@@ -136,7 +136,7 @@ export const ScanStudentForm = () => {
         <div>
           <div style={{ fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#67687A' }}>Students &middot; OCR</div>
           <h1 style={{ margin: '0.125rem 0 0', fontSize: '1.625rem', fontWeight: 700 }}>Scan a Student Form</h1>
-          <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', color: '#67687A' }}>Capture a photo of the DOH IPTR form, or upload a file — matching fields will be filled in for you to verify.</p>
+          <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', color: '#67687A' }}>Capture a photo of the DOH IPTR form, or upload a file. Matching fields will be filled in for you to verify.</p>
         </div>
       </div>
 
