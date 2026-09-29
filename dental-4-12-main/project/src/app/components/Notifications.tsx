@@ -371,12 +371,12 @@ export const Notifications = () => {
     // 2026-09-29: "you put space with the icon... when you are supposed to
     // make space between the text and the icons in the right"): icon + text
     // stay close together (their own tight gap-3) in column 1, column 2 is
-    // nothing but empty space (0.9fr against content's 3fr -- 10% narrower
-    // than the 1fr version, user, 2026-09-29: "too much space... smaller by
-    // 10 percent"), and column 3 (three-dot + "Go to") sits flush at the
-    // true right edge as its own group.
+    // nothing but empty space (0.85fr against content's 3fr, narrowed twice
+    // more from the original 1fr -- user, 2026-09-29, "smaller by 10
+    // percent" then "5 percent more smaller"), and column 3 (three-dot +
+    // "Go to") sits flush at the true right edge as its own group.
     return (
-      <li key={r.id} className={`relative grid grid-cols-[3fr_0.9fr_auto] items-start gap-0 p-3.5 ${isRead ? '' : 'bg-primary-surface/60'}`}>
+      <li key={r.id} className={`relative grid grid-cols-[3fr_0.85fr_auto] items-start gap-0 p-3.5 ${isRead ? '' : 'bg-primary-surface/60'}`}>
         <div className="flex items-start gap-3 min-w-0">
           <div className="relative shrink-0">
             <span className={`flex h-11 w-11 items-center justify-center rounded-full ${r.iconBg}`}>
