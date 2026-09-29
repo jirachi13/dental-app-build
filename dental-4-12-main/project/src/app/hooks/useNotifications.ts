@@ -59,7 +59,16 @@ const EMPTY: NotificationCounts = {
  */
 export function useNotifications(enabled: boolean, schoolName: string | null) {
   const [counts, setCounts] = useState<NotificationCounts>(EMPTY);
-  const [loading, setLoading] = useState(false);
+  // ⚠ Starts `true`, not `false` (user, 2026-09-29: "everytime i refresh, it
+  // become unread again"). On the very first render `counts` is still
+  // `EMPTY` -- the mount effect below hasn't fired `reload()` yet -- so
+  // Notifications.tsx's own prune effect, which only skips pruning `while
+  // (loading)`, saw `loading` as already `false` on that first pass and
+  // wiped every previously-read/dismissed/first-seen id because none of
+  // them appeared "live" in that empty initial row set. Starting `true`
+  // (a fetch is unconditionally about to start whenever `enabled`) closes
+  // that window; `reload` still sets it `true` itself for every later call.
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
