@@ -100,6 +100,11 @@ router.get("/stats/last-change", requireAuth, asyncHandler(async (_req, res) => 
 }));
 
 router.get("/stats/high-risk-count", requireAuth, asyncHandler(async (req, res) => {
+  // System Admin gets admin alerts instead of the clinical reminders.
+  if (req.user?.role === "system_admin") {
+    res.json({ ...EMPTY_RESPONSE, admin: await buildAdminNotifications() });
+    return;
+  }
   const schoolName = typeof req.query.school === "string" ? req.query.school : null;
   let studentFilter: Record<string, unknown> = { isArchived: false };
   if (schoolName) {
@@ -154,6 +159,153 @@ router.get("/stats/high-risk-count", requireAuth, asyncHandler(async (req, res) 
 // a decision about persistence. Each count links to the screen that already
 // shows the detail, so the bell points at real records rather than paraphrasing
 // them (CLAUDE.md: a control that appears to work must work).
+// ── System Admin notifications ───────────────────────────────────────────────
+// What a System Admin is actually responsible for: account health, changes to
+// schools and student data, and what has been archived. Everything is computed
+// from real rows (accounts, schools, the audit trail); nothing is invented, and
+// clinical reminders (appointments, charts, treatment, RPC, risk, reports) are
+// deliberately left out. Built server-side so the sidebar badge and the page
+// always agree.
+type AdminNotifItem = {
+  id: string;
+  tier: "needs-action" | "recent-activity" | "awaiting-review";
+  kind: "students" | "school" | "archive" | "account" | "security" | "housekeeping";
+  before: string;
+  bold: string;
+  after: string;
+  linkTo: string;
+  linkLabel: string;
+  at: string | null;
+};
+
+async function buildAdminNotifications(): Promise<{ items: AdminNotifItem[] }> {
+  const items: AdminNotifItem[] = [];
+  const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many);
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  const [recent, users, schools] = await Promise.all([
+    AuditTrail.find({ timestamp: { $gte: since } }).sort({ timestamp: -1 })
+      .select("user_id action timestamp affected_record_id affected_model").lean<{ _id: unknown; user_id: unknown; action: string; timestamp: Date; affected_record_id: unknown; affected_model: string }[]>(),
+    User.find({}).select("full_name last_login twofa_enabled isArchived").lean<{ _id: unknown; full_name: string; last_login: Date | null; twofa_enabled?: boolean; isArchived?: boolean }[]>(),
+    School.find({}).select("school_name principal_name isArchived").lean<{ _id: unknown; school_name: string; principal_name?: string; isArchived?: boolean }[]>(),
+  ]);
+  const userName = new Map(users.map((u) => [String(u._id), u.full_name]));
+  const schoolName = new Map(schools.map((s) => [String(s._id), s.school_name]));
+  const latest = (list: { timestamp: Date }[]) => (list[0] ? new Date(list[0].timestamp).toISOString() : null);
+  const starts = (e: { action: string }, ...verbs: string[]) => verbs.some((v) => e.action === v || e.action.startsWith(`${v} `));
+
+  // Needs action: account and school state that exists right now.
+  const active = users.filter((u) => !u.isArchived);
+  const neverIn = active.filter((u) => !u.last_login);
+  if (neverIn.length) {
+    const names = neverIn.slice(0, 3).map((u) => u.full_name).join(", ");
+    items.push({
+      id: `never-signed-in-${neverIn.length}`, tier: "needs-action", kind: "security",
+      before: "", bold: `${neverIn.length} ${plural(neverIn.length, "account")}`,
+      after: ` ${neverIn.length === 1 ? "has" : "have"} never signed in: ${names}${neverIn.length > 3 ? ` and ${neverIn.length - 3} more` : ""}.`,
+      linkTo: "/accounts", linkLabel: "Go to User Management", at: null,
+    });
+  }
+  const noTwofa = active.filter((u) => !u.twofa_enabled);
+  if (noTwofa.length) {
+    items.push({
+      id: `no-2fa-${noTwofa.length}`, tier: "needs-action", kind: "security",
+      before: "", bold: `${noTwofa.length} active ${plural(noTwofa.length, "account")}`,
+      after: ` ${noTwofa.length === 1 ? "does" : "do"} not have two-factor authentication turned on.`,
+      linkTo: "/accounts", linkLabel: "Go to User Management", at: null,
+    });
+  }
+  const noPrincipal = schools.filter((s) => !s.isArchived && (!s.principal_name || /^\s*tbd\s*$/i.test(s.principal_name)));
+  if (noPrincipal.length) {
+    items.push({
+      id: `school-no-principal-${noPrincipal.length}`, tier: "needs-action", kind: "housekeeping",
+      before: "", bold: `${noPrincipal.length} ${plural(noPrincipal.length, "school")}`,
+      after: ` ${noPrincipal.length === 1 ? "has" : "have"} no principal recorded: ${noPrincipal.map((s) => s.school_name).join(", ")}.`,
+      linkTo: "/schools", linkLabel: "Go to Schools", at: null,
+    });
+  }
+
+  // Recent activity: the last 7 days of the audit trail.
+  const studentsAdded = recent.filter((e) => starts(e, "Created") && e.affected_model === "Student");
+  if (studentsAdded.length) {
+    items.push({
+      id: `students-added-${studentsAdded.length}`, tier: "recent-activity", kind: "students",
+      before: "", bold: `${studentsAdded.length} new ${plural(studentsAdded.length, "student")}`,
+      after: ` ${studentsAdded.length === 1 ? "was" : "were"} added in the last 7 days.`,
+      linkTo: "/patients", linkLabel: "Go to Students", at: latest(studentsAdded),
+    });
+  }
+  for (const e of recent.filter((r) => r.affected_model === "School").slice(0, 10)) {
+    const verb = e.action.startsWith("Created") ? "added" : e.action.startsWith("Archived") ? "archived" : e.action.startsWith("Restored") ? "restored" : "updated";
+    const name = schoolName.get(String(e.affected_record_id)) ?? "a school";
+    items.push({
+      id: `school-${String(e._id)}`, tier: "recent-activity", kind: "school",
+      before: `${userName.get(String(e.user_id)) ?? "Someone"} ${verb} the school `, bold: name, after: ".",
+      linkTo: "/schools", linkLabel: "Go to Schools", at: new Date(e.timestamp).toISOString(),
+    });
+  }
+  const newAccounts = recent.filter((e) => e.affected_model === "User" && e.action === "Created User").slice(0, 10);
+  for (const e of newAccounts) {
+    items.push({
+      id: `account-${String(e._id)}`, tier: "recent-activity", kind: "account",
+      before: `${userName.get(String(e.user_id)) ?? "Someone"} created a new account for `,
+      bold: userName.get(String(e.affected_record_id)) ?? "a user", after: ".",
+      linkTo: "/accounts", linkLabel: "Go to User Management", at: new Date(e.timestamp).toISOString(),
+    });
+  }
+  const pwd = recent.filter((e) => e.affected_model === "User" && ["Reset Password", "Sent Password Reset Link", "Reset Password via Email", "Changed Password"].includes(e.action));
+  if (pwd.length) {
+    items.push({
+      id: `password-changes-${pwd.length}`, tier: "recent-activity", kind: "account",
+      before: "", bold: `${pwd.length} password ${plural(pwd.length, "reset or change", "resets or changes")}`,
+      after: " in the last 7 days.", linkTo: "/audit", linkLabel: "Go to Audit Trail", at: latest(pwd),
+    });
+  }
+  const twofa = recent.filter((e) => e.action === "Enabled 2FA" || e.action === "Disabled 2FA");
+  if (twofa.length) {
+    items.push({
+      id: `twofa-changes-${twofa.length}`, tier: "recent-activity", kind: "security",
+      before: "", bold: `${twofa.length} two-factor ${plural(twofa.length, "change")}`,
+      after: " in the last 7 days.", linkTo: "/audit", linkLabel: "Go to Audit Trail", at: latest(twofa),
+    });
+  }
+  const archivedRecently = recent.filter((e) => starts(e, "Archived") && e.affected_model !== "School");
+  if (archivedRecently.length) {
+    items.push({
+      id: `archived-recent-${archivedRecently.length}`, tier: "recent-activity", kind: "archive",
+      before: "", bold: `${archivedRecently.length} ${plural(archivedRecently.length, "record")}`,
+      after: ` ${archivedRecently.length === 1 ? "was" : "were"} archived in the last 7 days.`,
+      linkTo: "/audit", linkLabel: "Go to Audit Trail", at: latest(archivedRecently),
+    });
+  }
+  const restoredRecently = recent.filter((e) => starts(e, "Restored") && e.affected_model !== "School");
+  if (restoredRecently.length) {
+    items.push({
+      id: `restored-recent-${restoredRecently.length}`, tier: "recent-activity", kind: "archive",
+      before: "", bold: `${restoredRecently.length} ${plural(restoredRecently.length, "record")}`,
+      after: ` ${restoredRecently.length === 1 ? "was" : "were"} restored in the last 7 days.`,
+      linkTo: "/audit", linkLabel: "Go to Audit Trail", at: latest(restoredRecently),
+    });
+  }
+
+  // Awaiting review: everything currently sitting in the archive.
+  const archivedModels = [
+    Student, StudentIptr, MedicalHistory, DietarySocialHabits, OralHealthCondition, DentalChart, ToothRecord, Treatment,
+    PreventiveCareRecord, RiskStratification, Appointment, DentistRotation, DayNote, Referral, School, User, Dentist, DentalAide,
+  ] as unknown as { countDocuments: (q: object) => Promise<number> }[];
+  const archivedTotal = (await Promise.all(archivedModels.map((m) => m.countDocuments({ isArchived: true })))).reduce((a, b) => a + b, 0);
+  if (archivedTotal) {
+    items.push({
+      id: `archive-held-${archivedTotal}`, tier: "awaiting-review", kind: "archive",
+      before: "", bold: `${archivedTotal} archived ${plural(archivedTotal, "record")}`,
+      after: " currently held. Review them, or restore any that were archived by mistake.",
+      linkTo: "/archive", linkLabel: "Go to Archived Records", at: null,
+    });
+  }
+
+  return { items };
+}
+
 router.get("/stats/notifications", requireAuth, asyncHandler(async (req, res) => {
   const EMPTY_RESPONSE = { overdueRpc: 0, appointmentsToday: 0, appointmentsTomorrow: 0, awaitingValidation: 0, consentPending: 0, unmarkedAppointments: [] as unknown[], dayNoteToday: null as string | null };
   const schoolName = typeof req.query.school === "string" ? req.query.school : null;

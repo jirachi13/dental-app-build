@@ -4,7 +4,7 @@ import { Link } from 'react-router';
 import {
   AlertTriangle, Bell, Calendar, Brain, StickyNote, ClipboardCheck, Clock,
   MoreHorizontal, CheckCircle2, Circle, Trash2, ArrowRight, MapPin, FileText,
-  ListChecks, ChevronDown,
+  ListChecks, ChevronDown, Users, School as SchoolIcon, Archive, UserCog, ShieldAlert,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications, NOTIFIED_ROLES } from '../hooks/useNotifications';
@@ -30,6 +30,8 @@ export const Notifications = () => {
   const enabled = NOTIFIED_ROLES.includes(user?.role ?? '');
   const { counts, loading, error } = useNotifications(enabled, selectedSchool);
   const canValidateRisk = user?.role === 'dentist';
+  // System Admin gets its own alerts (accounts, schools, student data, archive) and none of the clinical ones.
+  const isAdmin = user?.role === 'system_admin';
 
   // School Rotation and the Treatment/Charting Queue have no server aggregate
   // of their own -- Rotation is small enough to read the same client hooks
@@ -157,7 +159,7 @@ export const Notifications = () => {
   type Row = {
     id: string;
     group: 'today' | 'earlier';
-    tier: 'needs-action' | 'today-tomorrow' | 'awaiting-review';
+    tier: 'needs-action' | 'today-tomorrow' | 'awaiting-review' | 'recent-activity';
     Icon: typeof Calendar;
     Badge: typeof Calendar;
     iconBg: string;
@@ -169,6 +171,8 @@ export const Notifications = () => {
     timeLabel: string;
     linkTo: string;
     linkLabel: string;
+    /** When the event really happened (ms); used as the first-seen time. */
+    at?: number;
   };
 
   // Compact relative age: 1m/1h/1d/1w (user, 2026-09-29: "if the
@@ -210,7 +214,36 @@ export const Notifications = () => {
   const rows = useMemo<Row[]>(() => {
     const list: Row[] = [];
 
-    for (const a of counts.unmarkedAppointments) {
+    if (isAdmin) {
+      const KIND_ICON = { students: Users, school: SchoolIcon, archive: Archive, account: UserCog, security: ShieldAlert, housekeeping: SchoolIcon } as const;
+      const TIER_STYLE = {
+        'needs-action': { iconBg: 'bg-danger-surface', iconFg: 'text-destructive', badgeBg: 'bg-destructive', Badge: AlertTriangle },
+        'recent-activity': { iconBg: 'bg-primary-surface', iconFg: 'text-primary', badgeBg: 'bg-primary', Badge: Clock },
+        'awaiting-review': { iconBg: 'bg-warning-surface', iconFg: 'text-warning', badgeBg: 'bg-warning', Badge: Clock },
+      } as const;
+      for (const a of counts.admin?.items ?? []) {
+        const st = TIER_STYLE[a.tier];
+        list.push({
+          id: a.id,
+          group: a.at && Date.now() - new Date(a.at).getTime() > 24 * 60 * 60 * 1000 ? 'earlier' : 'today',
+          tier: a.tier,
+          Icon: KIND_ICON[a.kind],
+          Badge: st.Badge,
+          iconBg: st.iconBg,
+          iconFg: st.iconFg,
+          badgeBg: st.badgeBg,
+          textBefore: a.before,
+          textBold: a.bold,
+          textAfter: a.after,
+          timeLabel: '',
+          linkTo: a.linkTo,
+          linkLabel: a.linkLabel,
+          at: a.at ? new Date(a.at).getTime() : undefined,
+        });
+      }
+    }
+
+    if (!isAdmin) for (const a of counts.unmarkedAppointments) {
       const dt = new Date(a.datetime);
       list.push({
         id: `appt-missed-${a.id}`,
@@ -341,7 +374,7 @@ export const Notifications = () => {
     const tomorrowKey = toLocalDateString(tomorrowDate);
     const rotToday = rotationByDay.get(todayKey);
     const rotTomorrow = rotationByDay.get(tomorrowKey);
-    if (rotToday) {
+    if (!isAdmin && rotToday) {
       list.push({
         id: 'rotation-today',
         group: 'today',
@@ -359,7 +392,7 @@ export const Notifications = () => {
         linkLabel: 'Go to Appointments',
       });
     }
-    if (rotTomorrow) {
+    if (!isAdmin && rotTomorrow) {
       list.push({
         id: 'rotation-tomorrow',
         group: 'today',
@@ -377,7 +410,7 @@ export const Notifications = () => {
         linkLabel: 'Go to Appointments',
       });
     }
-    if (queuedCount > 0) {
+    if (!isAdmin && queuedCount > 0) {
       list.push({
         id: 'queue-count',
         group: 'today',
@@ -401,7 +434,7 @@ export const Notifications = () => {
     // carries the year/month, so it naturally reads as a new notification
     // each month instead of staying permanently "read".
     const now = new Date();
-    if (now.getDate() <= 5) {
+    if (!isAdmin && now.getDate() <= 5) {
       list.push({
         id: `reports-reminder-${now.getFullYear()}-${now.getMonth()}`,
         group: 'today',
@@ -430,14 +463,14 @@ export const Notifications = () => {
     const nowMs = Date.now();
     let firstSeenChanged = false;
     for (const r of filtered) {
-      if (firstSeen[r.id] == null) { firstSeen[r.id] = nowMs; firstSeenChanged = true; }
+      if (firstSeen[r.id] == null) { firstSeen[r.id] = r.at ?? nowMs; firstSeenChanged = true; }
     }
     if (firstSeenChanged) saveFirstSeen(firstSeen);
     for (const r of filtered) r.timeLabel = relTime(new Date(firstSeen[r.id]));
 
     return filtered;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [counts, canValidateRisk, dismissedIds, rotationByDay, todayDate, tomorrowDate, schools, queuedCount]);
+  }, [counts, canValidateRisk, isAdmin, dismissedIds, rotationByDay, todayDate, tomorrowDate, schools, queuedCount]);
 
   // Prune stale read/dismissed ids: a row that no longer exists (the RPC
   // visit was recorded, the appointment was marked) never leaves a
@@ -474,11 +507,17 @@ export const Notifications = () => {
     );
   }
 
-  const TIERS = [
-    { key: 'needs-action', label: 'Needs Action', tone: 'text-destructive' },
-    { key: 'today-tomorrow', label: 'Today & Tomorrow', tone: 'text-primary' },
-    { key: 'awaiting-review', label: 'Awaiting Review', tone: 'text-yellow-600' },
-  ] as const;
+  const TIERS = (isAdmin
+    ? [
+        { key: 'needs-action', label: 'Needs Action', tone: 'text-destructive' },
+        { key: 'recent-activity', label: 'Recent Activity', tone: 'text-primary' },
+        { key: 'awaiting-review', label: 'Awaiting Review', tone: 'text-yellow-600' },
+      ]
+    : [
+        { key: 'needs-action', label: 'Needs Action', tone: 'text-destructive' },
+        { key: 'today-tomorrow', label: 'Today & Tomorrow', tone: 'text-primary' },
+        { key: 'awaiting-review', label: 'Awaiting Review', tone: 'text-yellow-600' },
+      ]) as readonly { key: Row['tier']; label: string; tone: string }[];
   const tierCount = (key: string) => rows.filter((r) => r.tier === key).length;
 
   const visibleRows = (activeTier ? rows.filter((r) => r.tier === activeTier) : rows)
@@ -636,7 +675,7 @@ export const Notifications = () => {
         icon={Bell}
         eyebrow="Alerts"
         title="Notifications"
-        description="Reminders and follow-ups that need your attention, gathered from across the app."
+        description={isAdmin ? "Account, school and record changes that need your attention as System Administrator." : "Reminders and follow-ups that need your attention, gathered from across the app."}
         action={
           !loading && !error && rows.length > 0 ? (
             <div className="relative shrink-0 mt-9" ref={readFilterRef}>

@@ -19,6 +19,20 @@ export interface UnmarkedAppointment {
   datetime: string;
 }
 
+/** One System Admin alert, built server-side (see buildAdminNotifications). */
+export interface AdminNotificationItem {
+  id: string;
+  tier: 'needs-action' | 'recent-activity' | 'awaiting-review';
+  kind: 'students' | 'school' | 'archive' | 'account' | 'security' | 'housekeeping';
+  before: string;
+  bold: string;
+  after: string;
+  linkTo: string;
+  linkLabel: string;
+  /** ISO time of the event, or null for a standing condition. */
+  at: string | null;
+}
+
 export interface NotificationCounts {
   /** Visit 1 recorded, visit 2 not, and past the 150-day interval. */
   overdueRpc: number;
@@ -35,6 +49,8 @@ export interface NotificationCounts {
   /** Text of today's day note (barangay-wide or for the school in view), or
    *  null if there isn't one. At most one is shown, per DAY_NOTE. */
   dayNoteToday: string | null;
+  /** Only present for System Admin, who gets these instead of the clinical rows. */
+  admin: { items: AdminNotificationItem[] } | null;
 }
 
 const EMPTY: NotificationCounts = {
@@ -45,6 +61,7 @@ const EMPTY: NotificationCounts = {
   consentPending: 0,
   unmarkedAppointments: [],
   dayNoteToday: null,
+  admin: null,
 };
 
 /**
@@ -98,7 +115,8 @@ export function useNotifications(enabled: boolean, schoolName: string | null) {
     counts.awaitingValidation +
     counts.consentPending +
     counts.unmarkedAppointments.length +
-    (counts.dayNoteToday ? 1 : 0);
+    (counts.dayNoteToday ? 1 : 0) +
+    (counts.admin?.items.length ?? 0);
 
   return { counts, total, loading, error, reload };
 }

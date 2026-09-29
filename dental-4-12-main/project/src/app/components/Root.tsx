@@ -236,7 +236,8 @@ export const Root = () => {
     notifCounts.consentPending +
     notifCounts.unmarkedAppointments.length +
     (notifCounts.dayNoteToday ? 1 : 0) +
-    (user?.role === 'dentist' ? notifCounts.awaitingValidation : 0);
+    (user?.role === 'dentist' ? notifCounts.awaitingValidation : 0) +
+    (notifCounts.admin?.items.length ?? 0);
 
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
