@@ -197,10 +197,10 @@ bho_staff. Do not push before that.
    lists upcoming visits.
 5. **SEC-34:** a role guard in `RootLayout` built from `allTabs`' roles, redirecting to `/`.
 
-**Part B — waits on YOUR decision (does bho_staff keep the named Target Client List + Consent
-Form?):** if **no**, hide both from bho_staff too, add bho_staff to the `/students` redact list
-(SEC-20), and narrow `oral-health-conditions`, `student-iptrs` and `preventive-care-records`. If
-**yes**, leave those three open to bho_staff and record SEC-20 as an accepted, documented risk.
+**Part B — DECIDED 2026-09-29: bho_staff KEEPS the named Target Client List and Consent Form.**
+So `/students` stays unredacted for bho_staff (SEC-20 accepted, see ledger), and
+`oral-health-conditions`, `student-iptrs` and `preventive-care-records` stay readable by bho_staff.
+Narrow those three to school_admin only, i.e. `readRoles` = clinical roles + admin + bho_staff.
 
 **Live check list (after SEC-00):** log in as school_admin: Dashboard tiles are non-zero where
 data exists, the upcoming-visits list renders, the Internal tab has no referral table, and

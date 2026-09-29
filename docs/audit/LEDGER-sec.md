@@ -536,7 +536,12 @@ Impact:   `GET /api/medical-histories?iptr_id=X` returns allergies and the hyper
           raw clinical collection, narrowing it breaks that screen. **That check is the first task of
           the fix sprint** — grep the hooks those two roles' screens use. Do not narrow blind.
 
-### SEC-20 · `server/routes/index.ts:921-926` · MED · OPEN
+### SEC-20 · `server/routes/index.ts:921-926` · MED · ⚖ ACCEPTED RISK 2026-09-29 (user decision)
+Decision: **bho_staff keeps the named Target Client List and Consent Form**, which need full pupil
+          identity, so bho_staff stays OFF the `/students` redact list. Rationale: FHSIS target client
+          lists are kept by barangay health staff, and CLAUDE.md gives the role City Health Office
+          submission. The access is deliberate and documented, not an oversight. Revisit if the
+          dentist says the health office only needs the consolidated figures.
 Claim:    The student redaction names `school_admin` only, so **`bho_staff` reads full pupil identity
           across every school.**
 Evidence: `redact: { roles: ["school_admin"], fields: [...12 identity fields...] }`. `bho_staff` is
