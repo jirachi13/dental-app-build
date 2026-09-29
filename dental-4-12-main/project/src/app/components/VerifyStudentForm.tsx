@@ -255,21 +255,21 @@ export const VerifyStudentForm = () => {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1rem' }}>
             <div>
-              <Label required>Grade</Label>
+              <Label required extracted={isExtracted('grade')}>Grade</Label>
               <select style={{ ...inputStyle, appearance: 'auto' }} value={form.grade} onChange={(e) => update('grade', e.target.value)}>
                 <option value="">Select Grade</option>
                 {GRADES.map((g) => <option key={g} value={g}>{g}</option>)}
               </select>
             </div>
             <div>
-              <Label required>Section</Label>
+              <Label required extracted={isExtracted('section')}>Section</Label>
               <input style={inputStyle} placeholder="Search or add a section" value={form.section} onChange={(e) => update('section', e.target.value)} />
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1rem' }}>
             <div>
-              <Label>Place of Birth <span style={{ color: '#98999f', fontWeight: 500 }}>(Optional)</span></Label>
+              <Label extracted={isExtracted('placeOfBirth')}><>Place of Birth <span style={{ color: '#98999f', fontWeight: 500 }}>(Optional)</span></></Label>
               <input style={inputStyle} placeholder="e.g. Taguig City" value={form.placeOfBirth} onChange={(e) => update('placeOfBirth', e.target.value)} />
             </div>
             <div>
@@ -280,18 +280,18 @@ export const VerifyStudentForm = () => {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1rem' }}>
             <div>
-              <Label>Guardian Name <span style={{ color: '#98999f', fontWeight: 500 }}>(Optional)</span></Label>
+              <Label extracted={isExtracted('guardianName')}><>Guardian Name <span style={{ color: '#98999f', fontWeight: 500 }}>(Optional)</span></></Label>
               <input style={inputStyle} placeholder="Full name" value={form.guardianName} onChange={(e) => update('guardianName', e.target.value)} />
             </div>
             <div>
-              <Label>Guardian Contact <span style={{ color: '#98999f', fontWeight: 500 }}>(Optional)</span></Label>
+              <Label extracted={isExtracted('guardianContact')}><>Guardian Contact <span style={{ color: '#98999f', fontWeight: 500 }}>(Optional)</span></></Label>
               <input style={inputStyle} placeholder="09XX-XXX-XXXX" value={form.guardianContact} onChange={(e) => update('guardianContact', e.target.value)} />
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1rem' }}>
             <div>
-              <Label>Occupation <span style={{ color: '#98999f', fontWeight: 500 }}>(Optional)</span></Label>
+              <Label extracted={isExtracted('guardianOccupation')}><>Occupation <span style={{ color: '#98999f', fontWeight: 500 }}>(Optional)</span></></Label>
               <input style={inputStyle} placeholder="Guardian's occupation" value={form.guardianOccupation} onChange={(e) => update('guardianOccupation', e.target.value)} />
             </div>
             <div>

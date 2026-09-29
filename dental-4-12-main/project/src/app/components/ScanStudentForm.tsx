@@ -95,6 +95,15 @@ export const ScanStudentForm = () => {
             birthdate: f.birthdate ?? '', gender: f.gender ?? '', address: f.address ?? '',
             contactNumber: f.contactNumber ?? '', philhealthNumber: f.philhealthNumber ?? '',
             fourPsId: f.fourPsId ?? '', is4Ps: !!f.fourPsId,
+            // grade/section/placeOfBirth/guardian* (2026-09-29): the printed-
+            // form OCR path never filled these before, because the official
+            // DOH IPTR genuinely has no such field. The grid extractor now
+            // also reads the school's own custom "Patient Information Sheet"
+            // (a different, boxed-layout form that DOES print all of these),
+            // so whichever source was actually scanned gets whatever it has.
+            grade: f.grade ?? '', section: f.section ?? '', placeOfBirth: f.placeOfBirth ?? '',
+            guardianName: f.guardianName ?? '', guardianContact: f.guardianContact ?? '',
+            guardianOccupation: f.guardianOccupation ?? '',
             school: selectedSchool ?? '',
           },
           confidences: result.confidences,
