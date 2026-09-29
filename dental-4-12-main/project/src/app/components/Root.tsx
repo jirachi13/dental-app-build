@@ -282,12 +282,9 @@ export const Root = () => {
   // includes system_admin, and reads default to all roles), so only this nav
   // was hiding them.
   //
-  // ⚠ Risk Classification is the ONE deliberate exception. Validating an AI
-  // recommendation there is recorded as clinical sign-off in the audit trail,
-  // and CLAUDE.md's premise is that the DENTIST validates every recommendation
-  // before clinical action. Adding 'system_admin' to id 5 would let a
-  // non-clinician sign off, which weakens the guarantee Chapter 3 rests on.
-  // It is a one-word change if that is wanted — make it deliberately.
+  // Risk Classification is open to System Admin for VIEWING (user, 2026-09-29).
+  // Validating an assessment stays dentist-only: AIAnalytics gates the
+  // Validate & Save panel on role === 'dentist', so admin sign-off is not possible.
   const allTabs = [
     {
       id: 1, path: '/', label: 'Dashboard', icon: LayoutDashboard,
@@ -316,7 +313,7 @@ export const Root = () => {
     },
     {
       id: 5, path: '/ai-analytics', label: 'Risk Classification', icon: Brain,
-      roles: ['dentist']
+      roles: ['dentist','system_admin']
     },
     {
       id: 7, path: '/rpc', label: 'RPC Monitoring', icon: Shield,
@@ -325,12 +322,6 @@ export const Root = () => {
     {
       id: 8, path: '/reports', label: 'Reports', icon: FileBarChart,
       roles: ['dentist','dental_aide','school_admin','bho_staff','system_admin']
-    },
-    {
-      // Moved into the main nav list, right after Reports, on request --
-      // was a separate inline popover section above the user block.
-      id: 8.5, path: '/notifications', label: 'Notifications', icon: Bell,
-      roles: NOTIFIED_ROLES,
     },
     {
       id: 9, path: '/schools', label: 'Schools', icon: School,
@@ -347,6 +338,12 @@ export const Root = () => {
     {
       id: 12, path: '/audit', label: 'Audit Trail', icon: ClipboardList,
       roles: ['system_admin']
+    },
+    {
+      // Moved into the main nav list, at the very end of the list (user, 2026-09-29); was a
+      // separate inline popover section above the user block.
+      id: 8.5, path: '/notifications', label: 'Notifications', icon: Bell,
+      roles: NOTIFIED_ROLES,
     },
     // Follow Up Alerts REMOVED
   ];
