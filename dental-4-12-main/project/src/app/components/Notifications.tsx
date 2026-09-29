@@ -637,37 +637,6 @@ export const Notifications = () => {
         eyebrow="Alerts"
         title="Notifications"
         description="Reminders and follow-ups that need your attention, gathered from across the app."
-        action={
-          !loading && !error && rows.length > 0 ? (
-            <div className="relative shrink-0 self-start mt-1" ref={readFilterRef}>
-              <button
-                type="button"
-                onClick={() => setReadFilterOpen((v) => !v)}
-                aria-expanded={readFilterOpen}
-                className="flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-white hover:bg-primary-hover"
-              >
-                {readFilter === 'all' ? 'All' : readFilter === 'unread' ? 'Unread' : 'Read'}
-                <ChevronDown className={`w-4 h-4 transition-transform ${readFilterOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {readFilterOpen && (
-                <div className="absolute right-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
-                  {(['all', 'unread', 'read'] as const).map((f) => (
-                    <button
-                      key={f}
-                      type="button"
-                      onClick={() => { setReadFilter(f); setReadFilterOpen(false); }}
-                      className={`block w-full px-3.5 py-2 text-left text-sm font-medium capitalize hover:bg-muted ${
-                        readFilter === f ? 'text-primary' : 'text-foreground'
-                      }`}
-                    >
-                      {f}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : undefined
-        }
       />
 
       {error && (
@@ -728,6 +697,34 @@ export const Notifications = () => {
               2026-09-29: "make the notifications container wider"); fills
               whatever space the tier panel beside it doesn't take. */}
           <div className="flex-1 min-w-0">
+            <div className="relative mb-1.5 flex justify-end" ref={readFilterRef}>
+              <button
+                type="button"
+                onClick={() => setReadFilterOpen((v) => !v)}
+                aria-expanded={readFilterOpen}
+                className="flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-white hover:bg-primary-hover"
+              >
+                {readFilter === 'all' ? 'All' : readFilter === 'unread' ? 'Unread' : 'Read'}
+                <ChevronDown className={`w-4 h-4 transition-transform ${readFilterOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {readFilterOpen && (
+                <div className="absolute right-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+                  {(['all', 'unread', 'read'] as const).map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => { setReadFilter(f); setReadFilterOpen(false); }}
+                      className={`block w-full px-3.5 py-2 text-left text-sm font-medium capitalize hover:bg-muted ${
+                        readFilter === f ? 'text-primary' : 'text-foreground'
+                      }`}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
               {todayRows.length > 0 && (
                 <>
