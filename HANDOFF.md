@@ -172,6 +172,41 @@ unblocks SEC-03/SEC-19 live checks), **SEC-30** (one Render dashboard look), **B
 DOH form's referral rows), plus SEC-04, SEC-19/20, BUG-02/05/06/08 and the `dohAggregate.ts:207`
 duplicate, all of which need reading before scoping.
 
+### ▶ PLANNED: Sprint 163 — non-clinical roles stop reading clinical data (SEC-03/19/20/33/34)
+
+**Scoped 2026-09-29 on Opus high; nothing changed yet.** The load-bearing check is written up in
+`LEDGER-sec.md` ("load-bearing check"). Short version: narrowing the server alone breaks the
+school_admin Dashboard (false "None recorded yet" on the Treatments tile) and the bho_staff Target
+Client List. So server and client change together. **~6 files, medium complexity. Execute on Opus
+medium. Verification needs SEC-00 (a dev `.env`)**, because it must be logged in as school_admin AND
+bho_staff. Do not push before that.
+
+**Part A — no decision needed:**
+1. **SEC-33:** hide Referral Tracking on Reports → Internal for school_admin, AND return
+   `referralRows: []` from `/stats/reports-panels` for that role.
+2. **SEC-03:** blank the name fields for school_admin in `/stats/student-rows`, `/stats/rpc-rows`
+   and `/stats/reports-panels`, the same field list `/students` redacts (`index.ts:925`). Gate
+   `/stats/risk-candidates`, `/stats/risk-history` and `/stats/student-nav` to clinical roles + admin.
+3. **Dashboard:** skip the six raw clinical fetches (`Dashboard.tsx:89-104`) for school_admin and
+   bho_staff, the way `/users` is already skipped. Give school_admin's Treatments tile a scoped
+   server count, not `treatments.length`.
+4. **SEC-19:** add `readRoles: CLINICAL_READ_ROLES` (system_admin, dentist, dental_aide) in
+   `roleGroups.ts` to `medical-histories`, `dietary-social-habits`, `dental-charts`,
+   `tooth-records`, `treatments`, `risk-stratifications`, `referrals`, `day-notes` and
+   `dentist-rotations`. **`/appointments` stays readable by school_admin**, because their dashboard
+   lists upcoming visits.
+5. **SEC-34:** a role guard in `RootLayout` built from `allTabs`' roles, redirecting to `/`.
+
+**Part B — waits on YOUR decision (does bho_staff keep the named Target Client List + Consent
+Form?):** if **no**, hide both from bho_staff too, add bho_staff to the `/students` redact list
+(SEC-20), and narrow `oral-health-conditions`, `student-iptrs` and `preventive-care-records`. If
+**yes**, leave those three open to bho_staff and record SEC-20 as an accepted, documented risk.
+
+**Live check list (after SEC-00):** log in as school_admin: Dashboard tiles are non-zero where
+data exists, the upcoming-visits list renders, the Internal tab has no referral table, and
+`/api/medical-histories` returns 403. Then log in as bho_staff: Dashboard renders, and every
+Reports tab renders per the Part B decision.
+
 Sprint 162's seam, for anyone touching these tabs: read-only values are plain props; anything a
 panel can CHANGE arrives in a named bundle (`addForm`; TAB 2 has `actions`, `palette`, `drafts`).
 Shared draft shapes live in `components/iptrDrafts.ts` (`ServiceField` moved there in 162d).

@@ -993,3 +993,60 @@ unguarded parallel surface is a **read** problem only (SEC-03, SEC-19, SEC-22), 
 The twelfth, `/stats/last-change`, needs no scope — but note it does expose a fact derived from
 `AuditTrail` to all five roles, while `AuditTrail`'s own CRUD mount is `readRoles: ADMIN_ONLY`. It
 is one timestamp, so the severity is nil; it is a clean small example of the pattern.
+
+---
+
+## SEC-03 / SEC-19 / SEC-20 — load-bearing check (scoping, 2026-09-29, read off the code)
+
+The check SEC-19 demanded before any narrowing. **Answer: partly load-bearing — narrowing blind
+WOULD break two screens.** Nothing was changed; the fix plan is in HANDOFF.
+
+**What the two roles can reach.** Nav shows them Dashboard + Reports only (`Root.tsx` `allTabs`).
+Every other screen is still reachable by URL (see SEC-34), so the server is the only real barrier.
+
+**Dashboard (`Dashboard.tsx:79-105`) — LOAD-BEARING, and wasteful.** The top-level effect fetches
+`/treatments`, `/student-iptrs`, `/dental-charts`, `/tooth-records`, `/risk-stratifications`,
+`/preventive-care-records` for EVERY role, in one `Promise.all`. The school_admin branch
+(`:879`) uses only `treatmentCount` (`treatments.length`) from them; the bho_staff branch (`:1095`)
+uses none. ⚠ A 403 on any one rejects the whole `Promise.all`, so narrowing without touching
+this file silently turns the school_admin "Treatments" tile into "None recorded yet" — a false
+zero, the thing CLAUDE.md forbids. Both branches also read `useStudents` (`/stats/student-rows`,
+names included though neither branch renders one), and the school_admin branch reads
+`useAppointments` (`/appointments` + redacted `/students?_id=`) for its upcoming-visits list.
+`useRPCTracking` (`/stats/rpc-rows`) runs for both and neither branch uses it.
+
+**Reports — LOAD-BEARING for bho_staff.** `canSeeNamedClientLists` hides the Target Client List
+and Consent Form from school_admin ONLY. For bho_staff, `TargetClientList.tsx:375-397` reads
+`/students` (full identity — exactly what SEC-20 exposes), `/oral-health-conditions`,
+`/student-iptrs`, `/stats/student-rows`, `/stats/rpc-rows`. **So SEC-20 is NOT a one-word fix:**
+redacting bho_staff blanks the names on a DOH line list they can currently open. Whether the
+Barangay Health Office should hold that list is a POLICY decision (CLAUDE.md: "consolidated
+reports … City Health Office report submission"), not a code one.
+The other Reports tabs are aggregates: `/stats/doh-report`, `/stats/school-summary`,
+`/stats/fhsis`, `/stats/reports-panels` (but see SEC-33).
+
+**Not load-bearing for either role:** `/medical-histories`, `/dietary-social-habits`,
+`/day-notes`, `/dentist-rotations`, `/referrals` (raw), `/stats/risk-candidates`,
+`/stats/student-nav`, `/stats/risk-history` — reached only from screens neither role is shown.
+
+### SEC-33 · `src/app/components/Reports.tsx` Internal tab → Referral Tracking · HIGH · OPEN
+Claim:    **A School Administrator sees identified referrals, with their clinical reason, in the
+          ordinary UI** — no direct API call needed.
+Evidence: The `internal` tab button has no role gate (only `tcl`/`consent` are wrapped in
+          `canSeeNamedClientLists`). Its Referral Tracking table renders `panels.referralRows`
+          from `/stats/reports-panels`, built by `shared/reportsPanels.ts:141-157` with
+          `student: surnameFirst(student)`, school, grade, facility, and **`reason`** — a field
+          REFERRAL encrypts at rest (Sprint 127) and the API decrypts on the way out.
+Impact:   Worse than SEC-03 as written ("by calling the stats endpoint directly"): this one is on
+          screen. Same class the 2026-09-06 note beside `canSeeNamedClientLists` closed for the
+          Target Client List, missed on a neighbouring panel.
+Fix:      Hide the panel for school_admin in the UI AND drop `referralRows` server-side for that
+          role in `/stats/reports-panels` — hiding alone leaves the API.
+⚠ Read off the code; confirm live as school_admin once SEC-00 is resolved.
+
+### SEC-34 · `src/app/routes.tsx` · LOW · OPEN
+Claim:    Routes carry no role guard; only the nav hides screens. `/patients`, `/dental-chart/:id`,
+          `/treatment-records` etc. load for school_admin and bho_staff by URL.
+Impact:   Not a disclosure on its own — the server decides what data arrives — but it means every
+          SEC-19 narrowing turns those screens into broken pages rather than absent ones.
+Fix:      One guard in `RootLayout` reading the same role list as `allTabs`, redirecting to `/`.
