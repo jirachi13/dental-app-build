@@ -508,17 +508,24 @@ export const AccountManagement = () => {
       )}
 
       {/* Desktop Table */}
-      <div className="hidden md:block bg-card rounded-2xl border border-border overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+      <div className={`${filteredUsers.length === 0 ? 'block' : 'hidden md:block'} bg-card rounded-2xl border border-border overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.06)]`}>
         <div className="flex items-center justify-between gap-4 px-6 py-5">
           <div className="flex items-center gap-4">
             <span className="w-12 h-12 rounded-xl grid place-items-center bg-[#F4F7FF] text-[#273A78] flex-shrink-0"><Users className="w-5 h-5" /></span>
             <div>
-              <div className="text-xl font-bold text-foreground">System Users</div>
-              <div className="text-sm text-muted-foreground">Review and manage user accounts.</div>
+              <div className="text-xl font-bold text-foreground">{statusFilter === 'Active' ? 'Active Users' : statusFilter === 'Inactive' ? 'Deactivated Users' : 'System Users'}</div>
+              <div className="text-sm text-muted-foreground">{statusFilter === 'Active' ? 'Manage currently active system accounts.' : statusFilter === 'Inactive' ? 'Review deactivated user accounts.' : 'Review and manage user accounts.'}</div>
             </div>
           </div>
           <span className="px-4 py-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-xs font-bold text-[#64748B]">{filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'} found</span>
         </div>
+        {filteredUsers.length === 0 ? (
+          <div className="border-t border-border flex flex-col items-center justify-center text-center px-6 py-20">
+            <span className="w-[4.5rem] h-[4.5rem] rounded-2xl grid place-items-center bg-[#F1F5F9] text-[#94A3B8]"><Users className="w-8 h-8" /></span>
+            <div className="mt-6 text-xl font-bold text-foreground">No users found</div>
+            <div className="mt-3 text-sm text-muted-foreground">There are no users matching the current status, role, or search filters.</div>
+          </div>
+        ) : (
         <div className="overflow-x-auto border-t border-border">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-border">
@@ -623,6 +630,7 @@ export const AccountManagement = () => {
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {/* Mobile Cards */}
