@@ -488,15 +488,15 @@ export const AccountManagement = () => {
 
       {/* Desktop Table */}
       <div className="hidden md:block bg-card rounded-2xl border border-border overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
-        <div className="flex items-center justify-between gap-3 px-5 py-4">
-          <div className="flex items-center gap-3">
-            <span className="w-10 h-10 rounded-xl grid place-items-center bg-[#E8ECF6] text-[#273A78] flex-shrink-0"><Users className="w-4 h-4" /></span>
+        <div className="flex items-center justify-between gap-4 px-6 py-5">
+          <div className="flex items-center gap-4">
+            <span className="w-12 h-12 rounded-xl grid place-items-center bg-[#F4F7FF] text-[#273A78] flex-shrink-0"><Users className="w-5 h-5" /></span>
             <div>
-              <div className="text-base font-bold text-foreground">System Users</div>
-              <div className="text-xs text-muted-foreground">Review and manage user accounts.</div>
+              <div className="text-lg font-bold text-foreground">System Users</div>
+              <div className="text-sm text-muted-foreground">Review and manage user accounts.</div>
             </div>
           </div>
-          <span className="px-3 py-1.5 rounded-lg border border-border bg-gray-50 text-xs font-semibold text-muted-foreground">{filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'} found</span>
+          <span className="px-4 py-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-xs font-bold text-[#64748B]">{filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'} found</span>
         </div>
         <div className="overflow-x-auto border-t border-border">
           <table className="w-full">
