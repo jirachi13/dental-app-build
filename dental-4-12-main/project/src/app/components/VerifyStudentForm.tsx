@@ -137,7 +137,7 @@ export const VerifyStudentForm = () => {
   };
 
   return (
-    <div style={{ background: '#F6F9FC', minHeight: '100%', padding: '2rem 3rem', fontFamily: 'Inter, system-ui, sans-serif', color: '#141413' }}>
+    <div style={{ background: '#F6F9FC', minHeight: '100%', padding: '2rem 3rem', fontFamily: 'var(--font-sans)', color: '#141413' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.875rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
