@@ -355,9 +355,9 @@ export const Notifications = () => {
   }
 
   const TIERS = [
-    { key: 'needs-action', label: 'Needs action', tone: 'text-destructive' },
-    { key: 'today-tomorrow', label: 'Today & tomorrow', tone: 'text-primary' },
-    { key: 'awaiting-review', label: 'Awaiting review', tone: 'text-warning' },
+    { key: 'needs-action', label: 'Needs Action', tone: 'text-destructive' },
+    { key: 'today-tomorrow', label: 'Today & Tomorrow', tone: 'text-primary' },
+    { key: 'awaiting-review', label: 'Awaiting Review', tone: 'text-yellow-500' },
   ] as const;
   const tierCount = (key: string) => rows.filter((r) => r.tier === key).length;
 
