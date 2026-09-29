@@ -39,6 +39,14 @@ async function rasterizePdfPages(file: File): Promise<HTMLCanvasElement[]> {
 // next — so `occupation` and `4ps/nhts` earn their place here as boundaries
 // even though neither is extracted as a field of its own.
 const ALL_FIELD_LABELS = [
+  // Separate name fields (2026-09-29: some encoded/re-typed forms print
+  // Last Name/Surname, First Name and Middle Name as three distinct labels
+  // rather than one combined "Name" line — see splitName's fallback below)
+  // BEFORE the generic combined ones, so a stop-boundary check hits the
+  // more specific label first.
+  'last\\s*name', 'surname', 'apelyido',
+  'first\\s*name', 'given\\s*name',
+  'middle\\s*name', 'gitnang\\s*pangalan',
   "student'?s name", "patient'?s name", 'pangalan', 'name',
   'birth\\s*date', 'birthday', 'date of birth',
   'age', 'sex', 'gender', 'address', 'occupation',
@@ -152,18 +160,34 @@ function extractFieldsFromPage(
     if (conf !== undefined) confidences[key] = Math.round(conf);
   };
 
-  const nameRaw = findLabelValue(text, ['name', "student'?s name", 'pangalan']);
-  if (nameRaw && !fields.firstName && !fields.lastName) {
-    const { firstName, middleName, lastName } = splitName(nameRaw);
-    setField('firstName', firstName);
-    setField('middleName', middleName);
-    setField('lastName', lastName);
-    // Split fields inherit the whole-name-line confidence since OCR reports it per word, not per split.
-    const conf = confidenceForValue(nameRaw, words);
-    if (conf !== undefined) {
-      if (fields.firstName) confidences.firstName = Math.round(conf);
-      if (fields.middleName) confidences.middleName = Math.round(conf);
-      if (fields.lastName) confidences.lastName = Math.round(conf);
+  // Separate Last Name/Surname, First Name and Middle Name fields (2026-09-29:
+  // "other term for last name is the surname... it doesn't place exactly
+  // where it's needed") -- tried FIRST, before the combined single-line
+  // "Name" fallback below. A form that prints these as three distinct
+  // labels can't be read correctly by splitting one "Name:" value, and the
+  // combined path never recognized "Surname" as an alias at all.
+  setField('lastName', findLabelValue(text, ['last\\s*name', 'surname', 'apelyido']));
+  setField('firstName', findLabelValue(text, ['first\\s*name', 'given\\s*name']));
+  setField('middleName', findLabelValue(text, ['middle\\s*name', 'gitnang\\s*pangalan']));
+
+  // Combined "Last Name, First Name Middle Name" line -- the DOH IPTR's own
+  // printed layout (see the file-level comment on ALL_FIELD_LABELS). Only
+  // consulted for whichever of the three name parts the separate fields
+  // above didn't already fill in.
+  if (!fields.firstName || !fields.lastName) {
+    const nameRaw = findLabelValue(text, ['name', "student'?s name", 'pangalan']);
+    if (nameRaw) {
+      const split = splitName(nameRaw);
+      setField('firstName', split.firstName);
+      setField('middleName', split.middleName);
+      setField('lastName', split.lastName);
+      // Split fields inherit the whole-name-line confidence since OCR reports it per word, not per split.
+      const conf = confidenceForValue(nameRaw, words);
+      if (conf !== undefined) {
+        if (fields.firstName && confidences.firstName === undefined) confidences.firstName = Math.round(conf);
+        if (fields.middleName && confidences.middleName === undefined) confidences.middleName = Math.round(conf);
+        if (fields.lastName && confidences.lastName === undefined) confidences.lastName = Math.round(conf);
+      }
     }
   }
 

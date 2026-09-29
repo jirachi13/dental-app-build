@@ -26,7 +26,12 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
   useEffect(() => {
     let cancelled = false;
     navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+      // width > height requested explicitly -- a phone's default portrait
+      // orientation otherwise gives a portrait stream regardless of the
+      // aspect-[4/3] preview box, which then just letterboxes it instead of
+      // actually framing landscape (user, 2026-09-29: "this should be in
+      // landscape").
+      .getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1440 } }, audio: false })
       .then((stream) => {
         if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
         streamRef.current = stream;
@@ -73,7 +78,7 @@ export const CameraCapture = ({ onCapture, onClose }: CameraCaptureProps) => {
         {error ? (
           <p className="text-sm text-destructive">{error}</p>
         ) : (
-          <div className="relative overflow-hidden rounded-xl bg-black aspect-[3/4]">
+          <div className="relative overflow-hidden rounded-xl bg-black aspect-[4/3]">
             {photo ? (
               // eslint-disable-next-line jsx-a11y/img-redundant-alt -- fine, this is an internal review tool, not user-facing alt text
               <img src={photo.url} alt="Captured form" className="h-full w-full object-contain" />
