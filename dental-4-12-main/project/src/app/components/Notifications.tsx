@@ -374,7 +374,7 @@ export const Notifications = () => {
   const TIERS = [
     { key: 'needs-action', label: 'Needs Action', tone: 'text-destructive' },
     { key: 'today-tomorrow', label: 'Today & Tomorrow', tone: 'text-primary' },
-    { key: 'awaiting-review', label: 'Awaiting Review', tone: 'text-yellow-500' },
+    { key: 'awaiting-review', label: 'Awaiting Review', tone: 'text-yellow-600' },
   ] as const;
   const tierCount = (key: string) => rows.filter((r) => r.tier === key).length;
 
@@ -476,7 +476,7 @@ export const Notifications = () => {
           <div
             ref={popupRef}
             onClick={(e) => e.stopPropagation()}
-            className="absolute left-4 top-full z-20 mt-2 w-[300px] rounded-2xl border border-border bg-card p-4 shadow-lg"
+            className="absolute left-4 top-full z-20 mt-2 w-96 rounded-2xl border border-border bg-card p-4 shadow-lg"
           >
             <div className="mb-2.5 flex items-center gap-2.5">
               <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${r.iconBg}`}>
@@ -491,7 +491,7 @@ export const Notifications = () => {
               <button
                 type="button"
                 onClick={() => { toggleRead(r.id); setOpenPopupId(null); }}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border px-2.5 py-2 text-[12.5px] font-semibold text-foreground hover:bg-muted"
+                className="flex flex-none items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-border px-2.5 py-2 text-[12.5px] font-semibold text-foreground hover:bg-muted"
               >
                 {isRead ? <Circle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                 Mark {isRead ? 'unread' : 'read'}
@@ -499,7 +499,7 @@ export const Notifications = () => {
               <Link
                 to={r.linkTo}
                 onClick={() => { markRead(r.id); setOpenPopupId(null); }}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-2.5 py-2 text-[12.5px] font-semibold text-white hover:bg-primary/90"
+                className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-primary px-2.5 py-2 text-[12.5px] font-semibold text-white hover:bg-primary/90"
               >
                 {r.linkLabel} <ArrowRight className="w-3.5 h-3.5" />
               </Link>
