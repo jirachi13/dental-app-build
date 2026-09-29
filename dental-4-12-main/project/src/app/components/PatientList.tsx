@@ -1024,7 +1024,13 @@ export const PatientList = () => {
       if (!cardRef.current) return;
       const top = cardRef.current.getBoundingClientRect().top;
       const sidebar = document.getElementById('main-nav');
-      const bottomTarget = sidebar ? sidebar.getBoundingClientRect().bottom : window.innerHeight;
+      // Hide wants the card to actually reach the screen's true bottom edge
+      // (user, 2026-09-29), not just match the sidebar's own inset -- the
+      // sidebar's `md:bottom-5` floating look is a deliberate 20px gap for
+      // the DEFAULT view, but the negative margin below only cancels
+      // `<main>`'s padding, it doesn't add back that 20px, so matching the
+      // sidebar here left Hide 20px short of the edge it's supposed to flow to.
+      const bottomTarget = !hidePagination && sidebar ? sidebar.getBoundingClientRect().bottom : window.innerHeight;
       setCardHeight(Math.max(bottomTarget - top, 160));
     };
     measure();
