@@ -118,18 +118,6 @@ const splitAction = (action: string, module: string, subject = '') => {
   return { title: base || clean, detail: `${humanize(module)} activity.` };
 };
 
-  if (CRUD_VERBS[verb]) {
-    const thing = humanize(model || module).toLowerCase();
-    if (/dentist validated/i.test(clean)) {
-      return { title: verb, detail: 'Dentist validated a risk assessment.' };
-    }
-    return { title: verb, detail: CRUD_VERBS[verb](thing, aOrAn(thing)) };
-  }
-
-  // Unknown action: keep it short and readable rather than dumping the raw string.
-  return { title: base || clean, detail: `${humanize(module)} activity.` };
-};
-
 export const AuditTrail = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [userFilter, setUserFilter] = useState('all');
