@@ -34,6 +34,7 @@ export interface UserRow {
   schoolIds: string[];
   status: 'Active' | 'Inactive';
   twofaEnabled: boolean;
+  createdAt?: string;
   pending?: boolean;
 }
 
@@ -63,6 +64,7 @@ export function useUsers() {
           schoolIds: u.school_ids ?? [],
           status: u.isArchived ? 'Inactive' : 'Active',
           twofaEnabled: u.twofa_enabled === true,
+          createdAt: u.created_at,
         })),
       );
       setSchools(apiSchools);

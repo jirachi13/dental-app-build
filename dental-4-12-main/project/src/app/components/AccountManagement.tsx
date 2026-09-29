@@ -509,10 +509,13 @@ export const AccountManagement = () => {
                   Role
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  School
+                  Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Status
+                  Date Added
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  School
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Actions
@@ -548,9 +551,6 @@ export const AccountManagement = () => {
                       );
                     })()}
                   </td>
-                  <td className="px-6 py-4 text-sm text-muted-foreground">
-                    {user.school}
-                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs font-bold ${
                       user.status === 'Active'
@@ -560,6 +560,12 @@ export const AccountManagement = () => {
                       {user.status === 'Active' ? <CheckCircle className="w-3.5 h-3.5" /> : <UserX className="w-3.5 h-3.5" />}
                       {user.status === 'Active' ? 'Active' : 'Deactivated'}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                    {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : ''}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-muted-foreground">
+                    {user.school}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {!user.pending && (

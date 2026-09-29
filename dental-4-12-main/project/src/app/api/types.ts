@@ -11,6 +11,7 @@ export interface ApiUser {
   last_login: string | null;
   twofa_enabled?: boolean;
   isArchived: boolean;
+  created_at?: string;
 }
 
 export interface ApiSchool {
