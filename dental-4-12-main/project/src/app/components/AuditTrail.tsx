@@ -71,7 +71,7 @@ const UserCell = ({ name, role }: { name: string; role: string }) => (
  *  "Created RiskStratification (dentist validated: ...)"). Turn it into a bold
  *  title plus ONE short sentence. Only what the string already says is used. */
 const CRUD_VERBS: Record<string, (thing: string, an: string, who: string) => string> = {
-  Created: (t, an, who) => `Created ${an} new ${t}${who ? ` for ${who}` : ''}.`,
+  Created: (t, _an, who) => `Created a new ${t}${who ? ` for ${who}` : ''}.`,
   Updated: (t, an, who) => (who ? `Updated the ${t} of ${who}.` : `Updated ${an} ${t}.`),
   Archived: (t, an, who) => (who ? `Archived the ${t} of ${who}.` : `Archived ${an} ${t}.`),
   Restored: (t, an, who) => (who ? `Restored the ${t} of ${who}.` : `Restored ${an} archived ${t}.`),
@@ -305,12 +305,12 @@ export const AuditTrail = () => {
             <table className="w-full table-fixed min-w-[1000px]">
               <thead className="bg-gray-50 border-b border-border">
                 <tr>
-                  <th className={TH} style={{ width: '22%' }}>User</th>
-                  <th className={TH} style={{ width: '20%' }}>Activity</th>
-                  <th className={TH} style={{ width: '16%' }}>Module</th>
-                  <th className={TH} style={{ width: '14%' }}>Date</th>
-                  <th className={TH} style={{ width: '10%' }}>Time</th>
-                  <th className={TH} style={{ width: '18%' }}>Record ID</th>
+                  <th className={TH} style={{ width: '20%' }}>User</th>
+                  <th className={TH} style={{ width: '30%' }}>Activity</th>
+                  <th className={TH} style={{ width: '14%' }}>Module</th>
+                  <th className={TH} style={{ width: '12%' }}>Date</th>
+                  <th className={TH} style={{ width: '9%' }}>Time</th>
+                  <th className={TH} style={{ width: '15%' }}>Record ID</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
