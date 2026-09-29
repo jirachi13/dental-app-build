@@ -367,35 +367,39 @@ export const Notifications = () => {
 
   const renderRow = (r: Row) => {
     const isRead = readIds.has(r.id);
+    // Three real grid columns, not one flex row with a uniform gap (user,
+    // 2026-09-29: "you put space with the icon... when you are supposed to
+    // make space between the text and the icons in the right"): icon + text
+    // stay close together (their own tight gap-3) in column 1, column 2 is
+    // nothing but empty space (~1fr against content's 3fr, roughly the "20
+    // percent" asked for), and column 3 (three-dot + "Go to") sits flush at
+    // the true right edge as its own group.
     return (
-      <li key={r.id} className={`relative flex items-start gap-12 p-3.5 ${isRead ? '' : 'bg-primary-surface/60'}`}>
-        <div className="relative shrink-0">
-          <span className={`flex h-11 w-11 items-center justify-center rounded-full ${r.iconBg}`}>
-            <r.Icon className={`w-5 h-5 ${r.iconFg}`} />
-          </span>
-          <span className={`absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-card ${r.badgeBg}`}>
-            <r.Badge className="w-2.5 h-2.5 text-white" />
-          </span>
+      <li key={r.id} className={`relative grid grid-cols-[3fr_1fr_auto] items-start gap-0 p-3.5 ${isRead ? '' : 'bg-primary-surface/60'}`}>
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="relative shrink-0">
+            <span className={`flex h-11 w-11 items-center justify-center rounded-full ${r.iconBg}`}>
+              <r.Icon className={`w-5 h-5 ${r.iconFg}`} />
+            </span>
+            <span className={`absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-card ${r.badgeBg}`}>
+              <r.Badge className="w-2.5 h-2.5 text-white" />
+            </span>
+          </div>
+
+          {/* Only the bolded word/name is bold -- the surrounding sentence
+              stays regular weight whether read or unread (user, 2026-09-29:
+              "only the important words"); unread is carried by the row's
+              tint alone. */}
+          <div className="min-w-0 flex-1">
+            <p className="text-[13.5px] leading-snug text-foreground">
+              {r.textBefore}<b className="font-bold">{r.textBold}</b>{r.textAfter}{' '}
+              <span className="text-xs font-normal text-muted-foreground">{r.timeLabel}</span>
+            </p>
+          </div>
         </div>
 
-        {/* flex-1 with no max-width: the text fills exactly the space left
-            after the icon and the right-hand action column, wrapping only
-            when it actually reaches that column, with one consistent
-            `gap-12` between them (user, 2026-09-29: "more wider space in
-            between") -- not a fixed box that leaves a second,
-            unrelated gap before the action column (user, 2026-09-29: "space
-            between the notification text and the three dot... not both of
-            them to have space", "the three dot should still be in the right
-            most part"). Only the bolded word/name is bold -- the surrounding
-            sentence stays regular weight whether read or unread (user,
-            2026-09-29: "only the important words"); unread is carried by
-            the row's tint alone. */}
-        <div className="min-w-0 flex-1">
-          <p className="text-[13.5px] leading-snug text-foreground">
-            {r.textBefore}<b className="font-bold">{r.textBold}</b>{r.textAfter}{' '}
-            <span className="text-xs font-normal text-muted-foreground">{r.timeLabel}</span>
-          </p>
-        </div>
+        {/* Column 2: deliberately empty -- the spacer itself. */}
+        <div aria-hidden="true" />
 
         {/* "Go to [module]" sits UNDER the three-dot button -- its own
             always-visible link in this column, not a selectable item inside
