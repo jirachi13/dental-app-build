@@ -159,16 +159,6 @@ export const VerifyStudentForm = () => {
         </button>
       </div>
 
-      {/* Verification banner */}
-      <div style={{ display: 'flex', gap: '0.625rem', alignItems: 'flex-start', background: '#FEF3C7', border: '0.0625rem solid #f3d99a', borderRadius: '0.75rem', padding: '0.625rem 1rem', marginBottom: '1.125rem' }}>
-        <svg width="14.4" height="14.4" viewBox="0 0 24 24" fill="none" stroke="#B45309" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '0.0625rem' }}><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
-        <div style={{ fontSize: '0.78125rem', color: '#7a4a0a', lineHeight: 1.5 }}>
-          Nothing is saved yet. {handoff.ocrSourceLabel === 'scanned form'
-            ? <>Compare each field marked <span style={{ fontSize: '0.59375rem', fontWeight: 700, letterSpacing: '0.03em', textTransform: 'uppercase', color: '#15803D', background: '#F0FDF4', border: '0.0625rem solid rgba(21,128,61,0.25)', borderRadius: '62.4375rem', padding: '0.0625rem 0.4375rem' }}>Extracted</span> against the source image and correct anything OCR misread, then fill in the rest before confirming.</>
-            : <>Compare each field marked <span style={{ fontSize: '0.59375rem', fontWeight: 700, letterSpacing: '0.03em', textTransform: 'uppercase', color: '#15803D', background: '#F0FDF4', border: '0.0625rem solid rgba(21,128,61,0.25)', borderRadius: '62.4375rem', padding: '0.0625rem 0.4375rem' }}>Extracted</span> against the uploaded file and correct anything before confirming.</>}
-        </div>
-      </div>
-
       {duplicates && (
         <div style={{ background: '#FFF1F2', border: '0.0625rem solid rgba(190,18,60,0.2)', borderRadius: '0.75rem', padding: '0.625rem 1rem', marginBottom: '1.125rem', fontSize: '0.78125rem', color: '#BE123C' }}>
           <p style={{ margin: '0rem', fontWeight: 600 }}>Possible duplicate</p>
