@@ -79,6 +79,30 @@ Fix:      needs scoping — one age function taking an explicit `on`, one bracke
           into Sprint 161: that sprint reads the report arithmetic and should not also be changing
           the primitives underneath it.
 
+⚠ **SCOPED 2026-09-29 — the claim above UNDERCOUNTS, and "latent, not live" is WRONG.** It counted
+only `shared/`. There are **EIGHT** age calculations and **SIX** bracket functions:
+- **Age:** `shared/age.ts:calculateAge` · `shared/dohAggregate.ts:ageAt` ·
+  `shared/studentValidation.ts:ageOn` · local copies in `DentalChartNav.tsx:23`,
+  `PatientList.tsx:466`, `TreatmentRecords.tsx:17`, `hooks/useAppointments.ts:41`, and
+  `DentalChart.tsx:467` (`computeAge`).
+- **They disagree on a bad or missing birthdate:** `null` (age.ts, ageAt, PatientList) · `NaN`
+  (ageOn, DentalChartNav, TreatmentRecords, useAppointments) · **`0`** (DentalChart's `computeAge`,
+  which prints "Age 0" / "0 years" on the chart header and patient card, a fabricated value).
+- **Brackets:** `age.ts:getAgeGroup` and `dohAggregate.ts:bracketOf` (as above), plus local copies
+  in `DentalChartNav.tsx:32`, `PatientList.tsx:475` and `TreatmentRecords.tsx:26`. **The
+  DentalChartNav and TreatmentRecords copies take `NaN` without a null check, and `NaN <= n` is
+  false everywhere, so an unparseable birthdate files the pupil under "20 & above"** in those two
+  screens' age filters.
+- **LIVE — the Barangay Health Office dashboard (`Dashboard.tsx:1112-1117`)** has its own
+  `bracketOf`, and it is wrong three ways. (1) **Age is `year − birth year` only**, ignoring month
+  and day, so every pupil whose birthday has not yet come this year is a year too old. (2) **The
+  brackets are `0-5 / 6-14 / 15-19`**, not the DOH `4 & below / 5-9 / 10-14 / 15-19 / 20 & above`
+  used everywhere else and on the filed forms. (3) **There is no top bracket**, so anyone 20+, and
+  anyone with an unparseable birthdate (`NaN`), is counted in "15-19 years". It feeds the "Age
+  Bracket" table the BHO reads. **Not a filed figure, but a displayed one that is wrong today.**
+
+Plan: HANDOFF, "PLANNED: BUG-02". One decision is needed there: which brackets the BHO table uses.
+
 ---
 
 ## Seeded from HANDOFF (measured before the audit began — recorded, not rediscovered)

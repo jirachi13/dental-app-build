@@ -213,6 +213,35 @@ data exists, the upcoming-visits list renders, the Internal tab has no referral 
 `/api/medical-histories` returns 403. Then log in as bho_staff: Dashboard renders, and every
 Reports tab renders per the Part B decision.
 
+### ▶ PLANNED: BUG-02 — one age rule (scoped 2026-09-29, nothing changed yet)
+
+Findings are in `LEDGER-bug.md` BUG-02: 8 age calculations, 6 bracket functions, and one wrong on
+screen today (the BHO dashboard's Age Bracket table). **~9 files, low-to-medium complexity, verified
+by `npm test` — needs NO live DB.** Execute on Opus medium; the arithmetic is simple, but the filed
+DOH figures sit on it.
+
+1. **`shared/age.ts` becomes the only definition.** Add `ageOn(birth: string | Date, on: Date =
+   new Date()): number | null` (null on empty or unparseable). `calculateAge(b)` = `ageOn(b)`.
+   Brackets are one boundary table with TWO label sets: the screen labels (`'5-9'`) and the DOH
+   form labels (`'5-9 yrs'`). ⚠ **The form labels must stay byte-identical**, because they key the
+   DOH report.
+2. **`dohAggregate.ts`**: `ageAt` and `bracketOf` delegate to it. **Its existing tests must pass
+   unchanged** — this is the proof that no filed figure moved.
+3. **`studentValidation.ts:ageOn`** delegates too. `validateBirthdate` already rejects an
+   unparseable date first, so null never reaches its comparisons; handle it anyway.
+4. **Delete the five local copies** (DentalChartNav, PatientList, TreatmentRecords, useAppointments,
+   DentalChart `computeAge`) and import from `utils/age`. DentalChart then prints "Age —" instead of
+   "Age 0" when the birthday is missing (CLAUDE.md: never a filler number).
+5. **BHO dashboard `bracketOf` (`Dashboard.tsx:1112`)**: use `ageOn` + the shared brackets. **Which
+   brackets — see the decision below.**
+6. **Tests:** replace the "three implementations must agree" block in `age.test.ts` with direct
+   cases: null on bad input, birthday-not-yet-this-year, every boundary (4/5, 9/10, 14/15, 19/20),
+   and both label sets.
+
+**DECISION NEEDED (item 5):** switch the BHO Age Bracket table to the DOH brackets (`4 & below /
+5-9 / 10-14 / 15-19 / 20 & above`, recommended — same as every other screen and the filed forms),
+or keep `0-5 / 6-14 / 15-19` with only the arithmetic fixed.
+
 Sprint 162's seam, for anyone touching these tabs: read-only values are plain props; anything a
 panel can CHANGE arrives in a named bundle (`addForm`; TAB 2 has `actions`, `palette`, `drafts`).
 Shared draft shapes live in `components/iptrDrafts.ts` (`ServiceField` moved there in 162d).
