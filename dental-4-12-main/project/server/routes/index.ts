@@ -1291,11 +1291,13 @@ router.get("/audit-subjects", requireAuth, requireRole(...ADMIN_ONLY), asyncHand
   const from = typeof req.query.from === "string" ? new Date(req.query.from) : null;
   const filter: Record<string, unknown> = {};
   if (from && !Number.isNaN(from.getTime())) filter.timestamp = { $gte: from };
-  const entries = await AuditTrail.find(filter).select("affected_model affected_record_id").lean<{ affected_model: string; affected_record_id: string }[]>();
+  const entries = await AuditTrail.find(filter).select("affected_model affected_record_id").lean<{ affected_model: string; affected_record_id: unknown }[]>();
+  // affected_record_id is an ObjectId in the model, so lean() hands back ObjectIds, not strings.
+  const rows = entries.map((e) => ({ model: e.affected_model, id: String(e.affected_record_id) }));
 
   const valid = (id: unknown): id is string => typeof id === "string" && mongoose.isValidObjectId(id);
   const idsOf = (models: string[]) =>
-    [...new Set(entries.filter((e) => models.includes(e.affected_model) && valid(e.affected_record_id)).map((e) => e.affected_record_id))];
+    [...new Set(rows.filter((r) => models.includes(r.model) && valid(r.id)).map((r) => r.id))];
   const asStr = (v: unknown) => (v == null ? null : String(v));
 
   // record id -> student id

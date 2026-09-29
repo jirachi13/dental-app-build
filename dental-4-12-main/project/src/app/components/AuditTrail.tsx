@@ -319,12 +319,9 @@ export const AuditTrail = () => {
                   return (
                     <tr key={log.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap"><UserCell name={log.user} role={log.userRole} /></td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4">
                         <div className={`text-sm font-bold ${getActionColor(log.action)}`}>{splitAction(log.action, log.module, log.subject).title}</div>
-                        <div
-                          className="text-[11px] text-muted-foreground mt-0.5 max-w-full truncate"
-                          title={splitAction(log.action, log.module, log.subject).detail}
-                        >{splitAction(log.action, log.module, log.subject).detail}</div>
+                        <div className="text-[10px] leading-snug text-muted-foreground mt-0.5 whitespace-normal">{splitAction(log.action, log.module, log.subject).detail}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap"><ModulePill>{log.module}</ModulePill></td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
@@ -353,7 +350,7 @@ export const AuditTrail = () => {
                 </div>
                 <div>
                   <div className={`text-sm font-bold ${getActionColor(log.action)}`}>{splitAction(log.action, log.module, log.subject).title}</div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">{splitAction(log.action, log.module, log.subject).detail}</div>
+                  <div className="text-[10px] leading-snug text-muted-foreground mt-0.5">{splitAction(log.action, log.module, log.subject).detail}</div>
                 </div>
                 <div className="text-xs text-muted-foreground">{formatTimestamp(log.timestamp)}</div>
                 <div className="text-xs text-muted-foreground font-mono">{log.affectedRecordId}</div>
