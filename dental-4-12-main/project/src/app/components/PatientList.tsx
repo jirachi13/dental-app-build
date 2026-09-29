@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Eye, FileText, X, School as SchoolIcon, List, ChevronLeft, ChevronRight, ChevronUp, Users, Upload, CheckCircle, AlertCircle, ScanLine, GraduationCap, MoreVertical, ListChecks, Archive as ArchiveIcon, Copy, ListPlus } from 'lucide-react';
+import { Plus, Eye, FileText, X, School as SchoolIcon, List, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Users, Upload, CheckCircle, AlertCircle, ScanLine, GraduationCap, MoreVertical, ListChecks, Archive as ArchiveIcon, Copy, ListPlus } from 'lucide-react';
 import { ConfirmDialog } from './ConfirmDialog';
 import { formatDate } from '../utils/localDate';
 import { OCR_CONFIDENCE_THRESHOLD, type IptrOcrFieldKey, type IptrCheckboxFinding } from '../utils/iptrOcrShared';
@@ -241,6 +241,18 @@ export const PatientList = () => {
   // and the person encoding has to decide (Sprint 47).
   const [duplicateWarning, setDuplicateWarning] = useState<DuplicateCandidate[] | null>(null);
   const [schools, setSchools] = useState<ApiSchool[]>([]);
+  // Add Student's dropdown (user, 2026-09-29: merges the separate OCR button
+  // into "Add Student" as a second choice) — same fixed-position-from-rect
+  // pattern as the three-dot list menu below, so the card's overflow-clip
+  // can't cut it off.
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const addMenuBtnRef = useRef<HTMLButtonElement | null>(null);
+  const [addMenuAt, setAddMenuAt] = useState<{ top: number; right: number } | null>(null);
+  const toggleAddMenu = () => {
+    const r = addMenuBtnRef.current?.getBoundingClientRect();
+    if (r) setAddMenuAt({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) });
+    setShowAddMenu((v) => !v);
+  };
   const [showOcrUpload, setShowOcrUpload] = useState(false);
   const [ocrProcessing, setOcrProcessing] = useState(false);
   const [ocrProgress, setOcrProgress] = useState(0);
@@ -1178,17 +1190,56 @@ export const PatientList = () => {
           names. */}
       {canAddStudent && (
         <div ref={toolbarRef} className="sticky z-40 -mt-3 flex flex-wrap items-center justify-end gap-3 bg-gray-50 pb-2" style={{ top: stickyTop.toolbar }}>
-          {/* "Upload", not "Scan": this opens a file picker, and a scan icon
-              + the verb "scan" both promised a camera the app does not have
-              (backlog 0e). The OCR extraction is still described inside the
-              modal — only the entry point stops over-promising. Rename this
-              back if 0e ever ships. */}
-          <button onClick={() => { setOcrError(null); setShowOcrUpload(true); }} className="flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-full hover:bg-primary-surface text-sm font-medium">
-            <Upload className="w-4 h-4" /> OCR
-          </button>
-          <button onClick={() => { setOcrConfidences({}); setOcrFindings([]); setOcrFindingsNote(null); setShowAddForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-full hover:bg-primary-hover text-sm font-medium">
-            <Plus className="w-4 h-4" /> Add Student
-          </button>
+          {/* Single "Add Student" entry point (user, 2026-09-29 — designed on
+              the OCR Student Intake canvas): replaces the separate OCR pill.
+              Fixed-position-from-rect dropdown, same pattern as the three-dot
+              list menu below — this toolbar's card ancestor is
+              overflow-clip, which cuts off an absolutely positioned menu. */}
+          <div className="relative">
+            <button
+              ref={addMenuBtnRef}
+              onClick={toggleAddMenu}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-full hover:bg-primary-hover text-sm font-medium"
+            >
+              <Plus className="w-4 h-4" /> Add Student
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAddMenu ? 'rotate-180' : ''}`} />
+            </button>
+            {showAddMenu && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowAddMenu(false)} />
+                <div
+                  style={addMenuAt ? { top: addMenuAt.top, right: addMenuAt.right } : undefined}
+                  className="fixed z-50 w-64 overflow-hidden rounded-2xl border border-border bg-card shadow-lg"
+                >
+                  <button
+                    onClick={() => { setShowAddMenu(false); setOcrConfidences({}); setOcrFindings([]); setOcrFindingsNote(null); setShowAddForm(true); }}
+                    className="flex w-full items-start gap-3 px-3.5 py-3 text-left hover:bg-canvas"
+                  >
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-surface text-primary">
+                      <Plus className="w-4 h-4" />
+                    </span>
+                    <span>
+                      <span className="block text-sm font-semibold text-foreground">Add Manually</span>
+                      <span className="block text-xs text-muted-foreground">Fill in a blank student form</span>
+                    </span>
+                  </button>
+                  <div className="mx-3.5 border-t border-border" />
+                  <button
+                    onClick={() => { setShowAddMenu(false); setOcrError(null); setShowOcrUpload(true); }}
+                    className="flex w-full items-start gap-3 px-3.5 py-3 text-left hover:bg-canvas"
+                  >
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-surface text-primary">
+                      <Upload className="w-4 h-4" />
+                    </span>
+                    <span>
+                      <span className="block text-sm font-semibold text-foreground">Scan Form (OCR)</span>
+                      <span className="block text-xs text-muted-foreground">Take a photo or upload a file</span>
+                    </span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
 
