@@ -277,12 +277,16 @@ export const Notifications = () => {
           </span>
         </div>
 
-        <div className="min-w-0 flex-1">
-          {/* One paragraph, full sentences throughout -- the relative time
-              is its own trailing sentence, right after the existing period
-              (user, 2026-09-29: "the date must be right after the period"),
-              not split onto a separate meta line. */}
-          <p className={`text-[13.5px] leading-snug ${isRead ? 'text-foreground' : 'font-semibold text-foreground'}`}>
+        {/* max-w caps the line length well short of the row's full width, so
+            a long sentence wraps onto its own next line instead of running
+            flush up to the "Go to" column beside it (user, 2026-09-29: "do
+            not extend the text till the end... space between the go to
+            module and the text"). Only the bolded word/name is bold -- the
+            surrounding sentence stays regular weight whether read or unread
+            (user, 2026-09-29: "only the important words"); unread is carried
+            by the row's tint alone. */}
+        <div className="min-w-0 flex-1 max-w-xl">
+          <p className="text-[13.5px] leading-snug text-foreground">
             {r.textBefore}<b className="font-bold">{r.textBold}</b>{r.textAfter}{' '}
             <span className="text-xs font-normal text-muted-foreground">{r.timeLabel}</span>
           </p>
