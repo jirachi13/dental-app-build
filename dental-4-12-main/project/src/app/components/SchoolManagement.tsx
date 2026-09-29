@@ -6,6 +6,7 @@ import type { ApiSchool } from '../api/types';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Notice } from './Notice';
+import { PageHeader } from './PageHeader';
 import { useToast } from './Toast';
 import { Modal } from './Modal';
 import { getSchoolShortName } from '../utils/schoolColors';
@@ -120,74 +121,116 @@ export const SchoolManagement = () => {
 
   if (loading) return <><SkeletonPageHeader /><SkeletonTable rows={4} /></>;
 
-  const th = 'px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground';
-  const td = 'px-4 py-3 text-sm text-foreground';
   const field = 'w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring';
 
+  const countType = (word: string) => schools.filter((s) => (s.school_type ?? '').toLowerCase().includes(word)).length;
+  const stats = [
+    { label: 'Total Schools', value: schools.length, bg: '#E8ECF6', fg: '#273A78' },
+    { label: 'Elementary', value: countType('elementary'), bg: '#ECFDF5', fg: '#047857' },
+    { label: 'Integrated', value: countType('integrated'), bg: '#FFFBEB', fg: '#B45309' },
+  ];
+  const th = 'px-6 py-3 text-left text-[12.5px] font-bold text-[#94A3B8] uppercase tracking-wider';
+  const td = 'px-6 py-4 text-sm text-foreground';
+
   return (
-    <div className="space-y-4">
-      {/* Stacks below sm: per the three-device rule. */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-lg font-bold text-foreground">Schools</h1>
-          <p className="text-xs text-muted-foreground">
-            {schools.length} school{schools.length === 1 ? '' : 's'} · every school dropdown in the app reads this list
-          </p>
-        </div>
-        <button
-          onClick={openCreate}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:opacity-90"
-        >
-          <Plus className="w-4 h-4" /> Add School
-        </button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        icon={SchoolIcon}
+        eyebrow="Administration"
+        title="Schools"
+        description="Manage the schools. Every school dropdown in the app reads this list."
+        action={
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Add School
+          </button>
+        }
+      />
 
       {error && <Notice variant="error">{error}</Notice>}
 
-      <div className="bg-card rounded-xl border border-border overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead className="bg-gray-50 border-b border-border">
-            <tr>
-              <th className={th}>School</th>
-              <th className={th}>Type</th>
-              <th className={th}>Principal</th>
-              <th className={th}>Address</th>
-              <th className={`${th} text-right`}>Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {schools.length === 0 ? (
-              <tr>
-                <td className={`${td} text-center text-muted-foreground py-10`} colSpan={5}>
-                  <SchoolIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                  No schools yet. Add one — student, appointment and report forms all read this list.
-                </td>
-              </tr>
-            ) : schools.map((s) => (
-              <tr key={s._id} className="hover:bg-gray-50">
-                <td className={`${td} font-medium`}>
-                  {s.school_name}
-                  <span className="block text-xs text-muted-foreground">{getSchoolShortName(s.school_name)}</span>
-                </td>
-                <td className={td}>{s.school_type}</td>
-                <td className={td}>{s.principal_name}</td>
-                <td className={td}>{[s.street_address, s.barangay, s.city].filter(Boolean).join(', ')}</td>
-                <td className={`${td} text-right whitespace-nowrap`}>
-                  <button
-                    onClick={() => openEdit(s)}
-                    className="px-2 py-1 text-muted-foreground hover:text-foreground"
-                    aria-label={`Edit ${s.school_name}`}
-                  ><Edit className="w-4 h-4" /></button>
-                  <button
-                    onClick={() => setConfirmArchive(s)}
-                    className="px-2 py-1 text-muted-foreground hover:text-destructive"
-                    aria-label={`Archive ${s.school_name}`}
-                  ><Archive className="w-4 h-4" /></button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Stat cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {stats.map(({ label, value, bg, fg }) => (
+          <div key={label} className="flex items-start justify-between gap-3 min-h-[8.5rem] rounded-2xl border border-border bg-card p-6 shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
+            <div className="min-w-0 self-stretch flex flex-col justify-between">
+              <div className="text-sm font-bold uppercase tracking-wider text-foreground">{label}</div>
+              <div className="text-4xl font-bold text-foreground mt-3 leading-none">{value}</div>
+            </div>
+            <span style={{ backgroundColor: bg, color: fg }} className="w-10 h-10 flex-shrink-0 rounded-xl grid place-items-center">
+              <SchoolIcon className="w-4 h-4" />
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Table card */}
+      <div className="bg-card rounded-2xl border border-border overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+        <div className="flex items-center justify-between gap-3 px-6 py-5">
+          <div className="flex items-center gap-4">
+            <span className="w-12 h-12 rounded-xl grid place-items-center bg-[#F4F7FF] text-[#273A78] flex-shrink-0"><SchoolIcon className="w-5 h-5" /></span>
+            <div>
+              <div className="text-xl font-bold text-foreground">System Schools</div>
+              <div className="text-sm text-muted-foreground">Review and manage registered schools.</div>
+            </div>
+          </div>
+          <span className="px-4 py-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-xs font-bold text-[#64748B] whitespace-nowrap">{schools.length} {schools.length === 1 ? 'school' : 'schools'} found</span>
+        </div>
+        {schools.length === 0 ? (
+          <div className="border-t border-border flex flex-col items-center justify-center text-center px-6 py-20">
+            <span className="w-[4.5rem] h-[4.5rem] rounded-2xl grid place-items-center bg-[#F1F5F9] text-[#94A3B8]"><SchoolIcon className="w-8 h-8" /></span>
+            <div className="mt-5 text-base font-bold text-foreground">No schools yet</div>
+            <div className="mt-2 text-xs text-muted-foreground">Add one. Student, appointment and report forms all read this list.</div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto border-t border-border">
+            <table className="w-full border-collapse">
+              <thead className="bg-gray-50 border-b border-border">
+                <tr>
+                  <th className={th}>School</th>
+                  <th className={th}>Type</th>
+                  <th className={th}>Principal</th>
+                  <th className={th}>Address</th>
+                  <th className={`${th} text-right`}>Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {schools.map((s) => (
+                  <tr key={s._id} className="hover:bg-gray-50">
+                    <td className={`${td} whitespace-nowrap`}>
+                      <div className="flex items-center gap-4">
+                        <span className="w-11 h-11 flex-shrink-0 rounded-xl grid place-items-center bg-[#F4F7FF] text-[#273A78] text-sm font-bold">{s.school_name.trim().charAt(0).toUpperCase()}</span>
+                        <div className="min-w-0">
+                          <div className="text-base font-bold text-foreground">{s.school_name}</div>
+                          <div className="text-sm text-muted-foreground">{getSchoolShortName(s.school_name)}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className={`${td} whitespace-nowrap`}>
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#DCE3F5] bg-[#F4F7FF] text-xs font-bold text-[#273A78]">{s.school_type}</span>
+                    </td>
+                    <td className={`${td} text-muted-foreground`}>{s.principal_name}</td>
+                    <td className={`${td} text-xs text-muted-foreground`}>{[s.street_address, s.barangay, s.city].filter(Boolean).join(', ')}</td>
+                    <td className={`${td} text-right whitespace-nowrap`}>
+                      <button
+                        onClick={() => openEdit(s)}
+                        className="px-2 py-1 text-primary hover:text-[#1E3A8A]"
+                        aria-label={`Edit ${s.school_name}`}
+                      ><Edit className="w-4 h-4" /></button>
+                      <button
+                        onClick={() => setConfirmArchive(s)}
+                        className="px-2 py-1 text-muted-foreground hover:text-destructive"
+                        aria-label={`Archive ${s.school_name}`}
+                      ><Archive className="w-4 h-4" /></button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {showForm && (
