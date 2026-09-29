@@ -27,6 +27,7 @@ import { AiRiskTab } from './AiRiskTab';
 import { TreatmentHistoryTab } from './TreatmentHistoryTab';
 import { ReferralsTab } from './ReferralsTab';
 import { HistoryTab } from './HistoryTab';
+import { ToothButton } from './ToothButton';
 import { emptyMed, emptyDiet, emptyOral, type MedicalHistoryDraft, type DietDraft, type OralDraft } from './iptrDrafts';
 import type { ReferralType } from '../api/types';
 import {
@@ -886,33 +887,12 @@ export const DentalChart = () => {
     }
   };
 
-  const ToothButton = ({ num }: { num: number }) => {
-    const data = currentChart[num];
-    const cond = data?.condition || '';
-    const treat = data?.treatment || '';
-    const colorClass = conditionColors[cond] || conditionColors[cond.toLowerCase()] || 'bg-card border-border';
-    const isSelected = editingChart && (selectedCondition || selectedTreatment);
-    const hoverClass = isSelected
-      ? 'hover:border-teal-500 hover:ring-2 hover:ring-teal-300 hover:bg-teal-50 cursor-pointer'
-      : 'cursor-default';
-    return (
-      <button
-        onClick={() => editingChart && handleToothClick(num)}
-        // Grows to fill the card instead of leaving ~100px of slack on each
-        // side, capped so the boxes stay tooth-shaped rather than becoming wide
-        // rectangles on a large screen. flex-1 is also what keeps the primary
-        // row aligned with the permanent one -- both rows are 16 equal slots.
-        className={`relative flex h-[52px] min-w-[40px] max-w-[56px] flex-1 flex-col items-center justify-between rounded-md border-2 px-0.5 py-1 text-center transition-all md:h-[64px] ${colorClass} ${hoverClass}`}
-      >
-        <div className="text-[8px] font-medium text-slate-500 leading-none">{num}</div>
-        {cond && <div className="text-[11px] md:text-sm font-bold text-slate-700 leading-none">{cond}</div>}
-        {/* Blue, not teal: the palette selects conditions in teal and
-            treatments in blue, but this rendered the treatment code in the
-            condition colour, crossing the two vocabularies on the teeth. */}
-        {treat && <div className="text-[8px] md:text-[10px] font-semibold text-blue-700 leading-none">{treat}</div>}
-      </button>
-    );
-  };
+  // ToothButton moved to its own module (Sprint 162, TAB 2) — see there for
+  // why it had to leave the component body.
+  const toothArmed = editingChart && !!(selectedCondition || selectedTreatment);
+  const tooth = (n: number) => (
+    <ToothButton key={n} num={n} entry={currentChart[n]} clickable={editingChart} armed={toothArmed} onClick={handleToothClick} />
+  );
 
   // A primary arch holds 10 teeth against the permanent arch's 16. The three
   // missing positions at each end are the molars that have no primary
@@ -921,7 +901,7 @@ export const DentalChart = () => {
   // columns cannot drift apart.
   const padToArch = (teeth: number[]) => [
     ...Array.from({ length: 3 }, (_, i) => <div key={`pad-l${i}`} aria-hidden className="min-w-[40px] max-w-[56px] flex-1" />),
-    ...teeth.map((n) => <ToothButton key={n} num={n} />),
+    ...teeth.map(tooth),
     ...Array.from({ length: 3 }, (_, i) => <div key={`pad-r${i}`} aria-hidden className="min-w-[40px] max-w-[56px] flex-1" />),
   ];
 
@@ -2140,9 +2120,9 @@ export const DentalChart = () => {
                 {/* DOH IPTR form order: temporary arches on the outside (rows 1
                     and 4), permanent arches on the inside (rows 2 and 3). */}
                 <div className="flex justify-center gap-1">{padToArch(upperTemporary)}</div>
-                <div className="flex justify-center gap-1">{upperPermanent.map((n) => <ToothButton key={n} num={n} />)}</div>
+                <div className="flex justify-center gap-1">{upperPermanent.map(tooth)}</div>
                 <div className="border-t-2 border-dashed border-border my-2" />
-                <div className="flex justify-center gap-1">{lowerPermanent.map((n) => <ToothButton key={n} num={n} />)}</div>
+                <div className="flex justify-center gap-1">{lowerPermanent.map(tooth)}</div>
                 <div className="flex justify-center gap-1">{padToArch(lowerTemporary)}</div>
               </div>
             </div>
