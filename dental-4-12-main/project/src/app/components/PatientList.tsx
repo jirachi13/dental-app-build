@@ -1010,14 +1010,7 @@ export const PatientList = () => {
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [cardHeight, setCardHeight] = useState<number | null>(null);
 
-  // Only the DEFAULT (paginated) view uses a computed height + internal
-  // scroll box -- Hide (user, 2026-09-29: "should not be fixed in the page,
-  // it should be in the bottom of the list") instead renders every filtered
-  // row in normal flow and lets the page itself scroll, so the reveal tab
-  // sits right after the real last row instead of being pinned to a
-  // stretched, viewport-height card with blank interior above it.
   useEffect(() => {
-    if (hidePagination) return;
     // Target the sidebar's OWN rendered bottom edge, not window.innerHeight
     // (user, 2026-09-28, found on the Treatment Queue's twin of this card --
     // a taskbar screenshot showed the sidebar itself stops 20px short of the
@@ -1031,25 +1024,65 @@ export const PatientList = () => {
       if (!cardRef.current) return;
       const top = cardRef.current.getBoundingClientRect().top;
       const sidebar = document.getElementById('main-nav');
-      const bottomTarget = sidebar ? sidebar.getBoundingClientRect().bottom : window.innerHeight;
+      // Hide wants the card to actually reach the screen's true bottom edge
+      // (user, 2026-09-29), not just match the sidebar's own inset -- the
+      // sidebar's `md:bottom-5` floating look is a deliberate 20px gap for
+      // the DEFAULT view, but the negative margin below only cancels
+      // `<main>`'s padding, it doesn't add back that 20px, so matching the
+      // sidebar here left Hide 20px short of the edge it's supposed to flow to.
+      const bottomTarget = !hidePagination && sidebar ? sidebar.getBoundingClientRect().bottom : window.innerHeight;
       setCardHeight(Math.max(bottomTarget - top, 160));
     };
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
+    // studentsLoading: same reason as the stickyTop effect above. hidePagination
+    // (missed when this was first ported -- RPC Monitoring's own measure
+    // effect has the equivalent `pageSize`): without it, toggling Hide never
+    // re-measures a fresh baseline, so the card kept the DEFAULT view's
+    // already-shrunk cardHeight (correction only ever shrinks, never grows
+    // it back), and the negative margin that should let it reach the true
+    // edge had nothing left to cancel.
   }, [canAddStudent, studentsLoading, hidePagination]);
 
   // The estimate above can leave a few stray pixels of page scroll (e.g.
   // `<main>`'s own bottom padding, which this component has no clean way to
   // read). Trim exactly that much, synchronously before paint, so the page
   // itself never scrolls — only the bounded row list above does.
+  //
+  // ⚠ `hidePagination` is ALSO a dep, not just `cardHeight` (same bug class
+  // found and fixed on RPC Monitoring): toggling Hide can remeasure to the
+  // EXACT SAME cardHeight value (both are `window.innerHeight - top`, and
+  // `top` doesn't move between states) — React bails out the resulting
+  // setCardHeight as a no-op, so this effect would never get a second look
+  // at the real footer's overflow once Hide's negative margin is gone.
   useLayoutEffect(() => {
-    if (hidePagination || cardHeight == null) return;
+    if (cardHeight == null) return;
     const overflow = document.documentElement.scrollHeight - window.innerHeight;
     if (overflow > 0) {
       setCardHeight((h) => (h == null ? h : Math.max(h - overflow, 160)));
     }
   }, [cardHeight, hidePagination]);
+
+  // Hide's bottom corners: rounded when the rows fit without scrolling (a
+  // short list, with blank card interior above the pinned reveal tab),
+  // square when the rows box is actually scrolling internally (a long list
+  // past the card's fixed height) — a curve right at the screen edge, with
+  // nothing beneath it, reads as a cut-off render glitch rather than a
+  // corner. `useLayoutEffect`, not `useEffect`: a passive effect runs after
+  // the browser paints, flashing the rounded corner for one frame first.
+  const rowsBoxRef = useRef<HTMLDivElement | null>(null);
+  const [hideAtEdge, setHideAtEdge] = useState(false);
+  useLayoutEffect(() => {
+    if (!hidePagination) { setHideAtEdge(false); return; }
+    const el = rowsBoxRef.current;
+    if (!el) return;
+    const check = () => setHideAtEdge(el.scrollHeight > el.clientHeight + 1);
+    check();
+    const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(check) : null;
+    resizeObserver?.observe(el);
+    return () => resizeObserver?.disconnect();
+  }, [hidePagination, cardHeight, filtered.length]);
 
   const hasActiveFilters = gradeFilter !== 'all' || sectionFilter !== 'all' || genderFilter !== 'all' || ageGroupFilter !== 'all' || searchTerm !== '';
 
@@ -1166,17 +1199,19 @@ export const PatientList = () => {
           is what `position: sticky` pins its descendants against, so the
           header block, table headings and footer below would stick to THIS
           div instead of the viewport and never visibly move. */}
-      {/* Hide drops the computed `height` entirely (superseding the pinned-
-          footer version above, user, 2026-09-29: "should not be fixed in the
-          page, it should be in the bottom of the list") -- the card just
-          wraps its natural content, so the reveal tab sits right after the
-          real last row instead of flush against a stretched card bottom.
-          The negative margin still cancels <main>'s own p-4/md:p-8 bottom
-          padding (user, 2026-09-29 again: "the container should extend in
-          the edge of the screen") -- with no forced height left to trigger
-          it, that padding was the one thing still holding the card's true
-          bottom edge short of the screen. */}
-      <div ref={cardRef} className={`flex flex-col bg-card border border-border shadow-sm overflow-clip rounded-2xl ${hidePagination ? '-mb-4 md:-mb-8' : ''}`} style={{ height: hidePagination ? undefined : (cardHeight ?? undefined) }}>
+      {/* Hide now also uses `height`, same as the default view (superseding
+          the `maxHeight` version below, user, 2026-09-29 -- "the bottom
+          container doesn't touch the edge of the screen has resurfaced").
+          `maxHeight` let the card shrink-wrap to a few rows, but that left
+          the true gap the user is pointing at — page background, not card,
+          showing between the reveal tab and the screen edge. Filling to the
+          full cap and pinning the reveal tab as its own flex-shrink-0 footer
+          (below, sibling to the rows box, not nested inside it) reaches the
+          edge in both cases: a few rows leaves blank card interior above a
+          tab that still sits flush at the bottom; many rows scroll inside
+          the rows box exactly as before. See RPC Monitoring for the same
+          fix, ported verbatim (user, 2026-09-29). */}
+      <div ref={cardRef} className={`flex flex-col bg-card border border-border shadow-sm overflow-clip ${hideAtEdge ? 'rounded-t-2xl' : 'rounded-2xl'} ${hidePagination ? '-mb-4 md:-mb-8' : ''}`} style={{ height: cardHeight ?? undefined }}>
         <div ref={cardHeaderRef} className="sticky z-40 space-y-4 border-b border-border bg-card p-5 sm:p-6" style={{ top: stickyTop.cardHeader }}>
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
@@ -1361,7 +1396,7 @@ export const PatientList = () => {
             the TOP OF THIS BOX via `sticky` on each `<th>`, not the `<tr>` —
             a sticky `<tr>` rendered as a visual duplicate mid-table in some
             browsers. */}
-        <div className={hidePagination ? '' : 'min-h-0 flex-1 overflow-auto'}>
+        <div ref={rowsBoxRef} className="min-h-0 flex-1 overflow-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
