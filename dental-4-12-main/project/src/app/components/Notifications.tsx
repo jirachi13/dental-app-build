@@ -2,10 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import {
   AlertTriangle, Bell, Calendar, Brain, StickyNote, ClipboardCheck, Clock,
-  MoreHorizontal, CheckCircle2, Circle, Trash2, ArrowRight,
+  MoreHorizontal, CheckCircle2, Circle, Trash2, ArrowRight, MapPin, FileText,
+  ListChecks,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications, NOTIFIED_ROLES } from '../hooks/useNotifications';
+import { useRotationDentist, useRotations, dayStart, addDays } from '../hooks/useRotations';
+import { useSchools } from '../hooks/useSchools';
+import { toLocalDateString } from '../utils/localDate';
+import { getQueuedStudentIds } from '../utils/queueStorage';
 import { PageHeader } from './PageHeader';
 
 // ─── Notifications page ──────────────────────────────────────────────────────
@@ -24,6 +29,20 @@ export const Notifications = () => {
   const enabled = NOTIFIED_ROLES.includes(user?.role ?? '');
   const { counts, loading, error } = useNotifications(enabled, selectedSchool);
   const canValidateRisk = user?.role === 'dentist';
+
+  // School Rotation and the Treatment/Charting Queue have no server aggregate
+  // of their own -- Rotation is small enough to read the same client hooks
+  // the Rotation screen itself uses, and the queue is client-only state
+  // (localStorage, see utils/queueStorage) that never touches the server at
+  // all. Both are read directly here rather than added to
+  // /stats/notifications, which stays about what the DB can aggregate.
+  const { dentist } = useRotationDentist(enabled);
+  const todayDate = useMemo(() => dayStart(new Date()), []);
+  const tomorrowDate = useMemo(() => addDays(todayDate, 1), [todayDate]);
+  const { byDay: rotationByDay } = useRotations(todayDate, tomorrowDate, dentist?._id);
+  const { schools } = useSchools();
+  const schoolNameById = (id: string) => schools.find((s) => s._id === id)?.school_name ?? '';
+  const [queuedCount] = useState(() => getQueuedStudentIds().length);
 
   const loadIds = (key: string): Set<string> => {
     try {
@@ -223,9 +242,91 @@ export const Notifications = () => {
         linkLabel: 'Go to Students',
       });
     }
+    const todayKey = toLocalDateString(todayDate);
+    const tomorrowKey = toLocalDateString(tomorrowDate);
+    const rotToday = rotationByDay.get(todayKey);
+    const rotTomorrow = rotationByDay.get(tomorrowKey);
+    if (rotToday) {
+      list.push({
+        id: 'rotation-today',
+        group: 'today',
+        tier: 'today-tomorrow',
+        Icon: MapPin,
+        Badge: Clock,
+        iconBg: 'bg-primary-surface',
+        iconFg: 'text-primary',
+        badgeBg: 'bg-primary',
+        textBefore: 'You are rotating to ',
+        textBold: schoolNameById(rotToday.school_id),
+        textAfter: ' today.',
+        timeLabel: 'Today',
+        linkTo: '/appointments',
+        linkLabel: 'Go to Appointments',
+      });
+    }
+    if (rotTomorrow) {
+      list.push({
+        id: 'rotation-tomorrow',
+        group: 'today',
+        tier: 'today-tomorrow',
+        Icon: MapPin,
+        Badge: Clock,
+        iconBg: 'bg-primary-surface',
+        iconFg: 'text-primary',
+        badgeBg: 'bg-primary',
+        textBefore: 'You are rotating to ',
+        textBold: schoolNameById(rotTomorrow.school_id),
+        textAfter: ' tomorrow.',
+        timeLabel: 'Tomorrow',
+        linkTo: '/appointments',
+        linkLabel: 'Go to Appointments',
+      });
+    }
+    if (queuedCount > 0) {
+      list.push({
+        id: 'queue-count',
+        group: 'today',
+        tier: 'needs-action',
+        Icon: ListChecks,
+        Badge: Clock,
+        iconBg: 'bg-danger-surface',
+        iconFg: 'text-destructive',
+        badgeBg: 'bg-destructive',
+        textBefore: 'You have ',
+        textBold: `${queuedCount} student${queuedCount === 1 ? '' : 's'} queued`,
+        textAfter: ' for charting or treatment.',
+        timeLabel: 'Ongoing',
+        linkTo: '/dental-charts',
+        linkLabel: 'Go to Dental Charts',
+      });
+    }
+    // Calendar reminder, not a data-backed count -- there is no server
+    // record of whether this month's report was generated (CLAUDE.md:
+    // nothing fabricated), so this names only what IS real: the date. The id
+    // carries the year/month, so it naturally reads as a new notification
+    // each month instead of staying permanently "read".
+    const now = new Date();
+    if (now.getDate() <= 5) {
+      list.push({
+        id: `reports-reminder-${now.getFullYear()}-${now.getMonth()}`,
+        group: 'today',
+        tier: 'today-tomorrow',
+        Icon: FileText,
+        Badge: Clock,
+        iconBg: 'bg-primary-surface',
+        iconFg: 'text-primary',
+        badgeBg: 'bg-primary',
+        textBefore: '',
+        textBold: 'A new month has started',
+        textAfter: '. This is a good time to generate the School Oral Health Status Report and the Consolidated Report for the City Health Office.',
+        timeLabel: 'This month',
+        linkTo: '/reports',
+        linkLabel: 'Go to Reports',
+      });
+    }
     return list.filter((r) => !dismissedIds.has(r.id));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [counts, canValidateRisk, dismissedIds]);
+  }, [counts, canValidateRisk, dismissedIds, rotationByDay, todayDate, tomorrowDate, schools, queuedCount]);
 
   // Prune stale read/dismissed ids: a row that no longer exists (the RPC
   // visit was recorded, the appointment was marked) never leaves a
@@ -267,7 +368,7 @@ export const Notifications = () => {
   const renderRow = (r: Row) => {
     const isRead = readIds.has(r.id);
     return (
-      <li key={r.id} className={`relative flex items-start gap-3 p-3.5 ${isRead ? '' : 'bg-primary-surface/60'}`}>
+      <li key={r.id} className={`relative flex items-start gap-6 p-3.5 ${isRead ? '' : 'bg-primary-surface/60'}`}>
         <div className="relative shrink-0">
           <span className={`flex h-11 w-11 items-center justify-center rounded-full ${r.iconBg}`}>
             <r.Icon className={`w-5 h-5 ${r.iconFg}`} />
@@ -277,15 +378,18 @@ export const Notifications = () => {
           </span>
         </div>
 
-        {/* max-w caps the line length well short of the row's full width, so
-            a long sentence wraps onto its own next line instead of running
-            flush up to the "Go to" column beside it (user, 2026-09-29: "do
-            not extend the text till the end... space between the go to
-            module and the text"). Only the bolded word/name is bold -- the
-            surrounding sentence stays regular weight whether read or unread
-            (user, 2026-09-29: "only the important words"); unread is carried
-            by the row's tint alone. */}
-        <div className="min-w-0 flex-1 max-w-xl">
+        {/* flex-1 with no max-width: the text fills exactly the space left
+            after the icon and the right-hand action column, wrapping only
+            when it actually reaches that column, with one consistent
+            `gap-6` between them -- not a fixed box that leaves a second,
+            unrelated gap before the action column (user, 2026-09-29: "space
+            between the notification text and the three dot... not both of
+            them to have space", "the three dot should still be in the right
+            most part"). Only the bolded word/name is bold -- the surrounding
+            sentence stays regular weight whether read or unread (user,
+            2026-09-29: "only the important words"); unread is carried by
+            the row's tint alone. */}
+        <div className="min-w-0 flex-1">
           <p className="text-[13.5px] leading-snug text-foreground">
             {r.textBefore}<b className="font-bold">{r.textBold}</b>{r.textAfter}{' '}
             <span className="text-xs font-normal text-muted-foreground">{r.timeLabel}</span>
