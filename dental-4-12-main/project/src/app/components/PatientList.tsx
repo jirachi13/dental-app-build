@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { Plus, Eye, FileText, X, School as SchoolIcon, List, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Users, Upload, CheckCircle, AlertCircle, ScanLine, GraduationCap, MoreVertical, ListChecks, Archive as ArchiveIcon, Copy, ListPlus } from 'lucide-react';
@@ -1190,11 +1191,24 @@ export const PatientList = () => {
           names. */}
       {canAddStudent && (
         <div ref={toolbarRef} className="sticky z-40 -mt-3 flex flex-wrap items-center justify-end gap-3 bg-gray-50 pb-2" style={{ top: stickyTop.toolbar }}>
-          {/* Single "Add Student" entry point (user, 2026-09-29 — designed on
-              the OCR Student Intake canvas): replaces the separate OCR pill.
-              Fixed-position-from-rect dropdown, same pattern as the three-dot
-              list menu below — this toolbar's card ancestor is
-              overflow-clip, which cuts off an absolutely positioned menu. */}
+          {/* "Upload", not "Scan": this opens a file picker, and a scan icon
+              + the verb "scan" both promised a camera the app does not have
+              (backlog 0e). The OCR extraction is still described inside the
+              modal — only the entry point stops over-promising. Rename this
+              back if 0e ever ships. Kept standalone (user, 2026-09-29: "I
+              never said delete, I just said add") alongside Add Student's
+              own OCR option below, not replaced by it. */}
+          <button onClick={() => { setOcrError(null); setShowOcrUpload(true); }} className="flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-full hover:bg-primary-surface text-sm font-medium">
+            <Upload className="w-4 h-4" /> OCR
+          </button>
+          {/* Add Student also offers OCR as a second entry point (designed on
+              the OCR Student Intake canvas). Portaled to document.body, not
+              rendered in place: this toolbar is itself `sticky z-40`, which
+              opens its OWN stacking context, so a `fixed` menu nested inside
+              it is scoped to THAT context — it then loses the paint-order
+              tie against the results card's `sticky z-40` header (same
+              z-index, later in the DOM) and renders visually underneath the
+              card instead of on top of it. A portal escapes that entirely. */}
           <div className="relative">
             <button
               ref={addMenuBtnRef}
@@ -1204,9 +1218,9 @@ export const PatientList = () => {
               <Plus className="w-4 h-4" /> Add Student
               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAddMenu ? 'rotate-180' : ''}`} />
             </button>
-            {showAddMenu && (
+            {showAddMenu && createPortal(
               <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowAddMenu(false)} />
+                <div className="fixed inset-0 z-40" onClick={() => setShowAddMenu(false)} />
                 <div
                   style={addMenuAt ? { top: addMenuAt.top, right: addMenuAt.right } : undefined}
                   className="fixed z-50 w-64 overflow-hidden rounded-2xl border border-border bg-card shadow-lg"
@@ -1237,7 +1251,8 @@ export const PatientList = () => {
                     </span>
                   </button>
                 </div>
-              </>
+              </>,
+              document.body,
             )}
           </div>
         </div>
