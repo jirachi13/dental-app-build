@@ -55,8 +55,10 @@ export const Notifications = () => {
   const [readIds, setReadIds] = useState<Set<string>>(() => loadIds('floral.notifications.read'));
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => loadIds('floral.notifications.dismissed'));
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [openPopupId, setOpenPopupId] = useState<string | null>(null);
   const [activeTier, setActiveTier] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const popupRef = useRef<HTMLDivElement | null>(null);
 
   const persist = (key: string, set: Set<string>, setter: (s: Set<string>) => void) => {
     setter(set);
@@ -85,6 +87,21 @@ export const Notifications = () => {
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [openMenuId]);
+
+  // Clicking the row itself (not the three-dot or the "Go to" link, which
+  // stop their own click from bubbling here) opens a small popover -- the
+  // notification's own icon/category, its text, and the same two choices
+  // the three-dot menu offers (approved design: "variant J", user,
+  // 2026-09-29). It is a second, faster path to the same two actions, not a
+  // replacement for the three-dot menu.
+  useEffect(() => {
+    if (!openPopupId) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (popupRef.current && !popupRef.current.contains(e.target as Node)) setOpenPopupId(null);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [openPopupId]);
 
   type Row = {
     id: string;
@@ -378,8 +395,13 @@ export const Notifications = () => {
     // (not `items-start`) on the row itself, so a one-line row centers its
     // text vertically against the icon and action column instead of sitting at
     // the top with dead space below it.
+    const tier = TIERS.find((t) => t.key === r.tier)!;
     return (
-      <li key={r.id} className={`relative grid grid-cols-[3fr_0.35fr_auto] items-center gap-0 p-3.5 ${isRead ? '' : 'bg-primary-surface/60'}`}>
+      <li
+        key={r.id}
+        onClick={() => { setOpenPopupId(openPopupId === r.id ? null : r.id); setOpenMenuId(null); }}
+        className={`relative grid grid-cols-[3fr_0.35fr_auto] items-center gap-0 p-3.5 cursor-pointer hover:bg-muted/40 ${isRead ? '' : 'bg-primary-surface/60'}`}
+      >
         <div className="flex items-center gap-4 min-w-0">
           <div className="relative shrink-0">
             <span className={`flex h-11 w-11 items-center justify-center rounded-full ${r.iconBg}`}>
@@ -411,10 +433,10 @@ export const Notifications = () => {
             the dropdown (user, 2026-09-29, correcting the previous round:
             "under the 3 dot, not become an option in the 3 dot"). */}
         <div className="flex flex-col items-end gap-1.5 shrink-0">
-          <div className="relative" ref={openMenuId === r.id ? menuRef : undefined}>
+          <div className="relative" ref={openMenuId === r.id ? menuRef : undefined} onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
-              onClick={() => setOpenMenuId(openMenuId === r.id ? null : r.id)}
+              onClick={() => { setOpenMenuId(openMenuId === r.id ? null : r.id); setOpenPopupId(null); }}
               aria-label="Notification options"
               className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
             >
@@ -443,12 +465,47 @@ export const Notifications = () => {
           </div>
           <Link
             to={r.linkTo}
-            onClick={() => markRead(r.id)}
+            onClick={(e) => { e.stopPropagation(); markRead(r.id); }}
             className="flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-primary hover:underline"
           >
             <ArrowRight className="w-3 h-3" /> {r.linkLabel}
           </Link>
         </div>
+
+        {openPopupId === r.id && (
+          <div
+            ref={popupRef}
+            onClick={(e) => e.stopPropagation()}
+            className="absolute left-4 top-full z-20 mt-2 w-[300px] rounded-2xl border border-border bg-card p-4 shadow-lg"
+          >
+            <div className="mb-2.5 flex items-center gap-2.5">
+              <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${r.iconBg}`}>
+                <r.Icon className={`w-4 h-4 ${r.iconFg}`} />
+              </span>
+              <span className={`text-[10px] font-bold uppercase tracking-wide ${tier.tone}`}>{tier.label}</span>
+            </div>
+            <p className="mb-3.5 text-[12.5px] leading-snug text-foreground">
+              {r.textBefore}<b className="font-bold">{r.textBold}</b>{r.textAfter}
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => { toggleRead(r.id); setOpenPopupId(null); }}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border px-2.5 py-2 text-[12.5px] font-semibold text-foreground hover:bg-muted"
+              >
+                {isRead ? <Circle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                Mark {isRead ? 'unread' : 'read'}
+              </button>
+              <Link
+                to={r.linkTo}
+                onClick={() => { markRead(r.id); setOpenPopupId(null); }}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-2.5 py-2 text-[12.5px] font-semibold text-white hover:bg-primary/90"
+              >
+                {r.linkLabel} <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+        )}
       </li>
     );
   };
