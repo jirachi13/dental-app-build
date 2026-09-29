@@ -5,7 +5,7 @@ export type ExportFormat = 'csv' | 'xlsx';
 
 // One "Export" button + format dropdown, replacing the per-page "Export CSV"
 // buttons (user decision 2026-07-02: format choice per tab, dropdown style).
-export const ExportMenu = ({ onExport }: { onExport: (format: ExportFormat) => void }) => {
+export const ExportMenu = ({ onExport, filled = false }: { onExport: (format: ExportFormat) => void; filled?: boolean }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -36,7 +36,7 @@ export const ExportMenu = ({ onExport }: { onExport: (format: ExportFormat) => v
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-foreground rounded-lg hover:bg-gray-50 text-sm font-medium"
+        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${filled ? 'bg-[#16214F] text-white hover:opacity-90' : 'border border-gray-300 text-foreground hover:bg-gray-50'}`}
       >
         <Download className="w-4 h-4" /> Export <ChevronDown className="w-3.5 h-3.5" />
       </button>
