@@ -20,9 +20,14 @@ PC still points at production). Model strategy changed: **no Fable** — see CLA
 decision) — other devices drop within 15 min. Changing or resetting a password does the same, except
 the device that changed its own password stays signed in. **Worth one manual check after deploy:**
 log in on two browsers, log out of one, and confirm the other is sent to login within 15 minutes.
-**Nothing is in progress.** Working tree clean, `main` level with origin, **`npm test` 91/91**, `tsc`
-both configs and `npm run build` clean at the park point. Dev servers **stopped** (verified by port,
-not assumed — 4000 and 5173 both free).
+**Sprint 162 is COMPLETE (162d, 09-29): TAB 2 extracted** — `ToothButton.tsx` + `DentalChartTab.tsx`;
+`DentalChart.tsx` **2,602 → 2,007**. The 551 JSX lines were moved by script and byte-compared equal
+to the original (one intended substitution); all state stayed in the host. **Browser pass done live,
+read-only, at laptop width:** 52 teeth, every section, charting-bar identity + "4 of 57", Edit →
+arm D/d → tooth 16 → DMFT 0→1, Section B + Dental Caries derive, toggle-off, charting mode in/out,
+**Cancel discards** (tooth 16 blank, saved 54 `m PF` intact, no write request), zero console errors.
+⚠ Phone/tablet widths NOT re-checked — the JSX is byte-identical, so layout cannot have moved, but
+the 390 px devtools look (user-only item 3 below) still stands.
 
 ⚠ **Vercel has auto-deployed all 23 commits**, which includes one live behaviour change worth knowing
 about: **Background Sync now HOLDS queued writes instead of sending them** (Sprint 159a — see the
@@ -143,21 +148,15 @@ seeded SEC rows are now re-verified**, so no ledger row rests on an unchecked cl
 
 ### Next sprint
 
-**ONE PANEL REMAINS: TAB 2, the Dental Chart (~555 lines), plus `ToothButton` inside it.**
-Sprint 162c extracted four of the five it was scoped for (AI Risk, Treatment History, Referrals,
-History); 162b had already taken DMFT History. **`DentalChart.tsx` is 3,088 → 2,602.**
+**The audit program's build work is DONE — Track A, Track B 158-162, and the self-contained SEC/BUG
+fixes.** What remains is blocked on YOU, not on a sprint: **SEC-00** (a dev `.env` on this PC — it
+unblocks SEC-03/SEC-19 live checks), **SEC-30** (one Render dashboard look), **BUG-14** (the paper
+DOH form's referral rows), plus SEC-04, SEC-19/20, BUG-02/05/06/08 and the `dohAggregate.ts:207`
+duplicate, all of which need reading before scoping.
 
-⚠ **Give TAB 2 its own session, and read before moving anything.** It is the hardest by a distance:
-the odontogram, the code palette and the summaries all share **mutable charting state** with the
-host, and it is the screen a dentist actually works in — the one extraction where a silent mistake
-lands on clinical work. **Extract `ToothButton` first**, then the panel around it.
-
-**The pattern the four established, and TAB 2 should follow it:** read-only values go as plain props;
-anything the panel can CHANGE goes in one named bundle (`addForm` in Treatment History and
-Referrals), so the seam stays legible. Shared draft shapes live in `components/iptrDrafts.ts` — put
-nothing in a tab component that another tab also needs.
-
-Cheaper alternative for a short session: **BUG-14**, if you can read the DOH form's referral rows.
+Sprint 162's seam, for anyone touching these tabs: read-only values are plain props; anything a
+panel can CHANGE arrives in a named bundle (`addForm`; TAB 2 has `actions`, `palette`, `drafts`).
+Shared draft shapes live in `components/iptrDrafts.ts` (`ServiceField` moved there in 162d).
 
 ⚠ **BUG-00 and BUG-01 are CLOSED — do not start them.** They were already fixed by Sprints 148/149/154
 and were carried OPEN for eleven sprints on a stale seeded claim. Verified live this session: the

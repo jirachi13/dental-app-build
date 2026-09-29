@@ -30,6 +30,12 @@ export type OralDraft = {
   abnormalGrowth: boolean; cleftLipPalate: boolean; oralHygiene: string; others: string;
 };
 
+/** The services a visit records (PREVENTIVE_CARE_RECORD, Sprint 147), as the
+ *  Dental Chart tab's "Treatments Given" chips edit them. Held as
+ *  `boolean | null` in the draft: unticking writes null ("not recorded"), not
+ *  false. Moved here from the host in Sprint 162d, shared by host and tab. */
+export type ServiceField = 'oral_screening' | 'oral_prophylaxis' | 'fluoride_varnish' | 'oral_hygiene_instruction';
+
 /** Physical measurements, held as STRINGS while being typed — an empty input is
  *  '' and must not become 0, which would record a real measurement of zero. */
 export type MeasureDraft = {

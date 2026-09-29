@@ -199,7 +199,11 @@ age-at-examination across a school-year boundary, pupils in multiple school year
 on an empty cohort, the documented "1st/2nd application inferred from chart dates" interpretation,
 and any cell that silently prints 0 where the honest answer is *not recorded*.
 
-### Sprint 162 · `DentalChart.tsx` decomposition — the multi-file refactor
+### Sprint 162 · `DentalChart.tsx` decomposition — the multi-file refactor · ✅ DONE 2026-09-29
+**Outcome:** 162a (vocabulary + arithmetic → `utils/dentalChartCodes.ts`), 162b (DMFT History),
+162c (AI Risk, Treatment History, Referrals, History, `iptrDrafts.ts`), 162d (`ToothButton`,
+`DentalChartTab`). `DentalChart.tsx` **3,088 → 2,007**. Browser pass at laptop width, live and
+read-only; phone/tablet width still owed to a devtools look (window resize stops at 1098 px).
 **Prerequisites:** Sprint 158 green, and `BUG-nn` for the known live bug already recorded.
 **Seed the bug ledger from HANDOFF backlog #63 rather than rediscovering it:** the Dental Chart page
 shows only the *first* charting of a school year and hides the rest (`useDentalChartData:85`,
