@@ -60,22 +60,39 @@ export const Notifications = () => {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const popupRef = useRef<HTMLDivElement | null>(null);
 
-  const persist = (key: string, set: Set<string>, setter: (s: Set<string>) => void) => {
-    setter(set);
+  const saveToStorage = (key: string, set: Set<string>) => {
     try { localStorage.setItem(key, JSON.stringify([...set])); } catch { /* storage unavailable */ }
   };
+  // Functional setState (reads the LATEST state directly, not a value
+  // closed over from the render that created this handler) -- markRead is
+  // called from the row's own "Go to" link, the popup's "Go to" button, and
+  // the prune effect all touch the same key, so a stale closure could in
+  // theory read an out-of-date Set and silently drop another change made in
+  // the same tick. This guarantees a single click always sticks permanently
+  // (user, 2026-09-29: "just need one click and it should stay read").
   const toggleRead = (id: string) => {
-    const next = new Set(readIds);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    persist('floral.notifications.read', next, setReadIds);
+    setReadIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      saveToStorage('floral.notifications.read', next);
+      return next;
+    });
     setOpenMenuId(null);
   };
   const markRead = (id: string) => {
-    if (readIds.has(id)) return;
-    persist('floral.notifications.read', new Set(readIds).add(id), setReadIds);
+    setReadIds((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev).add(id);
+      saveToStorage('floral.notifications.read', next);
+      return next;
+    });
   };
   const dismiss = (id: string) => {
-    persist('floral.notifications.dismissed', new Set(dismissedIds).add(id), setDismissedIds);
+    setDismissedIds((prev) => {
+      const next = new Set(prev).add(id);
+      saveToStorage('floral.notifications.dismissed', next);
+      return next;
+    });
     setOpenMenuId(null);
   };
 
@@ -352,9 +369,9 @@ export const Notifications = () => {
     if (loading) return;
     const liveIds = new Set(rows.map((r) => r.id));
     const prunedRead = new Set([...readIds].filter((id) => liveIds.has(id)));
-    if (prunedRead.size !== readIds.size) persist('floral.notifications.read', prunedRead, setReadIds);
+    if (prunedRead.size !== readIds.size) { saveToStorage('floral.notifications.read', prunedRead); setReadIds(prunedRead); }
     const prunedDismissed = new Set([...dismissedIds].filter((id) => liveIds.has(id)));
-    if (prunedDismissed.size !== dismissedIds.size) persist('floral.notifications.dismissed', prunedDismissed, setDismissedIds);
+    if (prunedDismissed.size !== dismissedIds.size) { saveToStorage('floral.notifications.dismissed', prunedDismissed); setDismissedIds(prunedDismissed); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, loading]);
 
