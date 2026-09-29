@@ -368,10 +368,23 @@ export const Notifications = () => {
                   }`}
                 >
                   <span className={`text-sm font-bold ${t.tone}`}>{t.label}</span>
-                  <span className="text-sm font-medium text-muted-foreground">{n}</span>
+                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-destructive px-1 text-[11px] font-bold text-white tabular-nums">{n}</span>
                 </button>
               );
             })}
+            {/* "All" clears the tier filter -- last in the list (user,
+                2026-09-29: "add all in the last option"), same red-circle
+                count style as every other row. */}
+            <button
+              type="button"
+              onClick={() => setActiveTier(null)}
+              className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left transition-colors ${
+                activeTier === null ? 'bg-muted' : 'hover:bg-muted/60'
+              }`}
+            >
+              <span className="text-sm font-bold text-foreground">All</span>
+              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-destructive px-1 text-[11px] font-bold text-white tabular-nums">{rows.length}</span>
+            </button>
           </div>
 
           {/* Feed -- wider than the earlier `max-w-2xl` version (user,
