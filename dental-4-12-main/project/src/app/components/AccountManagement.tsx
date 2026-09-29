@@ -373,7 +373,8 @@ export const AccountManagement = () => {
               placeholder="Search by name, email, or role..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3.5 text-sm bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#16214F]/30"
+              className="w-full pl-12 pr-4 py-3.5 text-sm bg-[#F8FAFC] rounded-2xl placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#16214F]/30"
+              style={{ border: "none" }}
             />
           </div>
           <div className="flex flex-col lg:flex-row lg:justify-between gap-5">
