@@ -36,6 +36,7 @@ export const Notifications = () => {
   const [readIds, setReadIds] = useState<Set<string>>(() => loadIds('floral.notifications.read'));
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => loadIds('floral.notifications.dismissed'));
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [activeTier, setActiveTier] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const persist = (key: string, set: Set<string>, setter: (s: Set<string>) => void) => {
@@ -65,6 +66,7 @@ export const Notifications = () => {
   type Row = {
     id: string;
     group: 'today' | 'earlier';
+    tier: 'needs-action' | 'today-tomorrow' | 'awaiting-review';
     Icon: typeof Calendar;
     Badge: typeof Calendar;
     iconBg: string;
@@ -95,6 +97,7 @@ export const Notifications = () => {
       list.push({
         id: `appt-missed-${a.id}`,
         group: 'earlier',
+        tier: 'needs-action',
         Icon: Calendar,
         Badge: AlertTriangle,
         iconBg: 'bg-danger-surface',
@@ -112,6 +115,7 @@ export const Notifications = () => {
       list.push({
         id: 'rpc-overdue',
         group: 'today',
+        tier: 'needs-action',
         Icon: ClipboardCheck,
         Badge: Clock,
         iconBg: 'bg-danger-surface',
@@ -129,6 +133,7 @@ export const Notifications = () => {
       list.push({
         id: 'appt-today',
         group: 'today',
+        tier: 'today-tomorrow',
         Icon: Calendar,
         Badge: Clock,
         iconBg: 'bg-primary-surface',
@@ -146,6 +151,7 @@ export const Notifications = () => {
       list.push({
         id: 'appt-tomorrow',
         group: 'today',
+        tier: 'today-tomorrow',
         Icon: Calendar,
         Badge: Clock,
         iconBg: 'bg-primary-surface',
@@ -163,6 +169,7 @@ export const Notifications = () => {
       list.push({
         id: 'day-note-today',
         group: 'today',
+        tier: 'today-tomorrow',
         Icon: StickyNote,
         Badge: Clock,
         iconBg: 'bg-warning-surface',
@@ -180,6 +187,7 @@ export const Notifications = () => {
       list.push({
         id: 'risk-awaiting',
         group: 'today',
+        tier: 'awaiting-review',
         Icon: Brain,
         Badge: Clock,
         iconBg: 'bg-warning-surface',
@@ -197,6 +205,7 @@ export const Notifications = () => {
       list.push({
         id: 'consent-pending',
         group: 'today',
+        tier: 'awaiting-review',
         Icon: ClipboardCheck,
         Badge: CheckCircle2,
         iconBg: 'bg-warning-surface',
@@ -241,8 +250,17 @@ export const Notifications = () => {
   }
 
   const unreadCount = rows.filter((r) => !readIds.has(r.id)).length;
-  const todayRows = rows.filter((r) => r.group === 'today');
-  const earlierRows = rows.filter((r) => r.group === 'earlier');
+
+  const TIERS = [
+    { key: 'needs-action', label: 'Needs action', tone: 'text-destructive' },
+    { key: 'today-tomorrow', label: 'Today & tomorrow', tone: 'text-primary' },
+    { key: 'awaiting-review', label: 'Awaiting review', tone: 'text-warning' },
+  ] as const;
+  const tierCount = (key: string) => rows.filter((r) => r.tier === key).length;
+
+  const visibleRows = activeTier ? rows.filter((r) => r.tier === activeTier) : rows;
+  const todayRows = visibleRows.filter((r) => r.group === 'today');
+  const earlierRows = visibleRows.filter((r) => r.group === 'earlier');
 
   const renderRow = (r: Row) => {
     const isRead = readIds.has(r.id);
@@ -330,19 +348,52 @@ export const Notifications = () => {
       )}
 
       {!loading && !error && rows.length > 0 && (
-        <div className="max-w-2xl bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
-          {todayRows.length > 0 && (
-            <>
-              <div className="px-4 py-2.5 text-sm font-bold text-foreground bg-card border-b border-border">Today</div>
-              <ul className="divide-y divide-border">{todayRows.map(renderRow)}</ul>
-            </>
-          )}
-          {earlierRows.length > 0 && (
-            <>
-              <div className="px-4 py-2.5 text-sm font-bold text-foreground bg-card border-b border-border">Earlier</div>
-              <ul className="divide-y divide-border">{earlierRows.map(renderRow)}</ul>
-            </>
-          )}
+        <div className="flex flex-col sm:flex-row gap-4 items-start">
+          {/* Compact tier summary -- sized to its own content (`self-start`,
+              no shared height with the feed beside it), not the stretched
+              full-height panel an earlier round tried (user, 2026-09-29:
+              "i didnt say copy the size of the container as well"). Click a
+              tier to filter the feed; click it again to clear. */}
+          <div className="w-full sm:w-56 shrink-0 self-start bg-card rounded-2xl border border-border shadow-sm p-3 space-y-1">
+            {TIERS.map((t) => {
+              const n = tierCount(t.key);
+              if (n === 0) return null;
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setActiveTier(activeTier === t.key ? null : t.key)}
+                  className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left transition-colors ${
+                    activeTier === t.key ? 'bg-muted' : 'hover:bg-muted/60'
+                  }`}
+                >
+                  <span className={`text-sm font-bold ${t.tone}`}>{t.label}</span>
+                  <span className="text-sm font-medium text-muted-foreground">{n}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Feed -- wider than the earlier `max-w-2xl` version (user,
+              2026-09-29: "make the notifications container wider"); fills
+              whatever space the tier panel beside it doesn't take. */}
+          <div className="flex-1 min-w-0 bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+            {todayRows.length > 0 && (
+              <>
+                <div className="px-4 py-2.5 text-sm font-bold text-foreground bg-card border-b border-border">Today</div>
+                <ul className="divide-y divide-border">{todayRows.map(renderRow)}</ul>
+              </>
+            )}
+            {earlierRows.length > 0 && (
+              <>
+                <div className="px-4 py-2.5 text-sm font-bold text-foreground bg-card border-b border-border">Earlier</div>
+                <ul className="divide-y divide-border">{earlierRows.map(renderRow)}</ul>
+              </>
+            )}
+            {todayRows.length === 0 && earlierRows.length === 0 && (
+              <div className="p-8 text-center text-sm text-muted-foreground">Nothing in this tier.</div>
+            )}
+          </div>
         </div>
       )}
     </div>
