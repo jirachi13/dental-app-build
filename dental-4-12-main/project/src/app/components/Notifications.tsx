@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import {
   AlertTriangle, Bell, Calendar, Brain, StickyNote, ClipboardCheck, Clock,
-  MoreHorizontal, CheckCircle2, Circle, Trash2,
+  MoreHorizontal, CheckCircle2, Circle, Trash2, ArrowRight,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications, NOTIFIED_ROLES } from '../hooks/useNotifications';
@@ -48,6 +48,10 @@ export const Notifications = () => {
     if (next.has(id)) next.delete(id); else next.add(id);
     persist('floral.notifications.read', next, setReadIds);
     setOpenMenuId(null);
+  };
+  const markRead = (id: string) => {
+    if (readIds.has(id)) return;
+    persist('floral.notifications.read', new Set(readIds).add(id), setReadIds);
   };
   const dismiss = (id: string) => {
     persist('floral.notifications.dismissed', new Set(dismissedIds).add(id), setDismissedIds);
@@ -249,8 +253,6 @@ export const Notifications = () => {
     );
   }
 
-  const unreadCount = rows.filter((r) => !readIds.has(r.id)).length;
-
   const TIERS = [
     { key: 'needs-action', label: 'Needs action', tone: 'text-destructive' },
     { key: 'today-tomorrow', label: 'Today & tomorrow', tone: 'text-primary' },
@@ -276,16 +278,12 @@ export const Notifications = () => {
         </div>
 
         <div className="min-w-0 flex-1">
+          {/* One paragraph, full sentences throughout -- the relative time
+              is its own trailing sentence, right after the existing period
+              (user, 2026-09-29: "the date must be right after the period"),
+              not split onto a separate meta line. */}
           <p className={`text-[13.5px] leading-snug ${isRead ? 'text-foreground' : 'font-semibold text-foreground'}`}>
-            {r.textBefore}<b className="font-bold">{r.textBold}</b>{r.textAfter}
-          </p>
-          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-            {!isRead && <span className="inline-block h-2 w-2 rounded-full bg-primary" />}
-            {r.timeLabel}
-            <span aria-hidden="true">·</span>
-            <Link to={r.linkTo} onClick={() => toggleRead(r.id)} className="font-semibold text-primary hover:underline">
-              {r.linkLabel}
-            </Link>
+            {r.textBefore}<b className="font-bold">{r.textBold}</b>{r.textAfter} {r.timeLabel}.
           </p>
         </div>
 
@@ -299,21 +297,29 @@ export const Notifications = () => {
             <MoreHorizontal className="w-4 h-4" />
           </button>
           {openMenuId === r.id && (
-            <div className="absolute right-0 top-8 z-20 w-52 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+            <div className="absolute right-0 top-8 z-20 w-72 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+              <Link
+                to={r.linkTo}
+                onClick={() => { markRead(r.id); setOpenMenuId(null); }}
+                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm font-semibold text-primary hover:bg-muted"
+              >
+                <ArrowRight className="w-4 h-4 flex-shrink-0" />
+                {r.linkLabel}
+              </Link>
               <button
                 type="button"
                 onClick={() => toggleRead(r.id)}
                 className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-foreground hover:bg-muted"
               >
-                {isRead ? <Circle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                {isRead ? <Circle className="w-4 h-4 flex-shrink-0" /> : <CheckCircle2 className="w-4 h-4 flex-shrink-0" />}
                 Mark as {isRead ? 'unread' : 'read'}
               </button>
               <button
                 type="button"
                 onClick={() => dismiss(r.id)}
-                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-destructive hover:bg-danger-surface"
+                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm whitespace-nowrap text-destructive hover:bg-danger-surface"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-4 h-4 flex-shrink-0" />
                 Delete this notification
               </button>
             </div>
@@ -330,7 +336,6 @@ export const Notifications = () => {
         eyebrow="Alerts"
         title="Notifications"
         description="Appointments, RPC visits, risk validation, and consent, across every module."
-        badge={unreadCount}
       />
 
       {error && (
@@ -355,6 +360,19 @@ export const Notifications = () => {
               "i didnt say copy the size of the container as well"). Click a
               tier to filter the feed; click it again to clear. */}
           <div className="w-full sm:w-56 shrink-0 self-start bg-card rounded-2xl border border-border shadow-sm p-3 space-y-1">
+            {/* "All" clears the tier filter -- first in the list (user,
+                2026-09-29, correcting an earlier "last" placement), black
+                label, same red-circle count style as every tier below it. */}
+            <button
+              type="button"
+              onClick={() => setActiveTier(null)}
+              className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left transition-colors ${
+                activeTier === null ? 'bg-muted' : 'hover:bg-muted/60'
+              }`}
+            >
+              <span className="text-sm font-bold text-foreground">All</span>
+              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-destructive px-1 text-[11px] font-bold text-white tabular-nums">{rows.length}</span>
+            </button>
             {TIERS.map((t) => {
               const n = tierCount(t.key);
               if (n === 0) return null;
@@ -372,19 +390,6 @@ export const Notifications = () => {
                 </button>
               );
             })}
-            {/* "All" clears the tier filter -- last in the list (user,
-                2026-09-29: "add all in the last option"), same red-circle
-                count style as every other row. */}
-            <button
-              type="button"
-              onClick={() => setActiveTier(null)}
-              className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left transition-colors ${
-                activeTier === null ? 'bg-muted' : 'hover:bg-muted/60'
-              }`}
-            >
-              <span className="text-sm font-bold text-foreground">All</span>
-              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-destructive px-1 text-[11px] font-bold text-white tabular-nums">{rows.length}</span>
-            </button>
           </div>
 
           {/* Feed -- wider than the earlier `max-w-2xl` version (user,
