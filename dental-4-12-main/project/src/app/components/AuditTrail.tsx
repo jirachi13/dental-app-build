@@ -305,12 +305,12 @@ export const AuditTrail = () => {
             <table className="w-full table-fixed min-w-[1000px]">
               <thead className="bg-gray-50 border-b border-border">
                 <tr>
-                  <th className={TH} style={{ width: '20%' }}>User</th>
-                  <th className={TH} style={{ width: '30%' }}>Activity</th>
+                  <th className={TH} style={{ width: '19%' }}>User</th>
+                  <th className={TH} style={{ width: '27%' }}>Activity</th>
                   <th className={TH} style={{ width: '14%' }}>Module</th>
                   <th className={TH} style={{ width: '12%' }}>Date</th>
                   <th className={TH} style={{ width: '9%' }}>Time</th>
-                  <th className={TH} style={{ width: '15%' }}>Record ID</th>
+                  <th className={TH} style={{ width: '19%' }}>Record ID</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
