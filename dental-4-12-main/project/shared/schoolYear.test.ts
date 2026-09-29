@@ -41,21 +41,21 @@ describe('schoolYearStart / schoolYearEnd / schoolYearLabel agree', () => {
   });
 });
 
-describe('⚠ schoolYearEnd returns the START of the last day, not the end of it', () => {
-  it('is April 30 at 00:00, so most of April 30 sorts AFTER the year end', () => {
-    // Pinned, not endorsed — see the ledger note for Sprint 161.
-    //
-    // rpcTracking compares `windowCloses > syEnd.getTime()` to decide whether a
-    // second RPC visit still fits before the year closes, and displays the
-    // deadline as "2027-04-30". A window closing at 09:00 on April 30 is
-    // therefore past the enforced deadline while still inside the displayed
-    // one. The two disagree by up to 24 hours.
+describe('schoolYearEnd is the LAST INSTANT of April 30 (BUG-10)', () => {
+  it('keeps every moment of April 30 inside the year, as the displayed deadline says', () => {
+    // rpcTracking compares `windowCloses > syEnd.getTime()` and displays the
+    // deadline as "2027-04-30". It used to return midnight at the START of the
+    // day, so a window closing at 09:00 on April 30 was past the enforced
+    // deadline while still inside the displayed one.
     const end = schoolYearEnd(new Date('2026-09-01'));
-    expect(end.getHours()).toBe(0);
-    expect(end.getMinutes()).toBe(0);
+    expect(end.getHours()).toBe(23);
+    expect(end.getMinutes()).toBe(59);
 
     const duringLastDay = new Date('2027-04-30T09:00:00').getTime();
-    expect(duringLastDay > end.getTime()).toBe(true);
+    expect(duringLastDay > end.getTime()).toBe(false);
+
+    const nextMorning = new Date('2027-05-01T00:00:00').getTime();
+    expect(nextMorning > end.getTime()).toBe(true);
   });
 });
 

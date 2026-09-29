@@ -475,7 +475,13 @@ it. Sprints 138–150 did careful work here and it shows; the two findings below
   the ordinal a lookup; the date-order rule survives only as the fallback for pre-149 chartings,
   which it has to, or services would vanish from returns already filed.
 
-### BUG-10 · `shared/schoolYear.ts` `schoolYearEnd` · LOW · OPEN
+### BUG-10 · `shared/schoolYear.ts` `schoolYearEnd` · LOW · ✅ FIXED 2026-09-29
+Resolved: `schoolYearEnd` now returns 23:59:59.999 on April 30. Both call sites checked together:
+          `rpcTracking.ts` (a window closing on April 30 is no longer 'tight'/'impossible' a day
+          early; the displayed `YYYY-04-30` is unchanged) and `Appointments.tsx:105` (the fetch
+          window now includes April 30's own appointments, which the midnight bound used to cut off).
+          The pinning test in `schoolYear.test.ts` was rewritten to assert the fixed behaviour.
+          tsc both configs + `npm test` 96/96.
 Claim:    **The displayed RPC deadline and the enforced one disagree by up to 24 hours**, because
           `schoolYearEnd` returns the *start* of the last day.
 Evidence: `schoolYearEnd` returns `new Date(y, 3, 30)` — April 30 at **00:00:00**.
@@ -489,7 +495,13 @@ Fix:      Either return the end of April 30 (23:59:59.999) or compare against th
           ⚠ Check both call sites together — `rpcTracking.ts` and `Appointments.tsx:105` — since
           changing the returned instant changes both.
 
-### BUG-11 · `server/scripts/migrateIptrGrades.ts:37` · LOW · OPEN
+### BUG-11 · `server/scripts/migrateIptrGrades.ts:37` · LOW · ✅ FIXED 2026-09-29 (the script half)
+Resolved: the script imports `schoolYearLabel` from `shared/`; its private copy is deleted and the
+          stale "keeps its own copy" comments in `shared/schoolYear.ts` are corrected. tsc both
+          configs clean. **Not run** — a migration, and this PC points at production.
+          ⚠ The Evidence's "fifth variant", `dohAggregate.ts:207` `schoolYearStartDate`, is NOT
+          changed: it parses a label string rather than deriving one from a date, so it is not a
+          drop-in swap. Still open as an unverified duplicate — look before touching it.
 Claim:    A duplicated school-year rule survives in a script **whose stated reason for existing has
           been removed**.
 Evidence: `migrateIptrGrades.ts:37` carries its own `schoolYearLabel` —
