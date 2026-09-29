@@ -19,7 +19,11 @@ const TH = 'px-6 py-3 text-left text-[12.5px] font-bold text-[#94A3B8] uppercase
 /** Model names are stored in code form ("MedicalHistory", "StudentIptr"). Put a
  *  space between words for display; IPTR is an acronym, not a word. */
 const humanize = (name: string) =>
-  name.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/\bIptr\b/g, 'IPTR');
+  name
+    .replace(/_/g, ' ')
+    .replace(/\b[A-Z]{4,}\b/g, (w) => w.charAt(0) + w.slice(1).toLowerCase())
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/\bIptr\b/g, 'IPTR');
 
 // One colour per module, chosen from the module name so a module keeps the same
 // colour on every row and every visit. Text colours are the dark shade of each
@@ -271,7 +275,10 @@ export const AuditTrail = () => {
                       <td className="px-6 py-4 whitespace-nowrap"><UserCell name={log.user} role={log.userRole} /></td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className={`text-sm font-bold ${getActionColor(log.action)}`}>{splitAction(log.action, log.module).title}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">{splitAction(log.action, log.module).detail}</div>
+                        <div
+                          className="text-xs text-muted-foreground mt-0.5 max-w-[18rem] truncate"
+                          title={splitAction(log.action, log.module).detail}
+                        >{splitAction(log.action, log.module).detail}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap"><ModulePill>{log.module}</ModulePill></td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
