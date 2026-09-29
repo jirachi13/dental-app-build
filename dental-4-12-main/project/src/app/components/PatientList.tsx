@@ -13,8 +13,8 @@ import { PipelineStatusPill } from './PipelineStatusPill';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { useToast } from './Toast';
 import { Modal } from './Modal';
-import { CameraCapture } from './CameraCapture';
 import { activatable } from '../utils/a11y';
+import { parseSpreadsheetRecords, normalizeSex, normalizeGrade } from '../utils/studentImport';
 import { ListSearchInput } from './ListSearchInput';
 import { addQueuedStudentId, getQueuedStudentIds, removeQueuedStudentId, setQueuedStudentIds as persistQueuedStudentIds } from '../utils/queueStorage';
 import { useStudents } from '../hooks/useStudents';
@@ -53,7 +53,7 @@ const plainFieldClass = 'w-full border border-border rounded-lg px-3 py-2 text-s
 // Shape of the candidates the server returns with a 409 from POST /students
 // (see server/utils/studentDuplicates.ts) — enough to recognise the child, not
 // the whole record.
-type DuplicateCandidate = {
+export type DuplicateCandidate = {
   _id: string;
   full_name: string;
   grade_level: string;
@@ -64,7 +64,7 @@ type DuplicateCandidate = {
 
 /** Pulls the candidate list off a 409, or null if this isn't a duplicate
  *  rejection. Keeps the type assertion in one place. */
-const duplicatesFromError = (err: unknown): DuplicateCandidate[] | null => {
+export const duplicatesFromError = (err: unknown): DuplicateCandidate[] | null => {
   if (!(err instanceof ApiError) || err.status !== 409) return null;
   const list = err.body?.duplicates;
   return Array.isArray(list) && list.length > 0 ? (list as DuplicateCandidate[]) : null;
@@ -80,82 +80,6 @@ type BulkRow = {
   grade: string; section: string; birthday: string; address: string;
   contactNumber: string; error: string | null;
 };
-
-// minimal CSV field splitter that honors double-quoted fields
-const parseCsvLine = (line: string): string[] => {
-  const out: string[] = []; let cur = ''; let inQ = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQ) {
-      if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else inQ = false; }
-      else cur += ch;
-    } else if (ch === '"') inQ = true;
-    else if (ch === ',') { out.push(cur); cur = ''; }
-    else cur += ch;
-  }
-  out.push(cur);
-  return out.map((s) => s.trim());
-};
-
-const normalizeHeader = (h: string) => h.toLowerCase().trim().replace(/\s+/g, '_');
-
-const normalizeSex = (s: string): string | null => {
-  const t = s.trim().toLowerCase();
-  if (t === 'm' || t === 'male') return 'Male';
-  if (t === 'f' || t === 'female') return 'Female';
-  return null;
-};
-
-const normalizeGrade = (g: string): string | null => {
-  const t = g.trim().toLowerCase();
-  if (!t) return null;
-  if (t === 'k' || t.startsWith('kinder')) return 'Kinder';
-  const m = t.match(/(\d{1,2})/);
-  if (m) {
-    const cand = `Grade ${parseInt(m[1], 10)}`;
-    return GRADES.includes(cand) ? cand : null;
-  }
-  return null;
-};
-
-// Shared by the bulk-import parser and the single-student OCR spreadsheet
-// path (2026-09-29) -- same header-normalized record shape either way, just
-// bulk import turns every row into a BulkRow and OCR only ever reads the
-// first one. Dynamic-imports exceljs, same bundle-protection as
-// exportToXlsx/handleParseBulk originally had inline.
-async function parseSpreadsheetRecords(file: File): Promise<Record<string, string>[]> {
-  const records: Record<string, string>[] = [];
-  if (/\.(xlsx|xls)$/i.test(file.name)) {
-    const ExcelJS = (await import('exceljs')).default ?? (await import('exceljs'));
-    const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(await file.arrayBuffer());
-    const ws = wb.worksheets[0];
-    if (!ws) throw new Error('No worksheet found in the file.');
-    const headers: string[] = [];
-    ws.getRow(1).eachCell((cell, col) => { headers[col] = normalizeHeader(String(cell.value ?? '')); });
-    ws.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return;
-      const rec: Record<string, string> = {};
-      row.eachCell((cell, col) => {
-        if (headers[col]) rec[headers[col]] = (cell.text ? String(cell.text) : String(cell.value ?? '')).trim();
-      });
-      if (Object.values(rec).some((v) => v)) records.push(rec);
-    });
-  } else {
-    const text = await file.text();
-    const lines = text.split(/\r?\n/).filter((l) => l.trim());
-    if (lines.length < 2) throw new Error('The file has a header but no data rows.');
-    const headers = parseCsvLine(lines[0]).map(normalizeHeader);
-    for (const line of lines.slice(1)) {
-      const vals = parseCsvLine(line);
-      const rec: Record<string, string> = {};
-      headers.forEach((h, i) => { rec[h] = vals[i] ?? ''; });
-      records.push(rec);
-    }
-  }
-  if (records.length === 0) throw new Error('No data rows found in the file.');
-  return records;
-}
 
 const buildBulkRow = (rec: Record<string, string>): BulkRow => {
   const get = (...keys: string[]) => { for (const k of keys) if (rec[k]) return rec[k]; return ''; };
@@ -182,7 +106,7 @@ const buildBulkRow = (rec: Record<string, string>): BulkRow => {
 };
 
 
-type NewPatientForm = {
+export type NewPatientForm = {
   firstName: string; lastName: string; middleName: string; birthdate: string; gender: string;
   grade: string; section: string; school: string; placeOfBirth: string; guardianName: string; guardianContact: string;
   guardianOccupation: string; address: string; contactNumber: string; philhealthNumber: string; philhealthStatus: string;
@@ -197,7 +121,7 @@ type NewPatientForm = {
 /** One source for "what a blank Add Student form looks like" — used on
  *  mount, after a successful save, and when the form is closed via the
  *  header X (closing no longer leaves stale values for next time). */
-const BLANK_NEW_PATIENT: NewPatientForm = {
+export const BLANK_NEW_PATIENT: NewPatientForm = {
   firstName:'', lastName:'', middleName:'', birthdate:'', gender:'', grade:'', section:'', school:'',
   placeOfBirth:'', guardianName:'', guardianContact:'', guardianOccupation:'', address:'', contactNumber:'', philhealthNumber:'',
   philhealthStatus:'None', is4Ps:false, fourPsId:'', consentStatus:'pending', isNotStudent:false,
@@ -218,7 +142,7 @@ const BLANK_NEW_PATIENT: NewPatientForm = {
  *  · contactNumber — not schema-required either (2026-09-04, user decision).
  *  · philhealthNumber — the user's explicit exception.
  *  · philhealthStatus — always has a value ("None"). */
-const REQUIRED_STUDENT_FIELDS: {
+export const REQUIRED_STUDENT_FIELDS: {
   key: keyof NewPatientForm;
   label: string;
   onlyIf?: (f: NewPatientForm) => boolean;
@@ -294,11 +218,6 @@ export const PatientList = () => {
     if (r) setAddMenuAt({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) });
     setShowAddMenu((v) => !v);
   };
-  const [showOcrUpload, setShowOcrUpload] = useState(false);
-  const [showCamera, setShowCamera] = useState(false);
-  const [ocrProcessing, setOcrProcessing] = useState(false);
-  const [ocrProgress, setOcrProgress] = useState(0);
-  const [ocrError, setOcrError] = useState<string | null>(null);
   const [ocrConfidences, setOcrConfidences] = useState<Partial<Record<IptrOcrFieldKey, number>>>({});
   const [ocrFindings, setOcrFindings] = useState<IptrCheckboxFinding[]>([]);
   const [ocrFindingsNote, setOcrFindingsNote] = useState<string | null>(null);
@@ -812,114 +731,6 @@ export const PatientList = () => {
     }
   };
 
-  const handleOcrFile = async (file: File) => {
-    setOcrError(null);
-    setOcrProcessing(true);
-    setOcrProgress(0);
-    try {
-      // Dynamic import keeps tesseract.js + pdfjs-dist (~1.5MB) out of the
-      // main bundle — only staff who actually scan a form download them
-      const { extractIptrFields } = await import('../utils/iptrOcr');
-      const result = await extractIptrFields(file, setOcrProgress);
-      setNewPatient((prev) => ({
-        ...prev,
-        firstName: result.fields.firstName ?? prev.firstName,
-        middleName: result.fields.middleName ?? prev.middleName,
-        lastName: result.fields.lastName ?? prev.lastName,
-        birthdate: result.fields.birthdate ?? prev.birthdate,
-        gender: result.fields.gender ?? prev.gender,
-        address: result.fields.address ?? prev.address,
-        contactNumber: result.fields.contactNumber ?? prev.contactNumber,
-        // Grade and section are NOT scanned — the DOH IPTR prints neither
-        // field, so there is nothing on the page to read. They stay typed.
-        philhealthNumber: result.fields.philhealthNumber ?? prev.philhealthNumber,
-        fourPsId: result.fields.fourPsId ?? prev.fourPsId,
-        // Reading a 4Ps ID off the form is what membership MEANS on this form,
-        // so the box follows the ID. Ticking it never hides anything: the ID
-        // field it reveals is the one that was just filled, and both are
-        // editable before save.
-        is4Ps: result.fields.fourPsId ? true : prev.is4Ps,
-      }));
-      setOcrConfidences(result.confidences);
-      // Findings from the Year 1-5 tick grid are SHOWN, never applied. They are
-      // clinical history, the scan is a tick detector, and CLAUDE.md is explicit
-      // that OCR assists rather than decides — so they are surfaced for the
-      // encoder to carry into the dental chart deliberately.
-      setOcrFindings(result.checkboxes);
-      setOcrFindingsNote(
-        result.checkboxConfidence === 0
-          ? result.checkboxReason ?? null
-          : result.unstorableFindings.length
-            ? `${result.unstorableFindings.length} ticked row${result.unstorableFindings.length === 1 ? '' : 's'} cannot be stored by this system: ${result.unstorableFindings.join(', ')}.`
-            : null,
-      );
-      setOcrSourceLabel('scanned form');
-      setShowOcrUpload(false);
-      setShowAddForm(true);
-    } catch {
-      setOcrError('Could not read the image. Try a clearer photo or enter details manually.');
-    } finally {
-      setOcrProcessing(false);
-    }
-  };
-
-  // CSV/Excel path for the same "Scan Form (OCR)" entry point (user,
-  // 2026-09-29 — designed on the OCR Student Intake canvas): reuses the bulk
-  // importer's own header-normalized parsing (parseSpreadsheetRecords) but
-  // only ever reads the FIRST data row, since this is one student, not a
-  // roster. No OCR confidence applies to a direct read of typed text, so
-  // fields are filled with no yellow/green highlight -- ocrConfidences stays
-  // empty and ocrSourceLabel drives the review banner text instead. Grade and
-  // Section ARE read here, unlike the printed-form path: that exclusion is
-  // specifically because the IPTR paper form has no such field to read, not
-  // a rule against ever accepting them from a source that does have them.
-  const handleOcrSpreadsheet = async (file: File) => {
-    setOcrError(null);
-    setOcrProcessing(true);
-    setOcrProgress(0);
-    try {
-      const [rec] = await parseSpreadsheetRecords(file);
-      const get = (...keys: string[]) => { for (const k of keys) if (rec[k]) return rec[k]; return ''; };
-      const sexRaw = get('sex', 'gender');
-      const gradeRaw = get('grade_level', 'grade', 'gradelevel');
-      const philhealth = get('philhealth_number', 'philhealthnumber', 'philhealth_no', 'philhealth');
-      setNewPatient((prev) => ({
-        ...prev,
-        lastName: get('last_name', 'lastname', 'surname') || prev.lastName,
-        firstName: get('first_name', 'firstname', 'given_name') || prev.firstName,
-        middleName: get('middle_name', 'middlename') || prev.middleName,
-        birthdate: get('birthday', 'birthdate', 'birth_date', 'date_of_birth') || prev.birthdate,
-        gender: normalizeSex(sexRaw) ?? prev.gender,
-        grade: (gradeRaw ? normalizeGrade(gradeRaw) : null) ?? prev.grade,
-        section: get('section') || prev.section,
-        placeOfBirth: get('place_of_birth', 'placeofbirth', 'birthplace') || prev.placeOfBirth,
-        address: get('address') || prev.address,
-        contactNumber: get('contact_number', 'contact', 'contactnumber', 'phone') || prev.contactNumber,
-        guardianName: get('guardian_name', 'guardianname', 'parent_name') || prev.guardianName,
-        guardianContact: get('guardian_contact', 'guardiancontact', 'guardian_contact_number') || prev.guardianContact,
-        guardianOccupation: get('occupation', 'guardian_occupation') || prev.guardianOccupation,
-        philhealthNumber: philhealth || prev.philhealthNumber,
-      }));
-      setOcrConfidences({});
-      setOcrFindings([]);
-      setOcrFindingsNote(null);
-      setOcrSourceLabel('uploaded file');
-      setShowOcrUpload(false);
-      setShowAddForm(true);
-    } catch (err) {
-      setOcrError(err instanceof Error ? err.message : 'Could not read the file. Check the column headers and try again.');
-    } finally {
-      setOcrProcessing(false);
-    }
-  };
-
-  // Single entry point the dropzone/file-input/camera all call — routes by
-  // what the file actually is rather than making the user pick a path twice.
-  const handleOcrEntry = (file: File) => {
-    if (/\.(csv|xlsx|xls)$/i.test(file.name)) void handleOcrSpreadsheet(file);
-    else void handleOcrFile(file);
-  };
-
   const ocrFieldClass = (key: IptrOcrFieldKey) => {
     const conf = ocrConfidences[key];
     if (conf === undefined) return plainFieldClass;
@@ -1272,7 +1083,7 @@ export const PatientList = () => {
               back if 0e ever ships. Kept standalone (user, 2026-09-29: "I
               never said delete, I just said add") alongside Add Student's
               own OCR option below, not replaced by it. */}
-          <button onClick={() => { setOcrError(null); setShowOcrUpload(true); }} className="flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-full hover:bg-primary-surface text-sm font-medium">
+          <button onClick={() => navigate('/students/scan')} className="flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-full hover:bg-primary-surface text-sm font-medium">
             <Upload className="w-4 h-4" /> OCR
           </button>
           {/* Add Student also offers OCR as a second entry point (designed on
@@ -1313,7 +1124,7 @@ export const PatientList = () => {
                   </button>
                   <div className="mx-3.5 border-t border-border" />
                   <button
-                    onClick={() => { setShowAddMenu(false); setOcrError(null); setShowOcrUpload(true); }}
+                    onClick={() => { setShowAddMenu(false); navigate('/students/scan'); }}
                     className="flex w-full items-start gap-3 px-3.5 py-3 text-left hover:bg-canvas"
                   >
                     <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-surface text-primary">
@@ -1794,85 +1605,11 @@ export const PatientList = () => {
         </Modal>
       )}
 
-      {/* Scan Form (OCR) modal -- upload OR camera capture (2026-09-29,
-          designed on the OCR Student Intake canvas; supersedes the
-          upload-only "no camera, see backlog 0e" version). Photos/PDFs go
-          through Tesseract; CSV/Excel are read directly by column header
-          (handleOcrEntry routes by file type) — either way nothing saves
-          until reviewed on the Add Student form that opens next. */}
-      {showOcrUpload && (
-        <Modal onClose={() => setShowOcrUpload(false)} closeDisabled={ocrProcessing}>
-            <div className="flex items-center justify-between p-6 border-b">
-              <h2 className="text-lg font-bold text-foreground">Scan a Student Form</h2>
-              <button onClick={() => setShowOcrUpload(false)} className="text-muted-foreground hover:text-muted-foreground"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="p-6 space-y-4">
-              {!ocrProcessing ? (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => { setShowOcrUpload(false); setShowCamera(true); }}
-                      className="flex flex-col gap-2 rounded-xl border-2 border-border p-4 text-left hover:border-primary transition-colors"
-                    >
-                      <span className="flex items-center gap-2 font-semibold text-sm text-foreground">
-                        <ScanLine className="w-4 h-4 text-primary" /> Take a Photo
-                      </span>
-                      <span className="text-xs text-muted-foreground">Use this device's camera to capture the form.</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => document.getElementById('ocr-file-input')?.click()}
-                      className="flex flex-col gap-2 rounded-xl border-2 border-border p-4 text-left hover:border-primary transition-colors"
-                    >
-                      <span className="flex items-center gap-2 font-semibold text-sm text-foreground">
-                        <Upload className="w-4 h-4 text-primary" /> Upload a File
-                      </span>
-                      <span className="text-xs text-muted-foreground">Photo, scan, PDF, or a CSV/Excel export.</span>
-                    </button>
-                  </div>
-                  <div
-                    className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"
-                    onClick={() => document.getElementById('ocr-file-input')?.click()}
-                    onDragOver={e => e.preventDefault()}
-                    onDrop={e => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) handleOcrEntry(file); }}
-                  >
-                    <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
-                    <p className="text-sm text-muted-foreground font-medium">Drop a file here</p>
-                    <p className="text-xs text-muted-foreground mt-1">or click to browse</p>
-                    <div className="flex flex-wrap justify-center gap-1.5 mt-3">
-                      {['.jpg', '.jpeg', '.png', '.pdf', '.xlsx', '.csv'].map((ext) => (
-                        <span key={ext} className="text-[11px] font-semibold text-muted-foreground bg-muted rounded-full px-2.5 py-0.5">{ext}</span>
-                      ))}
-                    </div>
-                    <input
-                      id="ocr-file-input" type="file" className="hidden"
-                      accept="image/png,image/jpeg,image/jpg,application/pdf,text/csv,.csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                      onChange={e => { if (e.target.files?.[0]) handleOcrEntry(e.target.files[0]); }}
-                    />
-                  </div>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
-                    <FileText className="w-3.5 h-3.5 inline mr-1" />
-                    Photos, scans and PDFs are read with OCR against the printed DOH IPTR layout — name, birthday, sex, address, contact number and PhilHealth # are extracted (grade and section have no printed field, so they stay typed). A CSV or Excel file is read directly by its column headers instead, and can include grade/section if the file has them. Either way, you review and correct everything before saving.
-                  </div>
-                </>
-              ) : (
-                <div className="p-8 text-center">
-                  <div className="w-10 h-10 border-4 border-blue-200 border-t-primary rounded-full animate-spin mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground font-medium">Scanning form… {ocrProgress}%</p>
-                </div>
-              )}
-              {ocrError && <p className="text-sm text-destructive">{ocrError}</p>}
-            </div>
-        </Modal>
-      )}
-
-      {showCamera && (
-        <CameraCapture
-          onClose={() => setShowCamera(false)}
-          onCapture={(file) => { setShowCamera(false); handleOcrEntry(file); }}
-        />
-      )}
+      {/* Scan Form (OCR) is a full page now, not a modal (2026-09-29, user:
+          "restructure everything... make it a page") -- see
+          ScanStudentForm.tsx / VerifyStudentForm.tsx at /students/scan and
+          /students/scan/review, an exact build of the approved canvas
+          design. Both toolbar entry points above navigate there. */}
 
       {/* Add Student Modal. maxWidth is max-w-4xl, not max-w-2xl — the
           request was "50-60% of the screen on web/tablet, so there's less
