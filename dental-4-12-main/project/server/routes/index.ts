@@ -100,11 +100,6 @@ router.get("/stats/last-change", requireAuth, asyncHandler(async (_req, res) => 
 }));
 
 router.get("/stats/high-risk-count", requireAuth, asyncHandler(async (req, res) => {
-  // System Admin gets admin alerts instead of the clinical reminders.
-  if (req.user?.role === "system_admin") {
-    res.json({ ...EMPTY_RESPONSE, admin: await buildAdminNotifications() });
-    return;
-  }
   const schoolName = typeof req.query.school === "string" ? req.query.school : null;
   let studentFilter: Record<string, unknown> = { isArchived: false };
   if (schoolName) {
@@ -299,6 +294,11 @@ async function buildAdminNotifications(): Promise<{ items: AdminNotifItem[] }> {
 
 router.get("/stats/notifications", requireAuth, asyncHandler(async (req, res) => {
   const EMPTY_RESPONSE = { overdueRpc: 0, appointmentsToday: 0, appointmentsTomorrow: 0, awaitingValidation: 0, consentPending: 0, unmarkedAppointments: [] as unknown[], dayNoteToday: null as string | null };
+  // System Admin gets admin alerts instead of the clinical reminders.
+  if (req.user?.role === "system_admin") {
+    res.json({ ...EMPTY_RESPONSE, admin: await buildAdminNotifications() });
+    return;
+  }
   const schoolName = typeof req.query.school === "string" ? req.query.school : null;
   let studentFilter: Record<string, unknown> = { isArchived: false };
   let schoolId: unknown = null;
