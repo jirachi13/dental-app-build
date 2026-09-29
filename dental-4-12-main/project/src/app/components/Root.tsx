@@ -610,10 +610,12 @@ export const Root = () => {
         // fading into the sidebar navy and then a deeper navy at the bottom.
         style={{
           background:
-            'linear-gradient(155deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 38%), ' +
-            'radial-gradient(130% 70% at 0% 0%, #2A3B8A 0%, #1F2E72 38%, #17234D 68%, #101A40 100%)',
+            'linear-gradient(155deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0) 38%), ' +
+            // Bottom glow: a second, softer blue rising from the bottom-right corner.
+            'radial-gradient(120% 45% at 100% 100%, rgba(66,87,196,0.34) 0%, rgba(66,87,196,0) 62%), ' +
+            'radial-gradient(130% 70% at 0% 0%, #2F4192 0%, #212F75 38%, #17234D 68%, #101A40 100%)',
           // Glass edge: a bright hairline along the top and a faint inner glow.
-          boxShadow: '0 15px 20px rgba(15,23,42,0.22), inset 0 1px 0 rgba(255,255,255,0.10), inset 0 0 24px rgba(255,255,255,0.02)',
+          boxShadow: '0 15px 20px rgba(15,23,42,0.22), inset 0 1px 0 rgba(255,255,255,0.14), inset 0 0 26px rgba(255,255,255,0.025)',
         }}
         className={`flex flex-col fixed left-0 top-0 h-screen z-[70]
           md:left-5 md:top-5 md:bottom-5 md:h-auto md:rounded-[24px] md:border md:border-white/12
