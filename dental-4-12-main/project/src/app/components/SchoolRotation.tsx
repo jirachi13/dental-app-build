@@ -347,29 +347,28 @@ function useTodayTomorrow() {
   return { eligible, today: at(today), tomorrow: at(tomorrow), todayDate: today, tomorrowDate: tomorrow };
 }
 
-/** Top-bar reminder: every page. Only days that ARE set are shown, and never
- *  anything past tomorrow. Tomorrow hides below `sm` so a phone keeps just today. */
+/** Top-bar reminder: every page. Today only (user, 2026-09-29: "remove the
+ *  tomorrow"). Redesigned to match the profile pill beside it in the same
+ *  bar -- same 44px rounded-2xl icon, gradient fill, stacked text and
+ *  padding (user: "redesign the today to compliment with the last
+ *  container", approved as "option 2": the icon's gradient treatment
+ *  mirrors the avatar's, just in the school's own colour instead of navy). */
 export function RotationTopBar() {
-  const { eligible, today, tomorrow } = useTodayTomorrow();
-  if (!eligible || (!today && !tomorrow)) return null;
-  const chip = (when: string, s: ApiSchool, extra = '') => {
-    const c = getSchoolColor(s.school_name);
-    return (
-      <span className={`items-center gap-2 rounded-xl border border-border bg-card px-2.5 py-1.5 ${extra}`} title={`${when}: ${s.school_name}`}>
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: c.light, color: c.solid }}>
-          <MapPin className="h-3.5 w-3.5" />
-        </span>
-        <span className="leading-tight">
-          <span className="block text-[10px] text-muted-foreground">{when}</span>
-          <span className="block text-xs font-semibold text-foreground">{getSchoolAcronym(s.school_name)}</span>
-        </span>
-      </span>
-    );
-  };
+  const { eligible, today } = useTodayTomorrow();
+  if (!eligible || !today) return null;
+  const c = getSchoolColor(today.school_name);
   return (
-    <div className="flex items-center gap-2">
-      {today && chip('Today', today, 'flex')}
-      {tomorrow && chip('Tomorrow', tomorrow, 'hidden sm:flex')}
+    <div className="flex items-center gap-3 rounded-2xl bg-card px-2 py-1.5" title={`Today: ${today.school_name}`}>
+      <span
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white shadow-[0_6px_18px_rgba(30,42,94,0.18)]"
+        style={{ background: `linear-gradient(135deg, ${c.solid}CC, ${c.solid})` }}
+      >
+        <MapPin className="h-5 w-5" />
+      </span>
+      <span className="flex flex-col items-start leading-tight">
+        <span className="text-[11px] font-semibold text-muted-foreground">Today's School</span>
+        <span className="text-sm font-bold text-sidebar-bg">{getSchoolAcronym(today.school_name)}</span>
+      </span>
     </div>
   );
 }
