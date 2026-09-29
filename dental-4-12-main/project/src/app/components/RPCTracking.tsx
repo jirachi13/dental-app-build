@@ -220,12 +220,13 @@ export const RPCTracking = () => {
     }
   }, [cardHeight, pageSize]);
 
-  // Hide's bottom corners (user, 2026-09-25): rounded when the card ends on
-  // its own (a short list), square when the card is actually pressed flush
-  // against the bottom of the screen (a long list hitting the maxHeight cap
-  // and scrolling internally) -- a curve right at the screen edge, with
-  // nothing beneath it, reads as a cut-off render glitch rather than a
-  // corner. `hideAtEdge` is true exactly when the rows box is scrolling.
+  // Hide's bottom corners (user, 2026-09-25): rounded when the rows fit
+  // without scrolling (a short list, with blank card interior above the
+  // pinned reveal tab), square when the rows box is actually scrolling
+  // internally (a long list past the card's fixed height) -- a curve right
+  // at the screen edge, with nothing beneath it, reads as a cut-off render
+  // glitch rather than a corner. `hideAtEdge` is true exactly when the rows
+  // box is scrolling.
   //
   // ⚠ `useLayoutEffect`, not `useEffect` (user, 2026-09-25 -- "its
   // delayed"): a passive effect runs AFTER the browser paints, so the
@@ -376,16 +377,18 @@ export const RPCTracking = () => {
           padding removes the overflow at its source, so the card can settle
           at its full `window.innerHeight - top` CAP when it needs to.
           Only in Hide: the default view keeps that breathing room. */}
-      {/* Hide also uses `maxHeight`, not `height` (user, 2026-09-25): a FEW
-          rows should let the card end right after the reveal tab -- its
-          natural content height, rounded corner and all -- not stretch to
-          the cap and leave dead white space (with no border closing it off)
-          below the tab. MANY rows still hit the cap and scroll inside the
-          rows box exactly as before; only which CSS property does the
-          capping changes, not the cap's value or how it is measured. The
-          default view keeps `height` -- it deliberately always fills the
-          space (see the box's own comment above), unlike Hide. */}
-      <div ref={cardRef} className={`flex flex-col bg-card border border-border overflow-hidden ${hideAtEdge ? 'rounded-t-xl' : 'rounded-xl'} ${pageSize === HIDE_FOOTER ? '-mb-4 md:-mb-8' : ''}`} style={pageSize === HIDE_FOOTER ? { maxHeight: cardHeight ?? undefined } : { height: cardHeight ?? undefined }}>
+      {/* Hide now also uses `height`, same as the default view (superseding
+          the `maxHeight` version below, user, 2026-09-29 -- "the bottom
+          container doesn't touch the edge of the screen has resurfaced"):
+          `maxHeight` let the card shrink-wrap to a few rows, but that left
+          the true gap the user is pointing at -- page background, not card,
+          showing between the reveal tab and the screen edge. Filling to the
+          full cap and pinning the reveal tab as its own flex-shrink-0 footer
+          (below, sibling to the rows box, not nested inside it) reaches the
+          edge in both cases: a few rows leaves blank card interior above a
+          tab that still sits flush at the bottom; many rows scroll inside
+          the rows box exactly as before. */}
+      <div ref={cardRef} className={`flex flex-col bg-card border border-border overflow-hidden ${hideAtEdge ? 'rounded-t-xl' : 'rounded-xl'} ${pageSize === HIDE_FOOTER ? '-mb-4 md:-mb-8' : ''}`} style={{ height: cardHeight ?? undefined }}>
         {/* Column headings stick to the TOP OF THIS BOX via `sticky` on each
             `<th>`, not the `<tr>` (a sticky `<tr>` rendered as a duplicate
             mid-table in some browsers, see PatientList). */}
@@ -453,25 +456,25 @@ export const RPCTracking = () => {
               })}
             </tbody>
           </table>
-          {/* "Hide" collapses the full Showing/Items-per-page bar to this
-              thin reveal tab -- placed INSIDE the scrollable box, as the
-              last row of its content, not pinned below it (user, 2026-09-25):
-              it only comes into view once you've scrolled to the end of the
-              list, same as any other row would. It also means the rows box
-              (flex-1) has no footer sibling to share space with in this
-              state, so it fills the whole card automatically -- CSS, not a
-              JS height calculation that has to know Hide is active. */}
-          {pageSize === HIDE_FOOTER && (
-            <button
-              type="button"
-              onClick={() => changePageSize(25)}
-              title="Show pagination controls"
-              className="flex w-full items-center justify-center gap-1.5 border-t border-gray-100 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-canvas hover:text-foreground"
-            >
-              <ChevronUp className="h-3 w-3" /> Show pagination controls
-            </button>
-          )}
         </div>
+        {/* Reveal tab moved OUT of the scrollable rows box and pinned here as
+            its own flex-shrink-0 footer (superseding "inside the scrollable
+            box, as the last row" -- user, 2026-09-29): nested inside, a short
+            list left it stranded right after the last row with blank card
+            interior and, worse, page background below THAT, never reaching
+            the screen edge. As a sibling of the rows box it always sits
+            flush at the true bottom, visible without scrolling, same as the
+            Showing/Items-per-page bar it replaces. */}
+        {pageSize === HIDE_FOOTER && (
+          <button
+            type="button"
+            onClick={() => changePageSize(25)}
+            title="Show pagination controls"
+            className="flex w-full flex-shrink-0 items-center justify-center gap-1.5 border-t border-gray-100 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-canvas hover:text-foreground"
+          >
+            <ChevronUp className="h-3 w-3" /> Show pagination controls
+          </button>
+        )}
         {pageSize !== HIDE_FOOTER && (
         <div className="flex flex-shrink-0 flex-col gap-3 border-t border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
