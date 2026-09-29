@@ -266,13 +266,13 @@ export const AuditTrail = () => {
             </select>
             <div className="relative">
               <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8] pointer-events-none" />
-              <span className="absolute left-11 top-1/2 -translate-y-1/2 text-sm font-normal text-[#475569] pointer-events-none">Start date</span>
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={`${FIELD} pl-[7.5rem]`} style={FIELD_STYLE} aria-label="Start date" />
+              <span className="absolute left-9 top-1/2 -translate-y-1/2 text-sm font-normal text-[#475569] pointer-events-none">Start date</span>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={`${FIELD} pl-[6.5rem]`} style={FIELD_STYLE} aria-label="Start date" />
             </div>
             <div className="relative">
               <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8] pointer-events-none" />
-              <span className="absolute left-11 top-1/2 -translate-y-1/2 text-sm font-normal text-[#475569] pointer-events-none">End date</span>
-              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={`${FIELD} pl-[7.5rem]`} style={FIELD_STYLE} aria-label="End date" />
+              <span className="absolute left-9 top-1/2 -translate-y-1/2 text-sm font-normal text-[#475569] pointer-events-none">End date</span>
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={`${FIELD} pl-[6.5rem]`} style={FIELD_STYLE} aria-label="End date" />
             </div>
           </div>
         </div>
