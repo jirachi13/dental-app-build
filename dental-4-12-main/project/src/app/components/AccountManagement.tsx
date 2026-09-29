@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit, Power, Search, KeyRound, Mail, UserCog, Users, UserCheck, UserX, Filter, CircleCheck } from 'lucide-react';
+import { Plus, Edit, Power, Search, KeyRound, Mail, UserCog, Users, UserCheck, UserX, Filter, CheckCircle } from 'lucide-react';
 import { PageHeader } from './PageHeader';
 import { useUsers, ROLE_LABELS } from '../hooks/useUsers';
 import { apiClient, ApiError } from '../api/client';
@@ -380,7 +380,7 @@ export const AccountManagement = () => {
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#94A3B8] mb-3">Account Status</div>
               <div className="flex flex-wrap gap-2">
-                {([['all', 'All', Users], ['Active', 'Active', CircleCheck], ['Inactive', 'Deactivated', UserX]] as const).map(([v, l, Icon]) => (
+                {([['all', 'All', Users], ['Active', 'Active', CheckCircle], ['Inactive', 'Deactivated', UserX]] as const).map(([v, l, Icon]) => (
                   <button key={v} type="button" onClick={() => setStatusFilter(v)}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${statusFilter === v ? 'bg-[#16214F] text-white border-[#16214F]' : 'bg-white text-[#16214F] border-[#E2E8F0] hover:bg-gray-50'}`}><Icon className="w-4 h-4" />{l}</button>
                 ))}
