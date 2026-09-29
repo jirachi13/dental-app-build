@@ -238,9 +238,9 @@ DOH figures sit on it.
    cases: null on bad input, birthday-not-yet-this-year, every boundary (4/5, 9/10, 14/15, 19/20),
    and both label sets.
 
-**DECISION NEEDED (item 5):** switch the BHO Age Bracket table to the DOH brackets (`4 & below /
-5-9 / 10-14 / 15-19 / 20 & above`, recommended — same as every other screen and the filed forms),
-or keep `0-5 / 6-14 / 15-19` with only the arithmetic fixed.
+**DECIDED 2026-09-29 (item 5): the BHO Age Bracket table switches to the DOH brackets** — `4 &
+below / 5-9 / 10-14 / 15-19 / 20 & above`, the screen label set, the same as every other screen.
+The table goes from 3 rows to 5. **No decisions remain; the plan is ready to execute.**
 
 Sprint 162's seam, for anyone touching these tabs: read-only values are plain props; anything a
 panel can CHANGE arrives in a named bundle (`addForm`; TAB 2 has `actions`, `palette`, `drafts`).
