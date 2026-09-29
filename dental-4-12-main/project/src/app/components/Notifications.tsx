@@ -1,61 +1,90 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import { AlertTriangle, Bell, Calendar, Brain, StickyNote, ClipboardCheck, Check } from 'lucide-react';
+import {
+  AlertTriangle, Bell, Calendar, Brain, StickyNote, ClipboardCheck, Clock,
+  MoreHorizontal, CheckCircle2, Circle, Trash2,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications, NOTIFIED_ROLES } from '../hooks/useNotifications';
 import { PageHeader } from './PageHeader';
 
 // ─── Notifications page ──────────────────────────────────────────────────────
-// Split view: a left panel of urgency tiers (counts only), a right panel of
-// individual notification rows (an email-inbox layout). Per-appointment rows
-// are itemized (one row per student); RPC, risk validation and consent are
-// aggregate counts, because a single "3 overdue RPC visits" row is what's
-// useful there, not three near-identical rows.
-//
-// Read state: manual (the check button) or automatic (following a "Go to"
-// link marks that row read). Persisted client-side per browser/device --
-// there is no server model for "read", and a notification is a reminder to
-// look at something, not a record that needs to survive across devices.
-// Stored read ids are pruned against the live payload each load, so a row
-// that no longer exists (the RPC visit was recorded, the appointment was
-// marked) can never leave a stale "read" entry behind forever.
+// One flat feed, grouped Today / Earlier (approved design: "variant 1", a
+// Facebook-style notification list). Unread rows carry a soft tint and bold
+// text; each row's icon circle carries a small corner badge naming its kind.
+// Per-row actions live behind a three-dot menu: Mark as read/unread (toggle)
+// and Delete this notification -- both client-side only (localStorage), since
+// there is no server model for "read" or "dismissed" and these are reminders
+// to look at something, not records that need to survive across devices.
+// Stored ids are pruned against the live payload each load, so a row that no
+// longer exists (the RPC visit was recorded, the appointment was marked) can
+// never leave a stale entry behind forever.
 export const Notifications = () => {
   const { user, selectedSchool } = useAuth();
   const enabled = NOTIFIED_ROLES.includes(user?.role ?? '');
   const { counts, loading, error } = useNotifications(enabled, selectedSchool);
   const canValidateRisk = user?.role === 'dentist';
 
-  const [readIds, setReadIds] = useState<Set<string>>(() => {
+  const loadIds = (key: string): Set<string> => {
     try {
-      const raw = localStorage.getItem('floral.notifications.read');
+      const raw = localStorage.getItem(key);
       return new Set(raw ? (JSON.parse(raw) as string[]) : []);
     } catch {
       return new Set();
     }
-  });
-  const [tab, setTab] = useState<'all' | 'unread'>('all');
-  const [activeTier, setActiveTier] = useState<string | null>(null);
+  };
+  const [readIds, setReadIds] = useState<Set<string>>(() => loadIds('floral.notifications.read'));
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => loadIds('floral.notifications.dismissed'));
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
-  const persistRead = (next: Set<string>) => {
-    setReadIds(next);
-    try { localStorage.setItem('floral.notifications.read', JSON.stringify([...next])); } catch { /* storage unavailable */ }
+  const persist = (key: string, set: Set<string>, setter: (s: Set<string>) => void) => {
+    setter(set);
+    try { localStorage.setItem(key, JSON.stringify([...set])); } catch { /* storage unavailable */ }
   };
-  const markRead = (id: string) => {
-    if (readIds.has(id)) return;
-    persistRead(new Set(readIds).add(id));
+  const toggleRead = (id: string) => {
+    const next = new Set(readIds);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    persist('floral.notifications.read', next, setReadIds);
+    setOpenMenuId(null);
   };
+  const dismiss = (id: string) => {
+    persist('floral.notifications.dismissed', new Set(dismissedIds).add(id), setDismissedIds);
+    setOpenMenuId(null);
+  };
+
+  useEffect(() => {
+    if (!openMenuId) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpenMenuId(null);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [openMenuId]);
 
   type Row = {
     id: string;
-    tier: 'needs-action' | 'today' | 'awaiting-review';
-    icon: typeof Calendar;
-    tone: string;
-    chip: string;
-    title: string;
-    preview: string;
-    timestamp: string;
+    group: 'today' | 'earlier';
+    Icon: typeof Calendar;
+    Badge: typeof Calendar;
+    iconBg: string;
+    iconFg: string;
+    badgeBg: string;
+    textBefore: string;
+    textBold: string;
+    textAfter: string;
+    timeLabel: string;
     linkTo: string;
     linkLabel: string;
+  };
+
+  const relTime = (d: Date): string => {
+    const diffH = Math.floor((Date.now() - d.getTime()) / 3600000);
+    if (diffH < 1) return 'Just now';
+    if (diffH < 24) return `${diffH}h`;
+    const diffD = Math.floor(diffH / 24);
+    if (diffD < 7) return `${diffD}d`;
+    return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
   };
 
   const rows = useMemo<Row[]>(() => {
@@ -65,13 +94,16 @@ export const Notifications = () => {
       const dt = new Date(a.datetime);
       list.push({
         id: `appt-missed-${a.id}`,
-        tier: 'needs-action',
-        icon: Calendar,
-        tone: 'text-destructive',
-        chip: 'bg-danger-surface text-destructive',
-        title: `Missed appointment: ${a.studentName}`,
-        preview: `Scheduled for ${dt.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}, never marked.`,
-        timestamp: dt.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }),
+        group: 'earlier',
+        Icon: Calendar,
+        Badge: AlertTriangle,
+        iconBg: 'bg-danger-surface',
+        iconFg: 'text-destructive',
+        badgeBg: 'bg-destructive',
+        textBefore: 'Missed appointment: ',
+        textBold: a.studentName,
+        textAfter: `. Scheduled for ${dt.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}, never marked.`,
+        timeLabel: relTime(dt),
         linkTo: '/appointments',
         linkLabel: 'Go to Appointments',
       });
@@ -79,13 +111,16 @@ export const Notifications = () => {
     if (counts.overdueRpc > 0) {
       list.push({
         id: 'rpc-overdue',
-        tier: 'needs-action',
-        icon: ClipboardCheck,
-        tone: 'text-destructive',
-        chip: 'bg-danger-surface text-destructive',
-        title: `${counts.overdueRpc} overdue RPC visit${counts.overdueRpc === 1 ? '' : 's'}`,
-        preview: 'Visit 1 recorded, Visit 2 still due and past the interval.',
-        timestamp: 'Ongoing',
+        group: 'today',
+        Icon: ClipboardCheck,
+        Badge: Clock,
+        iconBg: 'bg-danger-surface',
+        iconFg: 'text-destructive',
+        badgeBg: 'bg-destructive',
+        textBefore: '',
+        textBold: `${counts.overdueRpc} overdue RPC visit${counts.overdueRpc === 1 ? '' : 's'}`,
+        textAfter: '. Visit 1 recorded, Visit 2 still due and past the interval.',
+        timeLabel: 'Ongoing',
         linkTo: '/rpc',
         linkLabel: 'Go to RPC Monitoring',
       });
@@ -93,13 +128,16 @@ export const Notifications = () => {
     if (counts.appointmentsToday > 0) {
       list.push({
         id: 'appt-today',
-        tier: 'today',
-        icon: Calendar,
-        tone: 'text-primary',
-        chip: 'bg-primary-surface text-primary',
-        title: `${counts.appointmentsToday} appointment${counts.appointmentsToday === 1 ? '' : 's'} today`,
-        preview: 'Scheduled for today, across the school in view.',
-        timestamp: 'Today',
+        group: 'today',
+        Icon: Calendar,
+        Badge: Clock,
+        iconBg: 'bg-primary-surface',
+        iconFg: 'text-primary',
+        badgeBg: 'bg-primary',
+        textBefore: '',
+        textBold: `${counts.appointmentsToday} appointment${counts.appointmentsToday === 1 ? '' : 's'} today`,
+        textAfter: '. Scheduled for today, across the school in view.',
+        timeLabel: 'Today',
         linkTo: '/appointments',
         linkLabel: 'Go to Appointments',
       });
@@ -107,13 +145,16 @@ export const Notifications = () => {
     if (counts.appointmentsTomorrow > 0) {
       list.push({
         id: 'appt-tomorrow',
-        tier: 'today',
-        icon: Calendar,
-        tone: 'text-primary',
-        chip: 'bg-primary-surface text-primary',
-        title: `${counts.appointmentsTomorrow} appointment${counts.appointmentsTomorrow === 1 ? '' : 's'} tomorrow`,
-        preview: 'Scheduled for tomorrow, across the school in view.',
-        timestamp: 'Tomorrow',
+        group: 'today',
+        Icon: Calendar,
+        Badge: Clock,
+        iconBg: 'bg-primary-surface',
+        iconFg: 'text-primary',
+        badgeBg: 'bg-primary',
+        textBefore: '',
+        textBold: `${counts.appointmentsTomorrow} appointment${counts.appointmentsTomorrow === 1 ? '' : 's'} tomorrow`,
+        textAfter: '. Scheduled for tomorrow, across the school in view.',
+        timeLabel: 'Tomorrow',
         linkTo: '/appointments',
         linkLabel: 'Go to Appointments',
       });
@@ -121,13 +162,16 @@ export const Notifications = () => {
     if (counts.dayNoteToday) {
       list.push({
         id: 'day-note-today',
-        tier: 'today',
-        icon: StickyNote,
-        tone: 'text-warning',
-        chip: 'bg-warning-surface text-warning',
-        title: 'Note for today',
-        preview: counts.dayNoteToday,
-        timestamp: 'Today',
+        group: 'today',
+        Icon: StickyNote,
+        Badge: Clock,
+        iconBg: 'bg-warning-surface',
+        iconFg: 'text-warning',
+        badgeBg: 'bg-warning',
+        textBefore: '',
+        textBold: 'Note for today',
+        textAfter: `. ${counts.dayNoteToday}`,
+        timeLabel: 'Today',
         linkTo: '/appointments',
         linkLabel: 'Go to Appointments',
       });
@@ -135,13 +179,16 @@ export const Notifications = () => {
     if (canValidateRisk && counts.awaitingValidation > 0) {
       list.push({
         id: 'risk-awaiting',
-        tier: 'awaiting-review',
-        icon: Brain,
-        tone: 'text-warning',
-        chip: 'bg-warning-surface text-warning',
-        title: `${counts.awaitingValidation} risk assessment${counts.awaitingValidation === 1 ? '' : 's'} awaiting validation`,
-        preview: 'Predicted, not yet reviewed by the dentist.',
-        timestamp: 'Ongoing',
+        group: 'today',
+        Icon: Brain,
+        Badge: Clock,
+        iconBg: 'bg-warning-surface',
+        iconFg: 'text-warning',
+        badgeBg: 'bg-warning',
+        textBefore: '',
+        textBold: `${counts.awaitingValidation} risk assessment${counts.awaitingValidation === 1 ? '' : 's'}`,
+        textAfter: ' are awaiting validation. Predicted, not yet reviewed by the dentist.',
+        timeLabel: 'Ongoing',
         linkTo: '/ai-analytics',
         linkLabel: 'Go to Risk Classification',
       });
@@ -149,28 +196,34 @@ export const Notifications = () => {
     if (counts.consentPending > 0) {
       list.push({
         id: 'consent-pending',
-        tier: 'awaiting-review',
-        icon: ClipboardCheck,
-        tone: 'text-warning',
-        chip: 'bg-warning-surface text-warning',
-        title: `${counts.consentPending} student${counts.consentPending === 1 ? '' : 's'} with consent pending`,
-        preview: 'Latest IPTR consent decision not yet recorded.',
-        timestamp: 'Ongoing',
+        group: 'today',
+        Icon: ClipboardCheck,
+        Badge: CheckCircle2,
+        iconBg: 'bg-warning-surface',
+        iconFg: 'text-warning',
+        badgeBg: 'bg-warning',
+        textBefore: '',
+        textBold: `${counts.consentPending} student${counts.consentPending === 1 ? '' : 's'}`,
+        textAfter: ' have consent pending. Latest IPTR consent decision not yet recorded.',
+        timeLabel: 'Ongoing',
         linkTo: '/patients',
         linkLabel: 'Go to Students',
       });
     }
-    return list;
-  }, [counts, canValidateRisk]);
+    return list.filter((r) => !dismissedIds.has(r.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [counts, canValidateRisk, dismissedIds]);
 
-  // Prune stale read ids: a row that no longer exists (the RPC visit was
-  // recorded, the appointment was marked) never leaves a permanent "read"
-  // entry taking up storage.
+  // Prune stale read/dismissed ids: a row that no longer exists (the RPC
+  // visit was recorded, the appointment was marked) never leaves a
+  // permanent entry taking up storage.
   useEffect(() => {
     if (loading) return;
     const liveIds = new Set(rows.map((r) => r.id));
-    const pruned = new Set([...readIds].filter((id) => liveIds.has(id)));
-    if (pruned.size !== readIds.size) persistRead(pruned);
+    const prunedRead = new Set([...readIds].filter((id) => liveIds.has(id)));
+    if (prunedRead.size !== readIds.size) persist('floral.notifications.read', prunedRead, setReadIds);
+    const prunedDismissed = new Set([...dismissedIds].filter((id) => liveIds.has(id)));
+    if (prunedDismissed.size !== dismissedIds.size) persist('floral.notifications.dismissed', prunedDismissed, setDismissedIds);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, loading]);
 
@@ -187,18 +240,70 @@ export const Notifications = () => {
     );
   }
 
-  const TIERS = [
-    { key: 'needs-action', label: 'Needs action', tone: 'text-destructive' },
-    { key: 'today', label: 'Today and tomorrow', tone: 'text-primary' },
-    { key: 'awaiting-review', label: 'Awaiting review', tone: 'text-warning' },
-  ] as const;
-
-  const tierCount = (key: string) => rows.filter((r) => r.tier === key).length;
   const unreadCount = rows.filter((r) => !readIds.has(r.id)).length;
+  const todayRows = rows.filter((r) => r.group === 'today');
+  const earlierRows = rows.filter((r) => r.group === 'earlier');
 
-  const visibleRows = rows
-    .filter((r) => !activeTier || r.tier === activeTier)
-    .filter((r) => tab === 'all' || !readIds.has(r.id));
+  const renderRow = (r: Row) => {
+    const isRead = readIds.has(r.id);
+    return (
+      <li key={r.id} className={`relative flex items-start gap-3 p-3.5 ${isRead ? '' : 'bg-primary-surface/60'}`}>
+        <div className="relative shrink-0">
+          <span className={`flex h-11 w-11 items-center justify-center rounded-full ${r.iconBg}`}>
+            <r.Icon className={`w-5 h-5 ${r.iconFg}`} />
+          </span>
+          <span className={`absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-card ${r.badgeBg}`}>
+            <r.Badge className="w-2.5 h-2.5 text-white" />
+          </span>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className={`text-[13.5px] leading-snug ${isRead ? 'text-foreground' : 'font-semibold text-foreground'}`}>
+            {r.textBefore}<b className="font-bold">{r.textBold}</b>{r.textAfter}
+          </p>
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+            {!isRead && <span className="inline-block h-2 w-2 rounded-full bg-primary" />}
+            {r.timeLabel}
+            <span aria-hidden="true">·</span>
+            <Link to={r.linkTo} onClick={() => toggleRead(r.id)} className="font-semibold text-primary hover:underline">
+              {r.linkLabel}
+            </Link>
+          </p>
+        </div>
+
+        <div className="relative shrink-0" ref={openMenuId === r.id ? menuRef : undefined}>
+          <button
+            type="button"
+            onClick={() => setOpenMenuId(openMenuId === r.id ? null : r.id)}
+            aria-label="Notification options"
+            className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
+          {openMenuId === r.id && (
+            <div className="absolute right-0 top-8 z-20 w-52 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+              <button
+                type="button"
+                onClick={() => toggleRead(r.id)}
+                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-foreground hover:bg-muted"
+              >
+                {isRead ? <Circle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                Mark as {isRead ? 'unread' : 'read'}
+              </button>
+              <button
+                type="button"
+                onClick={() => dismiss(r.id)}
+                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-destructive hover:bg-danger-surface"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete this notification
+              </button>
+            </div>
+          )}
+        </div>
+      </li>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -225,115 +330,19 @@ export const Notifications = () => {
       )}
 
       {!loading && !error && rows.length > 0 && (
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex sm:flex-col gap-2 sm:w-56 shrink-0 overflow-x-auto sm:overflow-visible">
-            <button
-              type="button"
-              onClick={() => setActiveTier(null)}
-              className={`text-left rounded-xl border p-3 shrink-0 sm:shrink transition-colors ${
-                activeTier === null ? 'border-primary bg-primary-surface' : 'border-border bg-card hover:border-primary/30'
-              }`}
-            >
-              <p className="text-sm font-semibold text-foreground whitespace-nowrap">All</p>
-              <p className="text-xs text-muted-foreground">{rows.length} total</p>
-            </button>
-            {TIERS.map((t) => {
-              const n = tierCount(t.key);
-              if (n === 0) return null;
-              return (
-                <button
-                  key={t.key}
-                  type="button"
-                  onClick={() => setActiveTier(t.key)}
-                  className={`text-left rounded-xl border p-3 shrink-0 sm:shrink transition-colors ${
-                    activeTier === t.key ? 'border-primary bg-primary-surface' : 'border-border bg-card hover:border-primary/30'
-                  }`}
-                >
-                  <p className={`text-sm font-semibold whitespace-nowrap ${t.tone}`}>{t.label}</p>
-                  <p className="text-xs text-muted-foreground">{n} item{n === 1 ? '' : 's'}</p>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex-1 bg-card rounded-xl border border-border overflow-hidden">
-            <div className="flex items-center justify-between gap-3 border-b border-border p-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-foreground">Inbox</span>
-                {unreadCount > 0 && (
-                  <span className="bg-destructive text-white text-xs font-semibold rounded-full px-2 py-0.5">
-                    {unreadCount}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
-                <button
-                  type="button"
-                  onClick={() => setTab('all')}
-                  className={`text-xs font-medium rounded-md px-3 py-1 transition-colors ${
-                    tab === 'all' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
-                  }`}
-                >
-                  All
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTab('unread')}
-                  className={`text-xs font-medium rounded-md px-3 py-1 transition-colors ${
-                    tab === 'unread' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
-                  }`}
-                >
-                  Unread
-                </button>
-              </div>
-            </div>
-
-            {visibleRows.length === 0 ? (
-              <div className="p-8 text-center text-sm text-muted-foreground">Nothing here.</div>
-            ) : (
-              <ul className="divide-y divide-border">
-                {visibleRows.map((r) => {
-                  const Icon = r.icon;
-                  const isRead = readIds.has(r.id);
-                  return (
-                    <li key={r.id} className="flex items-center gap-3 p-4 hover:bg-muted/40">
-                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${r.chip}`}>
-                        <Icon className="w-4 h-4" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className={`text-sm truncate ${isRead ? 'font-medium text-muted-foreground' : 'font-semibold text-foreground'}`}>
-                          {r.title}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">{r.preview}</p>
-                      </div>
-                      <span className="text-xs text-muted-foreground shrink-0 hidden sm:inline">{r.timestamp}</span>
-                      <Link
-                        to={r.linkTo}
-                        onClick={() => markRead(r.id)}
-                        className="text-xs font-medium text-primary hover:underline whitespace-nowrap shrink-0"
-                      >
-                        {r.linkLabel}
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => markRead(r.id)}
-                        disabled={isRead}
-                        aria-label={isRead ? 'Already read' : 'Mark as read'}
-                        title={isRead ? 'Already read' : 'Mark as read'}
-                        className={`shrink-0 flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${
-                          isRead
-                            ? 'bg-transparent border-border text-muted-foreground'
-                            : 'bg-primary border-primary text-white hover:bg-primary/90'
-                        }`}
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
+        <div className="max-w-2xl bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+          {todayRows.length > 0 && (
+            <>
+              <div className="px-4 py-2.5 text-sm font-bold text-foreground bg-card border-b border-border">Today</div>
+              <ul className="divide-y divide-border">{todayRows.map(renderRow)}</ul>
+            </>
+          )}
+          {earlierRows.length > 0 && (
+            <>
+              <div className="px-4 py-2.5 text-sm font-bold text-foreground bg-card border-b border-border">Earlier</div>
+              <ul className="divide-y divide-border">{earlierRows.map(renderRow)}</ul>
+            </>
+          )}
         </div>
       )}
     </div>
