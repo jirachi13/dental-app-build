@@ -155,11 +155,14 @@ router.get("/stats/high-risk-count", requireAuth, asyncHandler(async (req, res) 
 // shows the detail, so the bell points at real records rather than paraphrasing
 // them (CLAUDE.md: a control that appears to work must work).
 router.get("/stats/notifications", requireAuth, asyncHandler(async (req, res) => {
+  const EMPTY_RESPONSE = { overdueRpc: 0, appointmentsToday: 0, appointmentsTomorrow: 0, awaitingValidation: 0, consentPending: 0, unmarkedAppointments: [] as unknown[], dayNoteToday: null as string | null };
   const schoolName = typeof req.query.school === "string" ? req.query.school : null;
   let studentFilter: Record<string, unknown> = { isArchived: false };
+  let schoolId: unknown = null;
   if (schoolName) {
     const school = await School.findOne({ school_name: schoolName, isArchived: false }).select("_id").lean<{ _id: unknown } | null>();
-    if (!school) { res.json({ overdueRpc: 0, appointmentsToday: 0, awaitingValidation: 0 }); return; }
+    if (!school) { res.json(EMPTY_RESPONSE); return; }
+    schoolId = school._id;
     studentFilter = { ...studentFilter, school_id: school._id };
   }
   // The ?school param is the CLIENT's choice; this is the user's permission
@@ -175,16 +178,29 @@ router.get("/stats/notifications", requireAuth, asyncHandler(async (req, res) =>
   // because "today's appointments" is a local-day question, not a UTC one.
   const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
   const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);
+  const tomorrowEnd = new Date(dayEnd); tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
+  // Bounds how far back "never marked" looks -- an appointment from a year
+  // ago that was never marked is a data-cleanup problem, not something a
+  // dentist opening today's bell should still be shown. 180 days covers a
+  // full school year's worth of scheduling without scanning every row ever
+  // created (Appointment has no status other than this one to say "closed").
+  const unmarkedWindowStart = new Date(dayStart); unmarkedWindowStart.setDate(unmarkedWindowStart.getDate() - 180);
 
-  const [students, iptrs, preventives, risks, appointmentsToday] = await Promise.all([
+  const [students, iptrs, preventives, risks, appointments, dayNotes] = await Promise.all([
     Student.find(studentFilter).select("_id").lean(),
-    StudentIptr.find({ isArchived: false }).select("_id student_id").lean(),
+    StudentIptr.find({ isArchived: false }).select("_id student_id school_year consent_status").lean(),
     PreventiveCareRecord.find({ isArchived: false }).select("iptr_id visit_number visit_date").lean(),
     RiskStratification.find({ isArchived: false }).select("preventive_id validated_by_dentist").lean(),
-    Appointment.countDocuments({
+    Appointment.find({ isArchived: false, appointment_datetime: { $gte: unmarkedWindowStart, $lt: tomorrowEnd } })
+      .select("student_id appointment_datetime status").lean(),
+    // ⚠ school_id NULL means "every school" (see DayNote.ts) -- with a school
+    // selected, a note applies if it names THAT school OR names none; with no
+    // school selected (the "all schools" view), any note for today counts.
+    DayNote.find({
       isArchived: false,
-      appointment_datetime: { $gte: dayStart, $lt: dayEnd },
-    }),
+      date: { $gte: dayStart, $lt: dayEnd },
+      ...(schoolId ? { $or: [{ school_id: null }, { school_id: schoolId }] } : {}),
+    }).select("note").sort({ created_at: 1 }).limit(1).lean(),
   ]);
 
   const inScope = new Set(students.map((s) => String(s._id)));
@@ -228,7 +244,64 @@ router.get("/stats/notifications", requireAuth, asyncHandler(async (req, res) =>
     if (iptrId && scopedIptrIds.has(iptrId)) awaitingValidation++;
   }
 
-  res.json({ overdueRpc, appointmentsToday, awaitingValidation });
+  // Consent is collected once per school year (STUDENT_IPTR.consent_status),
+  // so a student with an OLD year's consent complete but no decision yet on
+  // THIS year's iptr must still count as pending -- the LATEST iptr per
+  // student is what decides it, same "latest wins" rule the Students module
+  // itself uses for its own consent column.
+  const iptrsByStudent = new Map<string, { school_year: string; consent_status: string }[]>();
+  for (const i of iptrs) {
+    if (!inScope.has(String(i.student_id))) continue;
+    const list = iptrsByStudent.get(String(i.student_id)) ?? [];
+    list.push({ school_year: String(i.school_year), consent_status: String(i.consent_status) });
+    iptrsByStudent.set(String(i.student_id), list);
+  }
+  let consentPending = 0;
+  for (const list of iptrsByStudent.values()) {
+    const latest = list.slice().sort((a, b) => b.school_year.localeCompare(a.school_year))[0];
+    if (latest?.consent_status === "pending") consentPending++;
+  }
+
+  // "Never marked" -- scheduled time has passed with the status still
+  // whatever it was created as (Scheduled), never moved to Completed/Missed/
+  // etc. Same test the Appointments module's own Missed tab uses
+  // (isOverdueUnmarked), so this bell can never disagree with that screen.
+  let appointmentsToday = 0;
+  let appointmentsTomorrow = 0;
+  const unmarkedRaw: { id: string; studentId: string; datetime: Date }[] = [];
+  for (const a of appointments) {
+    if (!inScope.has(String(a.student_id))) continue;
+    const dt = new Date(a.appointment_datetime as unknown as string);
+    if (dt >= dayStart && dt < dayEnd) appointmentsToday++;
+    else if (dt >= dayEnd && dt < tomorrowEnd) appointmentsTomorrow++;
+    else if (dt < dayStart && String(a.status).toLowerCase() === "scheduled") {
+      unmarkedRaw.push({ id: String(a._id), studentId: String(a.student_id), datetime: dt });
+    }
+  }
+  unmarkedRaw.sort((a, b) => b.datetime.getTime() - a.datetime.getTime());
+
+  const unmarkedStudents = unmarkedRaw.length
+    ? await Student.find({ _id: { $in: unmarkedRaw.map((a) => a.studentId) }, isArchived: false })
+    : [];
+  const nameById = new Map(unmarkedStudents.map((s: any) => {
+    const last = (s.last_name ?? "").trim();
+    const first = (s.first_name ?? "").trim();
+    const name = !last && !first ? (s.full_name ?? "").trim() : !last ? first : !first ? last : `${last}, ${first}`;
+    return [String(s._id), name];
+  }));
+  const unmarkedAppointments = unmarkedRaw
+    .filter((a) => nameById.has(a.studentId))
+    .map((a) => ({ id: a.id, studentId: a.studentId, studentName: nameById.get(a.studentId)!, datetime: a.datetime.toISOString() }));
+
+  res.json({
+    overdueRpc,
+    appointmentsToday,
+    appointmentsTomorrow,
+    awaitingValidation,
+    consentPending,
+    unmarkedAppointments,
+    dayNoteToday: dayNotes[0]?.note ?? null,
+  });
 }));
 
 // The patient-list row, joined server-side (Sprint 56b). Same join as the
