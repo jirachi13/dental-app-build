@@ -21,9 +21,37 @@ const TH = 'px-6 py-3 text-left text-[12.5px] font-bold text-[#94A3B8] uppercase
 const humanize = (name: string) =>
   name.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/\bIptr\b/g, 'IPTR');
 
-const ModulePill = ({ children }: { children: string }) => (
-  <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-[#DCE3F5] bg-[#F4F7FF] text-xs font-bold text-[#273A78]">{humanize(children)}</span>
-);
+// One colour per module, chosen from the module name so a module keeps the same
+// colour on every row and every visit. Text colours are the dark shade of each
+// hue so they stay readable on their pale fills.
+const MODULE_PALETTE = [
+  { bg: '#F4F7FF', fg: '#273A78', border: '#DCE3F5' }, // indigo
+  { bg: '#ECFEFF', fg: '#0E7490', border: '#A5F3FC' }, // cyan
+  { bg: '#ECFDF5', fg: '#047857', border: '#A7F3D0' }, // green
+  { bg: '#FFFBEB', fg: '#B45309', border: '#FDE68A' }, // amber
+  { bg: '#FFF1F2', fg: '#BE123C', border: '#FECDD3' }, // rose
+  { bg: '#FAF5FF', fg: '#7E22CE', border: '#E9D5FF' }, // purple
+  { bg: '#F0F9FF', fg: '#0369A1', border: '#BAE6FD' }, // sky
+  { bg: '#FFF7ED', fg: '#C2410C', border: '#FED7AA' }, // orange
+];
+
+const moduleColor = (module: string) => {
+  let hash = 0;
+  for (let i = 0; i < module.length; i++) hash = (hash * 31 + module.charCodeAt(i)) >>> 0;
+  return MODULE_PALETTE[hash % MODULE_PALETTE.length];
+};
+
+const ModulePill = ({ children }: { children: string }) => {
+  const c = moduleColor(children);
+  return (
+    <span
+      className="inline-flex items-center px-2.5 py-1 rounded-full border text-xs font-bold"
+      style={{ backgroundColor: c.bg, color: c.fg, borderColor: c.border }}
+    >
+      {humanize(children)}
+    </span>
+  );
+};
 
 const UserCell = ({ name, role }: { name: string; role: string }) => (
   <div className="flex items-center gap-3">
