@@ -303,11 +303,11 @@ export const Notifications = () => {
               <MoreHorizontal className="w-4 h-4" />
             </button>
             {openMenuId === r.id && (
-              <div className="absolute right-0 top-8 z-20 w-64 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+              <div className="absolute right-0 top-8 z-20 w-max overflow-hidden rounded-xl border border-border bg-card shadow-lg">
                 <button
                   type="button"
                   onClick={() => toggleRead(r.id)}
-                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-foreground hover:bg-muted"
+                  className="flex w-full items-center gap-2.5 whitespace-nowrap px-3.5 py-2.5 text-left text-sm text-foreground hover:bg-muted"
                 >
                   {isRead ? <Circle className="w-4 h-4 flex-shrink-0" /> : <CheckCircle2 className="w-4 h-4 flex-shrink-0" />}
                   Mark as {isRead ? 'unread' : 'read'}
