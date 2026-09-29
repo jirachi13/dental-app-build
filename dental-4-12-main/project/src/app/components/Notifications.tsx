@@ -146,6 +146,15 @@ export const Notifications = () => {
     return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
   };
 
+  // Aggregate rows (overdue RPC, risk validation, consent, the queue) carry
+  // no single due date of their own -- they are recomputed fresh on every
+  // load, so as long as the underlying condition still holds they belong in
+  // "Today" again, same as appointments literally scheduled for today. The
+  // timestamp names when the notification entered THIS feed, not when the
+  // thing it's about is due (user, 2026-09-29: "the date stamp should be by
+  // the time the notification enters the notification, not when it's
+  // due") -- an "Ongoing" label that never changed read as a one-time
+  // notice instead of one that renotifies every day the condition persists.
   const rows = useMemo<Row[]>(() => {
     const list: Row[] = [];
 
@@ -181,7 +190,7 @@ export const Notifications = () => {
         textBefore: 'You have ',
         textBold: `${counts.overdueRpc} overdue RPC visit${counts.overdueRpc === 1 ? '' : 's'}`,
         textAfter: '. Visit 1 was recorded, but Visit 2 is still due and has already passed the interval between visits.',
-        timeLabel: 'Ongoing',
+        timeLabel: 'Today',
         linkTo: '/rpc',
         linkLabel: 'Go to RPC Monitoring',
       });
@@ -253,7 +262,7 @@ export const Notifications = () => {
         textBefore: 'You have ',
         textBold: `${counts.awaitingValidation} risk assessment${counts.awaitingValidation === 1 ? '' : 's'}`,
         textAfter: ' awaiting validation. These were predicted by the system and still need to be reviewed by the dentist.',
-        timeLabel: 'Ongoing',
+        timeLabel: 'Today',
         linkTo: '/ai-analytics',
         linkLabel: 'Go to Risk Classification',
       });
@@ -271,7 +280,7 @@ export const Notifications = () => {
         textBefore: 'You have ',
         textBold: `${counts.consentPending} student${counts.consentPending === 1 ? '' : 's'}`,
         textAfter: ' with consent pending. Their latest IPTR form still needs a consent decision recorded.',
-        timeLabel: 'Ongoing',
+        timeLabel: 'Today',
         linkTo: '/patients',
         linkLabel: 'Go to Students',
       });
@@ -329,7 +338,7 @@ export const Notifications = () => {
         textBefore: 'You have ',
         textBold: `${queuedCount} student${queuedCount === 1 ? '' : 's'} queued`,
         textAfter: ' for charting or treatment in the Dental Charts module.',
-        timeLabel: 'Ongoing',
+        timeLabel: 'Today',
         linkTo: '/dental-charts',
         linkLabel: 'Go to Dental Charts',
       });
