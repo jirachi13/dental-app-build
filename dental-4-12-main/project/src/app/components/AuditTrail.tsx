@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Search, Filter, Calendar, Download, ClipboardList } from 'lucide-react';
+import { Search, Filter, Calendar, Download, ClipboardList, Hash } from 'lucide-react';
 import { PageHeader } from './PageHeader';
 import { useAuditTrail, windowStart, AUDIT_WINDOW_DAYS } from '../hooks/useAuditTrail';
 import { exportToCsv, type ExportColumn } from '../utils/exportCsv';
@@ -9,6 +9,23 @@ import { PreviewModal } from './PreviewModal';
 import { ExportMenu, type ExportFormat } from './ExportMenu';
 import { toLocalDateString, formatDateTime } from '../utils/localDate';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
+
+// Border is inline because styles/index.css forces a grey border on every input.
+const FIELD = 'w-full px-4 py-3 text-sm text-[#475569] bg-[#F8FAFC] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#16214F]/30';
+const FIELD_STYLE = { border: '1px solid #E2E8F0' } as const;
+const CARD = 'bg-card rounded-2xl border border-border shadow-[0_4px_20px_rgba(0,0,0,0.06)]';
+const TH = 'px-6 py-3 text-left text-[12.5px] font-bold text-[#94A3B8] uppercase tracking-wider';
+
+const ModulePill = ({ children }: { children: string }) => (
+  <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-[#DCE3F5] bg-[#F4F7FF] text-xs font-bold text-[#273A78]">{children}</span>
+);
+
+const UserCell = ({ name }: { name: string }) => (
+  <div className="flex items-center gap-3">
+    <span className="w-10 h-10 flex-shrink-0 rounded-xl grid place-items-center bg-[#F4F7FF] text-[#273A78] text-sm font-bold">{name.trim().charAt(0).toUpperCase()}</span>
+    <div className="text-sm font-bold text-foreground">{name}</div>
+  </div>
+);
 
 export const AuditTrail = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -132,151 +149,134 @@ export const AuditTrail = () => {
         }
       />
 
-      {/* Filters */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Filter className="w-5 h-5 text-muted-foreground" />
-          <h3 className="font-semibold text-foreground">Filters</h3>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {/* Search */}
-          <div className="lg:col-span-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search logs..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          {/* User Filter */}
+      {/* Search & Filters */}
+      <div className={CARD}>
+        <div className="flex items-center gap-4 px-6 py-5 border-b border-border">
+          <span className="w-12 h-12 rounded-xl grid place-items-center bg-[#F1F5F9] text-[#334155] flex-shrink-0"><Filter className="w-5 h-5" /></span>
           <div>
-            <select
-              value={userFilter}
-              onChange={(e) => setUserFilter(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
-            >
+            <div className="text-base font-bold text-foreground">Search &amp; Filters</div>
+            <div className="text-sm text-muted-foreground">Search and refine recorded system activities.</div>
+          </div>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
+            <input
+              type="text"
+              placeholder="Search by user, action, or module..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={`${FIELD} pl-12 py-3.5`}
+              style={FIELD_STYLE}
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <select value={userFilter} onChange={(e) => setUserFilter(e.target.value)} className={FIELD} style={FIELD_STYLE} aria-label="Filter by user">
               {users.map((user) => (
-                <option key={user} value={user}>
-                  {user === 'all' ? 'All Users' : user}
-                </option>
+                <option key={user} value={user}>{user === 'all' ? 'All Users' : user}</option>
               ))}
             </select>
-          </div>
-
-          {/* Module Filter */}
-          <div>
-            <select
-              value={moduleFilter}
-              onChange={(e) => setModuleFilter(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
-            >
+            <select value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)} className={FIELD} style={FIELD_STYLE} aria-label="Filter by module">
               {modules.map((module) => (
-                <option key={module} value={module}>
-                  {module === 'all' ? 'All Modules' : module}
-                </option>
+                <option key={module} value={module}>{module === 'all' ? 'All Modules' : module}</option>
               ))}
             </select>
-          </div>
-
-          {/* Date Range */}
-          <div className="lg:col-span-2 grid grid-cols-2 gap-2">
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full pl-9 pr-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent text-sm"
-              />
+              <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={`${FIELD} pl-11`} style={FIELD_STYLE} aria-label="Start date" />
             </div>
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full pl-9 pr-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent text-sm"
-              />
+              <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={`${FIELD} pl-11`} style={FIELD_STYLE} aria-label="End date" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Desktop Table */}
-      <div className="hidden lg:block bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Timestamp</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">User</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Action</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Module</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Record ID</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{formatTimestamp(log.timestamp)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-foreground">{log.user}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`text-sm font-medium ${getActionColor(log.action)}`}>{log.action}</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">{log.module}</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-xs text-muted-foreground font-mono">{log.affectedRecordId}</td>
+      {/* System Activity */}
+      <div className={`${CARD} overflow-hidden`}>
+        <div className="flex items-center justify-between gap-3 px-6 py-5">
+          <div className="flex items-center gap-4">
+            <span className="w-12 h-12 rounded-xl grid place-items-center bg-[#F4F7FF] text-[#273A78] flex-shrink-0"><ClipboardList className="w-5 h-5" /></span>
+            <div>
+              <div className="text-xl font-bold text-foreground">System Activity</div>
+              <div className="text-sm text-muted-foreground">View recorded actions across the system.</div>
+            </div>
+          </div>
+          <span className="px-4 py-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-xs font-bold text-[#64748B] whitespace-nowrap">{filteredLogs.length} {filteredLogs.length === 1 ? 'record' : 'records'} found</span>
+        </div>
+
+        {/* Desktop table */}
+        {filteredLogs.length > 0 && (
+          <div className="hidden lg:block overflow-x-auto border-t border-border">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-border">
+                <tr>
+                  <th className={TH}>User</th>
+                  <th className={TH}>Activity</th>
+                  <th className={TH}>Module</th>
+                  <th className={TH}>Date</th>
+                  <th className={TH}>Time</th>
+                  <th className={TH}>Record ID</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Mobile Cards */}
-      <div className="lg:hidden space-y-4">
-        {filteredLogs.map((log) => (
-          <div key={log.id} className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="flex items-start justify-between mb-3">
-              <div>
-                <div className="font-medium text-foreground">{log.user}</div>
-                <div className="text-xs text-muted-foreground mt-1">{formatTimestamp(log.timestamp)}</div>
-              </div>
-              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">{log.module}</span>
-            </div>
-            <div className="space-y-2">
-              <div>
-                <span className={`text-sm font-medium ${getActionColor(log.action)}`}>{log.action}</span>
-              </div>
-              <div className="text-xs text-muted-foreground font-mono">{log.affectedRecordId}</div>
-            </div>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredLogs.map((log) => {
+                  const when = new Date(log.timestamp);
+                  return (
+                    <tr key={log.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap"><UserCell name={log.user} /></td>
+                      <td className="px-6 py-4">
+                        <span className={`text-sm font-bold ${getActionColor(log.action)}`}>{log.action}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap"><ModulePill>{log.module}</ModulePill></td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                        <span className="inline-flex items-center gap-2"><Calendar className="w-3.5 h-3.5 text-[#94A3B8]" />{when.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{when.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-muted-foreground font-mono">
+                        <span className="inline-flex items-center gap-2"><Hash className="w-3.5 h-3.5 text-[#94A3B8]" />{log.affectedRecordId}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        ))}
+        )}
+
+        {/* Mobile and tablet cards */}
+        {filteredLogs.length > 0 && (
+          <div className="lg:hidden border-t border-border divide-y divide-gray-200">
+            {filteredLogs.map((log) => (
+              <div key={log.id} className="p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <UserCell name={log.user} />
+                  <ModulePill>{log.module}</ModulePill>
+                </div>
+                <div className={`text-sm font-bold ${getActionColor(log.action)}`}>{log.action}</div>
+                <div className="text-xs text-muted-foreground">{formatTimestamp(log.timestamp)}</div>
+                <div className="text-xs text-muted-foreground font-mono">{log.affectedRecordId}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {filteredLogs.length === 0 && (
+          <div className="border-t border-border flex flex-col items-center justify-center text-center px-6 py-20">
+            <span className="w-[4.5rem] h-[4.5rem] rounded-2xl grid place-items-center bg-[#F1F5F9] text-[#94A3B8]"><ClipboardList className="w-8 h-8" /></span>
+            <div className="mt-5 text-base font-bold text-foreground">No records found</div>
+            <div className="mt-2 text-xs text-muted-foreground">There are no audit logs matching the current filters.</div>
+            {fetchFrom !== null && (
+              <div className="mt-2 text-xs text-muted-foreground">
+                Only the last {AUDIT_WINDOW_DAYS} days are loaded.{' '}
+                <button onClick={() => setShowAll(true)} className="underline hover:text-foreground">Show earlier</button>.
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {filteredLogs.length === 0 && (
-        <div className="py-12 text-center text-muted-foreground">
-          <Filter className="w-8 h-8 mx-auto mb-2 opacity-30" />
-          <p className="text-sm">No audit logs found matching your filters.</p>
-          {fetchFrom !== null && (
-            <p className="text-sm mt-1">
-              Only the last {AUDIT_WINDOW_DAYS} days are loaded —{' '}
-              <button onClick={() => setShowAll(true)} className="underline hover:text-foreground">
-                show earlier
-              </button>.
-            </p>
-          )}
-        </div>
-      )}
       <PreviewModal
         open={preview.open}
         kind={preview.kind}
