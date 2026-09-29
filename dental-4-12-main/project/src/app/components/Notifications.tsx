@@ -396,8 +396,9 @@ export const Notifications = () => {
               tint alone. */}
           <div className="min-w-0 flex-1">
             <p className="text-[13.5px] leading-snug text-foreground">
-              {r.textBefore}<b className="font-bold">{r.textBold}</b>{r.textAfter}{' '}
-              <span className="text-xs font-normal text-muted-foreground">{r.timeLabel}</span>
+              {r.textBefore}<b className="font-bold">{r.textBold}</b>{r.textAfter}
+              {' '}
+              <span className="text-xs font-normal text-muted-foreground whitespace-nowrap">{r.timeLabel}</span>
             </p>
           </div>
         </div>
