@@ -227,14 +227,17 @@ export const ScanStudentForm = () => {
       </div>
 
 
-      {processing && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginTop: '1rem', fontSize: '0.8125rem', color: '#67687A' }}>
-          <span style={{ width: '1.125rem', height: '1.125rem', borderRadius: '50%', border: '0.1875rem solid #F4F7FF', borderTopColor: '#273A78', display: 'inline-block', animation: 'fl-spin 0.8s linear infinite' }} />
-          <style>{'@keyframes fl-spin { to { transform: rotate(360deg); } }'}</style>
-          Scanning form… {progress}%
-        </div>
-      )}
-      {error && <p style={{ marginTop: '0.75rem', fontSize: '0.8125rem', color: '#BE123C' }}>{error}</p>}
+      {/* Status slot — always reserves its height so the spacing above the footer buttons is the same before, during and after extraction */}
+      <div style={{ minHeight: '1.125rem', marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.625rem', fontSize: '0.8125rem', color: '#67687A' }}>
+        {processing && (
+          <>
+            <span style={{ width: '1.125rem', height: '1.125rem', borderRadius: '50%', border: '0.1875rem solid #F4F7FF', borderTopColor: '#273A78', display: 'inline-block', animation: 'fl-spin 0.8s linear infinite' }} />
+            <style>{'@keyframes fl-spin { to { transform: rotate(360deg); } }'}</style>
+            Scanning form… {progress}%
+          </>
+        )}
+        {!processing && error && <span style={{ color: '#BE123C' }}>{error}</span>}
+      </div>
 
       {/* Footer actions */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem' }}>
