@@ -518,7 +518,7 @@ export const Notifications = () => {
           }
           setOpenMenuId(null);
         }}
-        className={`relative grid grid-cols-[3fr_0.35fr_auto] items-center gap-0 p-3.5 cursor-pointer hover:bg-muted/40 ${isRead ? '' : 'bg-gray-200'}`}
+        className={`relative grid grid-cols-[3fr_0.35fr_auto] items-center gap-0 p-3.5 cursor-pointer hover:bg-muted/40 ${isRead ? '' : 'bg-muted'}`}
       >
         <div className="flex items-center gap-4 min-w-0">
           <div className="relative shrink-0">
