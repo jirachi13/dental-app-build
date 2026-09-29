@@ -367,13 +367,13 @@ export const AccountManagement = () => {
         </div>
         <div className="p-6 space-y-6">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
             <input
               type="text"
               placeholder="Search by name, email, or role..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 text-sm bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#16214F]/30"
+              className="w-full pl-12 pr-4 py-3.5 text-sm bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#16214F]/30"
             />
           </div>
           <div className="flex flex-col lg:flex-row lg:justify-between gap-5">
