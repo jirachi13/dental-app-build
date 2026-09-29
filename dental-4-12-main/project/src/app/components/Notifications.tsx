@@ -639,7 +639,7 @@ export const Notifications = () => {
         description="Reminders and follow-ups that need your attention, gathered from across the app."
         action={
           !loading && !error && rows.length > 0 ? (
-            <div className="relative shrink-0 mt-3" ref={readFilterRef}>
+            <div className="relative shrink-0 mt-6" ref={readFilterRef}>
               <button
                 type="button"
                 onClick={() => setReadFilterOpen((v) => !v)}
