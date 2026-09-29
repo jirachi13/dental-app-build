@@ -174,18 +174,22 @@ router.get("/stats/notifications", requireAuth, asyncHandler(async (req, res) =>
   const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
   const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);
 
-  const [students, iptrs, preventives, risks, appointmentsToday] = await Promise.all([
+  const [students, iptrs, preventives, risks, todaysAppointments] = await Promise.all([
     Student.find(studentFilter).select("_id").lean(),
     StudentIptr.find({ isArchived: false }).select("_id student_id").lean(),
     PreventiveCareRecord.find({ isArchived: false }).select("iptr_id visit_number visit_date").lean(),
     RiskStratification.find({ isArchived: false }).select("preventive_id validated_by_dentist").lean(),
-    Appointment.countDocuments({
+    Appointment.find({
       isArchived: false,
       appointment_datetime: { $gte: dayStart, $lt: dayEnd },
-    }),
+    }).select("student_id").lean(),
   ]);
 
   const inScope = new Set(students.map((s) => String(s._id)));
+  // Scoped through the student like the other two counts (SEC-22) — this one
+  // used to count every school's appointments, so the switcher moved two of
+  // the bell's three numbers and silently not the third.
+  const appointmentsToday = todaysAppointments.filter((a) => inScope.has(String(a.student_id))).length;
   const scopedIptrIds = new Set(
     iptrs.filter((i) => inScope.has(String(i.student_id))).map((i) => String(i._id)),
   );

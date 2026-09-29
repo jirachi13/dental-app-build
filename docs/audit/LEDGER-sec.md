@@ -594,7 +594,11 @@ without reading every aggregation line. No 154b is needed.
 - `asyncHandler` wraps every async route, so a rejected promise reaches the error handler rather
   than hanging the request.
 
-### SEC-22 · `server/routes/index.ts:180` · MED · OPEN
+### SEC-22 · `server/routes/index.ts:180` · MED · ✅ FIXED 2026-09-29
+Resolved: today's appointments are now fetched as `student_id`s and counted only when the student is
+          in `inScope` — the same set the other two counts use, so caller scope and the `?school`
+          switcher both apply. tsc (both configs) + `npm test` 96/96. **Not exercised live** — this PC
+          still points at production (SEC-00), and the bell needs an authenticated session.
 Claim:    **`/stats/notifications` returns an unscoped `appointmentsToday`** — the one number of the
           three that ignores both the caller's schools and the school switcher.
 Evidence: `Appointment.countDocuments({ isArchived: false, appointment_datetime: { $gte: dayStart,

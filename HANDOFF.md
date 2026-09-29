@@ -13,6 +13,9 @@
 
 ## ▶ RESUME HERE — PARKED 2026-09-14 (11th session). ✅ **ALL PUSHED**
 
+**2026-09-29 (12th session): SEC-22 FIXED** — the bell's `appointmentsToday` is now scoped through
+`inScope` like the other two counts. tsc both configs + `npm test` 96/96; **not exercised live**
+(SEC-00 — this PC still points at production).
 **Nothing is in progress.** Working tree clean, `main` level with origin, **`npm test` 91/91**, `tsc`
 both configs and `npm run build` clean at the park point. Dev servers **stopped** (verified by port,
 not assumed — 4000 and 5173 both free).
@@ -128,11 +131,11 @@ The browser pass was done against live data for that reason, read-only and savin
 Also open: SEC-04 (an empty `school_ids` still means "all schools"; SEC-18 fixed the instance, not
 the design) · SEC-19/SEC-20 (⚠ **check whether the grant is still load-bearing before narrowing it**
 — grep which hooks the two non-clinical roles' screens actually use) · SEC-12 (no way to revoke a
-session) · SEC-22 (the bell's `appointmentsToday` ignores school scope) · SEC-30 (one dashboard
+session) · SEC-30 (one dashboard
 look) · BUG-02, BUG-05, BUG-06, BUG-08, BUG-09, BUG-10, BUG-11, **BUG-13, BUG-14**.
 
 ✅ **Closed:** SEC-05, SEC-06, SEC-07 (all NOT-A-BUG, with reasons) · BUG-00, BUG-01 (already fixed
-before the audit began) · **BUG-12 (fixed 09-14)** · SEC-01 re-verified against the API. **All three
+before the audit began) · **BUG-12 (fixed 09-14)** · **SEC-22 (fixed 09-29)** · SEC-01 re-verified against the API. **All three
 seeded SEC rows are now re-verified**, so no ledger row rests on an unchecked claim about the past.
 
 ### Next sprint
@@ -151,8 +154,7 @@ anything the panel can CHANGE goes in one named bundle (`addForm` in Treatment H
 Referrals), so the seam stays legible. Shared draft shapes live in `components/iptrDrafts.ts` — put
 nothing in a tab component that another tab also needs.
 
-Cheaper alternatives for a short session: **SEC-22** (one handler — the bell's `appointmentsToday`
-ignores school scope), **BUG-09** (one dependency array), **BUG-10/BUG-11/BUG-13** (all one-liners),
+Cheaper alternatives for a short session: **BUG-09** (one dependency array), **BUG-10/BUG-11/BUG-13** (all one-liners),
 or **BUG-14** if you can read the DOH form's referral rows.
 
 ⚠ **BUG-00 and BUG-01 are CLOSED — do not start them.** They were already fixed by Sprints 148/149/154
