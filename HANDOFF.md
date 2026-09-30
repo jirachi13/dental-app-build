@@ -216,7 +216,9 @@ and the DOM structure (every element + its classes, so styling differences count
 **IDENTICAL in both:** Students, Dental Charts, Treatment Records, Appointments, RPC, Risk
 Classification, Reports, Notifications, Scan a Form, and on the dental chart page: Medical
 History, Caries Risk Assessment, Treatment, Dental History, Notes & Referrals. **Dashboard:**
-text identical (its structure reading was invalid — hidden tab had not redrawn). **Dental Chart
+IDENTICAL too — re-measured in a VISIBLE tab: both 480 elements, same structure fingerprint
+(`db24e00c14b4`); an earlier 480-vs-474 gap was her hidden tab not having animated 3 chart bars.
+Idle check: 0 DOM mutations in 3 s, worst main-thread stall 64 ms — no render loop. **Dental Chart
 tab:** structure identical; text differs in exactly 2 of 437 lines, both the year strip
 (`DMFT 0 · dmft 1` vs her `DMFT: 1` — BUG-13, intended); proven by fingerprinting the other 435.
 **Not compared:** admin-only screens (logged in as dentist) — but none of their files is among the
