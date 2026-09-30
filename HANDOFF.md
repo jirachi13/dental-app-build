@@ -193,11 +193,17 @@ duplicate, all of which need reading before scoping.
 ### ▶ MERGED on branch `merge-majorUpdates` (2026-09-30, `a3ee3ac5`) — NOT on `main` yet
 
 All three decisions KEPT (Rotation, non-student patients, one staff per school — see CLAUDE.md).
-tsc both, `npm test` 111/111, build clean. **Before merging to `main`:** (1) browser pass of her
-screens; (2) redo the 162d panel split on her `DentalChart.tsx` as its OWN commit (`DentalChartTab`
-/`ToothButton` were dropped in the merge — they held the pre-her-changes panel); (3) decide the
-year strip on an uncharted year: hers prints `DMFT 0 · dmft 0` ("user, 2026-09-25"), which reverses
-the 09-14 BUG-12 call ("empty shows not recorded") and CLAUDE.md's no-filler-number rule.
+tsc both, `npm test` 111/111, build clean.
+✅ **162d panel split REDONE on her design** (own commit): `DentalChartTab.tsx` takes her 638-line
+panel, `ToothButton`/`padToArch` and 7 panel-only helpers, all byte-compared IDENTICAL to the merge
+version; `oralConditionChips`/`serviceChips`/`ServiceField` (now incl. Consultation) moved to
+`iptrDrafts.ts`. `DentalChart.tsx` 3,409 → 2,683. `ToothButton` deliberately NOT hoisted (her
+paint-stroke touch charting; hoist separately, tested on a tablet).
+✅ **Decided 2026-09-30: an uncharted year's strip shows `DMFT 0 · dmft 0` (hers kept)**, reversing
+the 09-14 "empty shows not recorded" call for the STRIP only; BUG-12's "latest charting WITH
+records" rule still stands.
+**Before merging to `main`: ONE thing left — a browser pass of her screens** (dental chart
+especially: paint-stroke charting, Visit 1/2, palette, summaries).
 ⚠ On the other machine: `git fetch && git checkout merge-majorUpdates && npm ci` (deps changed).
 
 #### Review notes (kept for the record)
