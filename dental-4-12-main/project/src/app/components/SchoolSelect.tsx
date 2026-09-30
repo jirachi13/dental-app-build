@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth, ALL_SCHOOLS } from '../context/AuthContext';
 import { getSchoolColor } from '../utils/schoolColors';
-import { School, ChevronRight, LogOut, MapPin, Layers } from 'lucide-react';
+import { School, ChevronRight, LogOut, MapPin, Layers, Search } from 'lucide-react';
 import { useSchools } from '../hooks/useSchools';
-import { schoolGradeRange } from '../utils/schoolGrades';
+import { SCHOOL_GRADES, schoolGradeRange } from '../utils/schoolGrades';
+import type { ApiSchool } from '../api/types';
 
 const roleLabels: Record<string, string> = {
   dentist: 'Dentist',
@@ -22,6 +23,67 @@ const roleBadgeColors: Record<string, string> = {
   system_admin: 'bg-red-100 text-red-800',
 };
 
+// ─── Search, filters and recent schools: SYSTEM ADMIN ONLY ───────────────────
+// A System Admin can hold every school, and the list is expected to grow past
+// thirty. Every other role has a short, assigned list, so they keep the plain
+// picker with none of this.
+
+type LevelFilter = 'all' | 'elementary' | 'integrated' | 'high';
+type SortMode = 'az' | 'za' | 'newest';
+
+const LEVEL_CHIPS: { key: LevelFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'elementary', label: 'Elementary' },
+  { key: 'integrated', label: 'Integrated' },
+  { key: 'high', label: 'High school' },
+];
+
+/** Elementary stops at Grade 6 or earlier, High school starts at Grade 7 or
+ *  later, Integrated spans both. A school with no known range is null and only
+ *  appears under "All". */
+const levelOf = (s: ApiSchool | undefined): LevelFilter | null => {
+  if (!s) return null;
+  const { from, to } = schoolGradeRange(s);
+  const f = SCHOOL_GRADES.indexOf(from);
+  const t = SCHOOL_GRADES.indexOf(to);
+  if (f < 0 || t < 0) return null;
+  if (f >= 7) return 'high';
+  if (t <= 6) return 'elementary';
+  return 'integrated';
+};
+
+interface Recent { school: string; at: number }
+const MAX_RECENT = 3;
+const recentKey = (userId: string) => `floral.recentSchools.${userId}`;
+
+const loadRecent = (userId: string): Recent[] => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(recentKey(userId)) ?? '[]');
+    return Array.isArray(parsed)
+      ? parsed.filter((r): r is Recent => typeof r?.school === 'string' && typeof r?.at === 'number')
+      : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveRecent = (userId: string, school: string) => {
+  try {
+    const next = [{ school, at: Date.now() }, ...loadRecent(userId).filter((r) => r.school !== school)].slice(0, MAX_RECENT);
+    localStorage.setItem(recentKey(userId), JSON.stringify(next));
+  } catch {
+    /* private window or blocked storage: the picker still works without it */
+  }
+};
+
+const openedLabel = (at: number) => {
+  const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const diff = Math.round((day(new Date()) - day(new Date(at))) / 86_400_000);
+  if (diff <= 0) return 'Opened today';
+  if (diff === 1) return 'Opened yesterday';
+  return `Opened ${new Date(at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+};
+
 export const SchoolSelect = () => {
   const { user, setSelectedSchool, logout } = useAuth();
   const navigate = useNavigate();
@@ -29,10 +91,40 @@ export const SchoolSelect = () => {
   const { schools: registry } = useSchools();
   // Card under the pointer (or keyboard focus): it fills solid with its colour.
   const [active, setActive] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [level, setLevel] = useState<LevelFilter>('all');
+  const [sort, setSort] = useState<SortMode>('az');
+
+  const isAdmin = user?.role === 'system_admin';
+  const recent = useMemo(() => (user && isAdmin ? loadRecent(user.id) : []), [user, isAdmin]);
+
+  // Registry rows keyed by name, and the creation order ("newest" sort).
+  const byName = useMemo(() => new Map(registry.map((r) => [r.school_name, r])), [registry]);
+  const createdRank = useMemo(() => {
+    const ids = [...registry].sort((a, b) => a._id.localeCompare(b._id)).map((r) => r.school_name);
+    return new Map(ids.map((n, i) => [n, i]));
+  }, [registry]);
+
+  const visibleSchools = useMemo(() => {
+    if (!user) return [];
+    const q = query.trim().toLowerCase();
+    const list = user.schools.filter((name) => {
+      const rec = byName.get(name);
+      if (level !== 'all' && levelOf(rec) !== level) return false;
+      if (!q) return true;
+      const hay = [name, rec?.school_nickname, rec?.street_address, rec?.barangay, rec?.city].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+    return list.sort((a, b) =>
+      sort === 'newest' ? (createdRank.get(b) ?? 0) - (createdRank.get(a) ?? 0)
+      : sort === 'za' ? b.localeCompare(a)
+      : a.localeCompare(b));
+  }, [user, query, level, sort, byName, createdRank]);
 
   if (!user) return null;
 
   const handleSelectSchool = (school: string | null) => {
+    if (isAdmin) saveRecent(user.id, school ?? ALL_SCHOOLS);
     setSelectedSchool(school);
     navigate('/');
   };
@@ -42,31 +134,242 @@ export const SchoolSelect = () => {
     navigate('/login');
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex flex-col">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#E31E24] rounded-full flex items-center justify-center shadow-sm">
-              <span className="text-white font-bold text-sm">BT</span>
-            </div>
-            <div>
-              <div className="text-lg font-bold text-[#1E40AF]">FLORAL</div>
-              <div className="text-xs text-muted-foreground -mt-0.5">Dental Health Record Management System</div>
+  const showAll = user.schools.length > 1;
+
+  // ⚠ ALL SCHOOLS, restored (Sprint 180). Sprint 67 made this a real option in
+  // the old sidebar dropdown; the Switch School page replaced that dropdown and
+  // listed only the three schools, so adopting it removed the cross-school view
+  // entirely, while a dozen screens still branch on it. FhsisReport prints the
+  // words "All schools" on a filed return, DentalChartNav shows it as the
+  // kicker, and a day note saved with no school is the barangay-wide one. It is
+  // also what the BHO STAFF ROLE IS FOR: "consolidated reports across all
+  // schools" (CLAUDE.md). ⚠ Shown only to users who actually hold every school:
+  // a school_admin pinned to one must not be offered a view across all three,
+  // and `user.schools` is already that list.
+  // ⚠ The sentinel is ALL_SCHOOLS ('__ALL__'), not null and not ''.
+  // `schoolChoiceMade` is `schoolChoice !== null`, so null means "has not chosen
+  // yet" and RootLayout bounces back here; '' is not a school name, so
+  // `schools.includes('')` fails on the next load. The context maps '__ALL__' to
+  // a null `selectedSchool`, which is what every screen reads.
+  const allSchoolsCard = (
+    <button
+      onClick={() => handleSelectSchool(ALL_SCHOOLS)}
+      className="group w-full text-left bg-card rounded-2xl border-2 border-border p-6 transition-colors hover:bg-muted/40"
+    >
+      <div className="w-full h-1.5 rounded-full mb-5 bg-primary" />
+      <div className="flex items-start justify-between mb-4">
+        <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-primary-surface">
+          <Layers className="w-6 h-6 text-primary" />
+        </div>
+      </div>
+      <h2 className="font-bold text-foreground mb-1">All schools</h2>
+      <p className="text-sm text-muted-foreground">
+        Every school at once, the view the consolidated DOH reports are filed from.
+      </p>
+    </button>
+  );
+
+  const schoolCard = (school: string) => {
+    const sc = getSchoolColor(school);
+    const rec = byName.get(school);
+    const range = rec ? schoolGradeRange(rec) : { from: '', to: '' };
+    const address = rec ? [rec.street_address, rec.barangay, rec.city].filter(Boolean).join(', ') : '';
+    const levels = range.from && range.to ? `${range.from} – ${range.to}` : '';
+    const on = active === school;
+    const soft = 'rgba(255, 255, 255, 0.22)';
+    return (
+      <button
+        key={school}
+        onClick={() => handleSelectSchool(school)}
+        onMouseEnter={() => setActive(school)}
+        onMouseLeave={() => setActive(null)}
+        onFocus={() => setActive(school)}
+        onBlur={() => setActive(null)}
+        style={{ borderColor: on ? sc.solid : sc.border, backgroundColor: on ? sc.solid : undefined }}
+        className="group w-full text-left bg-card rounded-2xl border-2 p-6 transition-colors duration-200"
+      >
+        {/* School color bar */}
+        <div style={{ backgroundColor: on ? 'rgba(255, 255, 255, 0.6)' : sc.solid }} className="w-full h-1.5 rounded-full mb-5 transition-colors duration-200" />
+
+        {/* Icon + name */}
+        <div className="flex items-start justify-between mb-4">
+          <div style={{ backgroundColor: on ? soft : sc.light }} className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors duration-200">
+            <School style={{ color: on ? '#fff' : sc.solid }} className="w-6 h-6" />
+          </div>
+          <ChevronRight style={{ color: on ? '#fff' : sc.solid }} className="w-5 h-5 mt-1 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity" />
+        </div>
+
+        <div style={{ color: on ? '#fff' : sc.text }} className="font-bold text-base leading-tight mb-1 min-h-[2.5rem] transition-colors duration-200">
+          {school}
+        </div>
+
+        <div className={`flex items-center gap-1 text-xs mt-2 transition-colors duration-200 ${on ? 'text-white/90' : 'text-muted-foreground'}`}>
+          <MapPin className="w-3 h-3 flex-shrink-0" />
+          <span>{address}</span>
+        </div>
+
+        <div className="mt-3 pt-3 border-t transition-colors duration-200" style={{ borderColor: on ? 'rgba(255, 255, 255, 0.3)' : undefined }}>
+          {levels && (
+            <span style={{ backgroundColor: on ? soft : sc.light, color: on ? '#fff' : sc.text }} className="text-xs font-medium px-2 py-1 rounded-full transition-colors duration-200">
+              {levels}
+            </span>
+          )}
+        </div>
+      </button>
+    );
+  };
+
+  const noSchools = (
+    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-8 text-center">
+      <School className="w-12 h-12 text-yellow-500 mx-auto mb-3" />
+      <h2 className="font-semibold text-yellow-800 mb-1">No School Assigned</h2>
+      <p className="text-yellow-700 text-sm">Please contact the System Administrator to assign you to a school.</p>
+    </div>
+  );
+
+  const logoutButton = (
+    <button onClick={handleLogout} className="flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-danger-surface rounded-lg transition-colors">
+      <LogOut className="w-4 h-4" />
+      <span>Logout</span>
+    </button>
+  );
+
+  const brand = (
+    <div className="flex items-center gap-3">
+      <img src="/logo.svg" alt="FLORAL" className="w-10 h-10 object-contain flex-shrink-0" />
+      <div>
+        <div className="text-lg font-bold text-[#1E40AF]">FLORAL</div>
+        <div className="text-xs text-muted-foreground -mt-0.5">Dental Health Record Management System</div>
+      </div>
+    </div>
+  );
+
+  // ── System Admin: search first, filters, recent schools, fixed-size cards ──
+  if (isAdmin) {
+    const recentTiles = recent.filter((r) => r.school === ALL_SCHOOLS ? showAll : user.schools.includes(r.school));
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex flex-col">
+        <div className="bg-white border-b border-gray-200 px-6 py-4">
+          <div className="max-w-[1400px] mx-auto flex flex-wrap items-center justify-between gap-3">
+            {brand}
+            <div className="flex items-center gap-3">
+              <div className="text-right leading-tight">
+                <div className="text-xs text-muted-foreground">Welcome back,</div>
+                <div className="text-sm font-bold text-foreground">{user.name}</div>
+              </div>
+              <span className={`px-3 py-1 text-xs rounded-full font-medium ${roleBadgeColors[user.role]}`}>{roleLabels[user.role]}</span>
+              {logoutButton}
             </div>
           </div>
-          <button onClick={handleLogout} className="flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-danger-surface rounded-lg transition-colors">
-            <LogOut className="w-4 h-4" />
-            <span>Logout</span>
-          </button>
+        </div>
+
+        <div className="flex-1 px-6 py-10">
+          <div className="max-w-[1400px] mx-auto">
+            {user.schools.length === 0 ? noSchools : (
+              <>
+                <div className="text-center">
+                  <img src="/logo.svg" alt="" aria-hidden="true" className="w-16 h-16 object-contain mx-auto" />
+                  <h1 className="mt-2 text-2xl font-bold text-foreground">Where are you working today?</h1>
+                  <p className="text-sm text-muted-foreground">
+                    {user.schools.length} school{user.schools.length === 1 ? '' : 's'} assigned to your account
+                  </p>
+                  <div className="relative mx-auto mt-5 max-w-2xl">
+                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
+                    <input
+                      type="text"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Type a school name"
+                      aria-label="Search schools"
+                      className="w-full rounded-2xl border-2 border-[#16214F] bg-white py-3.5 pl-12 pr-4 text-base text-foreground shadow-[0_8px_30px_rgba(22,33,79,0.12)] focus:outline-none focus:ring-2 focus:ring-[#16214F]/30"
+                    />
+                  </div>
+                  <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
+                    {LEVEL_CHIPS.map((c) => (
+                      <button
+                        key={c.key}
+                        onClick={() => setLevel(c.key)}
+                        aria-pressed={level === c.key}
+                        className={`rounded-full border px-4 py-2 text-[13px] font-semibold transition-colors ${
+                          level === c.key ? 'bg-[#16214F] border-[#16214F] text-white' : 'bg-white border-[#E2E8F0] text-[#475569] hover:bg-gray-50'
+                        }`}
+                      >
+                        {c.label}
+                      </button>
+                    ))}
+                    <select
+                      value={sort}
+                      onChange={(e) => setSort(e.target.value as SortMode)}
+                      aria-label="Sort schools"
+                      className="rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-[13px] font-semibold text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#16214F]/30"
+                    >
+                      <option value="az">A to Z</option>
+                      <option value="za">Z to A</option>
+                      <option value="newest">Newest first</option>
+                    </select>
+                  </div>
+                </div>
+
+                {recentTiles.length > 0 && (
+                  <div className="mt-8">
+                    <div className="mb-2.5 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">Recently opened</div>
+                    <div className="flex flex-wrap gap-3.5">
+                      {recentTiles.map((r) => {
+                        const isAll = r.school === ALL_SCHOOLS;
+                        const sc = isAll ? null : getSchoolColor(r.school);
+                        return (
+                          <button
+                            key={r.school}
+                            onClick={() => handleSelectSchool(isAll ? ALL_SCHOOLS : r.school)}
+                            className="flex w-[280px] items-center gap-3.5 rounded-2xl border border-[#E2E8F0] bg-white px-4 py-3 text-left transition-colors hover:bg-muted/40"
+                          >
+                            <span className="h-9 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: sc?.solid ?? '#273A78' }} />
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-bold" style={{ color: sc?.text ?? '#0f172a' }}>{isAll ? 'All schools' : r.school}</span>
+                              <span className="block text-xs text-muted-foreground">{openedLabel(r.at)}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-8 mb-2.5 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">
+                  All schools{visibleSchools.length !== user.schools.length ? ` (${visibleSchools.length} of ${user.schools.length})` : ''}
+                </div>
+                {/* Cards keep one fixed width and start at the left; a new school
+                    simply lands at the end and the row wraps. */}
+                <div className="grid gap-5 justify-start [grid-template-columns:repeat(auto-fill,280px)]">
+                  {showAll && !query.trim() && level === 'all' && allSchoolsCard}
+                  {visibleSchools.map(schoolCard)}
+                </div>
+                {visibleSchools.length === 0 && (
+                  <div className="mt-6 rounded-2xl border border-border bg-card px-6 py-14 text-center">
+                    <div className="text-base font-bold text-foreground">No schools match</div>
+                    <div className="mt-1 text-sm text-muted-foreground">Try a different name, or choose All.</div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Every other role: the plain picker ─────────────────────────────────────
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex flex-col">
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          {brand}
+          {logoutButton}
         </div>
       </div>
 
-      {/* Main */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
         <div className="w-full max-w-4xl">
-          {/* Welcome */}
           <div className="text-center mb-10">
             <p className="text-muted-foreground text-sm mb-1">Welcome back,</p>
             <h1 className="text-2xl font-bold text-foreground">{user.name}</h1>
@@ -78,103 +381,10 @@ export const SchoolSelect = () => {
             </p>
           </div>
 
-          {/* School Cards */}
-          {user.schools.length === 0 ? (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-8 text-center">
-              <School className="w-12 h-12 text-yellow-500 mx-auto mb-3" />
-              <h2 className="font-semibold text-yellow-800 mb-1">No School Assigned</h2>
-              <p className="text-yellow-700 text-sm">Please contact the System Administrator to assign you to a school.</p>
-            </div>
-          ) : (
+          {user.schools.length === 0 ? noSchools : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {/* ⚠ ALL SCHOOLS, restored (Sprint 180). Sprint 67 made this a
-                  real option in the old sidebar dropdown; her Switch School
-                  page replaced that dropdown and lists only the three schools,
-                  so adopting it removed the cross-school view entirely — while
-                  a dozen screens still branch on it. FhsisReport prints the
-                  words "All schools" on a filed return, DentalChartNav shows it
-                  as the kicker, and a day note saved with no school is defined
-                  as the barangay-wide one.
-
-                  It is also what the BHO STAFF ROLE IS FOR: "consolidated
-                  reports across all schools" (CLAUDE.md). Without this they can
-                  only ever see one school at a time.
-
-                  ⚠ Shown only to users who actually hold every school. A
-                  school_admin pinned to one must not be offered a view across
-                  all three, and `user.schools` is already that list. */}
-              {/* ⚠ The sentinel is ALL_SCHOOLS ('__ALL__'), not null and not ''.
-                  `schoolChoiceMade` is `schoolChoice !== null`, so null means
-                  "has not chosen yet" and RootLayout bounces back here; '' is
-                  not a school name, so `schools.includes('')` fails on the next
-                  load and the choice evaporates. The context maps '__ALL__' to
-                  a null `selectedSchool`, which is what every screen reads. */}
-              {user.schools.length > 1 && (
-                <button
-                  onClick={() => handleSelectSchool(ALL_SCHOOLS)}
-                  className="group w-full text-left bg-card rounded-2xl border-2 border-border p-6 transition-colors hover:bg-muted/40"
-                >
-                  <div className="w-full h-1.5 rounded-full mb-5 bg-primary" />
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-primary-surface">
-                      <Layers className="w-6 h-6 text-primary" />
-                    </div>
-                  </div>
-                  <h2 className="font-bold text-foreground mb-1">All schools</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Every school at once — the view the consolidated DOH reports are filed from.
-                  </p>
-                </button>
-              )}
-              {user.schools.map(school => {
-                const sc = getSchoolColor(school);
-                const rec = registry.find((r) => r.school_name === school);
-                const range = rec ? schoolGradeRange(rec) : { from: '', to: '' };
-                const address = rec ? [rec.street_address, rec.barangay, rec.city].filter(Boolean).join(', ') : '';
-                const levels = range.from && range.to ? `${range.from} – ${range.to}` : '';
-                const on = active === school;
-                const soft = 'rgba(255, 255, 255, 0.22)';
-                return (
-                  <button
-                    key={school}
-                    onClick={() => handleSelectSchool(school)}
-                    onMouseEnter={() => setActive(school)}
-                    onMouseLeave={() => setActive(null)}
-                    onFocus={() => setActive(school)}
-                    onBlur={() => setActive(null)}
-                    style={{ borderColor: on ? sc.solid : sc.border, backgroundColor: on ? sc.solid : undefined }}
-                    className="group w-full text-left bg-card rounded-2xl border-2 p-6 transition-colors duration-200"
-                  >
-                    {/* School color bar */}
-                    <div style={{ backgroundColor: on ? 'rgba(255, 255, 255, 0.6)' : sc.solid }} className="w-full h-1.5 rounded-full mb-5 transition-colors duration-200" />
-
-                    {/* Icon + name */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div style={{ backgroundColor: on ? soft : sc.light }} className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors duration-200">
-                        <School style={{ color: on ? '#fff' : sc.solid }} className="w-6 h-6" />
-                      </div>
-                      <ChevronRight style={{ color: on ? '#fff' : sc.solid }} className="w-5 h-5 mt-1 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity" />
-                    </div>
-
-                    <div style={{ color: on ? '#fff' : sc.text }} className="font-bold text-base leading-tight mb-1 min-h-[2.5rem] transition-colors duration-200">
-                      {school}
-                    </div>
-
-                    <div className={`flex items-center gap-1 text-xs mt-2 transition-colors duration-200 ${on ? 'text-white/90' : 'text-muted-foreground'}`}>
-                      <MapPin className="w-3 h-3 flex-shrink-0" />
-                      <span>{address}</span>
-                    </div>
-
-                    <div className="mt-3 pt-3 border-t transition-colors duration-200" style={{ borderColor: on ? 'rgba(255, 255, 255, 0.3)' : undefined }}>
-                      {levels && (
-                        <span style={{ backgroundColor: on ? soft : sc.light, color: on ? '#fff' : sc.text }} className="text-xs font-medium px-2 py-1 rounded-full transition-colors duration-200">
-                          {levels}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
+              {showAll && allSchoolsCard}
+              {user.schools.map(schoolCard)}
             </div>
           )}
 
