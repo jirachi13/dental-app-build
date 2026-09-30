@@ -2,24 +2,8 @@ import { useNavigate } from 'react-router';
 import { useAuth, ALL_SCHOOLS } from '../context/AuthContext';
 import { getSchoolColor } from '../utils/schoolColors';
 import { School, ChevronRight, LogOut, MapPin, Layers } from 'lucide-react';
-
-const SCHOOL_META: Record<string, { shortName: string; address: string; levels: string }> = {
-  'Bagong Tanyag Integrated School': {
-    shortName: 'Bagong Tanyag Integrated School',
-    address: 'Bagong Tanyag, Taguig City',
-    levels: 'Kinder – Grade 10',
-  },
-  'Bagong Tanyag Elementary School Annex A': {
-    shortName: 'Bagong Tanyag Elementary Annex A',
-    address: 'Bagong Tanyag, Taguig City',
-    levels: 'Grade 1 – Grade 6',
-  },
-  'South Daang Hari Elementary School Main': {
-    shortName: 'S. Daang Hari Elementary',
-    address: 'South Daang Hari, Taguig City',
-    levels: 'Grade 1 – Grade 6',
-  },
-};
+import { useSchools } from '../hooks/useSchools';
+import { schoolGradeRange } from '../utils/schoolGrades';
 
 const roleLabels: Record<string, string> = {
   dentist: 'Dentist',
@@ -40,6 +24,8 @@ const roleBadgeColors: Record<string, string> = {
 export const SchoolSelect = () => {
   const { user, setSelectedSchool, logout } = useAuth();
   const navigate = useNavigate();
+  // Address and grade range come from the School registry, not a hardcoded map.
+  const { schools: registry } = useSchools();
 
   if (!user) return null;
 
@@ -139,7 +125,10 @@ export const SchoolSelect = () => {
               )}
               {user.schools.map(school => {
                 const sc = getSchoolColor(school);
-                const meta = SCHOOL_META[school];
+                const rec = registry.find((r) => r.school_name === school);
+                const range = rec ? schoolGradeRange(rec) : { from: '', to: '' };
+                const address = rec ? [rec.street_address, rec.barangay, rec.city].filter(Boolean).join(', ') : '';
+                const levels = range.from && range.to ? `${range.from} – ${range.to}` : '';
                 return (
                   <button
                     key={school}
@@ -159,18 +148,20 @@ export const SchoolSelect = () => {
                     </div>
 
                     <div style={{ color: sc.text }} className="font-bold text-base leading-tight mb-1">
-                      {meta?.shortName || school}
+                      {school}
                     </div>
 
                     <div className="flex items-center gap-1 text-muted-foreground text-xs mt-2">
                       <MapPin className="w-3 h-3 flex-shrink-0" />
-                      <span>{meta?.address}</span>
+                      <span>{address}</span>
                     </div>
 
                     <div className="mt-3 pt-3 border-t border-border">
-                      <span style={{ backgroundColor: sc.light, color: sc.text }} className="text-xs font-medium px-2 py-1 rounded-full">
-                        {meta?.levels}
-                      </span>
+                      {levels && (
+                        <span style={{ backgroundColor: sc.light, color: sc.text }} className="text-xs font-medium px-2 py-1 rounded-full">
+                          {levels}
+                        </span>
+                      )}
                     </div>
                   </button>
                 );
