@@ -17,7 +17,11 @@ export interface ApiUser {
 export interface ApiSchool {
   _id: string;
   school_name: string;
-  school_type: string;
+  school_type?: string;
+  school_nickname?: string;
+  /** First and last grade the school offers ("Kinder", "Grade 12"). */
+  grade_from?: string;
+  grade_to?: string;
   /** Her feature, carried across with UpdateSchoolYear (Sprint 157). ⚠ NOT on
    *  our SCHOOL model yet, so it reads undefined and the dialog's manual
    *  override section stays hidden — the dialog's real job, rolling the year

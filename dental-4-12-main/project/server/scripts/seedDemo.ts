@@ -10,6 +10,9 @@ import mongoose from "mongoose";
 const SCHOOLS = [
   {
     school_name: "Bagong Tanyag Integrated School",
+    school_nickname: "BTIS",
+    grade_from: "Kinder",
+    grade_to: "Grade 10",
     school_type: "Integrated (K-Grade 10)",
     principal_name: "TBD",
     street_address: "Bagong Tanyag",
@@ -18,6 +21,9 @@ const SCHOOLS = [
   },
   {
     school_name: "Bagong Tanyag Elementary School Annex A",
+    school_nickname: "BTES Annex A",
+    grade_from: "Kinder",
+    grade_to: "Grade 6",
     school_type: "Elementary (K-Grade 6)",
     principal_name: "TBD",
     street_address: "Bagong Tanyag",
@@ -26,6 +32,9 @@ const SCHOOLS = [
   },
   {
     school_name: "South Daang Hari Elementary School Main",
+    school_nickname: "South Daang Hari",
+    grade_from: "Kinder",
+    grade_to: "Grade 6",
     school_type: "Elementary (K-Grade 6)",
     principal_name: "TBD",
     street_address: "South Daang Hari",

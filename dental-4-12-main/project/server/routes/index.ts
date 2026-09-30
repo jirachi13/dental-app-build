@@ -182,7 +182,7 @@ async function buildAdminNotifications(): Promise<{ items: AdminNotifItem[] }> {
     AuditTrail.find({ timestamp: { $gte: since } }).sort({ timestamp: -1 })
       .select("user_id action timestamp affected_record_id affected_model").lean<{ _id: unknown; user_id: unknown; action: string; timestamp: Date; affected_record_id: unknown; affected_model: string }[]>(),
     User.find({}).select("full_name last_login twofa_enabled isArchived").lean<{ _id: unknown; full_name: string; last_login: Date | null; twofa_enabled?: boolean; isArchived?: boolean }[]>(),
-    School.find({}).select("school_name principal_name isArchived").lean<{ _id: unknown; school_name: string; principal_name?: string; isArchived?: boolean }[]>(),
+    School.find({}).select("school_name isArchived").lean<{ _id: unknown; school_name: string; isArchived?: boolean }[]>(),
   ]);
   const userName = new Map(users.map((u) => [String(u._id), u.full_name]));
   const schoolName = new Map(schools.map((s) => [String(s._id), s.school_name]));
@@ -199,15 +199,6 @@ async function buildAdminNotifications(): Promise<{ items: AdminNotifItem[] }> {
       before: "", bold: `${neverIn.length} ${plural(neverIn.length, "account")}`,
       after: ` ${neverIn.length === 1 ? "has" : "have"} never signed in: ${names}${neverIn.length > 3 ? ` and ${neverIn.length - 3} more` : ""}.`,
       linkTo: "/accounts", linkLabel: "Go to User Management", at: null,
-    });
-  }
-  const noPrincipal = schools.filter((s) => !s.isArchived && (!s.principal_name || /^\s*tbd\s*$/i.test(s.principal_name)));
-  if (noPrincipal.length) {
-    items.push({
-      id: `school-no-principal-${noPrincipal.length}`, tier: "needs-action", kind: "housekeeping",
-      before: "", bold: `${noPrincipal.length} ${plural(noPrincipal.length, "school")}`,
-      after: ` ${noPrincipal.length === 1 ? "has" : "have"} no principal recorded: ${noPrincipal.map((s) => s.school_name).join(", ")}.`,
-      linkTo: "/schools", linkLabel: "Go to Schools", at: null,
     });
   }
 

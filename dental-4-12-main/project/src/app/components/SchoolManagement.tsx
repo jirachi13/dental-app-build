@@ -10,28 +10,29 @@ import { PageHeader } from './PageHeader';
 import { useToast } from './Toast';
 import { Modal } from './Modal';
 import { getSchoolShortName } from '../utils/schoolColors';
+import { SCHOOL_GRADES, schoolGradeLabel, schoolGradeRange } from '../utils/schoolGrades';
 
 // ─── School registry (System Admin) ──────────────────────────────────────────
 // The three schools existed only in a seeder and in five hardcoded arrays
 // across the UI. Admin could assign staff to a school but could not add one,
 // and a school created through the API appeared in no form.
 //
-// Every field here is required by the STUDENT-facing School model, so the form
-// asks for all of them rather than writing blanks — see CLAUDE.md's rule about
-// placeholders.
+// The form asks only for what the app uses: name, nickname, grade range,
+// barangay and an optional address. City is fixed to Taguig City, the only city
+// the system covers. School type and principal were dropped (2026-09-30).
 //
 // Archive, not delete: School carries the standard soft-delete fields and
 // crudFactory locks both archive and restore to System Admin. Nothing is ever
 // removed, so a school with historical records keeps them.
 
-const SCHOOL_TYPES = ['Integrated School', 'Elementary School', 'High School'];
-
 const emptyForm = {
   school_name: '',
-  school_type: SCHOOL_TYPES[0],
-  principal_name: '',
+  school_nickname: '',
+  grade_from: 'Kinder',
+  grade_to: 'Grade 6',
   street_address: '',
   barangay: 'Tanyag',
+  // Fixed: Taguig City is the only city the system covers.
   city: 'Taguig City',
   allow_school_year_override: false,
 };
@@ -59,11 +60,12 @@ export const SchoolManagement = () => {
     setEditing(s);
     setForm({
       school_name: s.school_name ?? '',
-      school_type: s.school_type ?? SCHOOL_TYPES[0],
-      principal_name: s.principal_name ?? '',
+      school_nickname: s.school_nickname ?? '',
+      grade_from: schoolGradeRange(s).from || emptyForm.grade_from,
+      grade_to: schoolGradeRange(s).to || emptyForm.grade_to,
       street_address: s.street_address ?? '',
       barangay: s.barangay ?? '',
-      city: s.city ?? '',
+      city: emptyForm.city,
       allow_school_year_override: s.allow_school_year_override ?? false,
     });
     setFormError(null);
@@ -76,14 +78,14 @@ export const SchoolManagement = () => {
     // message leaves the user hunting for which box is empty.
     const missing = (Object.entries({
       'School name': form.school_name,
-      'School type': form.school_type,
-      'Principal name': form.principal_name,
-      'Street address': form.street_address,
       Barangay: form.barangay,
-      City: form.city,
     }) as [string, string][]).filter(([, v]) => !v.trim()).map(([k]) => k);
     if (missing.length) {
       setFormError(`Please fill in: ${missing.join(', ')}.`);
+      return;
+    }
+    if (SCHOOL_GRADES.indexOf(form.grade_from) > SCHOOL_GRADES.indexOf(form.grade_to)) {
+      setFormError('Grades From must come before Grades To.');
       return;
     }
     setSubmitting(true);
@@ -121,13 +123,16 @@ export const SchoolManagement = () => {
 
   if (loading) return <><SkeletonPageHeader /><SkeletonTable rows={4} /></>;
 
-  const field = 'w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring';
+  const field = 'w-full px-4 py-3 text-sm text-[#475569] bg-[#F8FAFC] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#16214F]/30';
+  const fieldStyle = { border: '1px solid #E2E8F0' } as const;
+  const label = 'block text-sm font-bold text-foreground mb-1.5';
 
-  const countType = (word: string) => schools.filter((s) => (s.school_type ?? '').toLowerCase().includes(word)).length;
+  // Elementary = the school stops at Grade 6 or earlier; Integrated = it goes past Grade 6.
+  const topGrade = (sc: ApiSchool) => SCHOOL_GRADES.indexOf(schoolGradeRange(sc).to);
   const stats = [
     { label: 'Total Schools', value: schools.length, bg: '#E8ECF6', fg: '#273A78' },
-    { label: 'Elementary', value: countType('elementary'), bg: '#ECFDF5', fg: '#047857' },
-    { label: 'Integrated', value: countType('integrated'), bg: '#FFFBEB', fg: '#B45309' },
+    { label: 'Elementary', value: schools.filter((sc) => topGrade(sc) >= 0 && topGrade(sc) <= 6).length, bg: '#ECFDF5', fg: '#047857' },
+    { label: 'Integrated', value: schools.filter((sc) => topGrade(sc) > 6).length, bg: '#FFFBEB', fg: '#B45309' },
   ];
   const th = 'px-6 py-3 text-left text-[12.5px] font-bold text-[#94A3B8] uppercase tracking-wider';
   const td = 'px-6 py-4 text-sm text-foreground';
@@ -190,8 +195,7 @@ export const SchoolManagement = () => {
               <thead className="bg-gray-50 border-b border-border">
                 <tr>
                   <th className={th}>School</th>
-                  <th className={th}>Type</th>
-                  <th className={th}>Principal</th>
+                  <th className={th}>Grades</th>
                   <th className={th}>Address</th>
                   <th className={`${th} text-right`}>Actions</th>
                 </tr>
@@ -204,14 +208,15 @@ export const SchoolManagement = () => {
                         <span className="w-11 h-11 flex-shrink-0 rounded-xl grid place-items-center bg-[#F4F7FF] text-[#273A78] text-sm font-bold">{s.school_name.trim().charAt(0).toUpperCase()}</span>
                         <div className="min-w-0">
                           <div className="text-base font-bold text-foreground">{s.school_name}</div>
-                          <div className="text-sm text-muted-foreground">{getSchoolShortName(s.school_name)}</div>
+                          <div className="text-sm text-muted-foreground">{s.school_nickname || getSchoolShortName(s.school_name)}</div>
                         </div>
                       </div>
                     </td>
                     <td className={`${td} whitespace-nowrap`}>
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#DCE3F5] bg-[#F4F7FF] text-xs font-bold text-[#273A78]">{s.school_type}</span>
+                      {schoolGradeLabel(s) && (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#DCE3F5] bg-[#F4F7FF] text-xs font-bold text-[#273A78]">{schoolGradeLabel(s)}</span>
+                      )}
                     </td>
-                    <td className={`${td} text-muted-foreground`}>{s.principal_name}</td>
                     <td className={`${td} text-xs text-muted-foreground`}>{[s.street_address, s.barangay, s.city].filter(Boolean).join(', ')}</td>
                     <td className={`${td} text-right whitespace-nowrap`}>
                       <button
@@ -234,61 +239,71 @@ export const SchoolManagement = () => {
       </div>
 
       {showForm && (
-        <Modal onClose={() => setShowForm(false)} closeDisabled={submitting}>
-          <div className="p-6 space-y-4 max-w-lg">
-            <h2 className="text-base font-bold text-foreground">{editing ? 'Edit School' : 'Add School'}</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-foreground mb-1" htmlFor="sm-name">School Name *</label>
-                <input id="sm-name" className={field} value={form.school_name}
-                  onChange={(e) => setForm({ ...form, school_name: e.target.value })} />
-              </div>
+        <Modal onClose={() => setShowForm(false)} maxWidth="max-w-xl" rounded="rounded-2xl" closeDisabled={submitting}>
+          <div className="overflow-hidden rounded-2xl">
+            <div className="flex items-center gap-4 bg-[#F4F7FF] px-7 py-6 border-b border-border">
+              <span className="w-12 h-12 flex-shrink-0 rounded-xl grid place-items-center bg-white text-[#273A78]"><SchoolIcon className="w-5 h-5" /></span>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1" htmlFor="sm-type">School Type *</label>
-                <select id="sm-type" className={field} value={form.school_type}
-                  onChange={(e) => setForm({ ...form, school_type: e.target.value })}>
-                  {SCHOOL_TYPES.map((t) => <option key={t}>{t}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1" htmlFor="sm-principal">Principal Name *</label>
-                <input id="sm-principal" className={field} value={form.principal_name}
-                  onChange={(e) => setForm({ ...form, principal_name: e.target.value })} />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-foreground mb-1" htmlFor="sm-street">Street Address *</label>
-                <input id="sm-street" className={field} value={form.street_address}
-                  onChange={(e) => setForm({ ...form, street_address: e.target.value })} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1" htmlFor="sm-brgy">Barangay *</label>
-                <input id="sm-brgy" className={field} value={form.barangay}
-                  onChange={(e) => setForm({ ...form, barangay: e.target.value })} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1" htmlFor="sm-city">City *</label>
-                <input id="sm-city" className={field} value={form.city}
-                  onChange={(e) => setForm({ ...form, city: e.target.value })} />
+                <h2 className="text-xl font-bold text-foreground">{editing ? 'Edit School' : 'Add School'}</h2>
+                <div className="text-sm text-muted-foreground">Every school dropdown in the app reads this list.</div>
               </div>
             </div>
-            {/* ⚠ The "Allow school-year rollover anytime" toggle is GONE
-                (Sprint 187). Sprint 185 removed the March–August window it
-                governed, so it gated nothing and its own description named a
-                rule that no longer exists — a control that looks like it does
-                something and cannot. Found by opening this screen as a System
-                Admin for the first time since the redesign.
-
-                `allow_school_year_override` stays on the SCHOOL model for now,
-                unread. A dead checkbox misleads; an unused column does not. */}
-            {formError && <Notice variant="error">{formError}</Notice>}
-            <div className="flex gap-3 pt-1">
+            <div className="p-7 space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5">
+                <div className="sm:col-span-2">
+                  <label className={label} htmlFor="sm-name">School Name *</label>
+                  <input id="sm-name" className={field} style={fieldStyle} value={form.school_name}
+                    onChange={(e) => setForm({ ...form, school_name: e.target.value })} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className={label} htmlFor="sm-nick">School Nickname</label>
+                  <input id="sm-nick" className={field} style={fieldStyle} value={form.school_nickname}
+                    placeholder="e.g. BTIS, Southdaanghari"
+                    onChange={(e) => setForm({ ...form, school_nickname: e.target.value })} />
+                </div>
+                <div>
+                  <label className={label} htmlFor="sm-from">Grades From *</label>
+                  <select id="sm-from" className={field} style={fieldStyle} value={form.grade_from}
+                    onChange={(e) => setForm({ ...form, grade_from: e.target.value })}>
+                    {SCHOOL_GRADES.map((g) => <option key={g}>{g}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={label} htmlFor="sm-to">Grades To *</label>
+                  <select id="sm-to" className={field} style={fieldStyle} value={form.grade_to}
+                    onChange={(e) => setForm({ ...form, grade_to: e.target.value })}>
+                    {SCHOOL_GRADES.map((g) => <option key={g}>{g}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={label} htmlFor="sm-brgy">Barangay *</label>
+                  <input id="sm-brgy" className={field} style={fieldStyle} value={form.barangay}
+                    onChange={(e) => setForm({ ...form, barangay: e.target.value })} />
+                </div>
+                <div>
+                  <label className={label} htmlFor="sm-city">City</label>
+                  <input id="sm-city" className={`${field} cursor-not-allowed opacity-60`} style={fieldStyle} value={form.city} disabled readOnly />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className={label} htmlFor="sm-street">School Address <span className="font-normal text-muted-foreground">(optional)</span></label>
+                  <input id="sm-street" className={field} style={fieldStyle} value={form.street_address}
+                    onChange={(e) => setForm({ ...form, street_address: e.target.value })} />
+                </div>
+              </div>
+              {/* ⚠ The "Allow school-year rollover anytime" toggle is GONE
+                  (Sprint 187). Sprint 185 removed the March–August window it
+                  governed, so it gated nothing. `allow_school_year_override`
+                  stays on the SCHOOL model, unread. */}
+              {formError && <Notice variant="error">{formError}</Notice>}
+            </div>
+            <div className="flex justify-end gap-2.5 border-t border-border px-7 py-5">
               <button onClick={() => setShowForm(false)} disabled={submitting}
-                className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-gray-50 text-sm font-medium disabled:opacity-50">
+                className="rounded-xl border border-[#CBD5E1] px-5 py-2.5 text-sm font-semibold text-foreground hover:bg-gray-50 disabled:opacity-60">
                 Cancel
               </button>
               <button onClick={submit} disabled={submitting}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50">
-                {submitting ? 'Saving…' : editing ? 'Save Changes' : 'Add School'}
+                className="rounded-xl bg-[#273A78] px-5 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-60">
+                {submitting ? 'Saving...' : editing ? 'Save Changes' : 'Add School'}
               </button>
             </div>
           </div>

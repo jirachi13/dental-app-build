@@ -10,6 +10,7 @@ import { useToast } from './Toast';
 import { formatDateTime } from '../utils/localDate';
 import { surnameFirst } from '../utils/studentName';
 import { ROLE_LABELS } from '../hooks/useUsers';
+import { schoolGradeLabel } from '../utils/schoolGrades';
 
 // ─── Archived records (System Admin) ─────────────────────────────────────────
 // CLAUDE.md lists "restore archived records" as a System Admin capability and
@@ -68,9 +69,9 @@ const KINDS: Kind[] = [
     pill: { bg: '#ECFEFF', fg: '#0E7490', border: '#A5F3FC' },
     path: '/schools',
     describe: (r: ApiSchool) => r.school_name,
-    detail: (r: ApiSchool) => [r.school_type, r.barangay, r.city].filter(Boolean).join(', '),
+    detail: (r: ApiSchool) => [schoolGradeLabel(r), r.barangay, r.city].filter(Boolean).join(', '),
     facts: (r: ApiSchool) => [
-      ['Type', r.school_type ?? ''],
+      ['Grades', schoolGradeLabel(r)],
       ['Location', [r.barangay, r.city].filter(Boolean).join(', ')],
     ],
   },
