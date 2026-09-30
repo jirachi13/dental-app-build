@@ -178,6 +178,22 @@ unblocks SEC-03/SEC-19 live checks), **SEC-30** (one Render dashboard look), **B
 DOH form's referral rows), plus SEC-04, BUG-05/06/08 and the `dohAggregate.ts:207`
 duplicate, all of which need reading before scoping.
 
+### ▶ CLASSMATE'S `majorUpdates` BRANCH — reviewed 2026-09-30, NOT merged
+
+Fetched as remote `classmate` (`peanutbutterjelly03/dental-app-build`, read-only). Branched from
+our `3c23d2cb` (09-14 park); **589 commits, 09-22→09-30, 105 files, +12,983/−3,588**; ours since
+then: 16. Trial merge (`git merge-tree`): **5 textual conflicts** — `server/routes/index.ts`,
+`DentalChart.tsx` (hers +1,432/−623, largely INSIDE the TAB 2 panel we moved to
+`DentalChartTab.tsx` in 162d), `DentalChartNav.tsx`, `PatientList.tsx`, `TreatmentRecords.tsx`.
+11 other shared files auto-merge but need reading (Dashboard, dohAggregate, TargetClientList,
+IptrForm/V2, useAppointments, iptrDrafts, authController, CLAUDE.md, DATA-MODEL.md, HANDOFF.md).
+**Needs user decisions before merging** (flagged against CLAUDE.md): School Rotation UI revived
+(removed 09-07 as non-ERD) · `Student.is_not_student` (non-student patients — Chapter 3 scope) ·
+one-dentist/one-aide-per-school API rule (`oneStaffPerSchool.ts`) · `Appointment.
+guardian_contact_number` REQUIRED (existing appointments lack it → their next save fails
+validation) · MedicalHistory +20 fields, 7 encrypted (CLAUDE.md encryption list must grow).
+Plan: merge on a separate branch, never straight to `main`.
+
 ### ▶ PLANNED: Sprint 163 — non-clinical roles stop reading clinical data (SEC-03/19/20/33/34)
 
 **Scoped 2026-09-29 on Opus high; nothing changed yet.** The load-bearing check is written up in
