@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Brain, ChevronDown, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router';
 import { apiClient } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useRiskClassification, type RiskCandidate } from '../hooks/useRiskClassification';
@@ -60,7 +61,17 @@ export const AIAnalytics = () => {
   const { user, selectedSchool } = useAuth();
   const isDentist = user?.role === 'dentist';
 
-  const [tab, setTab] = useState<Tab>('needs_review');
+  // `?student=<id>` = one pupil, opened from the Students list's Risk card;
+  // `?tab=` = a tab to open on (the Notifications link). Read from the URL so
+  // following either link while already on this page still takes effect.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const studentId = searchParams.get('student') ?? '';
+  const urlTab = TABS.find((t) => t.key === searchParams.get('tab'))?.key;
+  const [tab, setTab] = useState<Tab>(studentId ? 'all' : urlTab ?? 'needs_review');
+  useEffect(() => {
+    if (studentId) setTab('all');
+    else if (urlTab) setTab(urlTab);
+  }, [studentId, urlTab]);
   const [q, setQ] = useState('');
   const [grade, setGrade] = useState('all');
   const [risk, setRisk] = useState('all');
@@ -76,10 +87,11 @@ export const AIAnalytics = () => {
   const [bulk, setBulk] = useState<{ done: number; total: number; failed: number } | null>(null);
 
   // Any filter change goes back to page 1: page 3 of a smaller set may not exist.
-  useEffect(() => { setPage(0); }, [tab, q, grade, risk, section, gender, ageGroup, sort, selectedSchool]);
+  useEffect(() => { setPage(0); }, [tab, q, grade, risk, section, gender, ageGroup, sort, selectedSchool, studentId]);
 
   const { candidates, total, counts, statusCounts, gradeOptions, sectionOptions, loading, error, reload } = useRiskClassification({
     q,
+    studentId,
     school: selectedSchool ?? '',
     grade,
     section,
@@ -204,6 +216,17 @@ export const AIAnalytics = () => {
           </div>
 
           <div className="rounded-2xl border border-border bg-card">
+            {studentId && (
+              <div className="flex flex-col gap-2 border-b border-border bg-primary-surface px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-foreground">
+                  Showing <strong>{candidates[0]?.name ?? 'one student'}</strong> from the Students list.{' '}
+                  <button type="button" onClick={() => setSearchParams({})} className="font-semibold text-primary hover:underline">
+                    Show all students
+                  </button>
+                </div>
+                <Link to="/patients"className="font-semibold text-primary hover:underline">← Back to Students</Link>
+              </div>
+            )}
             {/* Filters */}
             <div className="flex flex-col gap-2 p-4 sm:flex-row sm:flex-wrap">
               <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by student name"

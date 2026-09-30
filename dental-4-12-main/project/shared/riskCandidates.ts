@@ -168,6 +168,50 @@ function calcAge(birthday: string, now: number): number {
   return Math.max(0, Math.floor((now - b.getTime()) / (365.25 * 24 * 3600 * 1000)));
 }
 
+/** A risk row as the status rule needs it. */
+export interface ReviewRow {
+  _id?: string;
+  risk_level: 'High' | 'Medium' | 'Low';
+  model_risk_level?: 'High' | 'Medium' | 'Low' | null;
+  model_confidence?: number | null;
+  validated_by_dentist?: boolean;
+  validated_at?: string | Date | null;
+}
+
+export interface ReviewSummary {
+  status: RiskReviewStatus;
+  /** What to show: the dentist's level if reviewed, the suggestion if waiting. */
+  level: 'High' | 'Medium' | 'Low' | null;
+  reviewedAt: string | null;
+  /** The waiting suggestion's row, when status is needs_review. */
+  pending: ReviewRow | null;
+}
+
+/**
+ * THE review-status rule (2026-10-01), shared by Risk Classification and the
+ * Students list so they can never disagree about a pupil. Judged on the
+ * LATEST RPC visit: a validated row there = reviewed; otherwise an unvalidated
+ * one = needs review; otherwise not checked. No visit at all = no_visit.
+ */
+export function reviewSummary(hasVisit: boolean, rowsOnLatestVisit: ReviewRow[]): ReviewSummary {
+  if (!hasVisit) return { status: 'no_visit', level: null, reviewedAt: null, pending: null };
+  const validated = rowsOnLatestVisit.filter((r) => r.validated_by_dentist === true);
+  const lastValidated = validated[validated.length - 1];
+  if (lastValidated) {
+    const at = lastValidated.validated_at;
+    return {
+      status: 'reviewed',
+      level: lastValidated.risk_level,
+      reviewedAt: at ? new Date(at).toISOString() : null,
+      pending: null,
+    };
+  }
+  const pending = rowsOnLatestVisit.filter((r) => r.validated_by_dentist !== true);
+  const newest = pending[pending.length - 1];
+  if (newest) return { status: 'needs_review', level: newest.model_risk_level ?? newest.risk_level, reviewedAt: null, pending: newest };
+  return { status: 'not_checked', level: null, reviewedAt: null, pending: null };
+}
+
 export function buildRiskCandidates(input: RiskCandidatesInput): RiskCandidate[] {
   const { students, schools, iptrs, charts, toothRecords, orals, dietaries, preventives, risks } = input;
   const now = input.now ?? Date.now();
@@ -250,15 +294,11 @@ export function buildRiskCandidates(input: RiskCandidatesInput): RiskCandidate[]
     // ── Review status + stored suggestion, judged on the LATEST visit ──
     const latestVisit = studentPreventives.length ? studentPreventives[studentPreventives.length - 1] : null;
     const latestRows = latestVisit ? riskByPreventive.get(latestVisit._id) ?? [] : [];
-    const pending = latestRows.filter((r) => r.validated_by_dentist !== true);
-    const newestPending = pending[pending.length - 1];
-    const status: RiskReviewStatus = !latestVisit
-      ? 'no_visit'
-      : latestRows.some((r) => r.validated_by_dentist === true)
-        ? 'reviewed'
-        : newestPending ? 'needs_review' : 'not_checked';
-    const suggestion = status === 'needs_review' && newestPending
-      ? { id: newestPending._id, level: newestPending.model_risk_level ?? newestPending.risk_level, confidence: newestPending.model_confidence ?? null }
+    const summary = reviewSummary(!!latestVisit, latestRows);
+    const status = summary.status;
+    const pendingRow = summary.pending as RiskStrat | null;
+    const suggestion = pendingRow
+      ? { id: pendingRow._id, level: pendingRow.model_risk_level ?? pendingRow.risk_level, confidence: pendingRow.model_confidence ?? null }
       : null;
 
     // ── The caries columns: latest school year, latest charting WITH records ──
@@ -334,6 +374,8 @@ import { calculateAge, getAgeGroup } from './age.js';
 
 export interface RiskListQuery {
   q?: string;
+  /** One pupil, opened from the Students list's Risk chip (2026-10-01). */
+  studentId?: string;
   /** ⚠ The school context ALSO had to move here. The page scoped by school in
    *  the browser; leaving that client-side while paging server-side would have
    *  shown "page 1 of the whole roll, minus the other schools" — a page count
@@ -390,6 +432,7 @@ function priorityRank(c: RiskCandidate): number {
 export function filterRiskCandidates(all: RiskCandidate[], query: RiskListQuery): RiskListPage {
   const q = (query.q ?? '').toLowerCase();
   const matches = (c: RiskCandidate) => {
+    if (query.studentId && c.id !== query.studentId) return false;
     if (q && !c.name.toLowerCase().includes(q)) return false;
     if (query.school && c.school !== query.school) return false;
     if (query.grade && query.grade !== 'all' && c.grade !== query.grade) return false;

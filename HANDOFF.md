@@ -142,6 +142,20 @@ Dropped from the old page (her design has none): per-pupil trend tiles, history 
 bulk assess (replaced by "Check risk for the N on this page" on the Not checked tab). Not tested:
 "Check risk now" with the ML service awake (it was asleep), phone width, non-dentist "View".
 **Still NOT on `main`:** merging R1+R2 makes live dashboard risk figures drop until reviewed.
+✅ **R3 DONE 2026-10-01 on branch `risk-redesign`** — Students list (`/patients`) gets a Risk column
+(`components/risk/StudentRiskChip.tsx`): solid level + "✓ Reviewed · date", dashed level + "Needs
+review" (opens her card: visit, suggestion + confidence, Findings, "Not counted in reports…", Review
+now → the SAME `RiskReviewDialog`, Open in Risk Classification → `/ai-analytics?student=<id>` with
+"Show all students" + "← Back to Students"). `/stats/student-rows` returns `riskReview` via the new
+shared `reviewSummary` (same rule as the Risk page; `riskLevel` still validated-only). Notifications'
+risk link → `?tab=needs_review`. **Found and fixed:** the bell counted every unvalidated ROW (20 on
+dev) while the tab it opens counts PUPILS on their latest visit (10); now uses `reviewSummary` —
+verified 10=10 (BTIS) and 19=19 (all schools). The chip cell stops click AND keydown propagation:
+the row is `activatable`, so a Space typed in the review notes would otherwise preventDefault and
+navigate to the chart. Tested LIVE on DEV as the dentist incl. a real save from the Students list
+(Morales, Juan → "✓ Reviewed"). tsc both, 140/140 tests. Not tested: phone width, non-dentist view.
+**NEXT:** send the classmate the Vercel PREVIEW link for branch `risk-redesign`; after her OK, merge
+R1+R2+R3 to `main` together, deploy, verify live (expect dashboard risk figures to drop until reviewed).
 
 **R1 — data + server (no UI change; build first):**
 1. `shared/cariesStatus.ts` — the DOH workbook's "Yes or No - Caries Experience" group from tooth

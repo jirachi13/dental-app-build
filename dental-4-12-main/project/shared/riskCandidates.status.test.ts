@@ -3,7 +3,7 @@
 // caries columns. Judged on the LATEST RPC visit.
 
 import { describe, it, expect } from 'vitest';
-import { buildRiskCandidates, type RiskCandidatesInput, type RiskStrat } from './riskCandidates';
+import { buildRiskCandidates, filterRiskCandidates, reviewSummary, type RiskCandidatesInput, type RiskStrat } from './riskCandidates';
 
 function input(over: Partial<RiskCandidatesInput> = {}): RiskCandidatesInput {
   return {
@@ -76,5 +76,30 @@ describe('caries columns and teeth come from the latest charting WITH records', 
 
   it('nothing charted: caries-free teeth is null ("—" on screen), not 0', () => {
     expect(row().caries.cariesFreeTeeth).toBeNull();
+  });
+});
+
+// R3: the Students list's Risk chip uses reviewSummary directly, so it must
+// agree with the Risk Classification row built from the same data.
+describe('reviewSummary (Students list chip)', () => {
+  it('shows the suggestion level while it waits, the dentist level once reviewed', () => {
+    expect(reviewSummary(true, [{ risk_level: 'High', model_risk_level: 'Medium', validated_by_dentist: false }]))
+      .toMatchObject({ status: 'needs_review', level: 'Medium', reviewedAt: null });
+    expect(reviewSummary(true, [
+      { risk_level: 'High', validated_by_dentist: false },
+      { risk_level: 'Low', validated_by_dentist: true, validated_at: '2026-10-01T02:00:00.000Z' },
+    ])).toMatchObject({ status: 'reviewed', level: 'Low', reviewedAt: '2026-10-01T02:00:00.000Z' });
+  });
+
+  it('no visit and no rows are different states', () => {
+    expect(reviewSummary(false, []).status).toBe('no_visit');
+    expect(reviewSummary(true, []).status).toBe('not_checked');
+  });
+
+  it('studentId narrows the list to one pupil', () => {
+    const base = input();
+    const all = buildRiskCandidates({ ...base, students: [...base.students, { ...base.students[0], _id: 'st2', last_name: 'Bautista' }] });
+    expect(filterRiskCandidates(all, {}).total).toBe(2);
+    expect(filterRiskCandidates(all, { studentId: 'st2' }).rows.map((r) => r.id)).toEqual(['st2']);
   });
 });

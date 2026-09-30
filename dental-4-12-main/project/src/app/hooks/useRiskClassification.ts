@@ -43,6 +43,7 @@ export function useRiskClassification(query: RiskListQuery = {}) {
       const q: RiskListQuery = JSON.parse(key);
       const params = new URLSearchParams();
       if (q.q) params.set('q', q.q);
+      if (q.studentId) params.set('student_id', q.studentId);
       if (q.school) params.set('school', q.school);
       if (q.grade && q.grade !== 'all') params.set('grade', q.grade);
       if (q.section && q.section !== 'all') params.set('section', q.section);
