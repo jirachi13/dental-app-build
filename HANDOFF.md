@@ -190,7 +190,17 @@ unblocks SEC-03/SEC-19 live checks), **SEC-30** (one Render dashboard look), **B
 DOH form's referral rows), plus SEC-04, BUG-05/06/08 and the `dohAggregate.ts:207`
 duplicate, all of which need reading before scoping.
 
-### ▶ CLASSMATE'S `majorUpdates` BRANCH — reviewed 2026-09-30, NOT merged
+### ▶ MERGED on branch `merge-majorUpdates` (2026-09-30, `a3ee3ac5`) — NOT on `main` yet
+
+All three decisions KEPT (Rotation, non-student patients, one staff per school — see CLAUDE.md).
+tsc both, `npm test` 111/111, build clean. **Before merging to `main`:** (1) browser pass of her
+screens; (2) redo the 162d panel split on her `DentalChart.tsx` as its OWN commit (`DentalChartTab`
+/`ToothButton` were dropped in the merge — they held the pre-her-changes panel); (3) decide the
+year strip on an uncharted year: hers prints `DMFT 0 · dmft 0` ("user, 2026-09-25"), which reverses
+the 09-14 BUG-12 call ("empty shows not recorded") and CLAUDE.md's no-filler-number rule.
+⚠ On the other machine: `git fetch && git checkout merge-majorUpdates && npm ci` (deps changed).
+
+#### Review notes (kept for the record)
 
 Fetched as remote `classmate` (`peanutbutterjelly03/dental-app-build`, read-only). Branched from
 our `3c23d2cb` (09-14 park); **589 commits, 09-22→09-30, 105 files, +12,983/−3,588**; ours since
