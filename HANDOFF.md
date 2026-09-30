@@ -73,9 +73,15 @@ grid confidence 75. `utils/iptrCheckboxes.test.ts` (2) fails on the old code ("N
    swallowed; must now surface), then POST `/medical-histories`, `/dietary-social-habits`,
    `/oral-health-conditions` with `{ iptr_id, <field>: true }` for accepted findings, same body shapes
    as `DentalChart.tsx` ~1204-1223. Offline queue: check how those POSTs behave offline.
-4. DECISIONS for the user first: (a) accept boxes default UNCHECKED (recommended: CLAUDE.md "findings
-   shown for review, never auto-applied") or checked; (b) which Year column is THIS school year (a new
-   pupil = Year 1; recommend a select defaulting to the only column with ticks).
+4. ✅ DECIDED by the user 2026-10-01: (a) accept boxes default UNCHECKED; (b) a Year select that
+   defaults to the column carrying ticks (a new pupil = Year 1).
+   Field facts checked for step 3: every tick row maps to a BOOLEAN except the text rows,
+   `allergies` / `others` / `last_admission` (MEDICAL_HISTORY, String; allergies, others and
+   last_admission are ENCRYPTED) and oral `others` (String). A tick on a text row must NOT write "true"
+   into a string: skip it and tell the encoder to type the details on the chart. Oral POST needs
+   `oral_hygiene` (chart sends 'Not assessed' when blank). Dietary body keys = the model's own names
+   (sugar_beverages, alcohol_drinker, tobacco_user, betel_nut_chewer, body_piercing, nail_biting,
+   thumb_sucking), same as IPTR_FORM_ROWS `field`.
 5. Verify with a drawn-tick copy of the blank IPTR PDF (see the grid-fix note above), then a unit test.
 **Older note, superseded by the plan above: the tick TABLES.** (1) The Year 1-5 grid findings are computed
 but DROPPED: `ScanStudentForm.tsx` never passes `result.checkboxes` to Verify (lost when OCR moved
