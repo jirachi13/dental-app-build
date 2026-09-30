@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X as XIcon, Plus, Edit, Power, Search, KeyRound, Mail, UserCog, Users, UserCheck, UserX, Filter, CheckCircle, User as UserIcon, Shield } from 'lucide-react';
+import { Calendar, X as XIcon, Plus, Edit, Power, Search, KeyRound, Mail, UserCog, Users, UserCheck, UserX, Filter, CheckCircle, User as UserIcon, Shield } from 'lucide-react';
 import { PageHeader } from './PageHeader';
 import { useUsers, ROLE_LABELS } from '../hooks/useUsers';
 import { apiClient, ApiError } from '../api/client';
@@ -590,7 +590,12 @@ export const AccountManagement = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                    {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : ''}
+                    {user.createdAt && (
+                      <span className="inline-flex items-center gap-2">
+                        <Calendar className="w-3.5 h-3.5 text-[#94A3B8]" />
+                        {new Date(user.createdAt).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-xs text-muted-foreground">
                     {user.school}
