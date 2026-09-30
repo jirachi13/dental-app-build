@@ -147,7 +147,7 @@ export const SchoolSelect = () => {
                       <ChevronRight style={{ color: sc.solid }} className="w-5 h-5 mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
 
-                    <div style={{ color: sc.text }} className="font-bold text-base leading-tight mb-1">
+                    <div style={{ color: sc.text }} className="font-bold text-base leading-tight mb-1 min-h-[2.5rem]">
                       {school}
                     </div>
 
