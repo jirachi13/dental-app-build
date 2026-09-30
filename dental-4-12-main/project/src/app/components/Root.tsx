@@ -733,7 +733,7 @@ export const Root = () => {
                     : 'text-white/70 hover:bg-white/10 hover:text-white'
                 }`}
               >
-                <Bell className="w-4 h-4" />
+                <Bell className="w-[1.125rem] h-[1.125rem]" />
                 {notifTotal > 0 && (
                   <span className="absolute -right-1 -top-1 min-w-[1.0625rem] rounded-full bg-danger-surface px-1 text-center text-[0.625rem] font-bold leading-[1.0625rem] tabular-nums text-destructive">
                     {notifTotal > 99 ? '99+' : notifTotal}
