@@ -389,7 +389,7 @@ export const SchoolSelect = () => {
               )}
 
               <div className="mt-8 mb-2.5 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">
-                {isAdmin ? 'All schools' : 'Your schools'}{visibleSchools.length !== user.schools.length ? ` (${visibleSchools.length} of ${user.schools.length})` : ''}
+                {isAdmin ? 'All schools' : 'Assigned Schools'}{visibleSchools.length !== user.schools.length ? ` (${visibleSchools.length} of ${user.schools.length})` : ''}
               </div>
               {/* Cards keep one fixed width and start at the left; a new school
                   simply lands at the end and the row wraps. */}
