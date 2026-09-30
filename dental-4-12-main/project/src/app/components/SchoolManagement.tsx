@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Plus, Edit, Archive, School as SchoolIcon } from 'lucide-react';
 import { useSchools } from '../hooks/useSchools';
 import { apiClient, ApiError } from '../api/client';
-import type { ApiSchool } from '../api/types';
+import type { ApiSchool, ApiUser } from '../api/types';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Notice } from './Notice';
@@ -37,6 +37,11 @@ const emptyForm = {
   allow_school_year_override: false,
 };
 
+// The dentist and the dental aide assigned to a school are chosen in the form
+// but stored on the USER (`school_ids`), the list that decides which schools an
+// account can open. They are not fields of the school.
+const emptyStaff = { dentist_id: '', aide_id: '' };
+
 export const SchoolManagement = () => {
   const { schools, loading, error, reload } = useSchools();
   const toast = useToast();
@@ -44,19 +49,47 @@ export const SchoolManagement = () => {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<ApiSchool | null>(null);
   const [form, setForm] = useState({ ...emptyForm });
+  const [staff, setStaff] = useState({ ...emptyStaff });
+  // Staff assigned when the form opened, to tell what changed on save.
+  const [staffAtOpen, setStaffAtOpen] = useState({ ...emptyStaff });
+  const [users, setUsers] = useState<ApiUser[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState<ApiSchool | null>(null);
   const [archiving, setArchiving] = useState(false);
 
-  const openCreate = () => {
+  // Fresh list every time the form opens, so a just-created account appears.
+  const loadUsers = async () => {
+    try {
+      const list = await apiClient.get<ApiUser[]>('/users');
+      setUsers(list);
+      return list;
+    } catch {
+      setUsers([]);
+      return [] as ApiUser[];
+    }
+  };
+
+  const openCreate = async () => {
+    await loadUsers();
     setEditing(null);
     setForm({ ...emptyForm });
+    setStaff({ ...emptyStaff });
+    setStaffAtOpen({ ...emptyStaff });
     setFormError(null);
     setShowForm(true);
   };
 
-  const openEdit = (s: ApiSchool) => {
+  // An account with an EMPTY school list covers every school, so it is never
+  // read as "assigned here" and is never edited from this form.
+  const assignedTo = (list: ApiUser[], role: string, schoolId: string) =>
+    list.find((u) => u.role === role && u.school_ids.length > 0 && u.school_ids.includes(schoolId))?._id ?? '';
+
+  const openEdit = async (s: ApiSchool) => {
+    const list = await loadUsers();
+    const current = { dentist_id: assignedTo(list, 'dentist', s._id), aide_id: assignedTo(list, 'dental_aide', s._id) };
+    setStaff(current);
+    setStaffAtOpen(current);
     setEditing(s);
     setForm({
       school_name: s.school_name ?? '',
@@ -88,15 +121,42 @@ export const SchoolManagement = () => {
       setFormError('Grades From must come before Grades To.');
       return;
     }
+    // Swapping staff removes the school from the previous person's list. If it
+    // was their only school that would leave the list EMPTY, which the system
+    // reads as "every school", so refuse before anything is saved.
+    const roleChanges = ([
+      ['dentist_id', 'Dentist'],
+      ['aide_id', 'Dental Aide'],
+    ] as const).filter(([key]) => staff[key] !== staffAtOpen[key]);
+    for (const [key, roleLabel] of roleChanges) {
+      const prev = users.find((u) => u._id === staffAtOpen[key]);
+      if (prev && prev.school_ids.filter((id) => id !== editing?._id).length === 0) {
+        setFormError(`${prev.full_name} has no other school. Removing this one would give them access to every school. Assign them another school in User Management first, or keep them as the ${roleLabel}.`);
+        return;
+      }
+    }
     setSubmitting(true);
     try {
+      let schoolId = editing?._id ?? '';
       if (editing) {
         await apiClient.put(`/schools/${editing._id}`, form);
-        toast.success(`${form.school_name} updated.`);
       } else {
-        await apiClient.post('/schools', form);
-        toast.success(`${form.school_name} added.`);
+        const created = await apiClient.post<ApiSchool>('/schools', form);
+        schoolId = created._id;
       }
+      // Assignment lives on the USER (school_ids). Accounts with an empty list
+      // already cover every school and are left as they are.
+      for (const [key] of roleChanges) {
+        const prev = users.find((u) => u._id === staffAtOpen[key]);
+        const next = users.find((u) => u._id === staff[key]);
+        if (prev) {
+          await apiClient.put(`/users/${prev._id}`, { school_ids: prev.school_ids.filter((id) => id !== schoolId) });
+        }
+        if (next && next.school_ids.length > 0 && !next.school_ids.includes(schoolId)) {
+          await apiClient.put(`/users/${next._id}`, { school_ids: [...next.school_ids, schoolId] });
+        }
+      }
+      toast.success(editing ? `${form.school_name} updated.` : `${form.school_name} added.`);
       await reload();
       setShowForm(false);
     } catch (err) {
@@ -283,6 +343,26 @@ export const SchoolManagement = () => {
                 <div>
                   <label className={label} htmlFor="sm-city">City</label>
                   <input id="sm-city" className={`${field} cursor-not-allowed opacity-60`} style={fieldStyle} value={form.city} disabled readOnly />
+                </div>
+                <div>
+                  <label className={label} htmlFor="sm-dentist">Assign Dentist</label>
+                  <select id="sm-dentist" className={field} style={fieldStyle} value={staff.dentist_id}
+                    onChange={(e) => setStaff({ ...staff, dentist_id: e.target.value })}>
+                    <option value="">Not assigned</option>
+                    {users.filter((u) => u.role === 'dentist').map((u) => (
+                      <option key={u._id} value={u._id}>{u.full_name}{u.school_ids.length === 0 ? ' (all schools)' : ''}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={label} htmlFor="sm-aide">Assign Dental Aide</label>
+                  <select id="sm-aide" className={field} style={fieldStyle} value={staff.aide_id}
+                    onChange={(e) => setStaff({ ...staff, aide_id: e.target.value })}>
+                    <option value="">Not assigned</option>
+                    {users.filter((u) => u.role === 'dental_aide').map((u) => (
+                      <option key={u._id} value={u._id}>{u.full_name}{u.school_ids.length === 0 ? ' (all schools)' : ''}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="sm:col-span-2">
                   <label className={label} htmlFor="sm-street">School Address <span className="font-normal text-muted-foreground">(optional)</span></label>
