@@ -247,7 +247,7 @@ export const ArchiveManagement = () => {
                     <tr key={r._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4"><ArchivedBy r={r} /></td>
                       <td className="px-6 py-4 text-sm text-muted-foreground">{kind.detail?.(r, ctx) ?? ''}</td>
-                      <td className="px-6 py-4 text-sm font-bold text-foreground">{kind.describe(r, ctx)}</td>
+                      <td className="px-6 py-4 text-sm text-foreground">{kind.describe(r, ctx)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                         {archivedDate(r)
                           ? <span className="inline-flex items-center gap-2"><Calendar className="w-3.5 h-3.5 text-[#94A3B8]" />{archivedDate(r)}</span>
