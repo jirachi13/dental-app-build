@@ -244,7 +244,7 @@ export const ArchiveManagement = () => {
                     <th className={TH}>Record</th>
                     <th className={TH}>Details</th>
                     <th className={TH}>Archived</th>
-                    <th className={`${TH} text-right`}>Actions</th>
+                    <th className={TH}>Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -256,7 +256,7 @@ export const ArchiveManagement = () => {
                           was populated — say so rather than render an empty cell
                           that reads as "not archived". */}
                       <td className="px-6 py-4 text-sm text-muted-foreground whitespace-nowrap">{archivedOn(r)}</td>
-                      <td className="px-6 py-4 text-right"><RestoreBtn r={r} /></td>
+                      <td className="px-6 py-4"><RestoreBtn r={r} /></td>
                     </tr>
                   ))}
                 </tbody>
