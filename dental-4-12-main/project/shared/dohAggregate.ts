@@ -71,6 +71,10 @@ export interface AggRisk {
   dmf_score: number;
   dmf_index: string;
   risk_level: string;
+  /** Explicit `false` = a stored, UNREVIEWED model suggestion (2026-10-01). It
+   *  is skipped below. Absent is treated as validated, since every caller
+   *  already queries validated rows only; this is the second safety net. */
+  validated_by_dentist?: boolean;
 }
 export interface AggChart {
   _id: string;
@@ -347,6 +351,8 @@ export function aggregateDohReport(input: DohAggregateInput): DohAggregateResult
   const preventiveById = new Map(preventives.map((p) => [p._id, p]));
   const riskByIptr = new Map<string, AggRisk>();
   for (const r of risks) {
+    // An unreviewed suggestion never reaches a filed figure (see AggRisk).
+    if (r.validated_by_dentist === false) continue;
     const p = preventiveById.get(r.preventive_id);
     if (p) riskByIptr.set(p.iptr_id, r);
   }

@@ -123,7 +123,9 @@ router.get("/stats/high-risk-count", requireAuth, asyncHandler(async (req, res) 
     Student.find(studentFilter).select("_id").lean(),
     StudentIptr.find({ isArchived: false }).select("_id student_id").lean(),
     PreventiveCareRecord.find({ isArchived: false }).select("_id iptr_id").lean(),
-    RiskStratification.find({ isArchived: false }).select("preventive_id risk_level").lean(),
+    // VALIDATED only (2026-10-01): suggestions are now stored unvalidated, and
+    // an unreviewed machine suggestion must never count as a high-risk pupil.
+    RiskStratification.find({ isArchived: false, validated_by_dentist: true }).select("preventive_id risk_level").lean(),
   ]);
   const preventiveIptrById = new Map(preventives.map((p) => [String(p._id), String(p.iptr_id)]));
   const riskByIptr = new Map<string, string>();
@@ -904,7 +906,10 @@ router.get("/stats/doh-report", requireAuth, asyncHandler(async (req, res) => {
       DietarySocialHabits.find(active).lean(),
       OralHealthCondition.find(active).lean(),
       PreventiveCareRecord.find(active).select("_id iptr_id visit_number visit_date facility_based").lean(),
-      RiskStratification.find(active).select("preventive_id dmf_score dmf_index risk_level").lean(),
+      // VALIDATED only (2026-10-01): these feed FILED DOH figures (DMF counts,
+      // orally-fit count). Suggestions are now stored unvalidated; an unreviewed
+      // machine suggestion must never reach a form sent to the City Health Office.
+      RiskStratification.find({ ...active, validated_by_dentist: true }).select("preventive_id dmf_score dmf_index risk_level").lean(),
       DentalChart.find(active).select("_id iptr_id date_charted preventive_id").lean(),
       ToothRecord.find(active).select("chart_id treatment_code").lean(),
       Referral.find(active).select("iptr_id referral_type").lean(),
@@ -1102,7 +1107,11 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
     StudentIptr.find({ isArchived: false }).select("_id student_id school_year").lean(),
     DentalChart.find({ isArchived: false }).select("_id iptr_id date_charted").lean(),
     PreventiveCareRecord.find({ isArchived: false }).select("_id iptr_id visit_number visit_date oral_screening oral_prophylaxis fluoride_varnish oral_hygiene_instruction consultation").lean(),
-    RiskStratification.find({ isArchived: false }).select("preventive_id risk_level recommendation").lean(),
+    // VALIDATED only (2026-10-01): `riskLevel` and `oralStatus` built from this
+    // feed the Students list, every dashboard and the BHO table. A stored but
+    // unreviewed suggestion is shown on the Risk Classification screen as
+    // "Needs review", never here as the pupil's risk.
+    RiskStratification.find({ isArchived: false, validated_by_dentist: true }).select("preventive_id risk_level recommendation").lean(),
     ToothRecord.find({ isArchived: false }).select("chart_id condition visit_number").lean(),
     OralHealthCondition.find({ isArchived: false }).select("iptr_id gingivitis periodontal_disease debris calculus abnormal_growth cleft_lip_palate others").lean(),
   ]);
