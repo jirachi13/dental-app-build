@@ -1066,7 +1066,15 @@ reads only `treatmentCount`; Reports → "Internal Reports" is still `visible: t
 the Referral Tracking panel; the Target Client List still reads `/students`, `/oral-health-conditions`,
 `/student-iptrs`). The merge ADDED two problems:
 
-### SEC-35 · `/risk-stratifications` + `Root.tsx` nav + `AIAnalytics.tsx` · HIGH · OPEN
+### SEC-35 · `/risk-stratifications` + `Root.tsx` nav + `AIAnalytics.tsx` · HIGH · ✅ FIXED 2026-10-01
+Resolved: server `writeRoles: ["dentist"]` on `/risk-stratifications`; `AIAnalytics.tsx` shows
+          Validate & Save to a dentist only (others see "Only the dentist can validate a risk
+          result…") and `saveValidated` returns early for non-dentists. The admin keeps VIEWING the
+          page (her nav change stands). **Tested live as System Admin:** `POST /risk-stratifications`
+          → **403 Forbidden** (nothing written; an empty body would otherwise have reached field
+          validation). A clean repro confirmed the 403 does NOT log the user out. **Not tested on
+          screen:** the "only the dentist" note, because the ML service was asleep and the review
+          panel only opens after a prediction. The dentist's own save path is unchanged.
 Claim:    **The dentist-only sign-off of a risk result is not enforced, and the merge exposed it in
           the UI.** A System Admin (and a Dental Aide, by URL) can validate a risk result, and the
           audit trail then records "dentist validated".

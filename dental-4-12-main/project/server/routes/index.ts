@@ -1351,8 +1351,14 @@ router.use("/preventive-care-records", createCrudRouter(PreventiveCareRecord, { 
 // as-is or changed it (Chapter 4 evidence for the dentist-validates-model
 // gate). `model_risk_level` / `recommendation_edited` ride in the request
 // body for this comparison only — the schema is strict, so they never persist.
+// SEC-35 (2026-10-01): DENTIST ONLY. The single writer in the app is the
+// dentist's "Validate & Save" on Risk Classification, and every row it creates
+// is a clinical sign-off: CLAUDE.md's core rule is that the dentist validates
+// ALL recommendations. This used to be CLINICAL_WRITE_ROLES, so a System Admin
+// or Dental Aide could create a row the audit trail below then describes as
+// "dentist validated". Seed scripts write through the model, not this route.
 router.use("/risk-stratifications", createCrudRouter(RiskStratification, {
-  writeRoles: CLINICAL_WRITE_ROLES,
+  writeRoles: ["dentist"],
   auditCreateAction: (body) => {
     if (typeof body.model_risk_level !== "string") return undefined;
     const accepted = body.model_risk_level === body.risk_level;

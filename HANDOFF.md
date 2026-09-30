@@ -60,6 +60,10 @@ refused client-side with ZERO requests reaching the server · Exit restores the 
 reach the server again. Not tested: the other three preview roles, and a Vercel PREVIEW deployment
 (only local dev). ⚠ Chrome's localhost session is now the SYSTEM ADMIN (replaced the dentist's).
 
+✅ **SEC-35 FIXED 2026-10-01** — risk sign-off is dentist-only on the server (admin attempt → 403,
+tested live); the page shows Validate & Save to the dentist only (that note NOT seen on screen: the
+ML service was asleep). See `LEDGER-sec.md`.
+
 **Sprint 163 plan RE-CHECKED vs the merged code (2026-10-01)** — still valid, plus two additions
 (details in `LEDGER-sec.md`, end): **SEC-35 HIGH** — risk sign-off is not dentist-only (server lets
 admin + aide write risk results; the merge put Risk Classification in the admin's nav; the audit

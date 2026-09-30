@@ -312,8 +312,12 @@ export const AIAnalytics = () => {
     }
   };
 
+  // SEC-35: the dentist validates every risk result (CLAUDE.md). The server
+  // enforces it; this only keeps the page honest about who can save.
+  const canValidate = user?.role === 'dentist';
+
   const saveValidated = async () => {
-    if (!selected || !prediction || !selected.latestPreventiveId) return;
+    if (!canValidate || !selected || !prediction || !selected.latestPreventiveId) return;
     setSaving(true);
     try {
       const riskChanged = finalLevel !== prediction.risk_level;
@@ -777,14 +781,24 @@ export const AIAnalytics = () => {
                             aria-label="Clinical notes"
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
-                          <button
-                            onClick={saveValidated}
-                            disabled={saving || notes.trim().length === 0 || finalRec.trim().length === 0}
-                            className="flex items-center gap-2 bg-[#1E40AF] hover:bg-blue-700 disabled:bg-gray-300 text-white text-sm font-medium px-4 py-2 rounded-lg"
-                          >
-                            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                            Validate &amp; Save
-                          </button>
+                          {/* SEC-35: only the dentist signs off a risk result; the
+                              server refuses anyone else. Others (the System Admin
+                              reaches this page from the nav) see why instead of a
+                              button that would fail. */}
+                          {canValidate ? (
+                            <button
+                              onClick={saveValidated}
+                              disabled={saving || notes.trim().length === 0 || finalRec.trim().length === 0}
+                              className="flex items-center gap-2 bg-[#1E40AF] hover:bg-blue-700 disabled:bg-gray-300 text-white text-sm font-medium px-4 py-2 rounded-lg"
+                            >
+                              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                              Validate &amp; Save
+                            </button>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              Only the dentist can validate a risk result. You can view it, but saving is left to the dentist.
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>
