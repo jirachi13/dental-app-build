@@ -366,7 +366,7 @@ export const SchoolSelect = () => {
                           <button
                             key={r.school}
                             onClick={() => handleSelectSchool(isAll ? ALL_SCHOOLS : r.school)}
-                            className="flex w-[280px] items-center gap-3.5 rounded-2xl border border-[#E2E8F0] bg-white px-4 py-3 text-left transition-colors hover:bg-muted/40"
+                            className="flex w-[266px] items-center gap-3.5 rounded-2xl border border-[#E2E8F0] bg-white px-4 py-3 text-left transition-colors hover:bg-muted/40"
                           >
                             <span className="h-9 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: sc?.solid ?? '#273A78' }} />
                             <span className="min-w-0">
@@ -385,7 +385,7 @@ export const SchoolSelect = () => {
                 </div>
                 {/* Cards keep one fixed width and start at the left; a new school
                     simply lands at the end and the row wraps. */}
-                <div className="grid gap-5 justify-start [grid-template-columns:repeat(auto-fill,280px)]">
+                <div className="grid gap-5 justify-start [grid-template-columns:repeat(auto-fill,266px)]">
                   {showAll && !query.trim() && level === 'all' && allSchoolsCard}
                   {visibleSchools.map(schoolCard)}
                 </div>
