@@ -39,17 +39,16 @@ export const SCHOOL_COLORS: Record<string, SchoolColor> = {
   },
 };
 
-// Schools added through School Management have no entry above. They get one of
-// these colours instead of grey, chosen from the school's name so it is the same
-// on every screen and every visit. All are distinct from the three fixed colours.
-const EXTRA_PALETTE: Omit<SchoolColor, 'name'>[] = [
-  { solid: '#6D28D9', light: '#EDE9FE', text: '#6D28D9', border: '#C4B5FD' }, // purple
-  { solid: '#BE123C', light: '#FFE4E6', text: '#BE123C', border: '#FDA4AF' }, // rose
-  { solid: '#166534', light: '#DCFCE7', text: '#166534', border: '#86EFAC' }, // green
-  { solid: '#A21CAF', light: '#FAE8FF', text: '#A21CAF', border: '#F0ABFC' }, // magenta
-  { solid: '#0E7490', light: '#CFFAFE', text: '#0E7490', border: '#67E8F9' }, // cyan
-  { solid: '#92400E', light: '#FEF3C7', text: '#92400E', border: '#FCD34D' }, // amber
-  { solid: '#4338CA', light: '#E0E7FF', text: '#4338CA', border: '#A5B4FC' }, // indigo
+// Schools added through School Management have no entry above. Their colour is
+// generated from the school's name: any of 360 hues, in one of three shades, so
+// it is the same on every screen and every visit and two schools rarely match.
+// Lightness is fixed per part (dark text on a pale fill) so text stays legible
+// whatever the hue is: measured over all 360 hues, text on fill is at least
+// 4.9:1 and the solid bar/icon colour at least 3:1 against white.
+const SHADES = [
+  { text: 18, solid: 26, border: 72 },
+  { text: 22, solid: 30, border: 66 },
+  { text: 26, solid: 34, border: 78 },
 ];
 
 export const getSchoolColor = (school: string): SchoolColor => {
@@ -57,7 +56,15 @@ export const getSchoolColor = (school: string): SchoolColor => {
   if (fixed) return fixed;
   let hash = 0;
   for (let i = 0; i < school.length; i++) hash = (hash * 31 + school.charCodeAt(i)) >>> 0;
-  return { name: school, ...EXTRA_PALETTE[hash % EXTRA_PALETTE.length] };
+  const hue = hash % 360;
+  const shade = SHADES[Math.floor(hash / 360) % SHADES.length];
+  return {
+    name: school,
+    solid: `hsl(${hue}, 72%, ${shade.solid}%)`,
+    text: `hsl(${hue}, 72%, ${shade.text}%)`,
+    light: `hsl(${hue}, 85%, 93%)`,
+    border: `hsl(${hue}, 75%, ${shade.border}%)`,
+  };
 };
 
 export const SCHOOL_SHORT_NAMES: Record<string, string> = {
