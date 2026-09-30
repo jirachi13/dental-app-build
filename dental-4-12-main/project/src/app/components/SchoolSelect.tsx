@@ -25,8 +25,8 @@ const roleBadgeColors: Record<string, string> = {
 
 // ─── Search, filters and recent schools: SYSTEM ADMIN ONLY ───────────────────
 // A System Admin can hold every school, and the list is expected to grow past
-// thirty. Every other role has a short, assigned list, so they keep the plain
-// picker with none of this.
+// thirty. Every other role has a short, assigned list, so they get the same
+// page with none of this.
 
 type LevelFilter = 'all' | 'elementary' | 'integrated' | 'high';
 type SortMode = 'az' | 'za' | 'newest';
@@ -231,218 +231,187 @@ export const SchoolSelect = () => {
     const levels = range.from && range.to ? `${range.from} – ${range.to}` : '';
     const on = active === school;
     const soft = 'rgba(255, 255, 255, 0.22)';
-    return (
-      <button
-        key={school}
-        onClick={() => handleSelectSchool(school)}
-        onMouseEnter={() => setActive(school)}
-        onMouseLeave={() => setActive(null)}
-        onFocus={() => setActive(school)}
-        onBlur={() => setActive(null)}
-        style={{ borderColor: on ? sc.solid : sc.border, backgroundColor: on ? sc.solid : undefined }}
-        className="group w-full text-left bg-card rounded-2xl border-2 p-6 transition-colors duration-200"
-      >
-        {/* School color bar */}
-        <div style={{ backgroundColor: on ? 'rgba(255, 255, 255, 0.6)' : sc.solid }} className="w-full h-1.5 rounded-full mb-5 transition-colors duration-200" />
+  return (
+    <button
+      key={school}
+      onClick={() => handleSelectSchool(school)}
+      onMouseEnter={() => setActive(school)}
+      onMouseLeave={() => setActive(null)}
+      onFocus={() => setActive(school)}
+      onBlur={() => setActive(null)}
+      style={{ borderColor: on ? sc.solid : sc.border, backgroundColor: on ? sc.solid : undefined }}
+      className="group w-full text-left bg-card rounded-2xl border-2 p-6 transition-colors duration-200"
+    >
+      {/* School color bar */}
+      <div style={{ backgroundColor: on ? 'rgba(255, 255, 255, 0.6)' : sc.solid }} className="w-full h-1.5 rounded-full mb-5 transition-colors duration-200" />
 
-        {/* Icon + name */}
-        <div className="flex items-start justify-between mb-4">
-          <div style={{ backgroundColor: on ? soft : sc.light }} className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors duration-200">
-            <School style={{ color: on ? '#fff' : sc.solid }} className="w-6 h-6" />
-          </div>
-          <ChevronRight style={{ color: on ? '#fff' : sc.solid }} className="w-5 h-5 mt-1 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity" />
+      {/* Icon + name */}
+      <div className="flex items-start justify-between mb-4">
+        <div style={{ backgroundColor: on ? soft : sc.light }} className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors duration-200">
+          <School style={{ color: on ? '#fff' : sc.solid }} className="w-6 h-6" />
         </div>
+        <ChevronRight style={{ color: on ? '#fff' : sc.solid }} className="w-5 h-5 mt-1 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity" />
+      </div>
 
-        <div style={{ color: on ? '#fff' : sc.text }} className="font-bold text-base leading-tight mb-1 min-h-[2.5rem] transition-colors duration-200">
-          {school}
-        </div>
+      <div style={{ color: on ? '#fff' : sc.text }} className="font-bold text-base leading-tight mb-1 min-h-[2.5rem] transition-colors duration-200">
+        {school}
+      </div>
 
-        <div className={`flex items-center gap-1 text-xs mt-2 transition-colors duration-200 ${on ? 'text-white/90' : 'text-muted-foreground'}`}>
-          <MapPin className="w-3 h-3 flex-shrink-0" />
-          <span>{address}</span>
-        </div>
+      <div className={`flex items-center gap-1 text-xs mt-2 transition-colors duration-200 ${on ? 'text-white/90' : 'text-muted-foreground'}`}>
+        <MapPin className="w-3 h-3 flex-shrink-0" />
+        <span>{address}</span>
+      </div>
 
-        <div className="mt-3 pt-3 border-t transition-colors duration-200" style={{ borderColor: on ? 'rgba(255, 255, 255, 0.3)' : undefined }}>
-          {levels && (
-            <span style={{ backgroundColor: on ? soft : sc.light, color: on ? '#fff' : sc.text }} className="text-xs font-medium px-2 py-1 rounded-full transition-colors duration-200">
-              {levels}
-            </span>
-          )}
-        </div>
-      </button>
-    );
-  };
-
-  const noSchools = (
-    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-8 text-center">
-      <School className="w-12 h-12 text-yellow-500 mx-auto mb-3" />
-      <h2 className="font-semibold text-yellow-800 mb-1">No School Assigned</h2>
-      <p className="text-yellow-700 text-sm">Please contact the System Administrator to assign you to a school.</p>
-    </div>
-  );
-
-  const logoutButton = (
-    <button onClick={handleLogout} className="flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-danger-surface rounded-lg transition-colors">
-      <LogOut className="w-4 h-4" />
-      <span>Logout</span>
+      <div className="mt-3 pt-3 border-t transition-colors duration-200" style={{ borderColor: on ? 'rgba(255, 255, 255, 0.3)' : undefined }}>
+        {levels && (
+          <span style={{ backgroundColor: on ? soft : sc.light, color: on ? '#fff' : sc.text }} className="text-xs font-medium px-2 py-1 rounded-full transition-colors duration-200">
+            {levels}
+          </span>
+        )}
+      </div>
     </button>
   );
+};
 
-  const brand = (
-    <div className="flex items-center gap-3">
-      <img src="/logo.svg" alt="FLORAL" className="w-14 h-14 object-contain flex-shrink-0" />
-      <div>
-        <div className="text-2xl font-bold text-[#1E40AF]">FLORAL</div>
-        <div className="text-sm text-muted-foreground -mt-0.5">Dental Health Record Management System</div>
-      </div>
+const noSchools = (
+  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-8 text-center">
+    <School className="w-12 h-12 text-yellow-500 mx-auto mb-3" />
+    <h2 className="font-semibold text-yellow-800 mb-1">No School Assigned</h2>
+    <p className="text-yellow-700 text-sm">Please contact the System Administrator to assign you to a school.</p>
+  </div>
+);
+
+const logoutButton = (
+  <button onClick={handleLogout} className="flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-danger-surface rounded-lg transition-colors">
+    <LogOut className="w-4 h-4" />
+    <span>Logout</span>
+  </button>
+);
+
+const brand = (
+  <div className="flex items-center gap-3">
+    <img src="/logo.svg" alt="FLORAL" className="w-14 h-14 object-contain flex-shrink-0" />
+    <div>
+      <div className="text-2xl font-bold text-[#1E40AF]">FLORAL</div>
+      <div className="text-sm text-muted-foreground -mt-0.5">Dental Health Record Management System</div>
     </div>
-  );
-
-  // ── System Admin: search first, filters, recent schools, fixed-size cards ──
-  if (isAdmin) {
-    const recentTiles = recent.filter((r) => r.school === ALL_SCHOOLS ? showAll : user.schools.includes(r.school));
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex flex-col">
-        <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-6 py-5">
-          <div className="max-w-[1400px] mx-auto flex flex-wrap items-center justify-between gap-3">
-            {brand}
-            <div className="flex items-center gap-3">
-              <div className="flex flex-col items-end leading-tight">
-                <div className="text-xs text-muted-foreground">Welcome back,</div>
-                <div className="text-sm font-bold text-foreground">{user.name}</div>
-                <span className={`mt-1.5 px-2.5 py-0.5 text-[10px] rounded-full font-medium ${roleBadgeColors[user.role]}`}>{roleLabels[user.role]}</span>
-              </div>
-              {logoutButton}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-1 px-6 py-10">
-          <div className="max-w-[1400px] mx-auto">
-            {user.schools.length === 0 ? noSchools : (
-              <>
-                <div className="text-center">
-                  <img src="/logo.svg" alt="" aria-hidden="true" className="w-16 h-16 object-contain mx-auto" />
-                  <h1 className="mt-2 text-2xl font-bold text-foreground">Which school do you want to manage?</h1>
-                  <p className="text-sm text-muted-foreground">
-                    {user.schools.length} registered school{user.schools.length === 1 ? '' : 's'}. Choose one to manage, or open all schools together.
-                  </p>
-                  <div className="relative mx-auto mt-5 max-w-2xl">
-                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
-                    <input
-                      type="text"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Type a school name"
-                      aria-label="Search schools"
-                      className="w-full rounded-2xl border-2 border-[#16214F] bg-white py-3.5 pl-12 pr-4 text-base text-foreground shadow-[0_8px_30px_rgba(22,33,79,0.12)] focus:outline-none focus:ring-2 focus:ring-[#16214F]/30"
-                    />
-                  </div>
-                  <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
-                    {LEVEL_CHIPS.map((c) => (
-                      <button
-                        key={c.key}
-                        onClick={() => setLevel(c.key)}
-                        aria-pressed={level === c.key}
-                        className={`rounded-full border px-4 py-2 text-[13px] font-semibold transition-colors ${
-                          level === c.key ? 'bg-[#16214F] border-[#16214F] text-white' : 'bg-white border-[#E2E8F0] text-[#475569] hover:bg-gray-50'
-                        }`}
-                      >
-                        {c.label}
-                      </button>
-                    ))}
-                    <SortMenu value={sort} onChange={setSort} />
-                  </div>
-                </div>
-
-                {recentTiles.length > 0 && (
-                  <div className="mt-8">
-                    <div className="mb-2.5 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">Recently opened</div>
-                    <div className="flex flex-wrap gap-3.5">
-                      {recentTiles.map((r) => {
-                        const isAll = r.school === ALL_SCHOOLS;
-                        const sc = isAll ? null : getSchoolColor(r.school);
-                        return (
-                          <button
-                            key={r.school}
-                            onClick={() => handleSelectSchool(isAll ? ALL_SCHOOLS : r.school)}
-                            className="flex w-[258px] items-center gap-3.5 rounded-2xl border border-[#E2E8F0] bg-white px-4 py-3 text-left transition-colors hover:bg-muted/40"
-                          >
-                            <span className="h-9 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: sc?.solid ?? '#273A78' }} />
-                            <span className="min-w-0">
-                              <span className="block truncate text-sm font-bold" style={{ color: sc?.text ?? '#0f172a' }}>{isAll ? 'All schools' : r.school}</span>
-                              <span className="block text-xs text-muted-foreground">{openedLabel(r.at)}</span>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                <div className="mt-8 mb-2.5 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">
-                  All schools{visibleSchools.length !== user.schools.length ? ` (${visibleSchools.length} of ${user.schools.length})` : ''}
-                </div>
-                {/* Cards keep one fixed width and start at the left; a new school
-                    simply lands at the end and the row wraps. */}
-                <div className="grid gap-5 justify-start [grid-template-columns:repeat(auto-fill,258px)]">
-                  {showAll && !query.trim() && level === 'all' && allSchoolsCard}
-                  {visibleSchools.map(schoolCard)}
-                </div>
-                {visibleSchools.length === 0 && (
-                  <div className="mt-6 flex flex-col items-center justify-center rounded-2xl border border-border bg-card px-6 py-16 text-center">
-                    <span className="w-[4.5rem] h-[4.5rem] rounded-2xl grid place-items-center bg-[#F1F5F9] text-[#94A3B8]"><SearchX className="w-8 h-8" /></span>
-                    <div className="mt-5 text-base font-bold text-foreground">No schools found</div>
-                    <div className="mt-2 text-xs text-muted-foreground">Try a different name, or choose All.</div>
-                    <button
-                      onClick={() => { setQuery(''); setLevel('all'); }}
-                      className="mt-4 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-[13px] font-semibold text-[#475569] hover:bg-gray-50"
-                    >
-                      Clear search and filters
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Every other role: the plain picker ─────────────────────────────────────
+  </div>
+);
+  
+  // Same page for every role. Search, filters, sort, recent schools and the
+  // All schools card are System Admin only.
+const recentTiles = !isAdmin ? [] : recent.filter((r) => r.school === ALL_SCHOOLS ? showAll : user.schools.includes(r.school));
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex flex-col">
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
+      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-6 py-5">
+        <div className="max-w-[1400px] mx-auto flex flex-wrap items-center justify-between gap-3">
           {brand}
-          {logoutButton}
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col items-end leading-tight">
+              <div className="text-xs text-muted-foreground">Welcome back,</div>
+              <div className="text-sm font-bold text-foreground">{user.name}</div>
+              <span className={`mt-1.5 px-2.5 py-0.5 text-[10px] rounded-full font-medium ${roleBadgeColors[user.role]}`}>{roleLabels[user.role]}</span>
+            </div>
+            {logoutButton}
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
-        <div className="w-full max-w-4xl">
-          <div className="text-center mb-10">
-            <p className="text-muted-foreground text-sm mb-1">Welcome back,</p>
-            <h1 className="text-2xl font-bold text-foreground">{user.name}</h1>
-            <span className={`inline-block mt-2 px-3 py-1 text-xs rounded-full font-medium ${roleBadgeColors[user.role] || 'bg-gray-100 text-foreground'}`}>
-              {roleLabels[user.role] || user.role}
-            </span>
-            <p className="text-muted-foreground text-sm mt-4">
-              Select a school to continue
-            </p>
-          </div>
-
+      <div className="flex-1 px-6 py-10">
+        <div className="max-w-[1400px] mx-auto">
           {user.schools.length === 0 ? noSchools : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {showAll && allSchoolsCard}
-              {user.schools.map(schoolCard)}
-            </div>
-          )}
+            <>
+              <div className="text-center">
+                <img src="/logo.svg" alt="" aria-hidden="true" className="w-16 h-16 object-contain mx-auto" />
+                <h1 className="mt-2 text-2xl font-bold text-foreground">
+                  {isAdmin ? 'Which school do you want to manage?' : 'Where are you working today?'}
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  {isAdmin
+                    ? `${user.schools.length} registered school${user.schools.length === 1 ? '' : 's'}. Choose one to manage, or open all schools together.`
+                    : `${user.schools.length} school${user.schools.length === 1 ? '' : 's'} assigned to your account`}
+                </p>
+                {isAdmin && (
+                  <>
+                <div className="relative mx-auto mt-5 max-w-2xl">
+                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
+                  <input
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Type a school name"
+                    aria-label="Search schools"
+                    className="w-full rounded-2xl border-2 border-[#16214F] bg-white py-3.5 pl-12 pr-4 text-base text-foreground shadow-[0_8px_30px_rgba(22,33,79,0.12)] focus:outline-none focus:ring-2 focus:ring-[#16214F]/30"
+                  />
+                </div>
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
+                  {LEVEL_CHIPS.map((c) => (
+                    <button
+                      key={c.key}
+                      onClick={() => setLevel(c.key)}
+                      aria-pressed={level === c.key}
+                      className={`rounded-full border px-4 py-2 text-[13px] font-semibold transition-colors ${
+                        level === c.key ? 'bg-[#16214F] border-[#16214F] text-white' : 'bg-white border-[#E2E8F0] text-[#475569] hover:bg-gray-50'
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                  <SortMenu value={sort} onChange={setSort} />
+                </div>
+                  </>
+                )}
+              </div>
 
-          <p className="text-center text-xs text-muted-foreground mt-8">
-            {user.schools.length} school{user.schools.length !== 1 ? 's' : ''} assigned to your account
-          </p>
+              {recentTiles.length > 0 && (
+                <div className="mt-8">
+                  <div className="mb-2.5 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">Recently opened</div>
+                  <div className="flex flex-wrap gap-3.5">
+                    {recentTiles.map((r) => {
+                      const isAll = r.school === ALL_SCHOOLS;
+                      const sc = isAll ? null : getSchoolColor(r.school);
+                      return (
+                        <button
+                          key={r.school}
+                          onClick={() => handleSelectSchool(isAll ? ALL_SCHOOLS : r.school)}
+                          className="flex w-[258px] items-center gap-3.5 rounded-2xl border border-[#E2E8F0] bg-white px-4 py-3 text-left transition-colors hover:bg-muted/40"
+                        >
+                          <span className="h-9 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: sc?.solid ?? '#273A78' }} />
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-bold" style={{ color: sc?.text ?? '#0f172a' }}>{isAll ? 'All schools' : r.school}</span>
+                            <span className="block text-xs text-muted-foreground">{openedLabel(r.at)}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-8 mb-2.5 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">
+                {isAdmin ? 'All schools' : 'Your schools'}{visibleSchools.length !== user.schools.length ? ` (${visibleSchools.length} of ${user.schools.length})` : ''}
+              </div>
+              {/* Cards keep one fixed width and start at the left; a new school
+                  simply lands at the end and the row wraps. */}
+              <div className="grid gap-5 justify-start [grid-template-columns:repeat(auto-fill,258px)]">
+                {isAdmin && showAll && !query.trim() && level === 'all' && allSchoolsCard}
+                {visibleSchools.map(schoolCard)}
+              </div>
+              {visibleSchools.length === 0 && (
+                <div className="mt-6 flex flex-col items-center justify-center rounded-2xl border border-border bg-card px-6 py-16 text-center">
+                  <span className="w-[4.5rem] h-[4.5rem] rounded-2xl grid place-items-center bg-[#F1F5F9] text-[#94A3B8]"><SearchX className="w-8 h-8" /></span>
+                  <div className="mt-5 text-base font-bold text-foreground">No schools found</div>
+                  <div className="mt-2 text-xs text-muted-foreground">Try a different name, or choose All.</div>
+                  <button
+                    onClick={() => { setQuery(''); setLevel('all'); }}
+                    className="mt-4 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-[13px] font-semibold text-[#475569] hover:bg-gray-50"
+                  >
+                    Clear search and filters
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>
