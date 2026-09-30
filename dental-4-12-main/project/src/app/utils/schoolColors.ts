@@ -39,32 +39,73 @@ export const SCHOOL_COLORS: Record<string, SchoolColor> = {
   },
 };
 
-// Schools added through School Management have no entry above. Their colour is
-// generated from the school's name: any of 360 hues, in one of three shades, so
-// it is the same on every screen and every visit and two schools rarely match.
+// Schools added through School Management have no entry above.
+//
+// Once the school list is known (`setSchoolRegistry`, called wherever /schools
+// is fetched), each extra school in creation order takes the hue FARTHEST from
+// every hue already in use, the three fixed colours included. So schools that
+// sit next to each other are never in the same colour family, and a school
+// keeps its colour when a later one is added. Each also gets one of three
+// shades, so hues that end up close still read as different.
+//
+// Before the list is known, a colour generated from the name is used instead.
+//
 // Lightness is fixed per part (dark text on a pale fill) so text stays legible
-// whatever the hue is: measured over all 360 hues, text on fill is at least
-// 4.9:1 and the solid bar/icon colour at least 3:1 against white.
+// whatever the hue: measured over all 360 hues, text on fill is at least 4.9:1
+// and the solid bar/icon colour at least 3:1 against white.
 const SHADES = [
   { text: 18, solid: 26, border: 72 },
   { text: 22, solid: 30, border: 66 },
   { text: 26, solid: 34, border: 78 },
 ];
 
-export const getSchoolColor = (school: string): SchoolColor => {
-  const fixed = SCHOOL_COLORS[school];
-  if (fixed) return fixed;
-  let hash = 0;
-  for (let i = 0; i < school.length; i++) hash = (hash * 31 + school.charCodeAt(i)) >>> 0;
-  const hue = hash % 360;
-  const shade = SHADES[Math.floor(hash / 360) % SHADES.length];
+/** Approximate hues of the three fixed colours above (blue, teal, orange). */
+const FIXED_HUES = [226, 174, 22];
+
+const fromHue = (name: string, hue: number, shadeIndex: number): SchoolColor => {
+  const shade = SHADES[shadeIndex % SHADES.length];
   return {
-    name: school,
+    name,
     solid: `hsl(${hue}, 72%, ${shade.solid}%)`,
     text: `hsl(${hue}, 72%, ${shade.text}%)`,
     light: `hsl(${hue}, 85%, 93%)`,
     border: `hsl(${hue}, 75%, ${shade.border}%)`,
   };
+};
+
+const hueGap = (a: number, b: number) => {
+  const d = Math.abs(a - b) % 360;
+  return Math.min(d, 360 - d);
+};
+
+let registryColors = new Map<string, SchoolColor>();
+
+/** Give every school in the registry its colour. Pass schools in creation order. */
+export const setSchoolRegistry = (schools: { school_name: string }[]) => {
+  const used = [...FIXED_HUES];
+  const next = new Map<string, SchoolColor>();
+  let k = 0;
+  for (const { school_name } of schools) {
+    if (SCHOOL_COLORS[school_name]) continue;
+    let best = 0;
+    let bestGap = -1;
+    for (let h = 0; h < 360; h += 5) {
+      const gap = Math.min(...used.map((u) => hueGap(h, u)));
+      if (gap > bestGap) { best = h; bestGap = gap; }
+    }
+    used.push(best);
+    next.set(school_name, fromHue(school_name, best, k));
+    k += 1;
+  }
+  registryColors = next;
+};
+
+export const getSchoolColor = (school: string): SchoolColor => {
+  const fixed = SCHOOL_COLORS[school] ?? registryColors.get(school);
+  if (fixed) return fixed;
+  let hash = 0;
+  for (let i = 0; i < school.length; i++) hash = (hash * 31 + school.charCodeAt(i)) >>> 0;
+  return fromHue(school, hash % 360, Math.floor(hash / 360));
 };
 
 export const SCHOOL_SHORT_NAMES: Record<string, string> = {

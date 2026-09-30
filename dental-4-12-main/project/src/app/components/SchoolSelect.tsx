@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth, ALL_SCHOOLS } from '../context/AuthContext';
 import { getSchoolColor } from '../utils/schoolColors';
@@ -26,6 +27,8 @@ export const SchoolSelect = () => {
   const navigate = useNavigate();
   // Address and grade range come from the School registry, not a hardcoded map.
   const { schools: registry } = useSchools();
+  // Card under the pointer (or keyboard focus): it fills solid with its colour.
+  const [active, setActive] = useState<string | null>(null);
 
   if (!user) return null;
 
@@ -129,36 +132,42 @@ export const SchoolSelect = () => {
                 const range = rec ? schoolGradeRange(rec) : { from: '', to: '' };
                 const address = rec ? [rec.street_address, rec.barangay, rec.city].filter(Boolean).join(', ') : '';
                 const levels = range.from && range.to ? `${range.from} – ${range.to}` : '';
+                const on = active === school;
+                const soft = 'rgba(255, 255, 255, 0.22)';
                 return (
                   <button
                     key={school}
                     onClick={() => handleSelectSchool(school)}
-                    style={{ borderColor: sc.border }}
-                    className="group w-full text-left bg-card rounded-2xl border-2 p-6 transition-colors hover:bg-muted/40"
+                    onMouseEnter={() => setActive(school)}
+                    onMouseLeave={() => setActive(null)}
+                    onFocus={() => setActive(school)}
+                    onBlur={() => setActive(null)}
+                    style={{ borderColor: on ? sc.solid : sc.border, backgroundColor: on ? sc.solid : undefined }}
+                    className="group w-full text-left bg-card rounded-2xl border-2 p-6 transition-colors duration-200"
                   >
                     {/* School color bar */}
-                    <div style={{ backgroundColor: sc.solid }} className="w-full h-1.5 rounded-full mb-5" />
+                    <div style={{ backgroundColor: on ? 'rgba(255, 255, 255, 0.6)' : sc.solid }} className="w-full h-1.5 rounded-full mb-5 transition-colors duration-200" />
 
                     {/* Icon + name */}
                     <div className="flex items-start justify-between mb-4">
-                      <div style={{ backgroundColor: sc.light }} className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0">
-                        <School style={{ color: sc.solid }} className="w-6 h-6" />
+                      <div style={{ backgroundColor: on ? soft : sc.light }} className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors duration-200">
+                        <School style={{ color: on ? '#fff' : sc.solid }} className="w-6 h-6" />
                       </div>
-                      <ChevronRight style={{ color: sc.solid }} className="w-5 h-5 mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <ChevronRight style={{ color: on ? '#fff' : sc.solid }} className="w-5 h-5 mt-1 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity" />
                     </div>
 
-                    <div style={{ color: sc.text }} className="font-bold text-base leading-tight mb-1 min-h-[2.5rem]">
+                    <div style={{ color: on ? '#fff' : sc.text }} className="font-bold text-base leading-tight mb-1 min-h-[2.5rem] transition-colors duration-200">
                       {school}
                     </div>
 
-                    <div className="flex items-center gap-1 text-muted-foreground text-xs mt-2">
+                    <div className={`flex items-center gap-1 text-xs mt-2 transition-colors duration-200 ${on ? 'text-white/90' : 'text-muted-foreground'}`}>
                       <MapPin className="w-3 h-3 flex-shrink-0" />
                       <span>{address}</span>
                     </div>
 
-                    <div className="mt-3 pt-3 border-t border-border">
+                    <div className="mt-3 pt-3 border-t transition-colors duration-200" style={{ borderColor: on ? 'rgba(255, 255, 255, 0.3)' : undefined }}>
                       {levels && (
-                        <span style={{ backgroundColor: sc.light, color: sc.text }} className="text-xs font-medium px-2 py-1 rounded-full">
+                        <span style={{ backgroundColor: on ? soft : sc.light, color: on ? '#fff' : sc.text }} className="text-xs font-medium px-2 py-1 rounded-full transition-colors duration-200">
                           {levels}
                         </span>
                       )}
