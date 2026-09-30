@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth, ALL_SCHOOLS } from '../context/AuthContext';
 import { getSchoolColor } from '../utils/schoolColors';
-import { School, ChevronRight, ChevronDown, Check, LogOut, MapPin, Layers, Search, SearchX } from 'lucide-react';
+import { School, ChevronRight, ChevronDown, Check, LogOut, MapPin, Layers, Search, SearchX, ArrowUpDown, GripVertical } from 'lucide-react';
 import { useSchools } from '../hooks/useSchools';
 import { SCHOOL_GRADES, schoolGradeRange } from '../utils/schoolGrades';
 import type { ApiSchool } from '../api/types';
@@ -29,9 +29,10 @@ const roleBadgeColors: Record<string, string> = {
 // page with none of this.
 
 type LevelFilter = 'all' | 'elementary' | 'integrated' | 'high';
-type SortMode = 'az' | 'za' | 'newest';
+type SortMode = 'mine' | 'az' | 'za' | 'newest';
 
 const SORT_OPTIONS: { key: SortMode; label: string }[] = [
+  { key: 'mine', label: 'My order' },
   { key: 'az', label: 'A to Z' },
   { key: 'za', label: 'Z to A' },
   { key: 'newest', label: 'Newest first' },
@@ -130,6 +131,37 @@ const saveRecent = (userId: string, school: string) => {
   }
 };
 
+// The order a user arranged their schools in, kept in this browser per account.
+const orderKey = (userId: string) => `floral.schoolOrder.${userId}`;
+
+const loadOrder = (userId: string): string[] => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(orderKey(userId)) ?? '[]');
+    return Array.isArray(parsed) ? parsed.filter((n): n is string => typeof n === 'string') : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveOrder = (userId: string, order: string[]) => {
+  try {
+    localStorage.setItem(orderKey(userId), JSON.stringify(order));
+  } catch {
+    /* blocked storage: the order still holds until the page is closed */
+  }
+};
+
+/** `name` takes the place of `target`; the schools between shift over by one. */
+const moveTo = (list: string[], name: string, target: string) => {
+  const from = list.indexOf(name);
+  const to = list.indexOf(target);
+  if (from < 0 || to < 0 || from === to) return list;
+  const next = [...list];
+  next.splice(from, 1);
+  next.splice(to, 0, name);
+  return next;
+};
+
 const openedLabel = (at: number) => {
   const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   const diff = Math.round((day(new Date()) - day(new Date(at))) / 86_400_000);
@@ -148,8 +180,22 @@ export const SchoolSelect = () => {
   const [query, setQuery] = useState('');
   const [level, setLevel] = useState<LevelFilter>('all');
   const [sort, setSort] = useState<SortMode>('az');
+  // Drag-and-drop arranging. `order` is the saved order of school names; a
+  // school missing from it (a newly added one) sorts after the arranged ones.
+  const [arranging, setArranging] = useState(false);
+  const [order, setOrder] = useState<string[]>([]);
+  const [dragging, setDragging] = useState<string | null>(null);
 
   const isAdmin = user?.role === 'system_admin';
+  const userId = user?.id;
+
+  // Load the saved order once per account; an admin who has one starts on it.
+  useEffect(() => {
+    if (!userId) return;
+    const saved = loadOrder(userId);
+    setOrder(saved);
+    if (saved.length > 0) setSort('mine');
+  }, [userId]);
   const recent = useMemo(() => (user && isAdmin ? loadRecent(user.id) : []), [user, isAdmin]);
 
   // Registry rows keyed by name, and the creation order ("newest" sort).
@@ -163,17 +209,23 @@ export const SchoolSelect = () => {
     if (!user) return [];
     const q = query.trim().toLowerCase();
     const list = user.schools.filter((name) => {
+      if (arranging) return true;
       const rec = byName.get(name);
       if (level !== 'all' && levelOf(rec) !== level) return false;
       if (!q) return true;
       const hay = [name, rec?.school_nickname, rec?.street_address, rec?.barangay, rec?.city].filter(Boolean).join(' ').toLowerCase();
       return hay.includes(q);
     });
+    // Everyone but a System Admin, and anyone while arranging, uses their own
+    // order (A to Z until they set one). Search and filters are off in that case.
+    const mode: SortMode = isAdmin && !arranging ? sort : 'mine';
+    const rank = (n: string) => { const i = order.indexOf(n); return i < 0 ? Number.MAX_SAFE_INTEGER : i; };
     return list.sort((a, b) =>
-      sort === 'newest' ? (createdRank.get(b) ?? 0) - (createdRank.get(a) ?? 0)
-      : sort === 'za' ? b.localeCompare(a)
+      mode === 'newest' ? (createdRank.get(b) ?? 0) - (createdRank.get(a) ?? 0)
+      : mode === 'za' ? b.localeCompare(a)
+      : mode === 'mine' ? (rank(a) - rank(b) || a.localeCompare(b))
       : a.localeCompare(b));
-  }, [user, query, level, sort, byName, createdRank]);
+  }, [user, isAdmin, arranging, query, level, sort, order, byName, createdRank]);
 
   if (!user) return null;
 
@@ -231,17 +283,8 @@ export const SchoolSelect = () => {
     const levels = range.from && range.to ? `${range.from} – ${range.to}` : '';
     const on = active === school;
     const soft = 'rgba(255, 255, 255, 0.22)';
-    return (
-      <button
-        key={school}
-        onClick={() => handleSelectSchool(school)}
-        onMouseEnter={() => setActive(school)}
-        onMouseLeave={() => setActive(null)}
-        onFocus={() => setActive(school)}
-        onBlur={() => setActive(null)}
-        style={{ borderColor: on ? sc.solid : sc.border, backgroundColor: on ? sc.solid : undefined }}
-        className="group w-full text-left bg-card rounded-2xl border-2 p-6 transition-colors duration-200"
-      >
+    const inner = (
+      <>
         {/* School color bar */}
         <div style={{ backgroundColor: on ? 'rgba(255, 255, 255, 0.6)' : sc.solid }} className="w-full h-1.5 rounded-full mb-5 transition-colors duration-200" />
 
@@ -269,6 +312,46 @@ export const SchoolSelect = () => {
             </span>
           )}
         </div>
+      </>
+    );
+
+    if (arranging) {
+      // Draggable cards: no hover fill, no selecting a school, a grip in the corner.
+      return (
+        <div
+          key={school}
+          draggable
+          onDragStart={(e) => { setDragging(school); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', school); }}
+          onDragEnter={() => {
+            if (!dragging || dragging === school) return;
+            const next = moveTo(visibleSchools, dragging, school);
+            setOrder(next);
+            saveOrder(user.id, next);
+          }}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => e.preventDefault()}
+          onDragEnd={() => setDragging(null)}
+          style={{ borderColor: sc.border }}
+          className={`relative w-full cursor-grab select-none bg-card rounded-2xl border-2 border-dashed p-6 shadow-[0_8px_24px_rgba(15,23,42,0.08)] transition-opacity active:cursor-grabbing ${dragging === school ? 'opacity-40' : ''}`}
+        >
+          <GripVertical className="absolute right-3 top-4 w-5 h-5 text-[#94A3B8]" aria-hidden="true" />
+          {inner}
+        </div>
+      );
+    }
+
+    return (
+      <button
+        key={school}
+        onClick={() => handleSelectSchool(school)}
+        onMouseEnter={() => setActive(school)}
+        onMouseLeave={() => setActive(null)}
+        onFocus={() => setActive(school)}
+        onBlur={() => setActive(null)}
+        style={{ borderColor: on ? sc.solid : sc.border, backgroundColor: on ? sc.solid : undefined }}
+        className="group w-full text-left bg-card rounded-2xl border-2 p-6 transition-colors duration-200"
+      >
+        {inner}
       </button>
     );
   };
@@ -331,7 +414,7 @@ export const SchoolSelect = () => {
                     ? `${user.schools.length} registered school${user.schools.length === 1 ? '' : 's'}. Choose one to manage, or open all schools together.`
                     : user.schools.length === 1 ? 'There is 1 school assigned to your account.' : `There are ${user.schools.length} schools assigned to your account.`}
                 </p>
-                {isAdmin && (
+                {isAdmin && !arranging && (
                   <>
                 <div className="relative mx-auto mt-5 max-w-2xl">
                   <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
@@ -388,13 +471,39 @@ export const SchoolSelect = () => {
                 </div>
               )}
 
-              <div className="mt-8 mb-2.5 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">
-                {isAdmin ? 'All schools' : 'Assigned Schools'}{visibleSchools.length !== user.schools.length ? ` (${visibleSchools.length} of ${user.schools.length})` : ''}
+              <div className="mt-8 mb-2.5 flex items-center justify-between gap-3">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">
+                  {isAdmin ? 'All schools' : 'Assigned Schools'}{visibleSchools.length !== user.schools.length ? ` (${visibleSchools.length} of ${user.schools.length})` : ''}
+                </div>
+                {user.schools.length > 1 && (
+                  arranging ? (
+                    <button
+                      onClick={() => { setArranging(false); setDragging(null); }}
+                      className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#16214F] px-4 text-sm font-bold text-white hover:opacity-90"
+                    >
+                      <Check className="w-4 h-4" /> Done
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => { setArranging(true); setActive(null); }}
+                      title="Rearrange schools"
+                      aria-label="Rearrange schools"
+                      className="grid h-10 w-10 place-items-center rounded-xl border border-[#CBD5E1] bg-white text-[#334155] hover:bg-gray-50"
+                    >
+                      <ArrowUpDown className="w-[18px] h-[18px]" />
+                    </button>
+                  )
+                )}
               </div>
+              {arranging && (
+                <div className="mb-3 rounded-xl border border-[#DCE3F5] bg-[#F4F7FF] px-4 py-2.5 text-[13px] text-[#475569]">
+                  <b className="text-foreground">Rearranging schools.</b> Drag a card to a new spot. Your order saves as you go.
+                </div>
+              )}
               {/* Cards keep one fixed width and start at the left; a new school
                   simply lands at the end and the row wraps. */}
               <div className="grid gap-5 justify-start [grid-template-columns:repeat(auto-fill,258px)]">
-                {isAdmin && showAll && !query.trim() && level === 'all' && allSchoolsCard}
+                {isAdmin && showAll && !arranging && !query.trim() && level === 'all' && allSchoolsCard}
                 {visibleSchools.map(schoolCard)}
               </div>
               {visibleSchools.length === 0 && (
