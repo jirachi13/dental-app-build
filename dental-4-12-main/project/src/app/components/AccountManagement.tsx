@@ -557,7 +557,7 @@ export const AccountManagement = () => {
                     <div className="flex items-center gap-4">
                       <span className="w-11 h-11 flex-shrink-0 rounded-xl grid place-items-center bg-[#F4F7FF] text-[#273A78] text-sm font-bold">{user.name.trim().charAt(0).toUpperCase()}</span>
                       <div className="min-w-0">
-                        <div className="text-[14.5px] font-bold text-foreground flex items-center">
+                        <div className="text-sm font-bold text-foreground flex items-center">
                           {user.name}
                           {user.pending && (
                             <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200">Pending sync</span>
