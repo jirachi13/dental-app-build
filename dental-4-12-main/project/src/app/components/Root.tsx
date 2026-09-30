@@ -692,6 +692,8 @@ export const Root = () => {
             // Dental Charts (4) and Treatment (6) render nested inside the
             // Students (3) group below, not as their own row here.
             if (tab.id === 4 || tab.id === 6) return null;
+            // Notifications lives as a bell in the user row below, not in this list.
+            if (tab.path === '/notifications') return null;
             if (tab.id === 3) {
               const studentsChildren = visibleTabs.filter((t) => t.id === 4 || t.id === 6);
               return <StudentsGroup key={tab.id} studentsTab={tab} children={studentsChildren} />;
@@ -711,14 +713,34 @@ export const Root = () => {
               not just the name/role text) -- CSS-based (md:hidden), not a JS
               conditional, so mobile (which ignores `collapsed`) still shows it
               regardless of whatever the flag was left at. */}
-          <div className={`flex items-center gap-2.5 pb-[5px] pt-2.5 mb-1 ${collapsed ? 'md:hidden' : ''}`}>
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-primary-surface text-[0.875rem] font-bold" style={{ color: '#4F63D9' }}>
+          <div className={`flex items-center gap-2.5 pb-[5px] pt-2.5 mb-1 ${collapsed ? 'md:justify-center' : ''}`}>
+            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-primary-surface text-[0.875rem] font-bold ${collapsed ? 'md:hidden' : ''}`} style={{ color: '#4F63D9' }}>
               {user.name.charAt(0).toUpperCase()}
             </span>
-            <div className="min-w-0 flex flex-col">
+            <div className={`min-w-0 flex-1 flex flex-col ${collapsed ? 'md:hidden' : ''}`}>
               <strong className="text-[0.75rem] text-white truncate">{user.name}</strong>
               <span className="mt-[2.5px] text-[0.625rem] text-white/55 capitalize">{user.role.replace('_', ' ')}</span>
             </div>
+            {NOTIFIED_ROLES.includes(user.role) && (
+              <Link
+                to="/notifications"
+                onClick={() => { setDrawerOpen(false); resetStudentsClicks(); }}
+                title="Notifications"
+                aria-label={notifTotal > 0 ? `Notifications, ${notifTotal} new` : 'Notifications'}
+                className={`relative ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] transition-colors ${
+                  isTabActive('/notifications')
+                    ? 'bg-[linear-gradient(115deg,#FBD965_0%,#F4C542_55%,#E9B52F_100%)] text-sidebar-bg'
+                    : 'text-white/70 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <Bell className="w-4 h-4" />
+                {notifTotal > 0 && (
+                  <span className="absolute -right-1 -top-1 min-w-[1.0625rem] rounded-full bg-danger-surface px-1 text-center text-[0.625rem] font-bold leading-[1.0625rem] tabular-nums text-destructive">
+                    {notifTotal > 99 ? '99+' : notifTotal}
+                  </span>
+                )}
+              </Link>
+            )}
           </div>
 
           <button
