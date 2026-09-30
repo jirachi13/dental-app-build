@@ -471,7 +471,7 @@ export const SchoolSelect = () => {
                 </div>
               )}
 
-              <div className="mt-8 mb-2.5 flex items-center justify-between gap-3">
+              <div className="mt-8 mb-2.5 flex items-center gap-2.5">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">
                   {isAdmin ? 'All schools' : 'Assigned Schools'}{visibleSchools.length !== user.schools.length ? ` (${visibleSchools.length} of ${user.schools.length})` : ''}
                 </div>
@@ -479,7 +479,7 @@ export const SchoolSelect = () => {
                   arranging ? (
                     <button
                       onClick={() => { setArranging(false); setDragging(null); }}
-                      className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#16214F] px-4 text-sm font-bold text-white hover:opacity-90"
+                      className="inline-flex h-7 items-center rounded-lg bg-[#16214F] px-3 text-xs font-medium text-white hover:opacity-90"
                     >
                       Done
                     </button>
@@ -488,9 +488,9 @@ export const SchoolSelect = () => {
                       onClick={() => { setArranging(true); setActive(null); }}
                       title="Rearrange schools"
                       aria-label="Rearrange schools"
-                      className="grid h-10 w-10 place-items-center rounded-xl border border-[#CBD5E1] bg-white text-[#334155] hover:bg-gray-50"
+                      className="text-[#94A3B8] transition-colors hover:text-[#334155]"
                     >
-                      <ArrowUpDown className="w-[18px] h-[18px]" />
+                      <ArrowUpDown className="w-3.5 h-3.5" strokeWidth={1.75} />
                     </button>
                   )
                 )}
