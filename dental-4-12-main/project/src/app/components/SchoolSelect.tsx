@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth, ALL_SCHOOLS } from '../context/AuthContext';
 import { getSchoolColor } from '../utils/schoolColors';
-import { School, ChevronRight, ChevronDown, Check, LogOut, MapPin, Layers, Search } from 'lucide-react';
+import { School, ChevronRight, ChevronDown, Check, LogOut, MapPin, Layers, Search, SearchX } from 'lucide-react';
 import { useSchools } from '../hooks/useSchools';
 import { SCHOOL_GRADES, schoolGradeRange } from '../utils/schoolGrades';
 import type { ApiSchool } from '../api/types';
@@ -390,9 +390,16 @@ export const SchoolSelect = () => {
                   {visibleSchools.map(schoolCard)}
                 </div>
                 {visibleSchools.length === 0 && (
-                  <div className="mt-6 rounded-2xl border border-border bg-card px-6 py-14 text-center">
-                    <div className="text-base font-bold text-foreground">No schools match</div>
-                    <div className="mt-1 text-sm text-muted-foreground">Try a different name, or choose All.</div>
+                  <div className="mt-6 flex flex-col items-center justify-center rounded-2xl border border-border bg-card px-6 py-16 text-center">
+                    <span className="w-[4.5rem] h-[4.5rem] rounded-2xl grid place-items-center bg-[#F1F5F9] text-[#94A3B8]"><SearchX className="w-8 h-8" /></span>
+                    <div className="mt-5 text-base font-bold text-foreground">No schools found</div>
+                    <div className="mt-2 text-xs text-muted-foreground">Try a different name, or choose All.</div>
+                    <button
+                      onClick={() => { setQuery(''); setLevel('all'); }}
+                      className="mt-4 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-[13px] font-semibold text-[#475569] hover:bg-gray-50"
+                    >
+                      Clear search and filters
+                    </button>
                   </div>
                 )}
               </>
