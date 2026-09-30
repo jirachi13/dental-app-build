@@ -9,6 +9,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 import type { IptrOcrFieldKey, IptrOcrResult, IptrCheckboxFinding } from './iptrOcrShared';
 import { readIptrTickBoxes } from './iptrTickBoxes';
 import { readIptrCheckboxes, IPTR_FORM_ROWS, IPTR_YEARS } from './iptrCheckboxes';
+import { normalizeGrade } from './studentImport';
 export { OCR_CONFIDENCE_THRESHOLD } from './iptrOcrShared';
 export type { IptrOcrFieldKey, IptrOcrResult } from './iptrOcrShared';
 
@@ -49,7 +50,7 @@ const ALL_FIELD_LABELS = [
   'first\\s*name', 'given\\s*name',
   'middle\\s*name', 'gitnang\\s*pangalan',
   "student'?s name", "patient'?s name", 'pangalan', 'name',
-  'birth\\s*date', 'birthday', 'date of birth',
+  'birth\\s*date', 'birthday', 'date\\s*of\\s*birth',
   'age', 'sex', 'gender', 'address', 'occupation',
   'contact\\s*(?:no\\.?|number|#)', 'mobile\\s*(?:no\\.?|number|#)',
   'phil\\s*health', 'principal', 'dependent',
@@ -82,7 +83,9 @@ function findLabelValue(text: string, labels: string[]): string | null {
 
 function confidenceForValue(value: string, words: Tesseract.Word[]): number | undefined {
   if (!value) return undefined;
-  const tokens = value.toLowerCase().split(/\s+/).filter(Boolean);
+  // Both sides stripped the same way: words were, tokens were not, so a
+  // dashed value ("0912-345-6789") never matched and lost its EXTRACTED badge.
+  const tokens = value.toLowerCase().split(/\s+/).map((t) => t.replace(/[^a-z0-9]/g, '')).filter(Boolean);
   const matches = words.filter((w) => tokens.includes(w.text.toLowerCase().replace(/[^a-z0-9]/g, '')));
   if (matches.length === 0) return undefined;
   return matches.reduce((sum, w) => sum + w.confidence, 0) / matches.length;
@@ -117,10 +120,38 @@ function normalizeAddress(raw: string): string {
   return value.replace(/[^0-9A-Za-z]/g, '').length >= 4 ? value : '';
 }
 
+// ⚠ Anything that is not plainly M/F is BLANK, never passed through (O2,
+// 2026-10-01). "Sex *" followed by two checkboxes read as the value "*", which
+// then filled the field and stopped the ink-density reader (iptrTickBoxes.ts)
+// from ever deciding it: the ticked box was ignored because junk got there first.
 function normalizeSex(raw: string): string {
-  if (/^m(ale)?$/i.test(raw.trim())) return 'Male';
-  if (/^f(emale)?$/i.test(raw.trim())) return 'Female';
-  return raw.trim();
+  const t = raw.trim();
+  if (/^m(ale)?$/i.test(t)) return 'Male';
+  if (/^f(emale)?$/i.test(t)) return 'Female';
+  // The IPTR prints "Sex: M ____ F ____" and the dentist ticks one blank. OCR
+  // reads the tick as a glyph after its letter ("M Fv" = F ticked). Exactly one
+  // letter must carry a mark; none or both is blank.
+  const mf = t.match(/^M\s*[_\s]*([v✓√\/]?)\s*[_\s]*F\s*[_\s]*([v✓√\/]?)[_\s]*$/i);
+  if (mf && !!mf[1] !== !!mf[2]) return mf[1] ? 'Male' : 'Female';
+  return '';
+}
+
+// A phone number has digits. A form's greyed example ("09XX XXX XXXX") was read
+// as the pupil's number on the web-form layout (O2, 2026-10-01); PH mobile
+// numbers are 11 digits and landlines 7-8, so fewer than 7 is not a number.
+function normalizePhone(raw: string): string {
+  return raw.replace(/\D/g, '').length >= 7 ? raw.trim() : '';
+}
+
+// The first real grade in the answer: a web form printed "Grade choices:
+// Kinder, Grade 1, …" under the Grade box and it was read into the value.
+function normalizeGradeText(raw: string): string {
+  const m = raw.match(/\b(kinder(?:garten)?|grade\s*\d{1,2})\b/i);
+  return m ? normalizeGrade(m[1]) ?? '' : '';
+}
+
+function normalizeAge(raw: string): string {
+  return raw.trim().match(/^\d{1,2}\b/)?.[0] ?? '';
 }
 
 const MONTH_NAMES: Record<string, number> = {
@@ -159,6 +190,13 @@ function splitName(raw: string): { firstName: string; middleName: string; lastNa
     return { firstName: first ?? '', middleName: mid.join(' '), lastName: last ?? '' };
   }
   const parts = raw.split(/\s+/).filter(Boolean);
+  // A trailing initial ("Reyes Mikaela S.") means the IPTR's own column order,
+  // Surname / First Name / M.I. (the captions printed under the line). Nobody
+  // writes a SURNAME as one letter, so this cannot be "First Middle Last"
+  // (O2, 2026-10-01: that reading made "Reyes" the first name).
+  if (parts.length >= 3 && /^[A-Z]\.?$/i.test(parts[parts.length - 1])) {
+    return { lastName: parts[0], firstName: parts.slice(1, -1).join(' '), middleName: parts[parts.length - 1].toUpperCase() };
+  }
   if (parts.length === 1) return { firstName: parts[0], middleName: '', lastName: '' };
   if (parts.length === 2) return { firstName: parts[0], middleName: '', lastName: parts[1] };
   return { firstName: parts[0], middleName: parts.slice(1, -1).join(' '), lastName: parts[parts.length - 1] };
@@ -213,10 +251,18 @@ const GRID_LABELS: [string, RegExp][] = [
   ['philhealthNumber', /^phil\s*health\s*(?:#|no\.?|number)\b/i],
   ['__philhealthStatus__', /^phil\s*health\s*status\b/i],
   ['__signature__', /^(?:parent\s*\/\s*guardian|printed\s*name|date\s*of\s*form)\b/i],
+  // The IPTR's "M.I." caption under the name line; OCR reads it as "ML".
+  ['__mi__', /^(?:m\.?\s*i\.?|ml)$/i],
 ];
 
-const GRID_NOISE_WORD = /^[*•:\-]+$/;
-const GRID_SKIP_TEXT = /^\(?optional\)?$/i;
+const GRID_NOISE_WORD = /^[*•·:\-]+$/;
+// "(Optional)", and a caption's own "/Apelyido" alias half.
+const GRID_SKIP_TEXT = /^(?:\(?optional\)?|\/\S*)$/i;
+// Table rules OCR as | [ ]. An answer region containing them is a table row
+// read across, not handwriting (the IPTR's ✓/X grid came back as an
+// occupation, O2 2026-10-01), so the whole answer is dropped, not cleaned.
+const GRID_TABLE_MARKS = /[[\]|]/;
+const hasTableMarks = (words: GridWord[]) => words.some((w) => GRID_TABLE_MARKS.test(w.text));
 
 /** Groups words into lines by Y-BAND OVERLAP rather than trusting Tesseract's
  *  own line segmentation, which was observed splitting one visual answer row
@@ -269,8 +315,15 @@ function gridCaptionsOn(line: GridLine): [number, number, string, number][] {
   return results;
 }
 
+/** Words Tesseract itself is this unsure of are dropped from answers (O2,
+ *  2026-10-01). Measured on the clinic sheet: the tail of a handwritten "y"
+ *  read as a separate word "TY" (confidence 26) sat between "January" and
+ *  "11," and the date parser rejected "January TY 11, 2019", so the
+ *  birthdate came back blank. Real answers on the same scans scored 81-96. */
+const GRID_JUNK_CONFIDENCE = 40;
+
 function gridClean(words: GridWord[]): GridWord[] {
-  return words.filter((w) => !GRID_NOISE_WORD.test(w.text) && !GRID_SKIP_TEXT.test(w.text));
+  return words.filter((w) => !GRID_NOISE_WORD.test(w.text) && !GRID_SKIP_TEXT.test(w.text) && w.confidence >= GRID_JUNK_CONFIDENCE);
 }
 
 /** The extractor itself -- see the file comment above for what it does and
@@ -293,8 +346,8 @@ function extractGridFields(
       const rightBound = idx + 1 < caps.length ? caps[idx + 1][0] - 8 : line.x1 + 100000;
       const leftBound = cx0 - 15;
 
-      const restWords = gridClean(line.words.filter((w) => w.x0 >= cx1 + 3 && w.x0 < rightBound));
-      const sameLineVal = restWords.map((w) => w.text).join(' ').trim();
+      const restRaw = line.words.filter((w) => w.x0 >= cx1 + 3 && w.x0 < rightBound);
+      const sameLineVal = hasTableMarks(restRaw) ? '' : gridClean(restRaw).map((w) => w.text).join(' ').trim();
       if (sameLineVal) {
         already.add(key);
         setField(key as IptrOcrFieldKey, sameLineVal, normalizers[key as IptrOcrFieldKey]);
@@ -307,12 +360,26 @@ function extractGridFields(
       // introduces a DIFFERENT field's caption -- an answer legitimately
       // repeating ITS OWN caption word (a Grade value written as "Grade 1")
       // must not look like a stop signal.
+      //
+      // ⚠ Boundary-only captions (`__age__`, `__philhealthStatus__`, …) STOP
+      // the scan too (O2, 2026-10-01): they exist precisely to bound their
+      // neighbours, yet were filtered out here, which read "Sofia Age" as a
+      // middle name and "Student PhilHealth Status" as an occupation. And a
+      // second line is taken only when it sits right under the first: the
+      // split-answer case is two touching lines, whereas a line a whole row
+      // away is something else (a form footer was read into the address).
       const collected: GridWord[] = [];
+      let prev: GridLine | null = null;
       for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
         const below = lines[j];
-        const otherCaps = gridCaptionsOn(below).filter((c) => !siblingKeys.has(c[2]) && !c[2].startsWith('__'));
+        const otherCaps = gridCaptionsOn(below).filter((c) => !siblingKeys.has(c[2]));
         if (otherCaps.length) break;
-        collected.push(...gridClean(below.words.filter((w) => w.x0 >= leftBound && w.x0 < rightBound)));
+        if (prev && below.y0 - prev.y1 > prev.y1 - prev.y0) break;
+        const raw = below.words.filter((w) => w.x0 >= leftBound && w.x0 < rightBound);
+        if (hasTableMarks(raw)) { collected.length = 0; break; }
+        const words = gridClean(raw);
+        collected.push(...words);
+        if (words.length) prev = below;
       }
       const val = collected.map((w) => w.text).join(' ').trim();
       if (val) {
@@ -339,6 +406,16 @@ function extractFieldsFromPage(
     if (conf !== undefined) confidences[key] = Math.round(conf);
   };
 
+  // The IPTR prints its name captions UNDER the "Name:" line ("Surname/
+  // Apelyido  First Name/Pangalan  M.I."). The grid reader and the separate
+  // Last/First Name labels both assume a caption sits above or before its
+  // answer, so on this layout they read the captions' neighbours as names
+  // (O2, 2026-10-01: last name "/Apelyido", first name "ML"). Here the name
+  // comes ONLY from the "Name:" line, split in the IPTR's column order.
+  const iptrNameCaptions = /surname\s*\S?\s*apelyido/i.test(text);
+  const NAME_KEYS: IptrOcrFieldKey[] = ['lastName', 'firstName', 'middleName'];
+  const namesBefore = new Set(NAME_KEYS.filter((k) => fields[k]));
+
   // Grid/box-layout extraction FIRST (see the file comment on
   // extractGridFields) -- it's a superset of the flowing-text approach
   // below (handles same-line inline values too), so run it before falling
@@ -348,7 +425,21 @@ function extractFieldsFromPage(
     address: normalizeAddress,
     gender: normalizeSex,
     philhealthNumber: normalizePhilhealth,
+    contactNumber: normalizePhone,
+    guardianContact: normalizePhone,
+    grade: normalizeGradeText,
   });
+
+  if (iptrNameCaptions) {
+    for (const k of NAME_KEYS) if (!namesBefore.has(k)) { delete fields[k]; delete confidences[k]; }
+    const nameRaw = findLabelValue(text, ['name']);
+    if (nameRaw) {
+      const split = splitName(nameRaw);
+      setField('lastName', split.lastName);
+      setField('firstName', split.firstName);
+      setField('middleName', split.middleName);
+    }
+  }
 
   // Separate Last Name/Surname, First Name and Middle Name fields (2026-09-29:
   // "other term for last name is the surname... it doesn't place exactly
@@ -356,9 +447,11 @@ function extractFieldsFromPage(
   // "Name" fallback below. A form that prints these as three distinct
   // labels can't be read correctly by splitting one "Name:" value, and the
   // combined path never recognized "Surname" as an alias at all.
-  setField('lastName', findLabelValue(text, ['last\\s*name', 'surname', 'apelyido']));
-  setField('firstName', findLabelValue(text, ['first\\s*name', 'given\\s*name']));
-  setField('middleName', findLabelValue(text, ['middle\\s*name', 'gitnang\\s*pangalan']));
+  if (!iptrNameCaptions) {
+    setField('lastName', findLabelValue(text, ['last\\s*name', 'surname', 'apelyido']));
+    setField('firstName', findLabelValue(text, ['first\\s*name', 'given\\s*name']));
+    setField('middleName', findLabelValue(text, ['middle\\s*name', 'gitnang\\s*pangalan']));
+  }
 
   // Combined "Last Name, First Name Middle Name" line -- the DOH IPTR's own
   // printed layout (see the file-level comment on ALL_FIELD_LABELS). Only
@@ -381,11 +474,12 @@ function extractFieldsFromPage(
     }
   }
 
-  setField('birthdate', findLabelValue(text, ['birth\\s*date', 'birthday', 'date of birth']), normalizeBirthdate);
-  setField('age', findLabelValue(text, ['age']));
+  // `date\s*of\s*birth`: OCR ran the IPTR's caption together as "Dateof Birth".
+  setField('birthdate', findLabelValue(text, ['birth\\s*date', 'birthday', 'date\\s*of\\s*birth']), normalizeBirthdate);
+  setField('age', findLabelValue(text, ['age']), normalizeAge);
   setField('gender', findLabelValue(text, ['sex', 'gender']), normalizeSex);
   setField('address', findLabelValue(text, ['address']), normalizeAddress);
-  setField('contactNumber', findLabelValue(text, ['contact\\s*(no\\.?|number|#)', 'mobile\\s*(no\\.?|number|#)']));
+  setField('contactNumber', findLabelValue(text, ['contact\\s*(no\\.?|number|#)', 'mobile\\s*(no\\.?|number|#)']), normalizePhone);
   // The form prints the whole caption "Philhealth #: Principal / Dependent:"
   // before the blank, so Principal/Dependent is consumed as PART OF THE LABEL.
   // Without that the capture starts at "Principal" and the number is lost.
@@ -395,6 +489,23 @@ function extractFieldsFromPage(
     normalizePhilhealth,
   );
   setField('fourPsId', findLabelValue(text, ['4\\s*ps\\s*[\\/|]?\\s*nhts', '4\\s*ps']), normalizeFourPs);
+}
+
+/** The pure text rules, exported for iptrOcr.test.ts only. */
+export const ocrTextRules = { normalizeSex, normalizePhone, normalizeGradeText, normalizeBirthdate, splitName, identityScore: (t: string) => identityScore(t) };
+
+const IDENTITY_CAPTIONS = [
+  /\bname\s*[:*]/i,
+  /\b(?:last|first|middle)\s*name\b/i,
+  /date\s*of\s*birth|birth\s*date|birthday/i,
+  /\bsex\s*[:*]/i,
+  /\baddress\b/i,
+];
+
+/** How many distinct identity captions a page prints (see the ranking in
+ *  extractIptrFields). */
+function identityScore(text: string): number {
+  return IDENTITY_CAPTIONS.filter((re) => re.test(text)).length;
 }
 
 function wordsOf(data: Tesseract.Page): Tesseract.Word[] {
@@ -488,9 +599,9 @@ export async function extractIptrFields(
   file: File,
   onProgress?: (pct: number) => void,
 ): Promise<IptrOcrResult> {
-  const images: Tesseract.ImageLike[] = file.type === 'application/pdf'
+  const images: Tesseract.ImageLike[] = await splitSpreads(file.type === 'application/pdf'
     ? await rasterizePdfPages(file)
-    : [file];
+    : [file]);
 
   let pageIndex = 0;
 
@@ -510,19 +621,31 @@ export async function extractIptrFields(
 
   // Page 1 in whatever orientation actually read — see recognizePage.
   let firstPageImage: Tesseract.ImageLike | null = null;
-  let firstPageWords: Tesseract.Word[] = [];
+  const recognized: RecognizedPage[] = [];
 
   try {
     for (; pageIndex < images.length; pageIndex++) {
       const page = await recognizePage(worker, images[pageIndex]);
-      if (pageIndex === 0) { firstPageImage = page.image; firstPageWords = page.words; }
+      if (pageIndex === 0) firstPageImage = page.image;
+      recognized.push(page);
       allWords.push(...page.words);
       rawTextParts.push(page.text);
-      extractFieldsFromPage(page.text, page.words, fields, confidences);
     }
   } finally {
     await worker.terminate();
   }
+
+  // Personal details come from the page(s) that CARRY them (O2, 2026-10-01).
+  // Earlier pages used to win, so on a split two-page IPTR the medical-history
+  // half went first and its signature line "Lagda at Pangalan ng Pasyente"
+  // was read as the pupil's name. Pages are ranked by how many identity
+  // captions they print; when any page has at least two, only such pages are
+  // read, best first. With none (an unusual form), every page is read in order.
+  const ranked = recognized
+    .map((page, i) => ({ page, i, score: identityScore(page.text) }))
+    .sort((a, b) => b.score - a.score || a.i - b.i);
+  const fieldPages = ranked[0]?.score >= 2 ? ranked.filter((r) => r.score >= 2) : ranked.sort((a, b) => a.i - b.i);
+  for (const { page } of fieldPages) extractFieldsFromPage(page.text, page.words, fields, confidences);
 
   const overallConfidence = allWords.length
     ? Math.round(allWords.reduce((sum, w) => sum + w.confidence, 0) / allWords.length)
@@ -558,15 +681,19 @@ export async function extractIptrFields(
     checkboxReason = err instanceof Error ? err.message : 'Checkbox grid could not be read.';
   }
 
-  // ── Sex + PhilHealth Status tick boxes (page 1) ──────────────────────────
+  // ── Sex + PhilHealth Status tick boxes (every page) ──────────────────────
   // Ink density beside the OCR'd option labels; see iptrTickBoxes.ts. Text
   // already read for a field wins; a failure here never loses other fields.
-  try {
-    const page1 = await toCanvas(firstPageImage ?? images[0]);
-    const ctx = page1?.getContext('2d');
-    if (page1 && ctx) {
-      const px = ctx.getImageData(0, 0, page1.width, page1.height);
-      const labels = firstPageWords.map((w) => ({ text: w.text, x0: w.bbox.x0, x1: w.bbox.x1, y0: w.bbox.y0, y1: w.bbox.y1 }));
+  // Every page, not page 1 only (O2, 2026-10-01): on a split two-page spread
+  // the personal details are the RIGHT-hand page.
+  for (const page of recognized) {
+    if (fields.gender && fields.philhealthStatus) break;
+    try {
+      const canvas = await toCanvas(page.image);
+      const ctx = canvas?.getContext('2d');
+      if (!canvas || !ctx) continue;
+      const px = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const labels = page.words.map((w) => ({ text: w.text, x0: w.bbox.x0, x1: w.bbox.x1, y0: w.bbox.y0, y1: w.bbox.y1 }));
       const ticks = readIptrTickBoxes(px, labels);
       if (ticks.gender && !fields.gender) {
         fields.gender = ticks.gender.value;
@@ -576,9 +703,9 @@ export async function extractIptrFields(
         fields.philhealthStatus = ticks.philhealthStatus.value;
         confidences.philhealthStatus = ticks.philhealthStatus.confidence;
       }
+    } catch {
+      // Left blank for the encoder to tick.
     }
-  } catch {
-    // Left blank for the encoder to tick.
   }
 
   return {
@@ -591,6 +718,51 @@ export async function extractIptrFields(
     checkboxReason,
     unstorableFindings: [...unstorable],
   };
+}
+
+// ── Two-page spreads ────────────────────────────────────────────────────────
+// An IPTR printed or photographed as ONE landscape sheet (the medical history
+// on the left, the treatment record on the right) is read by Tesseract straight
+// across both halves, so "8. Ikaw ba ay nabunutan…" and "Jan 11, 2019 Age: 7"
+// came out as one line and the name, birthdate and sex were lost (O2,
+// 2026-10-01). Such a sheet is split at its blank middle gutter and each half
+// read as its own page.
+//
+// ⚠ Split ONLY on a real gutter: a column near the middle with almost no ink
+// from top to bottom. A single landscape photo of one portrait form has text
+// crossing the middle, finds no gutter, and is left whole.
+const SPREAD_MIN_ASPECT = 1.3;
+const GUTTER_MAX_INK = 0.03;
+
+async function splitSpreads(images: Tesseract.ImageLike[]): Promise<Tesseract.ImageLike[]> {
+  const out: Tesseract.ImageLike[] = [];
+  for (const image of images) {
+    const canvas = await toCanvas(image);
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx || canvas.width < canvas.height * SPREAD_MIN_ASPECT) { out.push(image); continue; }
+    const px = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let bestX = -1;
+    let bestInk = 1;
+    for (let x = Math.round(canvas.width * 0.4); x <= Math.round(canvas.width * 0.6); x++) {
+      let dark = 0;
+      let rows = 0;
+      for (let y = 0; y < canvas.height; y += 2) {
+        const p = (y * canvas.width + x) * 4;
+        if (0.299 * px.data[p] + 0.587 * px.data[p + 1] + 0.114 * px.data[p + 2] < 170) dark++;
+        rows++;
+      }
+      if (dark / rows < bestInk) { bestInk = dark / rows; bestX = x; }
+    }
+    if (bestX < 0 || bestInk > GUTTER_MAX_INK) { out.push(image); continue; }
+    for (const [sx, sw] of [[0, bestX], [bestX, canvas.width - bestX]]) {
+      const half = document.createElement('canvas');
+      half.width = sw;
+      half.height = canvas.height;
+      half.getContext('2d')?.drawImage(canvas, sx, 0, sw, canvas.height, 0, 0, sw, canvas.height);
+      out.push(half);
+    }
+  }
+  return out;
 }
 
 /** Tesseract accepts several image types; the grid reader needs real pixels.

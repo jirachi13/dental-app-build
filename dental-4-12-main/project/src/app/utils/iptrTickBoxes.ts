@@ -14,10 +14,12 @@ export interface LabelBox { text: string; x0: number; x1: number; y0: number; y1
 
 /** Same luminance cut-off as the Year 1-5 grid reader. */
 const DARK_LUM = 170;
-/** Ticked box interior must be at least this fraction dark… */
-const MIN_INK = 0.08;
-/** …and beat the runner-up by at least this much (absolute). */
-const MIN_MARGIN = 0.05;
+/** The ticked option must beat the runner-up by this much ink (absolute
+ *  ratio over the window). Measured O2, 2026-10-01 on the clinic sheet: ticked
+ *  vs empty differed by 0.027 (Sex) and 0.036 (PhilHealth), empty vs empty by
+ *  0.0005. The printed outline is in every window, so a ratio test would be
+ *  swamped by it; the gap is what the tick adds. */
+const MIN_MARGIN = 0.015;
 
 export interface TickChoice {
   /** The option whose box is ticked, or null when undecidable. */
@@ -28,21 +30,23 @@ export interface TickChoice {
   densities: Record<string, number>;
 }
 
-/** Fraction of dark pixels in the INTERIOR of the box just left of a label.
- *  The box is assumed ~one label-height square, sitting immediately before the
- *  label; the outer 25% is skipped so the printed outline does not count as ink. */
-function boxInk(px: PixelSource, label: LabelBox): number {
-  const h = label.y1 - label.y0;
-  const side = h * 1.1;
-  const gap = h * 0.25;
-  const bx1 = label.x0 - gap;
-  const bx0 = bx1 - side;
+/** Fraction of dark pixels in a window just LEFT of a label, sized from `h`
+ *  (the group's SMALLEST label height), the same size for every option.
+ *
+ *  ⚠ Rewritten O2, 2026-10-01. It used to guess each box's interior from that
+ *  option's own label height, but OCR label boxes vary (on the clinic sheet
+ *  "Male" measured 16 px tall and "Female" 30 px, beside identical 26 px
+ *  boxes set 12 px from the label). The guessed interior for "Male" landed on
+ *  the box's right border, so an empty box scored as inked and Sex was
+ *  declined. Now the window takes in the WHOLE box (or radio ring) for every
+ *  option: the outline is the same printed shape everywhere and cancels out
+ *  in the comparison, and the tick or dot is the only difference. */
+function boxInk(px: PixelSource, label: LabelBox, h: number): number {
   const cy = (label.y0 + label.y1) / 2;
-  const inset = side * 0.25;
-  const x0 = Math.max(0, Math.round(bx0 + inset));
-  const x1 = Math.min(px.width, Math.round(bx1 - inset));
-  const y0 = Math.max(0, Math.round(cy - side / 2 + inset));
-  const y1 = Math.min(px.height, Math.round(cy + side / 2 - inset));
+  const x1 = Math.min(px.width, Math.round(label.x0 - 2));
+  const x0 = Math.max(0, Math.round(label.x0 - 3.6 * h));
+  const y0 = Math.max(0, Math.round(cy - 1.2 * h));
+  const y1 = Math.min(px.height, Math.round(cy + 1.2 * h));
   if (x1 <= x0 || y1 <= y0) return 0;
   let dark = 0;
   for (let y = y0; y < y1; y++) {
@@ -58,11 +62,12 @@ function boxInk(px: PixelSource, label: LabelBox): number {
 /** Picks the ticked option among labelled boxes, or declines. */
 export function readTickGroup(px: PixelSource, options: Record<string, LabelBox>): TickChoice {
   const densities: Record<string, number> = {};
-  for (const [name, box] of Object.entries(options)) densities[name] = boxInk(px, box);
+  const h = Math.min(...Object.values(options).map((b) => b.y1 - b.y0));
+  for (const [name, box] of Object.entries(options)) densities[name] = boxInk(px, box, h);
   const ranked = Object.entries(densities).sort((a, b) => b[1] - a[1]);
   const [bestName, best] = ranked[0] ?? ['', 0];
   const second = ranked[1]?.[1] ?? 0;
-  if (best < MIN_INK || best - second < MIN_MARGIN) return { choice: null, confidence: 0, densities };
+  if (best - second < MIN_MARGIN) return { choice: null, confidence: 0, densities };
   return { choice: bestName, confidence: Math.round(((best - second) / best) * 100), densities };
 }
 

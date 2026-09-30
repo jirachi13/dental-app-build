@@ -26,10 +26,27 @@ Work is on branch **`majorUpdates`** (pushed; not merged to main).
 ## OCR requests from the classmate (2026-10-01), 3 sprints, one at a time
 ✅ **O1 DONE on `main`:** System Admin now sees Add Student + OCR (`PatientList.tsx` `canAddStudent`),
 matching the server's `CLINICAL_WRITE_ROLES` (verified: admin POST /students → 400 validation, not 403).
-**O2 (Opus high, NEXT on approval):** checkbox extraction fails on her 3 test images
-(`Downloads/12.png` clinic Patient Information Sheet ✓-in-box; `13.png` web-form screenshot with radio
-buttons, a layout never supported; `14.png` DOH IPTR: Oo/Hindi ✓, ✓/X per Age column, Services
-Rendered). Step 1 = run the CURRENT extractor on all 3 and record field-by-field output; then fix.
+✅ **O2a DONE on `main`: personal-info OCR, measured on her 3 test images** (`Downloads/12.png` clinic
+sheet, `13.png` web-form SCREENSHOT, `14.png` IPTR two-page spread, a SCREENSHOT of the app's IPTR
+preview). Before → after: 12 = 12/15 → 15/15 (birthdate, Sex, PhilHealth Status fixed); 13 = 11 junk or
+wrong → all right except Sex; 14 = name reversed, no DOB/Sex → Reyes/Mikaela/S., DOB, Female, address.
+Fixes, all in `utils/iptrOcr.ts` + `iptrTickBoxes.ts`: grid drops words OCR is <40% sure of; boundary
+captions (Age, PhilHealth Status) stop an answer; a far second line is not part of the answer; table
+marks `[ ] |` reject an answer; Sex must be M/F (else blank so the tick reader decides) and reads the
+IPTR's "M Fv"; phone needs ≥7 digits (placeholders "09XX…" blank); grade = first real grade; landscape
+spreads split at a blank middle gutter; fields come from the page with the most identity captions;
+IPTR names come from its "Name:" line in Surname/First/M.I. order; tick boxes measured with one
+window size per group (labels of different heights put the old measurement on the box border).
+Tests: `utils/iptrOcr.test.ts` (8). 119/119, tsc, build clean. Verified through the real Scan → Verify
+screens for 12 and 14. **Known limits:** 13's Sex stays blank (OCR never sees the word "Female" on
+that screenshot's tinted option, even sparse or black-and-white; blank is the intended decline). Tick
+confidences are low (29-50), so Verify flags them for a human check, which is correct.
+**O2b (NEXT, needs the user's decision): the tick TABLES.** (1) The Year 1-5 grid findings are computed
+but DROPPED: `ScanStudentForm.tsx` never passes `result.checkboxes` to Verify (lost when OCR moved
+from popup to page 2026-09-29). (2) The IPTR's own tables (medical history Oo/Hindi ✓, Oral Health
+Status ✓/X per Age column, Services Rendered) are not read at all; the grid reader expects the
+official "Year 1-5" layout. Decision needed: where do reviewed findings save? Verify only creates the
+STUDENT; these belong to that school year's MEDICAL_HISTORY / ORAL_HEALTH_CONDITION (IPTR).
 **O3 (Opus high):** bulk OCR upload has no UI (scan page takes one file). Plan: many images or one
 multi-page PDF, one page = one student, review each on the existing Verify screen, nothing saves unreviewed.
 Also check: `14.png`'s bottom caption ("Place of Birth · Occupation … print blank") must NOT reach paper.
