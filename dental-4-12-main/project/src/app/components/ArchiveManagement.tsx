@@ -151,11 +151,16 @@ export const ArchiveManagement = () => {
     }
   };
 
+  const archiver = (r: Row) => {
+    const u = r.archivedBy ? ctx.userById.get(String(r.archivedBy)) : undefined;
+    return u ? { name: u.full_name, role: ROLE_LABELS[u.role] ?? u.role } : null;
+  };
+
   // Search narrows the loaded list only; it never refetches.
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return rows;
-    return rows.filter((r) => `${kind.describe(r, ctx)} ${kind.detail?.(r, ctx) ?? ''}`.toLowerCase().includes(q));
+    return rows.filter((r) => `${archiver(r)?.name ?? ''} ${kind.module} ${kind.describe(r, ctx)}`.toLowerCase().includes(q));
   }, [rows, search, kind, ctx]);
 
   // archivedAt / archivedBy can be null on records archived before those fields
@@ -168,10 +173,6 @@ export const ArchiveManagement = () => {
   const archivedTime = (r: Row) => r.archivedAt
     ? new Date(r.archivedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
     : null;
-  const archiver = (r: Row) => {
-    const u = r.archivedBy ? ctx.userById.get(String(r.archivedBy)) : undefined;
-    return u ? { name: u.full_name, role: ROLE_LABELS[u.role] ?? u.role } : null;
-  };
   const ArchivedBy = ({ r }: { r: Row }) => {
     const u = archiver(r);
     if (!u) return r.archivedBy ? <span className="text-muted-foreground">Unknown user</span> : notRecorded;
@@ -219,7 +220,7 @@ export const ArchiveManagement = () => {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
             <input
               type="text"
-              placeholder="Search by name or details"
+              placeholder="Search by archived by, module, or record"
               aria-label="Search archived records"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
