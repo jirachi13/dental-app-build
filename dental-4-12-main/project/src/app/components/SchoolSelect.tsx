@@ -303,15 +303,15 @@ export const SchoolSelect = () => {
     const recentTiles = recent.filter((r) => r.school === ALL_SCHOOLS ? showAll : user.schools.includes(r.school));
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex flex-col">
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="bg-white border-b border-gray-200 px-6 py-5">
           <div className="max-w-[1400px] mx-auto flex flex-wrap items-center justify-between gap-3">
             {brand}
             <div className="flex items-center gap-3">
-              <div className="text-right leading-tight">
+              <div className="flex flex-col items-end leading-tight">
                 <div className="text-xs text-muted-foreground">Welcome back,</div>
                 <div className="text-sm font-bold text-foreground">{user.name}</div>
+                <span className={`mt-1.5 px-3 py-0.5 text-xs rounded-full font-medium ${roleBadgeColors[user.role]}`}>{roleLabels[user.role]}</span>
               </div>
-              <span className={`px-3 py-1 text-xs rounded-full font-medium ${roleBadgeColors[user.role]}`}>{roleLabels[user.role]}</span>
               {logoutButton}
             </div>
           </div>
