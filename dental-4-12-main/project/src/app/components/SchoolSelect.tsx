@@ -301,7 +301,7 @@ export const SchoolSelect = () => {
                       value={sort}
                       onChange={(e) => setSort(e.target.value as SortMode)}
                       aria-label="Sort schools"
-                      className="rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-[13px] font-semibold text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#16214F]/30"
+                      className="[field-sizing:content] rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-[13px] font-semibold text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#16214F]/30"
                     >
                       <option value="az">A to Z</option>
                       <option value="za">Z to A</option>
