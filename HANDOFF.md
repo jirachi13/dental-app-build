@@ -23,6 +23,20 @@ Work is on branch **`majorUpdates`** (pushed; not merged to main).
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
+## OCR requests from the classmate (2026-10-01), 3 sprints, one at a time
+✅ **O1 DONE on `main`:** System Admin now sees Add Student + OCR (`PatientList.tsx` `canAddStudent`),
+matching the server's `CLINICAL_WRITE_ROLES` (verified: admin POST /students → 400 validation, not 403).
+**O2 (Opus high, NEXT on approval):** checkbox extraction fails on her 3 test images
+(`Downloads/12.png` clinic Patient Information Sheet ✓-in-box; `13.png` web-form screenshot with radio
+buttons, a layout never supported; `14.png` DOH IPTR: Oo/Hindi ✓, ✓/X per Age column, Services
+Rendered). Step 1 = run the CURRENT extractor on all 3 and record field-by-field output; then fix.
+**O3 (Opus high):** bulk OCR upload has no UI (scan page takes one file). Plan: many images or one
+multi-page PDF, one page = one student, review each on the existing Verify screen, nothing saves unreviewed.
+Also check: `14.png`'s bottom caption ("Place of Birth · Occupation … print blank") must NOT reach paper.
+**Risk redesign R1–R3 is on branch `risk-redesign`, not main** (see that branch's HANDOFF). Waiting on
+the user to set Vercel PREVIEW `MONGODB_URI` + `FIELD_ENCRYPTION_SECRET` to the dev values (dashboard),
+then redeploy the preview and send the classmate the link.
+
 ## ▶ RESUME HERE — PARKED 2026-10-01 (12th session, 3rd day). ✅ **ALL PUSHED, LIVE**
 
 **Nothing is in progress.** On `main`, working tree clean, level with origin (fetch + count, 0/0).

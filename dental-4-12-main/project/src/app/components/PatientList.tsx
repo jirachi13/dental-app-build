@@ -168,7 +168,10 @@ export const PatientList = () => {
   const navigate = useNavigate();
   const { user, selectedSchool } = useAuth();
   const toast = useToast();
-  const canAddStudent = user?.role === 'dentist' || user?.role === 'dental_aide';
+  // Matches the server's CLINICAL_WRITE_ROLES for /students (O1, 2026-10-01:
+  // the System Admin could save students on the API but the screen hid Add
+  // Student and OCR from them).
+  const canAddStudent = user?.role === 'dentist' || user?.role === 'dental_aide' || user?.role === 'system_admin';
 
 
 
