@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { FileSpreadsheet, FileText, Printer, Download, AlertTriangle, AlertCircle, CheckCircle, Users, Calendar, X } from 'lucide-react';
+import { FileSpreadsheet, FileText, Printer, Download, AlertTriangle, AlertCircle, CheckCircle, Users, Calendar, X, FileBarChart } from 'lucide-react';
+import { PageHeader } from './PageHeader';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ChartTooltip } from './ChartTooltip';
 import { LiveUpdatedStamp } from './LiveUpdatedStamp';
@@ -8,8 +9,10 @@ import { getSchoolShortName } from '../utils/schoolColors';
 import { CHART } from '../utils/chartColors';
 import { GradePill } from './GradePill';
 import { useDohReportData } from '../hooks/useDohReportData';
-import { exportDohReportToPdf } from '../utils/exportPdf';
-import { exportDohReportToXlsx } from '../utils/exportDohXlsx';
+import { buildDohReportPdf } from '../utils/exportPdf';
+import { buildDohReportXlsx } from '../utils/exportDohXlsx';
+import { usePreviewModal } from '../hooks/usePreviewModal';
+import { PreviewModal } from './PreviewModal';
 import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
 import { activatable } from '../utils/a11y';
 import { apiClient } from '../api/client';
@@ -316,8 +319,7 @@ export const Reports = () => {
   const [reportYear,  setReportYear]  = useState(new Date().getFullYear());
   // Local school override — defaults to All Schools regardless of global context
   const dohReportRef = useRef<HTMLDivElement>(null);
-  const [downloadingPdf, setDownloadingPdf] = useState(false);
-  const [downloadingExcel, setDownloadingExcel] = useState(false);
+  const { preview, building, previewPdf, previewExcel, closePreview, confirmDownload } = usePreviewModal();
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const { students: realStudents } = useStudents();
 
@@ -347,43 +349,44 @@ export const Reports = () => {
     referralRows: [],
   });
 
-  const handleDownloadPdf = async () => {
+  const handleDownloadPdf = () => {
     if (!dohReportRef.current) return;
-    setDownloadingPdf(true);
     setDownloadError(null);
-    try {
-      const schoolPart = reportSchool ? getSchoolShortName(reportSchool).replace(/\s+/g, '_') : 'AllSchools';
-      const filename = `DOH_Report_${schoolPart}_${bandSlug}_${MONTHS[reportMonth - 1]}${reportYear}.pdf`;
-      await exportDohReportToPdf(dohReportRef.current, filename);
-    } catch (err) {
-      setDownloadError(err instanceof Error ? err.message : 'Failed to generate PDF');
-    } finally {
-      setDownloadingPdf(false);
-    }
+    const el = dohReportRef.current;
+    const schoolPart = reportSchool ? getSchoolShortName(reportSchool).replace(/\s+/g, '_') : 'AllSchools';
+    const filename = `DOH_Report_${schoolPart}_${bandSlug}_${MONTHS[reportMonth - 1]}${reportYear}.pdf`;
+    previewPdf('DOH Consolidated Report', filename, async () => {
+      try {
+        return await buildDohReportPdf(el);
+      } catch (err) {
+        setDownloadError(err instanceof Error ? err.message : 'Failed to generate PDF');
+        return null;
+      }
+    });
   };
 
-  const handleDownloadExcel = async () => {
-    setDownloadingExcel(true);
+  const handleDownloadExcel = () => {
     setDownloadError(null);
-    try {
-      const schoolPart = reportSchool ? getSchoolShortName(reportSchool).replace(/\s+/g, '_') : 'AllSchools';
-      await exportDohReportToXlsx({
-        grades: visibleGrades,
-        gradeBrackets: GRADE_BRACKETS,
-        summaryBrackets: SUMMARY_BRACKETS,
-        rows: visibleDohRows,
-        getCell: (g, a, s, f) => V(g, a, s, f),
-        school: reportSchool ? getSchoolShortName(reportSchool) : 'All Schools',
-        // The spreadsheet has to say it is shortened: unlike the printout,
-        // a file gets forwarded without the screen it came from.
-        monthYear: `${MONTHS[reportMonth - 1]} ${reportYear} · ${bandLabel}${dohHiddenCount ? ` · SHORTENED — ${hiddenDohRows.size} row(s), ${hiddenGrades.size} grade(s) hidden` : ''}`,
-        filename: `DOH_Consolidated_${schoolPart}_${bandSlug}_${MONTHS[reportMonth - 1]}${reportYear}.xlsx`,
-      });
-    } catch (err) {
-      setDownloadError(err instanceof Error ? err.message : 'Failed to generate Excel');
-    } finally {
-      setDownloadingExcel(false);
-    }
+    const schoolPart = reportSchool ? getSchoolShortName(reportSchool).replace(/\s+/g, '_') : 'AllSchools';
+    const filename = `DOH_Consolidated_${schoolPart}_${bandSlug}_${MONTHS[reportMonth - 1]}${reportYear}.xlsx`;
+    previewExcel('DOH Consolidated Report', filename, async () => {
+      try {
+        return await buildDohReportXlsx({
+          grades: visibleGrades,
+          gradeBrackets: GRADE_BRACKETS,
+          summaryBrackets: SUMMARY_BRACKETS,
+          rows: visibleDohRows,
+          getCell: (g, a, s, f) => V(g, a, s, f),
+          school: reportSchool ? getSchoolShortName(reportSchool) : 'All Schools',
+          // The spreadsheet has to say it is shortened: unlike the printout,
+          // a file gets forwarded without the screen it came from.
+          monthYear: `${MONTHS[reportMonth - 1]} ${reportYear} · ${bandLabel}${dohHiddenCount ? ` · SHORTENED — ${hiddenDohRows.size} row(s), ${hiddenGrades.size} grade(s) hidden` : ''}`,
+        });
+      } catch (err) {
+        setDownloadError(err instanceof Error ? err.message : 'Failed to generate Excel');
+        return null;
+      }
+    });
   };
   const [internalSection, setInternalSection] = useState<'treatment'|'conditions'|'admin'>('treatment');
   const [periodType, setPeriodType] = useState<'monthly'|'quarterly'|'biannual'|'annual'>('monthly');
@@ -493,6 +496,36 @@ export const Reports = () => {
   const thBase = "text-center px-1 py-1 text-[9px] font-semibold border-r border-border";
   const tdBase = "text-center px-1 py-1 font-mono border-r border-gray-100 text-[10px]";
 
+  // Two-tier report categories: a primary card per category, plus an
+  // ordered pill row of that category's own reports underneath. Order and
+  // grouping requested explicitly -- Internal Reports category first, its
+  // reports led by School Summary; DOH Consolidated category ordered
+  // Target Client List, DOH Consolidated, FHSIS, Program Report.
+  const reportCategories = [
+    {
+      id: 'internal' as const,
+      label: 'School Internal Reports',
+      subtitle: 'Clinic-facing summaries',
+      tabs: [
+        { id: 'internal' as const, label: 'Internal Reports', icon: FileText, visible: true },
+        { id: 'summary' as const, label: 'School Summary', icon: FileSpreadsheet, visible: true },
+        { id: 'consent' as const, label: 'Consent Form', icon: FileText, visible: canSeeNamedClientLists },
+      ],
+    },
+    {
+      id: 'doh' as const,
+      label: 'DOH Consolidated Reports',
+      subtitle: 'City Health Office report',
+      tabs: [
+        { id: 'tcl' as const, label: 'Target Client List', icon: Users, visible: canSeeNamedClientLists },
+        { id: 'doh' as const, label: 'DOH Consolidated', icon: FileSpreadsheet, visible: true },
+        { id: 'fhsis' as const, label: 'FHSIS', icon: FileSpreadsheet, visible: true },
+        { id: 'ohprf' as const, label: 'Program Report', icon: FileSpreadsheet, visible: true },
+      ],
+    },
+  ];
+  const activeCategory = reportCategories.find(cat => cat.tabs.some(t => t.id === activeReportTab)) ?? reportCategories[0];
+
   if (dohLoading) {
     return (
       <div className="space-y-4">
@@ -505,78 +538,90 @@ export const Reports = () => {
   return (
     <div className="space-y-4">
       {/* Header — title left, controls right */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Reports</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">DOH Consolidated Report &amp; Internal Reports</p>
-        </div>
-        <div className="doh-report-controls flex items-center gap-2 flex-shrink-0">
-          <select value={reportMonth} onChange={e => setReportMonth(Number(e.target.value))}
-            className="text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring">
-            {MONTHS.map((m,i) => <option key={m} value={i+1}>{m}</option>)}
-          </select>
-          <select value={reportYear} onChange={e => setReportYear(Number(e.target.value))}
-            className="text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring">
-            {[2023,2024,2025,2026].map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
-          <button onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2 bg-card border border-border text-foreground rounded-lg hover:bg-gray-50 text-sm font-medium whitespace-nowrap">
-            <Printer className="w-4 h-4" /> Print
-          </button>
-          {activeReportTab === 'doh' && (
-            <button onClick={handleDownloadPdf} disabled={downloadingPdf}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-60 text-sm font-medium whitespace-nowrap">
-              <Download className="w-4 h-4" /> {downloadingPdf ? 'Generating…' : 'Download PDF'}
+      <PageHeader
+        icon={FileBarChart}
+        eyebrow="Reporting"
+        title="Reports"
+        description="DOH Consolidated Report and internal reports for every school year on file."
+        action={
+          <div className="doh-report-controls flex items-center gap-2 flex-shrink-0 flex-wrap">
+            <select value={reportMonth} onChange={e => setReportMonth(Number(e.target.value))}
+              className="text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring">
+              {MONTHS.map((m,i) => <option key={m} value={i+1}>{m}</option>)}
+            </select>
+            <select value={reportYear} onChange={e => setReportYear(Number(e.target.value))}
+              className="text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring">
+              {[2023,2024,2025,2026].map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+            <button onClick={() => window.print()}
+              className="flex items-center gap-2 px-4 py-2 bg-card border border-border text-foreground rounded-lg hover:bg-gray-50 text-sm font-medium whitespace-nowrap">
+              <Printer className="w-4 h-4" /> Print
             </button>
-          )}
-          {activeReportTab === 'doh' && (
-            <button onClick={handleDownloadExcel} disabled={downloadingExcel}
-              className="flex items-center gap-2 px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 disabled:opacity-60 text-sm font-medium whitespace-nowrap">
-              <FileSpreadsheet className="w-4 h-4" /> {downloadingExcel ? 'Generating…' : 'Download Excel'}
-            </button>
-          )}
-        </div>
-      </div>
+            {activeReportTab === 'doh' && (
+              <button onClick={handleDownloadPdf} disabled={building}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-60 text-sm font-medium whitespace-nowrap">
+                <Download className="w-4 h-4" /> {building && preview.kind === 'pdf' ? 'Generating…' : 'Download PDF'}
+              </button>
+            )}
+            {activeReportTab === 'doh' && (
+              <button onClick={handleDownloadExcel} disabled={building}
+                className="flex items-center gap-2 px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 disabled:opacity-60 text-sm font-medium whitespace-nowrap">
+                <FileSpreadsheet className="w-4 h-4" /> {building && preview.kind === 'excel' ? 'Generating…' : 'Download Excel'}
+              </button>
+            )}
+          </div>
+        }
+      />
       {downloadError && (
         <div className="text-sm text-destructive bg-red-50 border border-red-200 rounded-lg px-4 py-2">{downloadError}</div>
       )}
 
-      {/* Tabs — scroll inside their own container: six tabs no longer fit a
-          390px phone, and the three-device-classes rule forbids letting a
-          control row push the page sideways. `w-fit` alone would overflow. */}
-      <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 w-fit max-w-full overflow-x-auto">
-        <button onClick={() => setActiveReportTab('doh')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeReportTab==='doh' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-          <FileSpreadsheet className="w-4 h-4" /> DOH Consolidated
-        </button>
-        <button onClick={() => setActiveReportTab('internal')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeReportTab==='internal' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-          <FileText className="w-4 h-4" /> Internal Reports
-        </button>
-        {canSeeNamedClientLists && (
-        <button onClick={() => setActiveReportTab('tcl')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeReportTab==='tcl' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-          <Users className="w-4 h-4" /> Target Client List
-        </button>
-        )}
-        <button onClick={() => setActiveReportTab('ohprf')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeReportTab==='ohprf' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-          <FileSpreadsheet className="w-4 h-4" /> Program Report
-        </button>
-        <button onClick={() => setActiveReportTab('fhsis')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeReportTab==='fhsis' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-          <FileSpreadsheet className="w-4 h-4" /> FHSIS
-        </button>
-        <button onClick={() => setActiveReportTab('summary')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${activeReportTab==='summary' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-          <FileSpreadsheet className="w-4 h-4" /> School Summary
-        </button>
-        {canSeeNamedClientLists && (
-        <button onClick={() => setActiveReportTab('consent')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${activeReportTab==='consent' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-          <FileText className="w-4 h-4" /> Consent Form
-        </button>
-        )}
+      {/* Two-tier report navigation: a primary card per category (Internal
+          Reports, DOH Consolidated), then an ordered pill row of the
+          selected category's own reports underneath. Replaces the flat
+          7-tab strip, which no longer fit a 390px phone and read as
+          scattered rather than grouped. */}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
+          {reportCategories.map(cat => {
+            const isActiveCat = activeCategory.id === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setActiveReportTab(cat.tabs.find(t => t.visible)?.id ?? cat.id)}
+                className={`w-full sm:w-72 flex items-center gap-3 px-5 py-4 rounded-2xl border text-left transition-colors ${
+                  isActiveCat
+                    ? 'bg-primary border-primary text-white shadow-[0_6px_16px_rgba(39,58,120,0.25)]'
+                    : 'bg-card border-border text-foreground hover:bg-gray-50'
+                }`}
+              >
+                <span className={`w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0 ${isActiveCat ? 'bg-white/15' : 'bg-primary-surface'}`}>
+                  <FileSpreadsheet className={`w-4 h-4 ${isActiveCat ? 'text-white' : 'text-primary'}`} />
+                </span>
+                <span>
+                  <span className="block text-sm font-bold">{cat.label}</span>
+                  <span className={`block text-xs mt-0.5 ${isActiveCat ? 'text-white/65' : 'text-muted-foreground'}`}>{cat.subtitle}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-2 pl-0.5">Other reports</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            {activeCategory.tabs.filter(t => t.visible).map(tab => (
+              <button key={tab.id} onClick={() => setActiveReportTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-colors whitespace-nowrap border ${
+                  activeReportTab === tab.id
+                    ? 'bg-card text-primary border-primary/30 shadow-sm'
+                    : 'bg-card text-muted-foreground border-border hover:text-foreground'
+                }`}>
+                <tab.icon className="w-3.5 h-3.5" /> {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* ── DOH CONSOLIDATED ── */}
@@ -1320,6 +1365,15 @@ export const Reports = () => {
       {activeReportTab === 'summary' && <SchoolSummaryReport schoolYear={dohSchoolYear} schoolName={reportSchool} />}
       {/* No school/year props: the consent form is blank by design. */}
       {activeReportTab === 'consent' && canSeeNamedClientLists && <ConsentForm />}
+
+      <PreviewModal
+        open={preview.open}
+        kind={preview.kind}
+        title={preview.title}
+        url={preview.url}
+        onClose={closePreview}
+        onDownload={confirmDownload}
+      />
     </div>
   );
 };

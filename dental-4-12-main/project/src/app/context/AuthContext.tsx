@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect, useCa
 import { apiClient, ApiError } from '../api/client';
 import { saveUserCache, loadUserCache, clearUserCache, wasRemembered } from '../offline/authCache';
 import type { ApiUser, ApiRole, ApiSchool } from '../api/types';
+import { setSchoolRegistry } from '../utils/schoolColors';
 
 interface User {
   id: string;
@@ -153,6 +154,7 @@ function initialSchoolFor(user: User): string | null {
 
 async function resolveUser(apiUser: ApiUser): Promise<User> {
   const allSchools = await apiClient.get<ApiSchool[]>('/schools');
+  setSchoolRegistry([...allSchools].sort((a, b) => a._id.localeCompare(b._id)));
   // Empty assignment means ALL schools (Sprint 100) — the same meaning the old
   // single `school_id: null` carried. A user with two of three schools now
   // gets a switcher listing exactly those two, which the single FK could not

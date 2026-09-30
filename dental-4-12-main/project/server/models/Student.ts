@@ -20,8 +20,19 @@ const studentSchema = new mongoose.Schema(
     sex: { type: String, maxlength: 10, required: true },
     address: { type: String, maxlength: 200, required: true },
     contact_number: { type: String, maxlength: 15 },
-    grade_level: { type: String, required: true },
-    section: { type: String, required: true },
+    // Required unless is_not_student (below) -- a person who isn't actually
+    // enrolled has no grade/section worth demanding on this form. Sex is NOT
+    // included in this exemption (stays plain `required: true` above): it
+    // applies to a non-enrolled person the same as anyone else.
+    grade_level: { type: String, required: [function (this: any) { return !this.is_not_student; }, "grade_level is required"] },
+    section: { type: String, required: [function (this: any) { return !this.is_not_student; }, "section is required"] },
+    // ERD DEVIATION, added 2026-09-25. A person entered through the Add
+    // Student form who isn't actually enrolled at the school (e.g. a sibling
+    // or community member treated at a Bayanihan mission) -- grade_level and
+    // section don't apply, so this is the one case those two are allowed to
+    // be missing (see the conditional `required` above). Defaults false:
+    // every existing and newly-added real pupil is unaffected.
+    is_not_student: { type: Boolean, default: false },
     // Not in the original ERD — added Sprint 14. Real DOH IPTR school
     // registration data, not UI-invented (same rationale as Sprint 11's
     // appointment_type addition).

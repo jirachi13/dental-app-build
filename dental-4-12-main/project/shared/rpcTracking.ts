@@ -162,6 +162,18 @@ export interface RPCRow {
   nextVisitNumber: 1 | 2 | null;
 }
 
+/** Visit 2's due date -- 4 calendar months after Visit 1, the earliest of
+ *  the DOH 4-6 month window -- or null when there is nothing to be due
+ *  (Visit 1 hasn't happened, or Visit 2 already has). One definition shared
+ *  by the RPC list's own "Dec 2026 / 97d" column and 'due_this_month'
+ *  sorting below, so they cannot disagree about what "due" means. */
+export function dueDateOf(r: Pick<RPCRow, 'visit1Date' | 'visit2Date'>): Date | null {
+  if (!r.visit1Date || r.visit2Date) return null;
+  const d = new Date(`${r.visit1Date}T00:00:00`);
+  d.setMonth(d.getMonth() + 4);
+  return d;
+}
+
 
 export function buildRpcRows(input: RpcInput): RPCRow[] {
   const { students, schools, iptrs, preventives, charts, toothRecords } = input;
@@ -241,8 +253,44 @@ const now = input.now ?? Date.now();
 const rows: RPCRow[] = students.map((s) => {
   const studentIptrs = iptrsByStudent.get(s._id) ?? [];
   const allVisits = studentIptrs.flatMap((iptr) => preventivesByIptr.get(iptr._id) ?? []);
-  const visit1 = allVisits.find((v) => v.visit_number === 1) ?? null;
-  const visit2 = allVisits.find((v) => v.visit_number === 2) ?? null;
+  // A pupil can carry a Visit-1-tagged PreventiveCareRecord in MORE THAN ONE
+  // school year's iptr (a completed round in 2025-2026, a fresh one started
+  // in 2026-2027) -- `.find()` picked whichever happened to sit first in
+  // `studentIptrs`' array order, which is really insertion order, not
+  // relevance. That silently pinned this row to a STALE, unrelated visit
+  // (user, 2026-09-28, reproduced with Aguilar Kristine's Visit 1).
+  //
+  // ⚠ FIRST FIX (kept as history, wrong on its own): picking the visit with
+  // the LATEST visit_date. That still failed the SAME report after a real
+  // restart, because visit_date is user-editable clinical data, not a
+  // freshness signal -- an OLDER year's row can easily carry a LATER
+  // calendar date than a just-edited current-year row (nothing ties a
+  // visit's date to which iptr/year it's actually filed under). Sorting by
+  // date can therefore favor the stale record just as easily as insertion
+  // order did.
+  //
+  // Real fix: pick by the iptr's own school_year (descending, plain string
+  // compare works -- "2026-2027" > "2025-2026"), matching what the page's
+  // own header promises ("two required RPC visits PER SCHOOL YEAR") and
+  // what the school-year filter already assumes. Visit 1 is the
+  // visit_number:1 record belonging to the MOST RECENT school year that
+  // has one; Visit 2 is still found by date (earliest visit_number:2 on or
+  // after Visit 1's date, from ANY year), preserving the legitimate case
+  // where Visit 2 lands in the NEXT school year 4-6 months later -- see
+  // syCutoff/syDeadline below.
+  const iptrsByYearDesc = [...studentIptrs].sort((a, b) => b.school_year.localeCompare(a.school_year));
+  let visit1: RpcPreventive | null = null;
+  for (const iptr of iptrsByYearDesc) {
+    const v = (preventivesByIptr.get(iptr._id) ?? []).find((v) => v.visit_number === 1);
+    if (v) { visit1 = v; break; }
+  }
+  const visit2Candidates = allVisits.filter((v) => v.visit_number === 2);
+  const byDateDesc = (a: RpcPreventive, b: RpcPreventive) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime();
+  const visit2 = visit1
+    ? (visit2Candidates
+        .filter((v) => new Date(v.visit_date).getTime() >= new Date(visit1!.visit_date).getTime())
+        .sort((a, b) => new Date(a.visit_date).getTime() - new Date(b.visit_date).getTime())[0] ?? null)
+    : (visit2Candidates.sort(byDateDesc)[0] ?? null);
   const servicesOf = (v: RpcPreventive | null): VisitServices | null =>
     v
       ? {
@@ -347,6 +395,22 @@ export interface RpcListQuery {
   status?: string;
   /** A TOOTH_RECORD treatment code the pupil has had at some point. */
   treatment?: string;
+  /** A school year the pupil has an IPTR for, e.g. '2026-2027' — narrows to
+   *  pupils enrolled (had a record made) that year. 'all' or omitted = every
+   *  year. */
+  schoolYear?: string;
+  /** 'date_desc' (the resting value, user 2026-09-25 -- newest activity
+   *  first) and 'date_asc' sort by the LATEST of Visit 1/Visit 2 date, not
+   *  just Visit 1 -- a pupil with a recent Visit 2 leads a pupil whose only
+   *  visit was older, rows with no visit yet sorted last either way.
+   *  'due_this_month' FILTERS to rows whose Visit 2 falls due within the
+   *  CURRENT calendar month, soonest due first -- a worklist, unlike
+   *  'date_asc'/'date_desc'/'all', which only reorder. 'all' keeps the
+   *  rows' own alphabetical-by-surname order. */
+  sort?: string;
+  /** Fixed "now" for 'due_this_month', ms since epoch — same testability
+   *  pattern as `buildRpcRows`'s own `input.now`. Defaults to Date.now(). */
+  now?: number;
   limit?: number;
   offset?: number;
 }
@@ -362,6 +426,9 @@ export interface RpcListPage {
    *  computed over the POPULATION, never the page, or the dropdown would hide
    *  the section you need to pick next. */
   sectionOptions: string[];
+  /** School years with at least one IPTR in the school context — same
+   *  population-wide rule as sectionOptions, oldest first. */
+  schoolYearOptions: string[];
   /** Population-wide counts for the dashboard funnel — never page-scoped. */
   funnel: { enrolled: number; visit1: number; both: number; overdue: number; complete: number };
 }
@@ -369,6 +436,17 @@ export interface RpcListPage {
 export function filterRpcRows(all: RPCRow[], query: RpcListQuery): RpcListPage {
   const inSchool = query.school ? all.filter((r) => r.school === query.school) : all;
   const q = (query.q ?? '').toLowerCase();
+  // 'due_this_month' FILTERS to rows whose Visit 2 falls due within the
+  // CURRENT calendar month (user, 2026-09-25 -- it was a pure sort at
+  // first, leaving everyone else visible below; now it narrows the list,
+  // like the other Sort Order/RPC Status controls that also gate rows).
+  const now = new Date(query.now ?? Date.now());
+  const dueMonth = now.getMonth();
+  const dueYear = now.getFullYear();
+  const isDueThisMonth = (r: RPCRow) => {
+    const d = dueDateOf(r);
+    return d != null && d.getMonth() === dueMonth && d.getFullYear() === dueYear;
+  };
 
   const rows = inSchool.filter((r) => {
     if (query.grade && query.grade !== 'all' && r.grade !== query.grade) return false;
@@ -381,15 +459,40 @@ export function filterRpcRows(all: RPCRow[], query: RpcListQuery): RpcListPage {
       return false;
     }
     if (query.treatment && query.treatment !== 'all' && !r.treatmentCodes.includes(query.treatment)) return false;
+    if (query.schoolYear && query.schoolYear !== 'all' && !(query.schoolYear in r.iptrIdBySchoolYear)) return false;
+    if (query.sort === 'due_this_month' && !isDueThisMonth(r)) return false;
     if (q && !r.studentName.toLowerCase().includes(q)) return false;
     return true;
   });
+
+  // Sorted onto a copy — `rows` above stays in its original (alphabetical)
+  // order for anything that reads it after this point.
+  let sortedRows = rows;
+  if (query.sort === 'date_asc' || query.sort === 'date_desc') {
+    const dir = query.sort === 'date_asc' ? 1 : -1;
+    const latestVisit = (r: RPCRow) => {
+      const dates = [r.visit1Date, r.visit2Date].filter((d): d is string => !!d).map((d) => new Date(d).getTime());
+      return dates.length ? Math.max(...dates) : null;
+    };
+    sortedRows = [...rows].sort((a, b) => {
+      const at = latestVisit(a);
+      const bt = latestVisit(b);
+      if (at === null && bt === null) return 0;
+      if (at === null) return 1; // no visit yet — always last
+      if (bt === null) return -1;
+      return (at - bt) * dir;
+    });
+  } else if (query.sort === 'due_this_month') {
+    // `rows` is already narrowed to due-this-month above; soonest due date
+    // first is the only ordering that makes sense for what's left.
+    sortedRows = [...rows].sort((a, b) => (dueDateOf(a) as Date).getTime() - (dueDateOf(b) as Date).getTime());
+  }
 
   const offset = Math.max(0, query.offset ?? 0);
   const limit = query.limit && query.limit > 0 ? query.limit : rows.length;
 
   return {
-    rows: rows.slice(offset, offset + limit),
+    rows: sortedRows.slice(offset, offset + limit),
     total: rows.length,
     schoolTotal: inSchool.length,
     // ⚠ Computed over `inSchool` — the whole school population — NOT over
@@ -408,5 +511,6 @@ export function filterRpcRows(all: RPCRow[], query: RpcListQuery): RpcListPage {
     sectionOptions: [...new Set(
       inSchool.filter((r) => !query.grade || query.grade === 'all' || r.grade === query.grade).map((r) => r.section),
     )].filter(Boolean).sort(),
+    schoolYearOptions: [...new Set(inSchool.flatMap((r) => Object.keys(r.iptrIdBySchoolYear)))].sort(),
   };
 }

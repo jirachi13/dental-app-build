@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
+import { useLoadPhase } from './useLoadPhase';
 import type { RPCRow, RpcListPage, RpcListQuery } from '../../../shared/rpcTracking';
 
-export { SOUND_TEMPORARY, SOUND_PERMANENT } from '../../../shared/rpcTracking';
+export { SOUND_TEMPORARY, SOUND_PERMANENT, dueDateOf } from '../../../shared/rpcTracking';
 export type { RPCRow, RpcListQuery } from '../../../shared/rpcTracking';
 
 // ⚠ Sprint 140 moved this join to the server; Sprint 146 moved the FILTERS and
@@ -14,11 +15,11 @@ export type { RPCRow, RpcListQuery } from '../../../shared/rpcTracking';
 // population, never the page: the pager's "of N" and its "(filtered from N)"
 // have to describe the roll, and a section dropdown listing only this page's
 // sections hides the one you need next.
-const EMPTY: RpcListPage = { rows: [], total: 0, schoolTotal: 0, sectionOptions: [], funnel: { enrolled: 0, visit1: 0, both: 0, overdue: 0, complete: 0 } };
+const EMPTY: RpcListPage = { rows: [], total: 0, schoolTotal: 0, sectionOptions: [], schoolYearOptions: [], funnel: { enrolled: 0, visit1: 0, both: 0, overdue: 0, complete: 0 } };
 
 export function useRPCTracking(query: RpcListQuery = {}) {
   const [page, setPage] = useState<RpcListPage>(EMPTY);
-  const [loading, setLoading] = useState(true);
+  const { loading, beginLoad, endLoad } = useLoadPhase();
   const [error, setError] = useState<string | null>(null);
 
   // Serialised so a changed FILTER re-runs the effect, not a new object
@@ -26,7 +27,7 @@ export function useRPCTracking(query: RpcListQuery = {}) {
   const key = JSON.stringify(query);
 
   const reload = useCallback(async () => {
-    setLoading(true);
+    beginLoad();
     try {
       const q: RpcListQuery = JSON.parse(key);
       const params = new URLSearchParams();
@@ -38,6 +39,8 @@ export function useRPCTracking(query: RpcListQuery = {}) {
       if (q.ageGroup && q.ageGroup !== 'all') params.set('age_group', q.ageGroup);
       if (q.status) params.set('status', q.status);
       if (q.treatment && q.treatment !== 'all') params.set('treatment', q.treatment);
+      if (q.schoolYear && q.schoolYear !== 'all') params.set('school_year', q.schoolYear);
+      if (q.sort && q.sort !== 'all') params.set('sort', q.sort);
       if (q.limit) params.set('limit', String(q.limit));
       if (q.offset) params.set('offset', String(q.offset));
       const qs = params.toString();
@@ -47,9 +50,9 @@ export function useRPCTracking(query: RpcListQuery = {}) {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load RPC records');
     } finally {
-      setLoading(false);
+      endLoad();
     }
-  }, [key]);
+  }, [key, beginLoad, endLoad]);
 
   useEffect(() => { void reload(); }, [reload]);
 
@@ -60,6 +63,7 @@ export function useRPCTracking(query: RpcListQuery = {}) {
     total: page.total,
     schoolTotal: page.schoolTotal,
     sectionOptions: page.sectionOptions,
+    schoolYearOptions: page.schoolYearOptions,
     loading,
     error,
     reload,

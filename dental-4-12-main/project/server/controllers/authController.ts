@@ -104,6 +104,10 @@ export async function login(req: Request, res: Response) {
   user.last_login = new Date();
   await user.save();
 
+  // Every successful sign-in is on the record (only the 2FA path logged one
+  // before, so plain password logins never showed in the Audit Trail).
+  await logAudit(user._id.toString(), "Login", user._id.toString(), "User");
+
   const safeUser = await User.findById(user._id);
   res.json(safeUser);
 }

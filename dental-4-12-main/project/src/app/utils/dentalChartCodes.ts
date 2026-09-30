@@ -14,7 +14,10 @@
 // ⚠ NOTHING HERE CHANGED IN THE MOVE. Comments are carried verbatim because
 // several of them record decisions that cost a sprint to make.
 
-export type ChartEntry = { condition: string; treatment: string };
+// visitNumber added 2026-09-25 -- which RPC visit this tooth's current
+// treatment was recorded at, for the "(V1)"/"(V2)" indicator. Undefined/null
+// for teeth charted outside the visit flow.
+export type ChartEntry = { condition: string; treatment: string; visitNumber?: 1 | 2 | null };
 
 // ─── FDI tooth layout ─────────────────────────────────────────────────────────
 export const upperPermanent = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
@@ -92,15 +95,6 @@ export function dmftRecordsForYear<T>(chartsOldestFirst: T[][]): T[] | null {
   return null;
 }
 
-// The three codes that describe the whole mouth, not a tooth. They have their
-// own rows in the Treatment Summary, above the per-tooth table — her split.
-//
-// ⚠ A code listed here still appears in the per-tooth table WHEN TEETH ARE
-// CHARTED WITH IT. The palette allows it, so filtering blindly would make a
-// charted FV vanish from the summary; a summary that hides a charted tooth is
-// worse than one row too many.
-export const WHOLE_MOUTH_TREATMENT_CODES = ['OEX', 'FV', 'OP'];
-
 // Base44-exact condition codes: uppercase=permanent, lowercase=temporary (auto-applied)
 //
 // Split into common and rare for the palette (Sprint 156, her division). Un, S,
@@ -124,33 +118,15 @@ export const rareConditionCodes = [
 ];
 export const conditionCodes = [...commonConditionCodes, ...rareConditionCodes];
 
-// Base44-exact treatment codes
-// `local` is the word the clinic and the families actually use. The clinical
-// term stays primary — DOH forms and the manuscript use it — and the local term
-// is shown beside it so staff reading a screen mid-appointment, and a parent
-// looking over their shoulder, both recognise the service. "Pasta" was already
-// carried on TR before this; the rest were added 2026-09-02.
-//
-// ⚠ Only terms the dentist confirms should live here. A wrong local word on a
-// clinical screen is worse than none — leave `local` off rather than guess.
-export const treatmentCodes = [
-  { code: 'OEX', label: 'Oral Exam / Checkup', local: 'Tingin' },
-  { code: 'FV', label: 'Fluoride Varnish' },
-  { code: 'PFS', label: 'Pit and Fissure Sealant' },
-  { code: 'OP', label: 'Oral Prophylaxis', local: 'Linis' },
-  { code: 'PF', label: 'Permanent Filling', local: 'Pasta' },
-  { code: 'TF', label: 'Temporary Filling', local: 'Pansamantalang pasta' },
-  { code: 'TR', label: 'Tooth Restoration', local: 'Pasta' },
-  { code: 'X', label: 'Extraction', local: 'Bunot' },
-  { code: 'SDF', label: 'Silver Diamine Fluoride' },
-];
-
-// The palette's two rows (Sprint 156). Per-tooth codes lead; the whole-mouth
-// three sit behind "More" rather than being dropped, so an FV already charted
-// on a tooth by an older record can still be changed or cleared.
-export const perToothTreatmentCodes = treatmentCodes.filter((t) => !WHOLE_MOUTH_TREATMENT_CODES.includes(t.code));
-export const wholeMouthTreatmentCodes = treatmentCodes.filter((t) => WHOLE_MOUTH_TREATMENT_CODES.includes(t.code));
-
-/** "Extraction (Bunot)" where a local term exists, otherwise just the label. */
-export const treatmentLabel = (t: { label: string; local?: string }) =>
-  t.local ? `${t.label} (${t.local})` : t.label;
+// Treatment code vocabulary moved to shared/treatmentCodes.ts (user,
+// 2026-09-27) so the server can import the exact same list for
+// /stats/treatment-categories, rather than a second hardcoded copy drifting
+// out of sync with this one. Re-exported here unchanged -- no existing
+// import site in this codebase had to move.
+export {
+  treatmentCodes,
+  WHOLE_MOUTH_TREATMENT_CODES,
+  perToothTreatmentCodes,
+  wholeMouthTreatmentCodes,
+  treatmentLabel,
+} from '../../../shared/treatmentCodes';

@@ -1,13 +1,23 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
+import { cachedGet } from '../utils/apiCache';
+
+const STUDENT_NAV_CACHE_KEY = '/stats/student-nav';
 
 export interface StudentNavEntry {
   id: string;
-  /** Surname-first display string — the nav sorts on this. */
+  /** Surname-first display string — the default-context nav sorts on this. */
   name: string;
   /** Shown alone on the prev/next buttons, which name the surname because the
    *  list is ordered by surname. Falls back to `name` when empty. */
   lastName: string;
+  /** Added 2026-09-27 -- opened from Student Records (no ?context=), the nav
+   *  instead sorts grade > section > gender > surname > first name, matching
+   *  that module's own table order (PatientList.tsx), not plain alphabetical. */
+  firstName: string;
+  gender: string;
+  grade: string;
+  section: string;
   school: string;
 }
 
@@ -31,7 +41,11 @@ export function useStudentNav() {
     let cancelled = false;
     (async () => {
       try {
-        const rows = await apiClient.get<StudentNavEntry[]>('/stats/student-nav');
+        // Cached across mounts within the session (user, 2026-09-27) -- same
+        // decrypt-heavy Student.find() as /stats/student-rows, and this nav
+        // remounts on every Dental Chart open/Prev/Next. useStudents.ts's
+        // `reload` invalidates this cache entry too, on any mutation.
+        const rows = await cachedGet(STUDENT_NAV_CACHE_KEY, () => apiClient.get<StudentNavEntry[]>(STUDENT_NAV_CACHE_KEY));
         if (!cancelled) setEntries(rows);
       } catch {
         // The nav is a convenience; a failure here must not blank the chart.

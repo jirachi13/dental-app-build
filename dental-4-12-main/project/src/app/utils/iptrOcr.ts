@@ -7,6 +7,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 // Threshold + types live in iptrOcrShared.ts so the UI can import them
 // without dragging tesseract/pdfjs into the main bundle.
 import type { IptrOcrFieldKey, IptrOcrResult, IptrCheckboxFinding } from './iptrOcrShared';
+import { readIptrTickBoxes } from './iptrTickBoxes';
 import { readIptrCheckboxes, IPTR_FORM_ROWS, IPTR_YEARS } from './iptrCheckboxes';
 export { OCR_CONFIDENCE_THRESHOLD } from './iptrOcrShared';
 export type { IptrOcrFieldKey, IptrOcrResult } from './iptrOcrShared';
@@ -39,6 +40,14 @@ async function rasterizePdfPages(file: File): Promise<HTMLCanvasElement[]> {
 // next — so `occupation` and `4ps/nhts` earn their place here as boundaries
 // even though neither is extracted as a field of its own.
 const ALL_FIELD_LABELS = [
+  // Separate name fields (2026-09-29: some encoded/re-typed forms print
+  // Last Name/Surname, First Name and Middle Name as three distinct labels
+  // rather than one combined "Name" line — see splitName's fallback below)
+  // BEFORE the generic combined ones, so a stop-boundary check hits the
+  // more specific label first.
+  'last\\s*name', 'surname', 'apelyido',
+  'first\\s*name', 'given\\s*name',
+  'middle\\s*name', 'gitnang\\s*pangalan',
   "student'?s name", "patient'?s name", 'pangalan', 'name',
   'birth\\s*date', 'birthday', 'date of birth',
   'age', 'sex', 'gender', 'address', 'occupation',
@@ -114,12 +123,31 @@ function normalizeSex(raw: string): string {
   return raw.trim();
 }
 
+const MONTH_NAMES: Record<string, number> = {
+  jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3, apr: 4, april: 4,
+  may: 5, jun: 6, june: 6, jul: 7, july: 7, aug: 8, august: 8,
+  sep: 9, sept: 9, september: 9, oct: 10, october: 10, nov: 11, november: 11, dec: 12, december: 12,
+};
+
 function normalizeBirthdate(raw: string): string {
   // Handles MM/DD/YYYY, M-D-YYYY, and YYYY-MM-DD; returns YYYY-MM-DD for <input type="date">.
   const iso = raw.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (iso) return `${iso[1]}-${iso[2].padStart(2, '0')}-${iso[3].padStart(2, '0')}`;
   const mdy = raw.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
   if (mdy) return `${mdy[3]}-${mdy[1].padStart(2, '0')}-${mdy[2].padStart(2, '0')}`;
+  // "January 11, 2019" (a form filled out in prose, not MM/DD/YYYY) -- month
+  // and day matched TIGHT right after each other (real text on this form
+  // reads "Month DD,"), the year searched for separately anywhere in the
+  // raw value. Needed because a garbled duplicate OCR read of the same
+  // handwritten line (e.g. a stray "11, 201" fragment ahead of the real
+  // "January 11, 2019") can land between the day and the true year, which
+  // a single combined regex would either swallow or reject outright.
+  const monthDay = raw.match(/\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(\d{1,2})\b/i);
+  const year = raw.match(/\b(19|20)\d{2}\b/);
+  if (monthDay && year) {
+    const month = MONTH_NAMES[monthDay[1].toLowerCase()];
+    if (month) return `${year[0]}-${String(month).padStart(2, '0')}-${monthDay[2].padStart(2, '0')}`;
+  }
   return '';
 }
 
@@ -134,6 +162,165 @@ function splitName(raw: string): { firstName: string; middleName: string; lastNa
   if (parts.length === 1) return { firstName: parts[0], middleName: '', lastName: '' };
   if (parts.length === 2) return { firstName: parts[0], middleName: '', lastName: parts[1] };
   return { firstName: parts[0], middleName: parts.slice(1, -1).join(' '), lastName: parts[parts.length - 1] };
+}
+
+// ── Grid/box-layout extraction ───────────────────────────────────────────────
+// Added 2026-09-29 after the school's actual working form -- a "Patient
+// Information Sheet" the clinic designed itself, not the official DOH IPTR
+// -- turned out to be a BORDERED GRID: each field's caption ("Last Name *")
+// sits in its own box, with the answer written on the line BELOW it, not
+// beside it. The label-matching regex below this (findLabelValue) assumes
+// flowing "Label: value" text on one line, which is what the official IPTR
+// prints; it cannot represent "the value is the text in roughly this
+// x-range on the next line down", so it read three side-by-side name boxes
+// as one garbled blob and dropped or misattributed nearly every field.
+//
+// This extractor works on WORD POSITIONS instead of flattened text: it
+// finds each known caption, then looks for its answer (a) as the remaining
+// text on the SAME line after the caption (handles the DOH IPTR's inline
+// style too), or failing that (b) as the words on the next line(s) whose
+// x-range lines up with the caption's own column. Verified against a real
+// scan of the actual form (not guessed): every personal-info field except
+// the two checkbox ones below extracted correctly once y-band line
+// clustering (next) was added.
+//
+// Checkboxes (Sex, PhilHealth Status) are NOT read from text here -- OCR can
+// find the words "Male"/"Female" but not which box is ticked (a real capture
+// read as "mete 7] Female"). They are read by ink density in iptrTickBoxes.ts,
+// anchored to these same OCR'd label positions, and declined when ambiguous.
+type GridWord = { text: string; x0: number; x1: number; y0: number; y1: number; confidence: number };
+type GridLine = { x0: number; x1: number; y0: number; y1: number; words: GridWord[] };
+
+/** Real field keys this extractor fills, plus boundary-only pseudo-keys
+ *  (prefixed `__`) recognized ONLY to correctly bound neighboring columns --
+ *  never written to `fields`. Order doesn't matter; every line is checked
+ *  against all of them. */
+const GRID_LABELS: [string, RegExp][] = [
+  ['lastName', /^(?:last\s*name|surname|apelyido)\b/i],
+  ['firstName', /^(?:first\s*name|given\s*name)\b/i],
+  ['middleName', /^middle\s*name\b/i],
+  ['birthdate', /^(?:birth\s*date|birthday)\b/i],
+  ['__age__', /^age\b/i],
+  ['__sex__', /^sex\b/i],
+  ['grade', /^grade\b/i],
+  ['section', /^section\b/i],
+  ['placeOfBirth', /^place\s*of\s*birth\b/i],
+  ['address', /^address\b/i],
+  ['contactNumber', /^contact\s*(?:no\.?|number|#)\b/i],
+  ['guardianOccupation', /^occupation\b/i],
+  ['guardianName', /^guardian\s*name\b/i],
+  ['guardianContact', /^guardian\s*contact\b/i],
+  ['philhealthNumber', /^phil\s*health\s*(?:#|no\.?|number)\b/i],
+  ['__philhealthStatus__', /^phil\s*health\s*status\b/i],
+  ['__signature__', /^(?:parent\s*\/\s*guardian|printed\s*name|date\s*of\s*form)\b/i],
+];
+
+const GRID_NOISE_WORD = /^[*•:\-]+$/;
+const GRID_SKIP_TEXT = /^\(?optional\)?$/i;
+
+/** Groups words into lines by Y-BAND OVERLAP rather than trusting Tesseract's
+ *  own line segmentation, which was observed splitting one visual answer row
+ *  into two overlapping "lines" on this form (a garbled partial re-read
+ *  sitting right on top of the real text) -- merging by y-overlap recombines
+ *  those without needing to know it happened. */
+function gridLinesOf(words: Tesseract.Word[]): GridLine[] {
+  const gw: GridWord[] = words
+    .filter((w) => w.text.trim())
+    .map((w) => ({ text: w.text, x0: w.bbox.x0, x1: w.bbox.x1, y0: w.bbox.y0, y1: w.bbox.y1, confidence: w.confidence }))
+    .sort((a, b) => a.y0 - b.y0 || a.x0 - b.x0);
+
+  const bands: GridLine[] = [];
+  for (const w of gw) {
+    const band = bands.find((b) => w.y0 <= b.y1 && w.y1 >= b.y0);
+    if (band) {
+      band.words.push(w);
+      band.y0 = Math.min(band.y0, w.y0);
+      band.y1 = Math.max(band.y1, w.y1);
+    } else {
+      bands.push({ x0: w.x0, x1: w.x1, y0: w.y0, y1: w.y1, words: [w] });
+    }
+  }
+  for (const b of bands) {
+    b.words.sort((a, c) => a.x0 - c.x0);
+    b.x0 = Math.min(...b.words.map((w) => w.x0));
+    b.x1 = Math.max(...b.words.map((w) => w.x1));
+  }
+  return bands.sort((a, b) => a.y0 - b.y0);
+}
+
+/** Caption matches found on one line: [x0 of first word, x1 of last word,
+ *  field key, index of the last word consumed]. A line can carry several
+ *  (e.g. "Last Name * First Name * Middle Name" is three). */
+function gridCaptionsOn(line: GridLine): [number, number, string, number][] {
+  const results: [number, number, string, number][] = [];
+  const n = line.words.length;
+  for (const [key, pattern] of GRID_LABELS) {
+    for (let start = 0; start < n; start++) {
+      let joined = '';
+      for (let end = start; end < Math.min(start + 4, n); end++) {
+        joined = `${joined} ${line.words[end].text}`.trim();
+        if (pattern.test(joined)) {
+          results.push([line.words[start].x0, line.words[end].x1, key, end]);
+          break;
+        }
+      }
+    }
+  }
+  return results;
+}
+
+function gridClean(words: GridWord[]): GridWord[] {
+  return words.filter((w) => !GRID_NOISE_WORD.test(w.text) && !GRID_SKIP_TEXT.test(w.text));
+}
+
+/** The extractor itself -- see the file comment above for what it does and
+ *  why. Only ever ADDS fields it found; never overwrites one `setField`
+ *  (the caller) already has. */
+function extractGridFields(
+  lines: GridLine[],
+  setField: (key: IptrOcrFieldKey, rawValue: string | null, normalize?: (v: string) => string) => void,
+  normalizers: Partial<Record<IptrOcrFieldKey, (v: string) => string>>,
+) {
+  const already = new Set<string>();
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const caps = gridCaptionsOn(line).sort((a, b) => a[0] - b[0]);
+    if (!caps.length) continue;
+    const siblingKeys = new Set(caps.map((c) => c[2]));
+    for (let idx = 0; idx < caps.length; idx++) {
+      const [cx0, cx1, key, ,] = caps[idx];
+      if (key.startsWith('__') || already.has(key)) continue;
+      const rightBound = idx + 1 < caps.length ? caps[idx + 1][0] - 8 : line.x1 + 100000;
+      const leftBound = cx0 - 15;
+
+      const restWords = gridClean(line.words.filter((w) => w.x0 >= cx1 + 3 && w.x0 < rightBound));
+      const sameLineVal = restWords.map((w) => w.text).join(' ').trim();
+      if (sameLineVal) {
+        already.add(key);
+        setField(key as IptrOcrFieldKey, sameLineVal, normalizers[key as IptrOcrFieldKey]);
+        continue;
+      }
+
+      // Below-scan: the answer sometimes splits across 2 detected lines (see
+      // the file comment), so collect from up to 2 lines below rather than
+      // stopping at the first non-empty one. Stop only on a line that
+      // introduces a DIFFERENT field's caption -- an answer legitimately
+      // repeating ITS OWN caption word (a Grade value written as "Grade 1")
+      // must not look like a stop signal.
+      const collected: GridWord[] = [];
+      for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
+        const below = lines[j];
+        const otherCaps = gridCaptionsOn(below).filter((c) => !siblingKeys.has(c[2]) && !c[2].startsWith('__'));
+        if (otherCaps.length) break;
+        collected.push(...gridClean(below.words.filter((w) => w.x0 >= leftBound && w.x0 < rightBound)));
+      }
+      const val = collected.map((w) => w.text).join(' ').trim();
+      if (val) {
+        already.add(key);
+        setField(key as IptrOcrFieldKey, val, normalizers[key as IptrOcrFieldKey]);
+      }
+    }
+  }
 }
 
 function extractFieldsFromPage(
@@ -152,18 +339,45 @@ function extractFieldsFromPage(
     if (conf !== undefined) confidences[key] = Math.round(conf);
   };
 
-  const nameRaw = findLabelValue(text, ['name', "student'?s name", 'pangalan']);
-  if (nameRaw && !fields.firstName && !fields.lastName) {
-    const { firstName, middleName, lastName } = splitName(nameRaw);
-    setField('firstName', firstName);
-    setField('middleName', middleName);
-    setField('lastName', lastName);
-    // Split fields inherit the whole-name-line confidence since OCR reports it per word, not per split.
-    const conf = confidenceForValue(nameRaw, words);
-    if (conf !== undefined) {
-      if (fields.firstName) confidences.firstName = Math.round(conf);
-      if (fields.middleName) confidences.middleName = Math.round(conf);
-      if (fields.lastName) confidences.lastName = Math.round(conf);
+  // Grid/box-layout extraction FIRST (see the file comment on
+  // extractGridFields) -- it's a superset of the flowing-text approach
+  // below (handles same-line inline values too), so run it before falling
+  // back to label-matching on flattened text for whatever it didn't find.
+  extractGridFields(gridLinesOf(words), setField, {
+    birthdate: normalizeBirthdate,
+    address: normalizeAddress,
+    gender: normalizeSex,
+    philhealthNumber: normalizePhilhealth,
+  });
+
+  // Separate Last Name/Surname, First Name and Middle Name fields (2026-09-29:
+  // "other term for last name is the surname... it doesn't place exactly
+  // where it's needed") -- tried FIRST, before the combined single-line
+  // "Name" fallback below. A form that prints these as three distinct
+  // labels can't be read correctly by splitting one "Name:" value, and the
+  // combined path never recognized "Surname" as an alias at all.
+  setField('lastName', findLabelValue(text, ['last\\s*name', 'surname', 'apelyido']));
+  setField('firstName', findLabelValue(text, ['first\\s*name', 'given\\s*name']));
+  setField('middleName', findLabelValue(text, ['middle\\s*name', 'gitnang\\s*pangalan']));
+
+  // Combined "Last Name, First Name Middle Name" line -- the DOH IPTR's own
+  // printed layout (see the file-level comment on ALL_FIELD_LABELS). Only
+  // consulted for whichever of the three name parts the separate fields
+  // above didn't already fill in.
+  if (!fields.firstName || !fields.lastName) {
+    const nameRaw = findLabelValue(text, ['name', "student'?s name", 'pangalan']);
+    if (nameRaw) {
+      const split = splitName(nameRaw);
+      setField('firstName', split.firstName);
+      setField('middleName', split.middleName);
+      setField('lastName', split.lastName);
+      // Split fields inherit the whole-name-line confidence since OCR reports it per word, not per split.
+      const conf = confidenceForValue(nameRaw, words);
+      if (conf !== undefined) {
+        if (fields.firstName && confidences.firstName === undefined) confidences.firstName = Math.round(conf);
+        if (fields.middleName && confidences.middleName === undefined) confidences.middleName = Math.round(conf);
+        if (fields.lastName && confidences.lastName === undefined) confidences.lastName = Math.round(conf);
+      }
     }
   }
 
@@ -296,11 +510,12 @@ export async function extractIptrFields(
 
   // Page 1 in whatever orientation actually read — see recognizePage.
   let firstPageImage: Tesseract.ImageLike | null = null;
+  let firstPageWords: Tesseract.Word[] = [];
 
   try {
     for (; pageIndex < images.length; pageIndex++) {
       const page = await recognizePage(worker, images[pageIndex]);
-      if (pageIndex === 0) firstPageImage = page.image;
+      if (pageIndex === 0) { firstPageImage = page.image; firstPageWords = page.words; }
       allWords.push(...page.words);
       rawTextParts.push(page.text);
       extractFieldsFromPage(page.text, page.words, fields, confidences);
@@ -341,6 +556,29 @@ export async function extractIptrFields(
     // A failure here must never lose the identity fields the text pass already
     // read — the grid is an addition, not a precondition.
     checkboxReason = err instanceof Error ? err.message : 'Checkbox grid could not be read.';
+  }
+
+  // ── Sex + PhilHealth Status tick boxes (page 1) ──────────────────────────
+  // Ink density beside the OCR'd option labels; see iptrTickBoxes.ts. Text
+  // already read for a field wins; a failure here never loses other fields.
+  try {
+    const page1 = await toCanvas(firstPageImage ?? images[0]);
+    const ctx = page1?.getContext('2d');
+    if (page1 && ctx) {
+      const px = ctx.getImageData(0, 0, page1.width, page1.height);
+      const labels = firstPageWords.map((w) => ({ text: w.text, x0: w.bbox.x0, x1: w.bbox.x1, y0: w.bbox.y0, y1: w.bbox.y1 }));
+      const ticks = readIptrTickBoxes(px, labels);
+      if (ticks.gender && !fields.gender) {
+        fields.gender = ticks.gender.value;
+        confidences.gender = ticks.gender.confidence;
+      }
+      if (ticks.philhealthStatus && !fields.philhealthStatus) {
+        fields.philhealthStatus = ticks.philhealthStatus.value;
+        confidences.philhealthStatus = ticks.philhealthStatus.confidence;
+      }
+    }
+  } catch {
+    // Left blank for the encoder to tick.
   }
 
   return {

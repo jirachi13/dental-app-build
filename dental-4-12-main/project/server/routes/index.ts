@@ -9,6 +9,7 @@ import predictionRoutes from "./predictionRoutes.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { scopeFilter } from "../utils/schoolScope.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { enforceOneStaffPerSchool } from "../middleware/oneStaffPerSchool.js";
 import { ADMIN_ONLY, CLINICAL_WRITE_ROLES } from "../middleware/roleGroups.js";
 import { aggregateDohReport } from "../../shared/dohAggregate.js";
 import { buildRiskCandidates, filterRiskCandidates } from "../../shared/riskCandidates.js";
@@ -16,6 +17,8 @@ import { buildRpcRows, filterRpcRows } from "../../shared/rpcTracking.js";
 import { buildSchoolSummary } from "../../shared/schoolSummary.js";
 import { buildFhsisCounts } from "../../shared/fhsis.js";
 import { buildReportsPanels } from "../../shared/reportsPanels.js";
+import { perToothTreatmentCodes, WHOLE_MOUTH_CODE_TO_PREVENTIVE_FIELD } from "../../shared/treatmentCodes.js";
+import { schoolYearLabel } from "../../shared/schoolYear.js";
 import { findDuplicateStudents } from "../utils/studentDuplicates.js";
 import {
   School,
@@ -54,7 +57,11 @@ router.use("/schools", createCrudRouter(School, { writeRoles: ADMIN_ONLY }));
 // Intercepts POST /users before the generic CRUD router so passwords are
 // always hashed server-side — the generic router would store a plaintext
 // "password" field as-is, and password_hash is stripped from its bodies.
-router.post("/users", requireAuth, requireRole(...ADMIN_ONLY), asyncHandler(createUser));
+// One dentist and one dental aide per school: checked here so every path that
+// can change an account's role or schools (create, edit, restore) obeys it.
+router.post("/users", requireAuth, requireRole(...ADMIN_ONLY), asyncHandler(enforceOneStaffPerSchool), asyncHandler(createUser));
+router.put("/users/:id", requireAuth, requireRole(...ADMIN_ONLY), asyncHandler(enforceOneStaffPerSchool));
+router.patch("/users/:id/restore", requireAuth, requireRole(...ADMIN_ONLY), asyncHandler(enforceOneStaffPerSchool));
 // Also intercepted before the generic CRUD router -- password_hash is a
 // PROTECTED_FIELD there (can't be set via the generic update), and this
 // needs bcrypt hashing the generic router doesn't do.
@@ -152,12 +159,149 @@ router.get("/stats/high-risk-count", requireAuth, asyncHandler(async (req, res) 
 // a decision about persistence. Each count links to the screen that already
 // shows the detail, so the bell points at real records rather than paraphrasing
 // them (CLAUDE.md: a control that appears to work must work).
+// ── System Admin notifications ───────────────────────────────────────────────
+// What a System Admin is actually responsible for: account health, changes to
+// schools and student data, and what has been archived. Everything is computed
+// from real rows (accounts, schools, the audit trail); nothing is invented, and
+// clinical reminders (appointments, charts, treatment, RPC, risk, reports) are
+// deliberately left out. Built server-side so the sidebar badge and the page
+// always agree.
+type AdminNotifItem = {
+  id: string;
+  tier: "needs-action" | "recent-activity" | "awaiting-review";
+  kind: "students" | "school" | "archive" | "account" | "security" | "housekeeping";
+  before: string;
+  bold: string;
+  after: string;
+  linkTo: string;
+  linkLabel: string;
+  at: string | null;
+};
+
+async function buildAdminNotifications(): Promise<{ items: AdminNotifItem[] }> {
+  const items: AdminNotifItem[] = [];
+  const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many);
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  const [recent, users, schools] = await Promise.all([
+    AuditTrail.find({ timestamp: { $gte: since } }).sort({ timestamp: -1 })
+      .select("user_id action timestamp affected_record_id affected_model").lean<{ _id: unknown; user_id: unknown; action: string; timestamp: Date; affected_record_id: unknown; affected_model: string }[]>(),
+    User.find({}).select("full_name last_login twofa_enabled isArchived").lean<{ _id: unknown; full_name: string; last_login: Date | null; twofa_enabled?: boolean; isArchived?: boolean }[]>(),
+    School.find({}).select("school_name isArchived").lean<{ _id: unknown; school_name: string; isArchived?: boolean }[]>(),
+  ]);
+  const userName = new Map(users.map((u) => [String(u._id), u.full_name]));
+  const schoolName = new Map(schools.map((s) => [String(s._id), s.school_name]));
+  const latest = (list: { timestamp: Date }[]) => (list[0] ? new Date(list[0].timestamp).toISOString() : null);
+  const starts = (e: { action: string }, ...verbs: string[]) => verbs.some((v) => e.action === v || e.action.startsWith(`${v} `));
+
+  // Needs action: account and school state that exists right now.
+  const active = users.filter((u) => !u.isArchived);
+  const neverIn = active.filter((u) => !u.last_login);
+  if (neverIn.length) {
+    const names = neverIn.slice(0, 3).map((u) => u.full_name).join(", ");
+    items.push({
+      id: `never-signed-in-${neverIn.length}`, tier: "needs-action", kind: "security",
+      before: "", bold: `${neverIn.length} ${plural(neverIn.length, "account")}`,
+      after: ` ${neverIn.length === 1 ? "has" : "have"} never signed in: ${names}${neverIn.length > 3 ? ` and ${neverIn.length - 3} more` : ""}.`,
+      linkTo: "/accounts", linkLabel: "Go to User Management", at: null,
+    });
+  }
+
+  // Recent activity: the last 7 days of the audit trail.
+  const studentsAdded = recent.filter((e) => starts(e, "Created") && e.affected_model === "Student");
+  if (studentsAdded.length) {
+    items.push({
+      id: `students-added-${studentsAdded.length}`, tier: "recent-activity", kind: "students",
+      before: "", bold: `${studentsAdded.length} new ${plural(studentsAdded.length, "student")}`,
+      after: ` ${studentsAdded.length === 1 ? "was" : "were"} added in the last 7 days.`,
+      linkTo: "/patients", linkLabel: "Go to Students", at: latest(studentsAdded),
+    });
+  }
+  for (const e of recent.filter((r) => r.affected_model === "School").slice(0, 10)) {
+    const verb = e.action.startsWith("Created") ? "added" : e.action.startsWith("Archived") ? "archived" : e.action.startsWith("Restored") ? "restored" : "updated";
+    const name = schoolName.get(String(e.affected_record_id)) ?? "a school";
+    items.push({
+      id: `school-${String(e._id)}`, tier: "recent-activity", kind: "school",
+      before: `${userName.get(String(e.user_id)) ?? "Someone"} ${verb} the school `, bold: name, after: ".",
+      linkTo: "/schools", linkLabel: "Go to Schools", at: new Date(e.timestamp).toISOString(),
+    });
+  }
+  const newAccounts = recent.filter((e) => e.affected_model === "User" && e.action === "Created User").slice(0, 10);
+  for (const e of newAccounts) {
+    items.push({
+      id: `account-${String(e._id)}`, tier: "recent-activity", kind: "account",
+      before: `${userName.get(String(e.user_id)) ?? "Someone"} created a new account for `,
+      bold: userName.get(String(e.affected_record_id)) ?? "a user", after: ".",
+      linkTo: "/accounts", linkLabel: "Go to User Management", at: new Date(e.timestamp).toISOString(),
+    });
+  }
+  const pwd = recent.filter((e) => e.affected_model === "User" && ["Reset Password", "Sent Password Reset Link", "Reset Password via Email", "Changed Password"].includes(e.action));
+  if (pwd.length) {
+    items.push({
+      id: `password-changes-${pwd.length}`, tier: "recent-activity", kind: "account",
+      before: "", bold: `${pwd.length} password ${plural(pwd.length, "reset or change", "resets or changes")}`,
+      after: " in the last 7 days.", linkTo: "/audit", linkLabel: "Go to Audit Trail", at: latest(pwd),
+    });
+  }
+  const twofa = recent.filter((e) => e.action === "Enabled 2FA" || e.action === "Disabled 2FA");
+  if (twofa.length) {
+    items.push({
+      id: `twofa-changes-${twofa.length}`, tier: "recent-activity", kind: "security",
+      before: "", bold: `${twofa.length} two-factor ${plural(twofa.length, "change")}`,
+      after: " in the last 7 days.", linkTo: "/audit", linkLabel: "Go to Audit Trail", at: latest(twofa),
+    });
+  }
+  const archivedRecently = recent.filter((e) => starts(e, "Archived") && e.affected_model !== "School");
+  if (archivedRecently.length) {
+    items.push({
+      id: `archived-recent-${archivedRecently.length}`, tier: "recent-activity", kind: "archive",
+      before: "", bold: `${archivedRecently.length} ${plural(archivedRecently.length, "record")}`,
+      after: ` ${archivedRecently.length === 1 ? "was" : "were"} archived in the last 7 days.`,
+      linkTo: "/audit", linkLabel: "Go to Audit Trail", at: latest(archivedRecently),
+    });
+  }
+  const restoredRecently = recent.filter((e) => starts(e, "Restored") && e.affected_model !== "School");
+  if (restoredRecently.length) {
+    items.push({
+      id: `restored-recent-${restoredRecently.length}`, tier: "recent-activity", kind: "archive",
+      before: "", bold: `${restoredRecently.length} ${plural(restoredRecently.length, "record")}`,
+      after: ` ${restoredRecently.length === 1 ? "was" : "were"} restored in the last 7 days.`,
+      linkTo: "/audit", linkLabel: "Go to Audit Trail", at: latest(restoredRecently),
+    });
+  }
+
+  // Awaiting review: everything currently sitting in the archive.
+  const archivedModels = [
+    Student, StudentIptr, MedicalHistory, DietarySocialHabits, OralHealthCondition, DentalChart, ToothRecord, Treatment,
+    PreventiveCareRecord, RiskStratification, Appointment, DentistRotation, DayNote, Referral, School, User, Dentist, DentalAide,
+  ] as unknown as { countDocuments: (q: object) => Promise<number> }[];
+  const archivedTotal = (await Promise.all(archivedModels.map((m) => m.countDocuments({ isArchived: true })))).reduce((a, b) => a + b, 0);
+  if (archivedTotal) {
+    items.push({
+      id: `archive-held-${archivedTotal}`, tier: "awaiting-review", kind: "archive",
+      before: "", bold: `${archivedTotal} archived ${plural(archivedTotal, "record")}`,
+      after: " currently held. Review them, or restore any that were archived by mistake.",
+      linkTo: "/archive", linkLabel: "Go to Archived Records", at: null,
+    });
+  }
+
+  return { items };
+}
+
 router.get("/stats/notifications", requireAuth, asyncHandler(async (req, res) => {
+  const EMPTY_RESPONSE = { overdueRpc: 0, appointmentsToday: 0, appointmentsTomorrow: 0, awaitingValidation: 0, consentPending: 0, unmarkedAppointments: [] as unknown[], dayNoteToday: null as string | null };
+  // System Admin gets admin alerts instead of the clinical reminders.
+  if (req.user?.role === "system_admin") {
+    res.json({ ...EMPTY_RESPONSE, admin: await buildAdminNotifications() });
+    return;
+  }
   const schoolName = typeof req.query.school === "string" ? req.query.school : null;
   let studentFilter: Record<string, unknown> = { isArchived: false };
+  let schoolId: unknown = null;
   if (schoolName) {
     const school = await School.findOne({ school_name: schoolName, isArchived: false }).select("_id").lean<{ _id: unknown } | null>();
-    if (!school) { res.json({ overdueRpc: 0, appointmentsToday: 0, awaitingValidation: 0 }); return; }
+    if (!school) { res.json(EMPTY_RESPONSE); return; }
+    schoolId = school._id;
     studentFilter = { ...studentFilter, school_id: school._id };
   }
   // The ?school param is the CLIENT's choice; this is the user's permission
@@ -173,23 +317,32 @@ router.get("/stats/notifications", requireAuth, asyncHandler(async (req, res) =>
   // because "today's appointments" is a local-day question, not a UTC one.
   const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
   const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);
+  const tomorrowEnd = new Date(dayEnd); tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
+  // Bounds how far back "never marked" looks -- an appointment from a year
+  // ago that was never marked is a data-cleanup problem, not something a
+  // dentist opening today's bell should still be shown. 180 days covers a
+  // full school year's worth of scheduling without scanning every row ever
+  // created (Appointment has no status other than this one to say "closed").
+  const unmarkedWindowStart = new Date(dayStart); unmarkedWindowStart.setDate(unmarkedWindowStart.getDate() - 180);
 
-  const [students, iptrs, preventives, risks, todaysAppointments] = await Promise.all([
+  const [students, iptrs, preventives, risks, appointments, dayNotes] = await Promise.all([
     Student.find(studentFilter).select("_id").lean(),
-    StudentIptr.find({ isArchived: false }).select("_id student_id").lean(),
+    StudentIptr.find({ isArchived: false }).select("_id student_id school_year consent_status").lean(),
     PreventiveCareRecord.find({ isArchived: false }).select("iptr_id visit_number visit_date").lean(),
     RiskStratification.find({ isArchived: false }).select("preventive_id validated_by_dentist").lean(),
-    Appointment.find({
+    Appointment.find({ isArchived: false, appointment_datetime: { $gte: unmarkedWindowStart, $lt: tomorrowEnd } })
+      .select("student_id appointment_datetime status").lean(),
+    // ⚠ school_id NULL means "every school" (see DayNote.ts) -- with a school
+    // selected, a note applies if it names THAT school OR names none; with no
+    // school selected (the "all schools" view), any note for today counts.
+    DayNote.find({
       isArchived: false,
-      appointment_datetime: { $gte: dayStart, $lt: dayEnd },
-    }).select("student_id").lean(),
+      date: { $gte: dayStart, $lt: dayEnd },
+      ...(schoolId ? { $or: [{ school_id: null }, { school_id: schoolId }] } : {}),
+    }).select("note").sort({ created_at: 1 }).limit(1).lean(),
   ]);
 
   const inScope = new Set(students.map((s) => String(s._id)));
-  // Scoped through the student like the other two counts (SEC-22) — this one
-  // used to count every school's appointments, so the switcher moved two of
-  // the bell's three numbers and silently not the third.
-  const appointmentsToday = todaysAppointments.filter((a) => inScope.has(String(a.student_id))).length;
   const scopedIptrIds = new Set(
     iptrs.filter((i) => inScope.has(String(i.student_id))).map((i) => String(i._id)),
   );
@@ -230,7 +383,64 @@ router.get("/stats/notifications", requireAuth, asyncHandler(async (req, res) =>
     if (iptrId && scopedIptrIds.has(iptrId)) awaitingValidation++;
   }
 
-  res.json({ overdueRpc, appointmentsToday, awaitingValidation });
+  // Consent is collected once per school year (STUDENT_IPTR.consent_status),
+  // so a student with an OLD year's consent complete but no decision yet on
+  // THIS year's iptr must still count as pending -- the LATEST iptr per
+  // student is what decides it, same "latest wins" rule the Students module
+  // itself uses for its own consent column.
+  const iptrsByStudent = new Map<string, { school_year: string; consent_status: string }[]>();
+  for (const i of iptrs) {
+    if (!inScope.has(String(i.student_id))) continue;
+    const list = iptrsByStudent.get(String(i.student_id)) ?? [];
+    list.push({ school_year: String(i.school_year), consent_status: String(i.consent_status) });
+    iptrsByStudent.set(String(i.student_id), list);
+  }
+  let consentPending = 0;
+  for (const list of iptrsByStudent.values()) {
+    const latest = list.slice().sort((a, b) => b.school_year.localeCompare(a.school_year))[0];
+    if (latest?.consent_status === "pending") consentPending++;
+  }
+
+  // "Never marked" -- scheduled time has passed with the status still
+  // whatever it was created as (Scheduled), never moved to Completed/Missed/
+  // etc. Same test the Appointments module's own Missed tab uses
+  // (isOverdueUnmarked), so this bell can never disagree with that screen.
+  let appointmentsToday = 0;
+  let appointmentsTomorrow = 0;
+  const unmarkedRaw: { id: string; studentId: string; datetime: Date }[] = [];
+  for (const a of appointments) {
+    if (!inScope.has(String(a.student_id))) continue;
+    const dt = new Date(a.appointment_datetime as unknown as string);
+    if (dt >= dayStart && dt < dayEnd) appointmentsToday++;
+    else if (dt >= dayEnd && dt < tomorrowEnd) appointmentsTomorrow++;
+    else if (dt < dayStart && String(a.status).toLowerCase() === "scheduled") {
+      unmarkedRaw.push({ id: String(a._id), studentId: String(a.student_id), datetime: dt });
+    }
+  }
+  unmarkedRaw.sort((a, b) => b.datetime.getTime() - a.datetime.getTime());
+
+  const unmarkedStudents = unmarkedRaw.length
+    ? await Student.find({ _id: { $in: unmarkedRaw.map((a) => a.studentId) }, isArchived: false })
+    : [];
+  const nameById = new Map(unmarkedStudents.map((s: any) => {
+    const last = (s.last_name ?? "").trim();
+    const first = (s.first_name ?? "").trim();
+    const name = !last && !first ? (s.full_name ?? "").trim() : !last ? first : !first ? last : `${last}, ${first}`;
+    return [String(s._id), name];
+  }));
+  const unmarkedAppointments = unmarkedRaw
+    .filter((a) => nameById.has(a.studentId))
+    .map((a) => ({ id: a.id, studentId: a.studentId, studentName: nameById.get(a.studentId)!, datetime: a.datetime.toISOString() }));
+
+  res.json({
+    overdueRpc,
+    appointmentsToday,
+    appointmentsTomorrow,
+    awaitingValidation,
+    consentPending,
+    unmarkedAppointments,
+    dayNoteToday: dayNotes[0]?.note ?? null,
+  });
 }));
 
 // The patient-list row, joined server-side (Sprint 56b). Same join as the
@@ -531,6 +741,8 @@ router.get("/stats/rpc-rows", requireAuth, asyncHandler(async (req, res) => {
     ageGroup: typeof req.query.age_group === "string" ? req.query.age_group : "all",
     status: typeof req.query.status === "string" ? req.query.status : "outstanding",
     treatment: typeof req.query.treatment === "string" ? req.query.treatment : "all",
+    schoolYear: typeof req.query.school_year === "string" ? req.query.school_year : "all",
+    sort: typeof req.query.sort === "string" ? req.query.sort : "all",
     limit: Number(req.query.limit) > 0 ? Number(req.query.limit) : 25,
     offset: Number(req.query.offset) > 0 ? Number(req.query.offset) : 0,
   });
@@ -787,10 +999,96 @@ router.get("/stats/student-nav", requireAuth, asyncHandler(async (req, res) => {
       name: !last && !first ? (s.full_name ?? "").trim() : !last ? first : !first ? last : `${last}, ${first}`,
       // The prev/next buttons show the surname alone, matching the sort order.
       lastName: s.last_name ?? "",
+      firstName: s.first_name ?? "",
+      // Added 2026-09-27 -- the Student Records nav (opened from that
+      // module, no ?context=) sorts grade > section > gender > surname >
+      // first name, same as PatientList's own table, not plain alphabetical.
+      // These three fields are what that comparator needs.
+      gender: s.sex,
+      grade: s.grade_level,
+      section: s.section,
       school: schoolNameById.get(String(s.school_id)) ?? "Unknown School",
     };
   });
   res.json(rows);
+}));
+
+// Treatment Records' category cards (user, 2026-09-27). Each of the 10
+// treatment codes is bucketed from REAL structured data, not the free-text
+// TREATMENT.treatment_done field (a dentist's typed note -- "Extracted tooth
+// #36" -- which cannot be reliably parsed back into a code without guessing,
+// and a wrong count on a clinical screen is worse than none):
+//   - The 6 per-tooth codes (PFS/PF/TF/TR/X/SDF) come from ToothRecord.
+//     treatment_code, joined up through DentalChart -> StudentIptr.
+//   - The 4 whole-mouth codes (OEX/FV/OP/CONS) come from PreventiveCare
+//     Record's own boolean fields, joined through StudentIptr directly.
+// Aggregated server-side so the browser never pulls every tooth record in
+// the school just to count them (the exact pattern /stats/student-rows'
+// own history warns against -- see its comment above).
+router.get("/stats/treatment-categories", requireAuth, asyncHandler(async (req, res) => {
+  const scope = await scopeFilter("Student", req);
+  const studentFilter = scope ? { isArchived: false, ...scope } : { isArchived: false };
+
+  const studentIds = (await Student.find(studentFilter).select("_id").lean()).map((s: any) => String(s._id));
+  if (studentIds.length === 0) return res.json({ rows: [], schoolYearOptions: [], schoolYear: schoolYearLabel() });
+
+  // Current school year only by default (user, 2026-09-27) -- a headcount
+  // for "students given this treatment" that quietly summed every year the
+  // clinic has ever recorded would overstate the current roll's actual
+  // need. `school_year` is a TEMPORARY validation filter (user, 2026-09-27,
+  // "for now make it a filter so i can validate if its showing the right
+  // numbers") -- once the count is confirmed correct, the plan is to drop
+  // back to always-current-year with no picker.
+  const allIptrsInScope = await StudentIptr.find({ isArchived: false, student_id: { $in: studentIds } })
+    .select("_id student_id school_year").lean();
+  // The current year is always offered, even with zero IPTRs recorded yet --
+  // otherwise a brand-new school year would have no way to select itself.
+  const schoolYearOptions = [...new Set([schoolYearLabel(), ...(allIptrsInScope as any[]).map((i) => String(i.school_year))])]
+    .filter(Boolean).sort().reverse();
+  const requestedYear = typeof req.query.school_year === "string" && req.query.school_year ? req.query.school_year : schoolYearLabel();
+
+  const iptrs = (allIptrsInScope as any[]).filter((i) => String(i.school_year) === requestedYear);
+  const studentIdByIptr = new Map(iptrs.map((i: any) => [String(i._id), String(i.student_id)]));
+  const iptrIds = iptrs.map((i: any) => String(i._id));
+  if (iptrIds.length === 0) return res.json({ rows: [], schoolYearOptions, schoolYear: requestedYear });
+
+  const [charts, preventives] = await Promise.all([
+    DentalChart.find({ isArchived: false, iptr_id: { $in: iptrIds } }).select("_id iptr_id").lean(),
+    PreventiveCareRecord.find({ isArchived: false, iptr_id: { $in: iptrIds } })
+      .select("iptr_id oral_screening oral_prophylaxis fluoride_varnish consultation").lean(),
+  ]);
+  const iptrIdByChart = new Map(charts.map((c: any) => [String(c._id), String(c.iptr_id)]));
+  const chartIds = charts.map((c: any) => String(c._id));
+
+  const perToothCodeSet = new Set(perToothTreatmentCodes.map((t) => t.code));
+  const toothRecords = chartIds.length
+    ? await ToothRecord.find({ isArchived: false, chart_id: { $in: chartIds }, treatment_code: { $in: [...perToothCodeSet] } })
+        .select("chart_id treatment_code").lean()
+    : [];
+
+  // code -> Set of student ids, built from whichever source (per-tooth or
+  // whole-mouth) actually holds that code.
+  const studentIdsByCode = new Map<string, Set<string>>();
+  const add = (code: string, studentId: string | undefined) => {
+    if (!studentId) return;
+    if (!studentIdsByCode.has(code)) studentIdsByCode.set(code, new Set());
+    studentIdsByCode.get(code)!.add(studentId);
+  };
+
+  for (const t of toothRecords as any[]) {
+    const iptrId = iptrIdByChart.get(String(t.chart_id));
+    const studentId = iptrId ? studentIdByIptr.get(iptrId) : undefined;
+    if (t.treatment_code) add(String(t.treatment_code), studentId);
+  }
+  for (const p of preventives as any[]) {
+    const studentId = studentIdByIptr.get(String(p.iptr_id));
+    for (const [code, field] of Object.entries(WHOLE_MOUTH_CODE_TO_PREVENTIVE_FIELD)) {
+      if ((p as any)[field] === true) add(code, studentId);
+    }
+  }
+
+  const rows = [...studentIdsByCode.entries()].map(([code, ids]) => ({ code, studentIds: [...ids] }));
+  res.json({ rows, schoolYearOptions, schoolYear: requestedYear });
 }));
 
 router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => {
@@ -798,13 +1096,15 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
   // schools' students to a school_admin pinned to one.
   const scope = await scopeFilter("Student", req);
   const studentFilter = scope ? { isArchived: false, ...scope } : { isArchived: false };
-  const [students, schools, iptrs, charts, preventives, risks] = await Promise.all([
+  const [students, schools, iptrs, charts, preventives, risks, toothRecords, oralConditions] = await Promise.all([
     Student.find(studentFilter),
     School.find({ isArchived: false }).select("_id school_name").lean(),
-    StudentIptr.find({ isArchived: false }).select("_id student_id").lean(),
-    DentalChart.find({ isArchived: false }).select("iptr_id date_charted").lean(),
-    PreventiveCareRecord.find({ isArchived: false }).select("_id iptr_id").lean(),
-    RiskStratification.find({ isArchived: false }).select("preventive_id risk_level").lean(),
+    StudentIptr.find({ isArchived: false }).select("_id student_id school_year").lean(),
+    DentalChart.find({ isArchived: false }).select("_id iptr_id date_charted").lean(),
+    PreventiveCareRecord.find({ isArchived: false }).select("_id iptr_id visit_number visit_date oral_screening oral_prophylaxis fluoride_varnish oral_hygiene_instruction consultation").lean(),
+    RiskStratification.find({ isArchived: false }).select("preventive_id risk_level recommendation").lean(),
+    ToothRecord.find({ isArchived: false }).select("chart_id condition visit_number").lean(),
+    OralHealthCondition.find({ isArchived: false }).select("iptr_id gingivitis periodontal_disease debris calculus abnormal_growth cleft_lip_palate others").lean(),
   ]);
 
   const schoolNameById = new Map(schools.map((s: any) => [String(s._id), String(s.school_name)]));
@@ -814,18 +1114,92 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
     list.push(String(i._id));
     iptrsByStudent.set(String(i.student_id), list);
   }
+  // This year's own iptr per student, for the treatment-pipeline Status
+  // column below -- a returning pupil who finished both visits LAST year
+  // is "For Oral Exam" again this year, not "Completed" forever.
+  const currentYear = schoolYearLabel();
+  const currentIptrByStudent = new Map(
+    (iptrs as any[]).filter((i) => String(i.school_year) === currentYear).map((i) => [String(i.student_id), String(i._id)]),
+  );
+  const iptrIdByChart = new Map<string, string>();
+  for (const c of charts as any[]) iptrIdByChart.set(String(c._id), String(c.iptr_id));
+  // "Has had the oral exam this year" for the Status column below -- NOT
+  // just "a DentalChart row exists for this iptr" (user, 2026-09-28: a
+  // pupil whose chart was created, then had every condition/treatment
+  // cleared back out and saved empty, still showed "For Visit 1" forever
+  // after that, because the row itself never gets archived -- see
+  // DentalChart.tsx's handleSave, which only ever ADDS tooth records or
+  // archives individually CLEARED ones, never the chart row as a whole).
+  // Real content is a live ToothRecord with a condition, OR a ticked oral
+  // condition -- the exact same "hasChartOrOralConditionData" test the
+  // client itself uses to decide whether a save queues the pupil for
+  // Treatment, so the two can't disagree about what "real" means here.
+  const hasRealChartDataByIptr = new Set<string>();
+  for (const t of toothRecords as any[]) {
+    if (!t.condition) continue;
+    const iptrId = iptrIdByChart.get(String(t.chart_id));
+    if (iptrId) hasRealChartDataByIptr.add(iptrId);
+  }
+  for (const o of oralConditions as any[]) {
+    const ticked = o.gingivitis || o.periodontal_disease || o.debris || o.calculus || o.abnormal_growth || o.cleft_lip_palate || (typeof o.others === "string" && o.others.trim() !== "");
+    if (ticked) hasRealChartDataByIptr.add(String(o.iptr_id));
+  }
+  // "Last Dental Visit" (below) is the LATEST of the oral condition's
+  // Date examined (DENTAL_CHART.date_charted) AND either RPC visit's own
+  // Date treated -- same reasoning as the Status column above (user,
+  // 2026-09-28, first pass: "the last dental visit should be the last
+  // latest recorded date on the dental chart"; second pass: "it should
+  // reflect any latest date recorded ... may it be the oral condition date,
+  // treatment date for visit 1 or 2" -- date_charted alone missed a visit
+  // treated on a LATER date than the oral exam). An empty chart shell or an
+  // empty preventive record (a date was stamped but nothing real was ever
+  // ticked or charted) is not a visit that happened, so its date must not
+  // count as one -- same "real content" test DentalChart.tsx's own
+  // hasRealVisitData uses client-side.
   const chartDatesByIptr = new Map<string, Date[]>();
   for (const c of charts as any[]) {
-    if (!c.date_charted) continue;
+    if (!c.date_charted || !hasRealChartDataByIptr.has(String(c.iptr_id))) continue;
     const list = chartDatesByIptr.get(String(c.iptr_id)) ?? [];
     list.push(new Date(c.date_charted));
     chartDatesByIptr.set(String(c.iptr_id), list);
   }
+  const toothRecordsByIptr = new Map<string, any[]>();
+  for (const t of toothRecords as any[]) {
+    const iptrId = iptrIdByChart.get(String(t.chart_id));
+    if (!iptrId) continue;
+    const list = toothRecordsByIptr.get(iptrId) ?? [];
+    list.push(t);
+    toothRecordsByIptr.set(iptrId, list);
+  }
+  const hasRealPreventiveData = (p: any) => {
+    if ([p.oral_screening, p.oral_prophylaxis, p.fluoride_varnish, p.oral_hygiene_instruction, p.consultation].some((v: any) => v === true)) return true;
+    const teeth = toothRecordsByIptr.get(String(p.iptr_id)) ?? [];
+    return p.visit_number === 2
+      ? teeth.some((t: any) => t.condition && t.visit_number === 2)
+      : teeth.some((t: any) => t.condition && (t.visit_number ?? 1) !== 2);
+  };
+  for (const p of preventives as any[]) {
+    if (!p.visit_date || !hasRealPreventiveData(p)) continue;
+    const iptrId = String(p.iptr_id);
+    const list = chartDatesByIptr.get(iptrId) ?? [];
+    list.push(new Date(p.visit_date));
+    chartDatesByIptr.set(iptrId, list);
+  }
+  const visitNumbersByIptr = new Map<string, Set<number>>();
+  for (const p of preventives as any[]) {
+    const iptrId = String(p.iptr_id);
+    if (!visitNumbersByIptr.has(iptrId)) visitNumbersByIptr.set(iptrId, new Set());
+    if (p.visit_number === 1 || p.visit_number === 2) visitNumbersByIptr.get(iptrId)!.add(p.visit_number);
+  }
   const preventiveIptrById = new Map((preventives as any[]).map((p) => [String(p._id), String(p.iptr_id)]));
   const riskByIptr = new Map<string, string>();
+  const recommendationByIptr = new Map<string, string>();
   for (const r of risks as any[]) {
     const iptrId = preventiveIptrById.get(String(r.preventive_id));
-    if (iptrId) riskByIptr.set(iptrId, String(r.risk_level));
+    if (iptrId) {
+      riskByIptr.set(iptrId, String(r.risk_level));
+      recommendationByIptr.set(iptrId, String(r.recommendation ?? ""));
+    }
   }
 
   // Mirrors deriveOralStatus in the client hook — kept identical on purpose so
@@ -836,12 +1210,31 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
         : risk === "Low" ? "Orally Fit"
           : "Not Yet Screened";
 
+  // Student Records' Status column (user, 2026-09-28) -- the treatment
+  // PIPELINE for THIS school year specifically, distinct from riskLevel's
+  // clinical severity above. No current-year iptr, or an iptr with no
+  // dental chart on it yet, means the oral exam itself hasn't happened;
+  // once charted, RPC Visit 1 then Visit 2 are what "First"/"Second
+  // Treatment" refer to (see shared/rpcTracking.ts for the same two-visit
+  // model this mirrors).
+  const derivePipelineStatus = (studentId: string): "For Oral Exam" | "For First Treatment" | "For Second Treatment" | "Completed" => {
+    const iptrId = currentIptrByStudent.get(studentId);
+    if (!iptrId || !hasRealChartDataByIptr.has(iptrId)) return "For Oral Exam";
+    const visits = visitNumbersByIptr.get(iptrId);
+    if (!visits?.has(1)) return "For First Treatment";
+    if (!visits.has(2)) return "For Second Treatment";
+    return "Completed";
+  };
+
   const rows = (students as any[]).map((s) => {
     const studentIptrs = iptrsByStudent.get(String(s._id)) ?? [];
     const chartDates = studentIptrs.flatMap((id) => chartDatesByIptr.get(id) ?? []);
     // First iptr carrying a risk wins, matching the badge and the old client
     // join; `find(Boolean)` over the iptrs in insertion order.
     const riskLevel = studentIptrs.map((id) => riskByIptr.get(id)).find(Boolean) ?? null;
+    // Same iptr the risk level came from, so the two never disagree about
+    // which assessment they're describing.
+    const recommendation = studentIptrs.map((id) => recommendationByIptr.get(id)).find(Boolean) ?? "";
     const last = (s.last_name ?? "").trim();
     const first = (s.first_name ?? "").trim();
     return {
@@ -861,6 +1254,8 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
         : null,
       oralStatus: deriveOralStatus(riskLevel),
       riskLevel,
+      recommendation,
+      pipelineStatus: derivePipelineStatus(String(s._id)),
       consentStatus: s.consent_status,
     };
   });
@@ -940,9 +1335,18 @@ router.use("/medical-histories", createCrudRouter(MedicalHistory, { writeRoles: 
 router.use("/dietary-social-habits", createCrudRouter(DietarySocialHabits, { writeRoles: CLINICAL_WRITE_ROLES, filterable: ["iptr_id"] }));
 router.use("/oral-health-conditions", createCrudRouter(OralHealthCondition, { writeRoles: CLINICAL_WRITE_ROLES, filterable: ["iptr_id"] }));
 router.use("/dental-charts", createCrudRouter(DentalChart, { writeRoles: CLINICAL_WRITE_ROLES, filterable: ["iptr_id"] }));
-router.use("/tooth-records", createCrudRouter(ToothRecord, { writeRoles: CLINICAL_WRITE_ROLES, filterable: ["chart_id"] }));
+// archiveRoles: a dentist who clears every code off a tooth and saves retires
+// that tooth's record -- the chart's own "empty this tooth" action. Before this
+// the archive route was ADMIN_ONLY, so the chart could not persist a cleared
+// tooth at all and the old codes returned on reload. Restore stays admin-only.
+router.use("/tooth-records", createCrudRouter(ToothRecord, { writeRoles: CLINICAL_WRITE_ROLES, archiveRoles: ["system_admin", "dentist"], filterable: ["chart_id"] }));
 router.use("/treatments", createCrudRouter(Treatment, { writeRoles: CLINICAL_WRITE_ROLES, filterable: ["iptr_id"] }));
-router.use("/preventive-care-records", createCrudRouter(PreventiveCareRecord, { writeRoles: CLINICAL_WRITE_ROLES, filterable: ["iptr_id"] }));
+// archiveRoles: CLINICAL_WRITE_ROLES (2026-09-28) -- DentalChart.tsx's own
+// save archives a visit whose services/teeth were all cleared out (see
+// handleSave), and that save is available to dentist AND dental_aide, same
+// as the write itself; defaulting to ADMIN_ONLY here would 403 an aide's
+// own save the moment it tried to clear a visit empty.
+router.use("/preventive-care-records", createCrudRouter(PreventiveCareRecord, { writeRoles: CLINICAL_WRITE_ROLES, archiveRoles: CLINICAL_WRITE_ROLES, filterable: ["iptr_id"] }));
 // The audit action records whether the dentist accepted the AI suggestion
 // as-is or changed it (Chapter 4 evidence for the dentist-validates-model
 // gate). `model_risk_level` / `recommendation_edited` ride in the request
@@ -960,8 +1364,18 @@ router.use("/risk-stratifications", createCrudRouter(RiskStratification, {
 }));
 // dateField (Sprint 56): the Completed and Missed tabs have no self-limiting
 // date the way Today and Upcoming do, so without a bound they grow forever.
-router.use("/appointments", createCrudRouter(Appointment, { writeRoles: CLINICAL_WRITE_ROLES, dateField: "appointment_datetime" }));
-router.use("/dentist-rotations", createCrudRouter(DentistRotation, { writeRoles: CLINICAL_WRITE_ROLES }));
+router.use("/appointments", createCrudRouter(Appointment, { writeRoles: CLINICAL_WRITE_ROLES, archiveRoles: CLINICAL_WRITE_ROLES, dateField: "appointment_datetime" }));
+// School Rotation tab (2026-09-24, user-approved; ERD DEVIATION — see
+// docs/DATA-MODEL.md). One record per DAY (week_start = week_end = that day).
+// `dateField` bounds the tab's week/month reads; `dentist_id` narrows to one
+// dentist. archiveRoles: the tab's "Clear day" is a dentist/aide action on a
+// schedule they keep, not a clinical record; restore stays admin-only.
+router.use("/dentist-rotations", createCrudRouter(DentistRotation, {
+  writeRoles: CLINICAL_WRITE_ROLES,
+  archiveRoles: CLINICAL_WRITE_ROLES,
+  dateField: "week_start",
+  filterable: ["dentist_id"],
+}));
 
 // Sprint 108 — notes written against a DATE rather than a patient. `dateField`
 // bounds the read to the month the calendar is showing, the same treatment
@@ -1005,6 +1419,89 @@ router.use("/referrals", createCrudRouter(Referral, {
 // route returned ALL of it. Unlike the appointment window it has no natural
 // boundary, so the client sends an explicit `from`, and "show earlier" widens
 // it. AuditTrail has no isArchived, so the date range is the only filter.
+// Whose record each audit entry touched (System Admin only). The trail stores
+// just a model name and a record id, so "Updated a student IPTR" could not say
+// WHICH student. This walks each patient-linked record up to its student and
+// returns { recordId: studentName } for the same date window the trail uses.
+// Archived records are included on purpose: an "Archived ..." entry points at
+// a record that is archived by then. Names come back decrypted because the
+// Student docs are read as documents, not lean objects.
+router.get("/audit-subjects", requireAuth, requireRole(...ADMIN_ONLY), asyncHandler(async (req, res) => {
+  const from = typeof req.query.from === "string" ? new Date(req.query.from) : null;
+  const filter: Record<string, unknown> = {};
+  if (from && !Number.isNaN(from.getTime())) filter.timestamp = { $gte: from };
+  const entries = await AuditTrail.find(filter).select("affected_model affected_record_id").lean<{ affected_model: string; affected_record_id: unknown }[]>();
+  // affected_record_id is an ObjectId in the model, so lean() hands back ObjectIds, not strings.
+  const rows = entries.map((e) => ({ model: e.affected_model, id: String(e.affected_record_id) }));
+
+  const valid = (id: unknown): id is string => typeof id === "string" && mongoose.isValidObjectId(id);
+  const idsOf = (models: string[]) =>
+    [...new Set(rows.filter((r) => models.includes(r.model) && valid(r.id)).map((r) => r.id))];
+  const asStr = (v: unknown) => (v == null ? null : String(v));
+
+  // record id -> student id
+  const studentOf = new Map<string, string>();
+  for (const id of idsOf(["Student"])) studentOf.set(id, id);
+
+  const apps = idsOf(["Appointment"]);
+  if (apps.length) {
+    for (const d of await Appointment.find({ _id: { $in: apps } }).select("student_id").lean<{ _id: unknown; student_id: unknown }[]>()) {
+      const s = asStr(d.student_id); if (s) studentOf.set(String(d._id), s);
+    }
+  }
+
+  // Everything hung off an IPTR: iptr id per record
+  const viaIptr = new Map<string, string>(); // record id -> iptr id
+  const iptrModels: [string, any][] = [
+    ["MedicalHistory", MedicalHistory], ["DietarySocialHabits", DietarySocialHabits], ["OralHealthCondition", OralHealthCondition],
+    ["PreventiveCareRecord", PreventiveCareRecord], ["Treatment", Treatment], ["Referral", Referral], ["DentalChart", DentalChart],
+  ];
+  for (const [name, Model] of iptrModels) {
+    const ids = idsOf([name]);
+    if (!ids.length) continue;
+    for (const d of await Model.find({ _id: { $in: ids } }).select("iptr_id").lean()) {
+      const i = asStr(d.iptr_id); if (i) viaIptr.set(String(d._id), i);
+    }
+  }
+  // Two hops: tooth record -> chart -> iptr, risk assessment -> preventive -> iptr
+  const teeth = idsOf(["ToothRecord"]);
+  if (teeth.length) {
+    const rows = await ToothRecord.find({ _id: { $in: teeth } }).select("chart_id").lean<{ _id: unknown; chart_id: unknown }[]>();
+    const chartIds = rows.map((r) => asStr(r.chart_id)).filter(Boolean) as string[];
+    const charts = await DentalChart.find({ _id: { $in: chartIds } }).select("iptr_id").lean<{ _id: unknown; iptr_id: unknown }[]>();
+    const iptrByChart = new Map(charts.map((c) => [String(c._id), asStr(c.iptr_id)]));
+    for (const r of rows) { const i = iptrByChart.get(String(r.chart_id)); if (i) viaIptr.set(String(r._id), i); }
+  }
+  const risks = idsOf(["RiskStratification"]);
+  if (risks.length) {
+    const rows = await RiskStratification.find({ _id: { $in: risks } }).select("preventive_id").lean<{ _id: unknown; preventive_id: unknown }[]>();
+    const prevIds = rows.map((r) => asStr(r.preventive_id)).filter(Boolean) as string[];
+    const prevs = await PreventiveCareRecord.find({ _id: { $in: prevIds } }).select("iptr_id").lean<{ _id: unknown; iptr_id: unknown }[]>();
+    const iptrByPrev = new Map(prevs.map((p) => [String(p._id), asStr(p.iptr_id)]));
+    for (const r of rows) { const i = iptrByPrev.get(String(r.preventive_id)); if (i) viaIptr.set(String(r._id), i); }
+  }
+
+  // IPTR -> student (covers the StudentIptr entries themselves too)
+  const iptrIds = [...new Set([...idsOf(["StudentIptr"]), ...viaIptr.values()])];
+  const studentByIptr = new Map<string, string>();
+  if (iptrIds.length) {
+    for (const d of await StudentIptr.find({ _id: { $in: iptrIds } }).select("student_id").lean<{ _id: unknown; student_id: unknown }[]>()) {
+      const s = asStr(d.student_id); if (s) studentByIptr.set(String(d._id), s);
+    }
+  }
+  for (const id of idsOf(["StudentIptr"])) { const s = studentByIptr.get(id); if (s) studentOf.set(id, s); }
+  for (const [rec, iptr] of viaIptr) { const s = studentByIptr.get(iptr); if (s) studentOf.set(rec, s); }
+
+  const studentIds = [...new Set(studentOf.values())];
+  const names = new Map<string, string>();
+  if (studentIds.length) {
+    for (const s of await Student.find({ _id: { $in: studentIds } })) names.set(String(s._id), (s as any).full_name ?? "");
+  }
+  const out: Record<string, string> = {};
+  for (const [rec, stu] of studentOf) { const n = names.get(stu); if (n) out[rec] = n; }
+  res.json(out);
+}));
+
 router.use("/audit-trails", createCrudRouter(AuditTrail, { readOnly: true, readRoles: ADMIN_ONLY, dateField: "timestamp" }));
 
 export default router;

@@ -11,12 +11,17 @@ export interface ApiUser {
   last_login: string | null;
   twofa_enabled?: boolean;
   isArchived: boolean;
+  created_at?: string;
 }
 
 export interface ApiSchool {
   _id: string;
   school_name: string;
-  school_type: string;
+  school_type?: string;
+  school_nickname?: string;
+  /** First and last grade the school offers ("Kinder", "Grade 12"). */
+  grade_from?: string;
+  grade_to?: string;
   /** Her feature, carried across with UpdateSchoolYear (Sprint 157). ⚠ NOT on
    *  our SCHOOL model yet, so it reads undefined and the dialog's manual
    *  override section stays hidden — the dialog's real job, rolling the year
@@ -41,11 +46,19 @@ export interface ApiStudent {
   first_name: string;
   middle_name?: string;
   birthday: string;
+  /** '' when is_not_student is true -- required otherwise. */
   sex: string;
   address: string;
   contact_number?: string;
+  /** '' when is_not_student is true -- required otherwise. */
   grade_level: string;
+  /** '' when is_not_student is true -- required otherwise. */
   section: string;
+  /** Added 2026-09-25. A person recorded through Add Student who isn't
+   *  actually enrolled (sibling/community member treated at a mission) --
+   *  sex/grade_level/section are absent for these. Optional since records
+   *  created before this field existed have no value. */
+  is_not_student?: boolean;
   place_of_birth?: string;
   guardian_occupation?: string;
   guardian_name?: string;
@@ -100,6 +113,10 @@ export interface ApiToothRecord {
   tooth_number: number;
   condition: string;
   treatment_code?: string;
+  /** Added 2026-09-25. Which RPC visit this tooth's current treatment_code
+   *  was recorded at -- null for teeth charted before this or outside the
+   *  visit flow. */
+  visit_number?: 1 | 2 | null;
 }
 
 export interface ApiPreventiveCareRecord {
@@ -119,6 +136,10 @@ export interface ApiPreventiveCareRecord {
   oral_prophylaxis?: boolean | null;
   fluoride_varnish?: boolean | null;
   oral_hygiene_instruction?: boolean | null;
+  /** Added 2026-09-25, same null-means-not-recorded rule as the four above.
+   *  Not a DOH Target Client List column -- tracked for the clinic's own
+   *  record only. */
+  consultation?: boolean | null;
   /** The form's own words — it prints Moderate where RISK_STRATIFICATION says
    *  Medium. On the form, the form wins. */
   caries_risk?: 'Low' | 'Moderate' | 'High' | null;
@@ -150,6 +171,28 @@ export interface ApiMedicalHistory {
   blood_transfusion: boolean;
   tattoo: boolean;
   others: string;
+  // Added 2026-09-24 (ERD deviation) -- optional because records saved
+  // before then do not carry them.
+  blood_disorders?: boolean;
+  liver_disease?: boolean;
+  anemia?: boolean;
+  anesthesia_allergy?: boolean;
+  previous_extraction?: boolean;
+  extraction_bleeding?: boolean;
+  chest_tightness?: boolean;
+  asthma?: boolean;
+  menstruation?: boolean;
+  pregnant?: boolean;
+  current_medication?: boolean;
+  epilepsy?: boolean;
+  hepatitis_type?: string;
+  malignancy_details?: string;
+  blood_transfusion_date?: string;
+  last_admission?: string;
+  medication_details?: string;
+  high_blood_pressure?: boolean;
+  last_extraction_date?: string;
+  surgical_details?: string;
 }
 
 export interface ApiDietarySocialHabits {
@@ -211,6 +254,18 @@ export interface ApiReferral {
   isArchived: boolean;
 }
 
+/** DENTIST_ROTATION, used by the School Rotation tab as one row per DAY:
+ *  week_start = week_end = that day (the model's original weekly span still
+ *  reads correctly, see rotationByDay). */
+export interface ApiDentistRotation {
+  _id: string;
+  school_id: string;
+  dentist_id: string;
+  week_start: string;
+  week_end: string;
+  notes: string;
+}
+
 export interface ApiDentist {
   _id: string;
   school_id: string;
@@ -229,6 +284,8 @@ export interface ApiAppointment {
   appointment_type: string;
   requires_followup: boolean;
   parental_supervision_required: boolean;
+  /** Added 2026-09-25. Required on new bookings; absent on records created before then. */
+  guardian_contact_number?: string;
   /** Per-appointment remark (Sprint 109). Empty string when unset. */
   notes?: string;
   isArchived: boolean;

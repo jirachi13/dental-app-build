@@ -12,11 +12,14 @@ import {
   Clock,
   BarChart3,
   ArrowRight,
-  ChevronRight
+  ChevronRight,
+  LayoutDashboard
 } from 'lucide-react';
 import { SkeletonBlock } from './Skeleton';
+import { PageHeader } from './PageHeader';
 import { CHART, RISK_COLORS, FUNNEL_RAMP } from '../utils/chartColors';
 import { getSchoolShortName } from '../utils/schoolColors';
+import { RotationDashboardCards } from './SchoolRotation';
 import { toLocalDateString, formatDateWithWeekday } from '../utils/localDate';
 import { 
   BarChart, 
@@ -347,32 +350,30 @@ export const Dashboard = () => {
     );
   };
 
-  // ===== CLINIC SUMMARY STRIP (Sprint A, design direction 3a) =====
-  // Replaces the four equal-weight StatCards, which DESIGN.md calls out by name
-  // as "the absence of hierarchy". Presented as clinical paperwork: ruled cells,
-  // uppercase field labels, tabular figures, no icon chips, no tint, no shadow.
-  // The strip is NOT clickable as a whole -- each cell is its own link.
+  // ===== CLINIC SUMMARY STAT TILES =====
+  // Matches the RAMHIS-derived statCardVariants spec exactly (real source,
+  // not eyeballed): rounded-2xl, p-6, shadow-[0_4px_20px_rgba(0,0,0,0.06)],
+  // a 48px icon chip top-right, hover -translate-y-0.5 + border-primary tint
+  // + a bigger shadow. --radius-xl is now 16px (theme.css), so `rounded-xl`
+  // already lands on the same 16px the real cards use.
   const SummaryCell = ({ icon: Icon, label, value, valueClass, context, linkTo, loading, trailing }: {
     icon: any; label: string; value: string; valueClass?: string; context: string;
     linkTo?: string; loading?: boolean; trailing?: string;
   }) => {
     const body = (
       <>
-        <div className="flex items-center justify-between gap-2 mb-1.5">
-          <span className="flex items-center gap-[7px] min-w-0">
-            <Icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" strokeWidth={2} />
-            <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-muted-foreground truncate">{label}</span>
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <span className="text-[13px] font-medium text-muted-foreground min-w-0 truncate">{label}</span>
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-surface text-primary">
+            <Icon className="w-5 h-5" strokeWidth={2} />
           </span>
-          {/* Chevron only where the cell actually navigates -- an affordance on a
-              dead cell is a lie about what a click will do. */}
-          {linkTo && <ChevronRight className="w-3 h-3 text-primary shrink-0" strokeWidth={2.5} />}
         </div>
         {loading ? (
-          <SkeletonBlock className="h-7 w-16" />
+          <SkeletonBlock className="h-9 w-20" />
         ) : (
           <div className="flex items-baseline gap-2">
             {/* Some cells legitimately carry prose or a date rather than a
-                figure ("None scheduled"). Rendering a sentence at 28px makes it
+                figure ("None scheduled"). Rendering a sentence at 36px makes it
                 shout louder than the real numbers beside it, so it steps down
                 to 15px/600 muted -- the treatment the 3a school-admin mock
                 specifies. Detected the same way StatCard does it (`:269`) so no
@@ -381,24 +382,25 @@ export const Dashboard = () => {
                 full size, since those ARE the reading. */}
             <span className={
               /^\d/.test(String(value).trim())
-                ? `text-[28px] font-bold leading-none tabular-nums ${valueClass ?? 'text-foreground'}`
+                ? `text-[36px] font-bold leading-none tracking-tight tabular-nums ${valueClass ?? 'text-foreground'}`
                 : 'text-[15px] font-semibold leading-tight py-[5px] text-muted-foreground'
             }>{value}</span>
             {trailing && <span className="text-[11px] text-muted-foreground">{trailing}</span>}
           </div>
         )}
-        <div className="text-[11px] text-muted-foreground mt-1.5">{loading ? ' ' : context}</div>
+        <div className={`mt-4 flex items-center gap-2 border-t border-border pt-3 text-xs ${valueClass ?? 'text-muted-foreground'}`}>
+          {linkTo && <ChevronRight className="w-3 h-3 shrink-0" strokeWidth={2.5} />}
+          <span className="font-normal text-muted-foreground">{loading ? ' ' : context}</span>
+        </div>
       </>
     );
 
-    // Cell tint replaces the old card lift; focus ring is explicit because these
-    // are links and the previous tiles relied on the browser default.
-    const cell = 'px-4 py-3.5 border-border';
+    const cell = 'bg-card border border-border rounded-2xl p-6 h-full shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all duration-200';
     if (!linkTo) return <div className={cell}>{body}</div>;
     return (
       <Link
         to={linkTo}
-        className={`${cell} block transition-colors duration-150 hover:bg-primary-surface focus-visible:bg-primary-surface focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2`}
+        className={`${cell} block hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_10px_30px_rgba(15,23,42,0.08)] focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2`}
       >
         {body}
       </Link>
@@ -477,10 +479,12 @@ export const Dashboard = () => {
     return (
       <div className="space-y-6">
         <div className="flex flex-wrap items-end gap-4 rise">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Dentist Dashboard</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Welcome back, {user?.name}!</p>
-          </div>
+          <PageHeader
+            icon={LayoutDashboard}
+            eyebrow="Overview"
+            title="Dentist Dashboard"
+            description={`Welcome back, ${user?.name}.`}
+          />
           {/* No "New Appointment" button here on purpose — removed on request.
               Booking lives on the Appointments page; the dashboard reports. The
               date and appointment count moved into the clinic summary strip
@@ -488,10 +492,10 @@ export const Dashboard = () => {
         </div>
 
         {/* Clinic summary (Sprint A, direction 3a) — replaces the four KPI tiles */}
-        <div className="bg-card border border-border rounded-sm overflow-hidden rise rise-1">
-          <div className="flex items-baseline justify-between gap-4 px-4 py-2.5 bg-muted border-b border-border">
-            <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-foreground">Clinic summary</span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+        <div className="space-y-3 rise rise-1">
+          <div className="flex items-baseline justify-between gap-4">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Clinic summary</span>
+            <span className="text-xs font-medium text-muted-foreground">
               {formatDateWithWeekday(new Date())}
             </span>
           </div>
@@ -499,7 +503,9 @@ export const Dashboard = () => {
           {/* 1 column stacked with horizontal rules, 4 columns with vertical
               rules from lg. No 2-column middle step: at that width the context
               lines wrap and the ledger stops reading as a single row. */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-border">
+          {/* School rotation: where the dentist is today and tomorrow. */}
+          <RotationDashboardCards />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             <SummaryCell
               icon={Users}
               label="Patients enrolled"
@@ -543,7 +549,7 @@ export const Dashboard = () => {
           </div>
 
           {!rpcLoading && scopedRpc.length > 0 && (
-            <div className="px-4 py-2.5 border-t border-border text-[11px] text-muted-foreground">
+            <div className="text-[11px] text-muted-foreground">
               {/* mostOverdueDays belongs to ONE student, so it can only be
                   attached to the figure when there is exactly one. With several
                   overdue it becomes "most by N days" rather than implying they
@@ -618,7 +624,7 @@ export const Dashboard = () => {
                 <h2 className="text-sm font-bold text-foreground">RPC Two-Visit Funnel</h2>
                 <p className="text-[11px] text-muted-foreground">Preventive care progression</p>
               </div>
-              <Link to="/rpc" className="text-xs text-primary hover:underline">RPC Tracking →</Link>
+              <Link to="/rpc" className="text-xs text-primary hover:underline">RPC Monitoring →</Link>
             </div>
             <ChartBody ready={!rpcLoading}>
             {scopedRpc.length === 0 ? (
@@ -766,10 +772,12 @@ export const Dashboard = () => {
     return (
       <div className="space-y-6">
         <div className="flex flex-wrap items-end gap-4 rise">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Dental Aide Dashboard</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Welcome back, {user?.name}!</p>
-          </div>
+          <PageHeader
+            icon={LayoutDashboard}
+            eyebrow="Overview"
+            title="Dental Aide Dashboard"
+            description={`Welcome back, ${user?.name}.`}
+          />
           {/* No "New Appointment" button here on purpose — removed on request.
               Booking lives on the Appointments page; the dashboard reports. The
               date and appointment count moved into the clinic summary strip
@@ -777,15 +785,17 @@ export const Dashboard = () => {
         </div>
 
         {/* Clinic summary (Sprint D) — same strip as the dentist branch */}
-        <div className="bg-card border border-border rounded-sm overflow-hidden rise rise-1">
-          <div className="flex items-baseline justify-between gap-4 px-4 py-2.5 bg-muted border-b border-border">
-            <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-foreground">Clinic summary</span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+        <div className="space-y-3 rise rise-1">
+          <div className="flex items-baseline justify-between gap-4">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Clinic summary</span>
+            <span className="text-xs font-medium text-muted-foreground">
               {formatDateWithWeekday(new Date())}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-border">
+          {/* School rotation: where the dentist is today and tomorrow. */}
+          <RotationDashboardCards />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             <SummaryCell
               icon={Calendar}
               label="Appointments today"
@@ -823,7 +833,7 @@ export const Dashboard = () => {
           </div>
 
           {!rpcLoading && scopedRpc.length > 0 && (
-            <div className="px-4 py-2.5 border-t border-border text-[11px] text-muted-foreground">
+            <div className="text-[11px] text-muted-foreground">
               {mostOverdueDays !== null && (
                 <span className="text-primary font-semibold">
                   {rpcOverdueCount === 1
@@ -927,10 +937,12 @@ export const Dashboard = () => {
     return (
       <div className="space-y-6">
         <div className="flex flex-wrap items-end gap-4 rise">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">School Admin Dashboard</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">{user.schools?.[0]}</p>
-          </div>
+          <PageHeader
+            icon={LayoutDashboard}
+            eyebrow="Overview"
+            title="School Admin Dashboard"
+            description={user.schools?.[0] ?? 'No school assigned yet.'}
+          />
           {/* Date + enrolled count moved into the school summary (Sprint E). */}
           <Link
             to="/reports"
@@ -942,15 +954,15 @@ export const Dashboard = () => {
         </div>
 
         {/* School summary (Sprint E, design 3a) */}
-        <div className="bg-card border border-border rounded-sm overflow-hidden rise rise-1">
-          <div className="flex items-baseline justify-between gap-4 px-4 py-2.5 bg-muted border-b border-border">
-            <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-foreground">School summary</span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+        <div className="space-y-3 rise rise-1">
+          <div className="flex items-baseline justify-between gap-4">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">School summary</span>
+            <span className="text-xs font-medium text-muted-foreground">
               {formatDateWithWeekday(new Date())}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-border">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             <SummaryCell
               icon={Users}
               label="Students enrolled"
@@ -1142,10 +1154,12 @@ export const Dashboard = () => {
     return (
       <div className="space-y-6">
         <div className="flex flex-wrap items-end gap-4 rise">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Barangay Health Office Dashboard</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Aggregated data across all schools</p>
-          </div>
+          <PageHeader
+            icon={LayoutDashboard}
+            eyebrow="Overview"
+            title="Barangay Health Office Dashboard"
+            description="Aggregated dental health data across all three schools."
+          />
           {/* Date + totals moved into the barangay summary (Sprint F). */}
           <Link
             to="/reports"
@@ -1157,15 +1171,15 @@ export const Dashboard = () => {
         </div>
 
         {/* Barangay summary (Sprint F, design 3a) */}
-        <div className="bg-card border border-border rounded-sm overflow-hidden rise rise-1">
-          <div className="flex items-baseline justify-between gap-4 px-4 py-2.5 bg-muted border-b border-border">
-            <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-foreground">Barangay summary</span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+        <div className="space-y-3 rise rise-1">
+          <div className="flex items-baseline justify-between gap-4">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Barangay summary</span>
+            <span className="text-xs font-medium text-muted-foreground">
               {formatDateWithWeekday(new Date())}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-border">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             <SummaryCell
               icon={Users}
               label="Students served"
@@ -1376,10 +1390,12 @@ export const Dashboard = () => {
     return (
       <div className="space-y-6">
         <div className="flex flex-wrap items-end gap-4 rise">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">System Admin Dashboard</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">System monitoring and management</p>
-          </div>
+          <PageHeader
+            icon={LayoutDashboard}
+            eyebrow="Overview"
+            title="System Admin Dashboard"
+            description="System monitoring and account management across the whole app."
+          />
           {/* Date + active-user count moved into the system summary (Sprint I). */}
           <Link
             to="/accounts"
@@ -1396,15 +1412,15 @@ export const Dashboard = () => {
             absences as if they were readings. Replaced with four figures the
             system actually holds; uptime and failed logins are still not
             measured anywhere, so they are simply gone rather than shown empty. */}
-        <div className="bg-card border border-border rounded-sm overflow-hidden rise rise-1">
-          <div className="flex items-baseline justify-between gap-4 px-4 py-2.5 bg-muted border-b border-border">
-            <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-foreground">System summary</span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+        <div className="space-y-3 rise rise-1">
+          <div className="flex items-baseline justify-between gap-4">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">System summary</span>
+            <span className="text-xs font-medium text-muted-foreground">
               {formatDateWithWeekday(new Date())}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-border">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             <SummaryCell
               icon={Users}
               label="Active users"
@@ -1519,10 +1535,12 @@ export const Dashboard = () => {
   // Default fallback
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">Welcome back, {user?.name}</p>
-      </div>
+      <PageHeader
+        icon={LayoutDashboard}
+        eyebrow="Overview"
+        title="Dashboard"
+        description={`Welcome back, ${user?.name}.`}
+      />
       <div className="bg-card p-4 rounded-xl border border-border">
         <p className="text-muted-foreground">No dashboard configured for your role.</p>
       </div>
