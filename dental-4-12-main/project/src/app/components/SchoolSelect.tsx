@@ -324,12 +324,12 @@ export const SchoolSelect = () => {
               <div className="text-center">
                 <img src="/logo.svg" alt="" aria-hidden="true" className="w-16 h-16 object-contain mx-auto" />
                 <h1 className="mt-2 text-2xl font-bold text-foreground">
-                  {isAdmin ? 'Which school do you want to manage?' : 'Where are you working today?'}
+                  {isAdmin ? 'Which school do you want to manage?' : `Where are you working today, ${user.name}?`}
                 </h1>
-                <p className="text-sm text-muted-foreground">
+                <p className="mt-2 text-sm text-muted-foreground">
                   {isAdmin
                     ? `${user.schools.length} registered school${user.schools.length === 1 ? '' : 's'}. Choose one to manage, or open all schools together.`
-                    : `${user.schools.length} school${user.schools.length === 1 ? '' : 's'} assigned to your account`}
+                    : user.schools.length === 1 ? 'There is 1 school assigned to your account.' : `There are ${user.schools.length} schools assigned to your account.`}
                 </p>
                 {isAdmin && (
                   <>
