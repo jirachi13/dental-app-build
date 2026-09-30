@@ -310,7 +310,7 @@ export const SchoolSelect = () => {
               <div className="flex flex-col items-end leading-tight">
                 <div className="text-xs text-muted-foreground">Welcome back,</div>
                 <div className="text-sm font-bold text-foreground">{user.name}</div>
-                <span className={`mt-1.5 px-3 py-0.5 text-xs rounded-full font-medium ${roleBadgeColors[user.role]}`}>{roleLabels[user.role]}</span>
+                <span className={`mt-1.5 px-2.5 py-0.5 text-[10px] rounded-full font-medium ${roleBadgeColors[user.role]}`}>{roleLabels[user.role]}</span>
               </div>
               {logoutButton}
             </div>
