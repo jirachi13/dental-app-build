@@ -61,7 +61,23 @@ oral rows were right. Now read through `TABLE_LAYOUT` (headings skipped). Invisi
 because findings never reached the screen. Verified on the genuine blank PDF in the browser: 0 ticks;
 6 drawn ticks back on exactly their rows/years; upside-down page declined; full upload path 0 fields,
 grid confidence 75. `utils/iptrCheckboxes.test.ts` (2) fails on the old code ("Nail Biting"). 121/121.
-**O2b (NEXT, needs the user's decision): the tick TABLES.** (1) The Year 1-5 grid findings are computed
+**O2b PLAN (written 2026-10-01, NOT started; Opus high to build):**
+1. `ScanStudentForm.tsx` ~91-115: add `checkboxes`, `checkboxConfidence`, `checkboxReason`,
+   `unstorableFindings` from `extractIptrFields` to the handoff (they are computed and dropped today).
+2. `VerifyStudentForm.tsx`: a "Ticks found on the form" section. Each finding = row label + Year column,
+   grouped Medical / Dietary / Oral, each with its own accept checkbox. If confidence is 0, show
+   `checkboxReason` instead. Unstorable rows (Orally Fit, Dental Caries, Completely Edentulous) are
+   listed as "on the form, not stored". Text rows (Allergies, Others, Last Admission) get a tick only:
+   say "type the details on the chart".
+3. Save (`save()` ~83-131): capture the `/student-iptrs` POST's `_id` (today best-effort, errors
+   swallowed; must now surface), then POST `/medical-histories`, `/dietary-social-habits`,
+   `/oral-health-conditions` with `{ iptr_id, <field>: true }` for accepted findings, same body shapes
+   as `DentalChart.tsx` ~1204-1223. Offline queue: check how those POSTs behave offline.
+4. DECISIONS for the user first: (a) accept boxes default UNCHECKED (recommended: CLAUDE.md "findings
+   shown for review, never auto-applied") or checked; (b) which Year column is THIS school year (a new
+   pupil = Year 1; recommend a select defaulting to the only column with ticks).
+5. Verify with a drawn-tick copy of the blank IPTR PDF (see the grid-fix note above), then a unit test.
+**Older note, superseded by the plan above: the tick TABLES.** (1) The Year 1-5 grid findings are computed
 but DROPPED: `ScanStudentForm.tsx` never passes `result.checkboxes` to Verify (lost when OCR moved
 from popup to page 2026-09-29). (2) The IPTR's own tables (medical history Oo/Hindi ✓, Oral Health
 Status ✓/X per Age column, Services Rendered) are not read at all; the grid reader expects the
