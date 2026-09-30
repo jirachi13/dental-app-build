@@ -204,6 +204,14 @@ the 09-14 "empty shows not recorded" call for the STRIP only; BUG-12's "latest c
 records" rule still stands.
 **Before merging to `main`: ONE thing left — a browser pass of her screens** (dental chart
 especially: paint-stroke charting, Visit 1/2, palette, summaries).
+
+**How faithful to hers it is — MEASURED, not claimed** (`git diff --stat classmate/majorUpdates
+merge-majorUpdates`): her branch touches 105 files; the merge differs from hers in **35**, every one
+ours. Visible on screen: "—" instead of "Age 0" on a missing birthday (BUG-02) · BHO age table 5 DOH
+rows instead of her 3 (user decision) · year strip `DMFT 14 · dmft 2` instead of `DMFT: 16` (BUG-13).
+Invisible: SEC-12 auth, BUG-09/10/11, the one age rule, guardian-contact-required-on-create, the
+byte-identical panel move, docs. ⚠ **NOT yet seen rendered by anyone** — screenshots failed in this
+session's Chrome, so "it looks like hers" is unverified until the browser pass.
 ⚠ On the other machine: `git fetch && git checkout merge-majorUpdates && npm ci` (deps changed).
 
 #### Review notes (kept for the record)
