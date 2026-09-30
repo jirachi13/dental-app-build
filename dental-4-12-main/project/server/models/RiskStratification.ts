@@ -3,17 +3,9 @@ import { fieldEncryption } from "mongoose-field-encryption";
 import { getModel } from "./shared/getModel.js";
 import { softDeleteFields } from "./shared/softDelete.js";
 import { fieldEncryptionOptions } from "./shared/fieldEncryption.js";
-
-/** Why a suggested treatment was skipped. A fixed list on purpose: a chosen
- *  reason carries no patient detail, so it needs no encryption and can be
- *  counted. Shared with the client via `shared/riskTreatments.ts`. */
-export const SKIP_REASONS = [
-  "Already treated",
-  "Not needed on examination",
-  "Guardian declined",
-  "Referred elsewhere",
-  "Planned for a later visit",
-] as const;
+// The ONE list of skip reasons, shared with the review popup (a fixed list: a
+// chosen reason holds no patient detail, so it needs no encryption).
+import { SKIP_REASONS } from "../../shared/riskTreatments.js";
 
 // ⚠ ERD DEVIATION (2026-10-01, Risk Classification redesign): model_risk_level,
 // model_confidence, dentist_notes and treatment_decisions are not in the

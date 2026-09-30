@@ -761,12 +761,13 @@ router.get("/stats/risk-candidates", requireAuth, asyncHandler(async (req, res) 
     Student.find(studentFilter),
     School.find(active).select("_id school_name").lean(),
     StudentIptr.find(active).select("_id student_id school_year").lean(),
-    DentalChart.find(active).select("_id iptr_id").lean(),
-    ToothRecord.find(active).select("chart_id condition").lean(),
+    DentalChart.find(active).select("_id iptr_id date_charted").lean(),
+    ToothRecord.find(active).select("chart_id condition tooth_number").lean(),
     OralHealthCondition.find(active).lean(),
     DietarySocialHabits.find(active).lean(),
     PreventiveCareRecord.find(active).select("_id iptr_id visit_date").lean(),
-    RiskStratification.find(active).lean(),
+    // Not `dentist_notes` (encrypted, and the list never shows it).
+    RiskStratification.find(active).select("-dentist_notes").lean(),
   ]);
 
   const str = (v: unknown) => String(v ?? "");
@@ -785,8 +786,16 @@ router.get("/stats/risk-candidates", requireAuth, asyncHandler(async (req, res) 
     })),
     schools: (schools as any[]).map((s) => ({ _id: str(s._id), school_name: str(s.school_name) })),
     iptrs: (iptrs as any[]).map((i) => ({ _id: str(i._id), student_id: str(i.student_id), school_year: str(i.school_year) })),
-    charts: (charts as any[]).map((c) => ({ _id: str(c._id), iptr_id: str(c.iptr_id) })),
-    toothRecords: (toothRecords as any[]).map((t) => ({ chart_id: str(t.chart_id), condition: t.condition ?? null })),
+    charts: (charts as any[]).map((c) => ({
+      _id: str(c._id),
+      iptr_id: str(c.iptr_id),
+      date_charted: c.date_charted ? new Date(c.date_charted).toISOString() : null,
+    })),
+    toothRecords: (toothRecords as any[]).map((t) => ({
+      chart_id: str(t.chart_id),
+      condition: t.condition ?? null,
+      tooth_number: typeof t.tooth_number === "number" ? t.tooth_number : null,
+    })),
     orals: (orals as any[]).map((o) => ({ ...o, iptr_id: str(o.iptr_id) })),
     dietaries: (dietaries as any[]).map((d) => ({ ...d, iptr_id: str(d.iptr_id) })),
     preventives: (preventives as any[]).map((p) => ({
@@ -802,6 +811,8 @@ router.get("/stats/risk-candidates", requireAuth, asyncHandler(async (req, res) 
       dmf_score: Number(r.dmf_score ?? 0),
       validated_by_dentist: r.validated_by_dentist ?? false,
       validated_at: r.validated_at ? new Date(r.validated_at).toISOString() : null,
+      model_risk_level: r.model_risk_level ?? null,
+      model_confidence: typeof r.model_confidence === "number" ? r.model_confidence : null,
     })),
     // Sprint 144 — the LIST carries only the last two assessments per pupil.
     // The badge reads the latest and the trend compares the last two; nothing
@@ -859,10 +870,13 @@ router.get("/stats/risk-history", requireAuth, asyncHandler(async (req, res) => 
   const preventives = await PreventiveCareRecord.find({ ...active, iptr_id: { $in: iptrIds } })
     .select("_id visit_date")
     .lean();
+  // VALIDATED only (2026-10-01): a stored suggestion is not an assessment
+  // until the dentist reviews it; the list row carries it as `suggestion`.
   const risks = await RiskStratification.find({
     ...active,
+    validated_by_dentist: true,
     preventive_id: { $in: (preventives as any[]).map((p) => p._id) },
-  }).lean();
+  }).select("-dentist_notes").lean();
 
   // ⚠ TO ISO FIRST. `.lean()` returns `visit_date` as a Date, and
   // `String(date).slice(0, 10)` yields "Sun Aug 09", not "2026-08-09" — the
@@ -1368,13 +1382,32 @@ router.use("/preventive-care-records", createCrudRouter(PreventiveCareRecord, { 
 // "dentist validated". Seed scripts write through the model, not this route.
 router.use("/risk-stratifications", createCrudRouter(RiskStratification, {
   writeRoles: ["dentist"],
+  // ⚠ "dentist validated" ONLY when the row really is validated (2026-10-01).
+  // Suggestions are now stored UNvalidated, and the old line said "dentist
+  // validated: accepted AI suggestion" for any body carrying a model level,
+  // which would have recorded a validation that never happened.
   auditCreateAction: (body) => {
     if (typeof body.model_risk_level !== "string") return undefined;
+    if (body.validated_by_dentist !== true) {
+      return `Created RiskStratification (system suggestion ${body.model_risk_level}, awaiting dentist review)`;
+    }
     const accepted = body.model_risk_level === body.risk_level;
     const recEdited = body.recommendation_edited === true ? "; recommendation edited" : "";
     return accepted
       ? `Created RiskStratification (dentist validated: accepted AI suggestion ${body.risk_level}${recEdited})`
       : `Created RiskStratification (dentist validated: changed AI suggestion ${body.model_risk_level} → ${body.risk_level}${recEdited})`;
+  },
+  // The dentist's review of a stored suggestion is a PUT (the popup's "Save review").
+  auditUpdateAction: (doc) => {
+    if (doc.validated_by_dentist !== true) return undefined;
+    const model = typeof doc.model_risk_level === "string" ? doc.model_risk_level : null;
+    const decisions = Array.isArray(doc.treatment_decisions) ? (doc.treatment_decisions as { decision?: string }[]) : [];
+    const accepted = decisions.filter((d) => d.decision === "accepted").length;
+    const skipped = decisions.filter((d) => d.decision === "skipped").length;
+    const level = model === null
+      ? `set ${doc.risk_level} (no system suggestion)`
+      : model === doc.risk_level ? `accepted system suggestion ${doc.risk_level}` : `changed system suggestion ${model} → ${doc.risk_level}`;
+    return `Updated RiskStratification (dentist validated: ${level}; treatments ${accepted} accepted, ${skipped} skipped)`;
   },
 }));
 // dateField (Sprint 56): the Completed and Missed tabs have no self-limiting

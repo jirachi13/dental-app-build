@@ -120,6 +120,15 @@ unreviewed ML output reaches filed figures: `dohAggregate` (DMF + orally-fit cou
 Students list, dashboards, BHO table), `/stats/high-risk-count` (~126). Her card's "Not counted in
 reports until the dentist reviews it" is only TRUE after that.
 
+✅ **R1 DONE 2026-10-01 on branch `risk-redesign` (NOT on `main`)** — tsc both, `npm test` 137/137
+(26 new), build clean; verified on the DEV DB as the dentist (risk list carries status/suggestion/
+caries/teeth; DOH report, student rows, high-risk badge respond). **Deliberately NOT merged yet:**
+dev data has 21 unreviewed and 0 validated risk rows, and the live data probably also holds
+unreviewed seeded rows (her notifications showed "23 awaiting validation"). Validated-only readers
+therefore make the live dashboards' risk figures and the risk-based DOH figures DROP (possibly to
+zero) until the dentist reviews them — correct, but ship it WITH R2 so the review flow exists the
+moment the numbers change. Also fixed: the create audit line claimed "dentist validated" for any
+body with a model level; it now says so only when validated.
 **R1 — data + server (no UI change; build first):**
 1. `shared/cariesStatus.ts` — the DOH workbook's "Yes or No - Caries Experience" group from tooth
    condition counts: with caries experience (D+M+F+d+f>0), in temporary (d+f>0), in permanent

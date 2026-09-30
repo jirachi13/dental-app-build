@@ -28,6 +28,22 @@ export interface CariesStatus {
   cariesFreeTeeth: number | null;
 }
 
+/** Condition counts from charted teeth, in the shape `cariesStatus` reads.
+ *  A sound tooth is stored as '✓' for BOTH dentitions (the chart also accepts
+ *  '√'), so it is split by tooth number: FDI 51+ are primary teeth. Same split
+ *  as `rpcTracking.ts` conditionToothCounts, which feeds the Target Client List. */
+export function conditionCounts(teeth: { tooth: number; condition: string | null | undefined }[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const t of teeth) {
+    if (!t.condition) continue;
+    const key = t.condition === '✓' || t.condition === '√'
+      ? (t.tooth >= 51 ? SOUND_TEMPORARY : SOUND_PERMANENT)
+      : t.condition;
+    out[key] = (out[key] ?? 0) + 1;
+  }
+  return out;
+}
+
 export function cariesStatus(counts: Record<string, number | undefined>): CariesStatus {
   const n = (code: string) => counts[code] ?? 0;
   const permanentDmf = n('D') + n('M') + n('F');

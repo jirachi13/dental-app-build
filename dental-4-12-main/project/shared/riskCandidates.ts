@@ -17,6 +17,8 @@
 // Nothing here may import mongoose or React.
 
 import { surnameFirst } from './studentName.js';
+import { cariesStatus, conditionCounts, type CariesStatus } from './cariesStatus.js';
+import type { ChartedTooth } from './riskTreatments.js';
 
 export interface RiskStudent {
   _id: string;
@@ -31,8 +33,8 @@ export interface RiskStudent {
   full_name?: string;
 }
 export interface RiskIptr { _id: string; student_id: string; school_year: string }
-export interface RiskChart { _id: string; iptr_id: string }
-export interface RiskTooth { chart_id: string; condition?: string | null }
+export interface RiskChart { _id: string; iptr_id: string; date_charted?: string | null }
+export interface RiskTooth { chart_id: string; condition?: string | null; tooth_number?: number | null }
 export interface RiskOral {
   iptr_id: string;
   gingivitis?: boolean;
@@ -51,8 +53,22 @@ export interface RiskStrat {
   dmf_score: number;
   validated_by_dentist?: boolean;
   validated_at?: string | null;
+  model_risk_level?: 'High' | 'Medium' | 'Low' | null;
+  model_confidence?: number | null;
 }
 export interface RiskSchool { _id: string; school_name: string }
+
+/** Where a pupil stands in the review flow, judged on their LATEST RPC visit
+ *  (2026-10-01, Risk Classification redesign). */
+export type RiskReviewStatus =
+  /** The dentist has validated a result for the latest visit. */
+  | 'reviewed'
+  /** A system suggestion is stored and waits for the dentist. */
+  | 'needs_review'
+  /** The latest visit has no result at all yet. */
+  | 'not_checked'
+  /** No RPC visit yet: a result must attach to a visit (ERD), so none can exist. */
+  | 'no_visit';
 
 /** Mirrors ml-service predictor.FEATURE_COLUMNS. */
 export interface StudentMlFeatures {
@@ -102,6 +118,19 @@ export interface RiskCandidate {
   /** How many assessments the pupil actually has, whatever `history` carries.
    *  The detail panel needs to know a trimmed list is trimmed. */
   historyCount: number;
+  // ── 2026-10-01, Risk Classification redesign ──
+  status: RiskReviewStatus;
+  /** The stored, UNREVIEWED system suggestion on the latest visit, if any.
+   *  Never counted anywhere as the pupil's risk (see dohAggregate / student-rows). */
+  suggestion: { id: string; level: 'High' | 'Medium' | 'Low'; confidence: number | null } | null;
+  /** The DOH workbook's five caries columns, from the latest school year's
+   *  latest charting that HAS tooth records (the BUG-12 rule). */
+  caries: CariesStatus;
+  /** That charting's teeth: what the popup's findings and treatment
+   *  suggestions are built from (shared/riskTreatments.ts). */
+  teeth: ChartedTooth[];
+  /** Visit date of the latest RPC visit ("Visit 1 · Aug 12" in the popup). */
+  latestVisitDate: string | null;
 }
 
 export interface RiskCandidatesInput {
@@ -201,8 +230,11 @@ export function buildRiskCandidates(input: RiskCandidatesInput): RiskCandidate[]
     const studentPreventives = studentIptrs
       .flatMap((i) => preventivesByIptr.get(i._id) ?? [])
       .sort((a, b) => a.visit_date.localeCompare(b.visit_date));
+    // History is VALIDATED results only (2026-10-01): a stored suggestion is
+    // not an assessment until the dentist reviews it. It is reported
+    // separately as `suggestion` below.
     const history: RiskHistoryEntry[] = studentPreventives.flatMap((p) =>
-      (riskByPreventive.get(p._id) ?? []).map((r) => ({
+      (riskByPreventive.get(p._id) ?? []).filter((r) => r.validated_by_dentist === true).map((r) => ({
         id: r._id,
         riskLevel: r.risk_level,
         recommendation: r.recommendation ?? '',
@@ -212,6 +244,31 @@ export function buildRiskCandidates(input: RiskCandidatesInput): RiskCandidate[]
         visitDate: p.visit_date.slice(0, 10),
       })),
     );
+
+    // ── Review status + stored suggestion, judged on the LATEST visit ──
+    const latestVisit = studentPreventives.length ? studentPreventives[studentPreventives.length - 1] : null;
+    const latestRows = latestVisit ? riskByPreventive.get(latestVisit._id) ?? [] : [];
+    const pending = latestRows.filter((r) => r.validated_by_dentist !== true);
+    const newestPending = pending[pending.length - 1];
+    const status: RiskReviewStatus = !latestVisit
+      ? 'no_visit'
+      : latestRows.some((r) => r.validated_by_dentist === true)
+        ? 'reviewed'
+        : newestPending ? 'needs_review' : 'not_checked';
+    const suggestion = status === 'needs_review' && newestPending
+      ? { id: newestPending._id, level: newestPending.model_risk_level ?? newestPending.risk_level, confidence: newestPending.model_confidence ?? null }
+      : null;
+
+    // ── The caries columns: latest school year, latest charting WITH records ──
+    // (BUG-12 rule: an empty re-charting must not blank the figures.)
+    const latestIptr = studentIptrs[studentIptrs.length - 1];
+    const latestCharts = latestIptr
+      ? (chartsByIptr.get(latestIptr._id) ?? []).slice().sort((a, c) => String(a.date_charted ?? '').localeCompare(String(c.date_charted ?? '')))
+      : [];
+    const chartWithRecords = [...latestCharts].reverse().find((c) => (teethByChart.get(c._id) ?? []).length > 0);
+    const teeth: ChartedTooth[] = (chartWithRecords ? teethByChart.get(chartWithRecords._id) ?? [] : [])
+      .filter((t) => typeof t.tooth_number === 'number' && t.condition)
+      .map((t) => ({ tooth: t.tooth_number as number, condition: t.condition as string }));
 
     const b = (v: boolean | undefined): 0 | 1 => (v ? 1 : 0);
     const limit = input.historyLimit;
@@ -244,6 +301,11 @@ export function buildRiskCandidates(input: RiskCandidatesInput): RiskCandidate[]
         : null,
       history: limit === undefined ? history : history.slice(-limit),
       historyCount: history.length,
+      status,
+      suggestion,
+      caries: cariesStatus(conditionCounts(teeth)),
+      teeth,
+      latestVisitDate: latestVisit ? latestVisit.visit_date.slice(0, 10) : null,
     };
   });
 

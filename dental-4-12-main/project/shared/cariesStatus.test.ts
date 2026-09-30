@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cariesStatus } from './cariesStatus';
+import { cariesStatus, conditionCounts } from './cariesStatus';
 import { SOUND_PERMANENT, SOUND_TEMPORARY } from './rpcTracking';
 
 describe('cariesStatus: the DOH "Yes or No - Caries Experience" group', () => {
@@ -36,5 +36,16 @@ describe('cariesStatus: the DOH "Yes or No - Caries Experience" group', () => {
 
   it('charted with problems but no ✓ marks gives 0 caries-free, not a guess', () => {
     expect(cariesStatus({ D: 1 }).cariesFreeTeeth).toBe(0);
+  });
+});
+
+describe('conditionCounts: ✓ is split into temporary and permanent by tooth number', () => {
+  it('FDI 51+ counts as a sound temporary tooth, below 51 as permanent; √ is a tick too', () => {
+    const c = conditionCounts([
+      { tooth: 16, condition: '✓' }, { tooth: 11, condition: '√' }, { tooth: 54, condition: '✓' },
+      { tooth: 46, condition: 'D' }, { tooth: 75, condition: '' },
+    ]);
+    expect(c).toEqual({ [SOUND_PERMANENT]: 2, [SOUND_TEMPORARY]: 1, D: 1 });
+    expect(cariesStatus(c).cariesFreeTeeth).toBe(3);
   });
 });
