@@ -446,12 +446,14 @@ export const PatientList = () => {
       return;
     }
     let archived = 0;
+    let lastArchivedName = '';
     const failed: string[] = [];
     for (const id of tickedIds) {
       const student = schoolStudents.find(s => s.id === id);
       try {
         await apiClient.patch(`/students/${id}/archive`);
         archived += 1;
+        lastArchivedName = student?.name ?? '';
       } catch (err) {
         failed.push(`${student?.name ?? id} — ${err instanceof ApiError ? err.message : 'failed'}`);
       }
@@ -464,7 +466,7 @@ export const PatientList = () => {
     // Archived students no longer belong in the duplicates list — refresh it
     // so an archived-from-there row doesn't linger until the modal reopens.
     if (showDuplicates) await loadDuplicates();
-    if (archived > 0) toast.success(`${archived} student${archived === 1 ? '' : 's'} archived.`);
+    if (archived > 0) toast.success(archived === 1 && lastArchivedName ? `${lastArchivedName} is archived.` : `${archived} student${archived === 1 ? ' is' : 's are'} archived.`);
     if (failed.length > 0) toast.error(`${failed.length} could not be archived — see console.`);
   };
 
@@ -485,7 +487,8 @@ export const PatientList = () => {
     persistQueuedStudentIds(merged);
     setQueuedStudentIds(merged);
     exitBulkQueueMode();
-    toast.success(`${ids.length} student${ids.length === 1 ? '' : 's'} queued.`);
+    const onlyName = ids.length === 1 ? schoolStudents.find(s => s.id === ids[0])?.name : undefined;
+    toast.success(onlyName ? `${onlyName} is queued.` : `${ids.length} student${ids.length === 1 ? ' is' : 's are'} queued.`);
   };
 
   const calculateAge = (birthdate: string) => {
@@ -1449,7 +1452,7 @@ export const PatientList = () => {
                               setDequeueTarget({ id: student.id, name: student.name });
                             } else {
                               setQueuedStudentIds(addQueuedStudentId(student.id));
-                              toast.success(`${student.name} queued.`);
+                              toast.success(`${student.name} is queued.`);
                             }
                           }}
                           title="Queue"

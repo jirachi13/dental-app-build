@@ -217,12 +217,14 @@ export const UpdateSchoolYear = () => {
   const runArchive = async () => {
     setArchiving(true);
     let archived = 0;
+    let lastArchivedName = '';
     const failed: string[] = [];
     for (const id of selected) {
       const s = roster.find((r) => r.id === id);
       try {
         await apiClient.patch(`/students/${id}/archive`);
         archived += 1;
+        lastArchivedName = s?.name ?? '';
       } catch (err) {
         failed.push(`${s?.name ?? id} — ${err instanceof ApiError ? err.message : 'failed'}`);
       }
@@ -232,7 +234,7 @@ export const UpdateSchoolYear = () => {
     setShowArchiveConfirm(false);
     setSelected(new Set());
     await reloadStudents();
-    if (archived > 0) toast.success(`${archived} student${archived === 1 ? '' : 's'} archived.`);
+    if (archived > 0) toast.success(archived === 1 && lastArchivedName ? `${lastArchivedName} is archived.` : `${archived} student${archived === 1 ? ' is' : 's are'} archived.`);
     if (failed.length > 0) toast.error(`${failed.length} could not be archived — see the summary below.`);
   };
 
