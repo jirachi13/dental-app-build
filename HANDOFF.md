@@ -23,16 +23,28 @@ Work is on branch **`majorUpdates`** (pushed; not merged to main).
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ▶ RESUME HERE — PARKED 2026-09-29 (12th session). ✅ **ALL PUSHED**
+## ▶ RESUME HERE — PARKED 2026-09-30 (12th session, 2nd day). ✅ **ALL PUSHED, LIVE**
 
-**Nothing is in progress.** Working tree clean, `main` level with origin (checked by fetch + count,
-0/0). `npm test` **101/101**, `tsc` both configs and `npm run build` clean. Dev servers **stopped**,
-verified by port (4000 and 5173 free). ⚠ The Chrome tab used for the browser pass is still logged in
-as the dentist on localhost — deliberately NOT logged out, since Logout now revokes every device.
+**Nothing is in progress.** On `main`, working tree clean, level with origin (fetch + count, 0/0).
+`npm test` **111/111**, `tsc` both configs and `npm run build` clean ON `main`. **Deployed and
+verified live:** the site serves the exact build made on `main` (`index-DaqQyMps.js`).
+Dev servers **stopped** (4000/5173/5174 free, by port); temp worktree `../her-majorUpdates` removed.
+⚠ Chrome still has localhost tabs logged in as the dentist — deliberately NOT logged out (SEC-12:
+Logout revokes every device).
+
+**2026-09-30 in one line: the classmate's `majorUpdates` (589 commits) is MERGED TO `main`.** Details
+in "✅ MERGED TO `main`" below. Also this day: **BUG-02 fixed** (one age rule, 12 copies folded in;
+BHO age table now 5 DOH brackets). User decisions recorded: School Rotation, non-student patients and
+one-dentist/one-aide-per-school KEPT; year strip shows `DMFT 0 · dmft 0` on an uncharted year (hers).
+⚠ The sections at the TOP of this file dated 09-24…09-30 and saying "on branch `majorUpdates`, not
+merged" are HER session notes, merged in as-is — they are now on `main`.
+
+**Browser automation: use "laptop chrome"**, not "laptop edge" — Edge could not take screenshots all
+session (both connected; switch with `select_browser`).
 
 **Model strategy changed: no Fable** — Opus high/medium, Sonnet high/medium by task; see CLAUDE.md.
 
-**This session: SEC-22, BUG-09, BUG-10, BUG-11, BUG-13, SEC-12 fixed, and Sprint 162 finished.**
+**2026-09-29: SEC-22, BUG-09, BUG-10, BUG-11, BUG-13, SEC-12 fixed, and Sprint 162 finished.**
 Only 162d was browser-checked; the fixes were verified by tsc + tests (+ a real-jsonwebtoken run
 for SEC-12), **none against a live DB** (SEC-00 — this PC still points at production).
 **Then Sprint 163 was SCOPED, not built** (SEC-03/19/20/33/34, see "PLANNED: Sprint 163" below).
@@ -41,6 +53,9 @@ Internal) and **SEC-34 LOW** (routes have no role guard). **Your decision: bho_s
 Target Client List + Consent Form**, so SEC-20 is an accepted risk. The plan needs no more decisions.
 
 **▶ YOUR NEXT MOVES, in order** (no sprint is unblocked without one of these):
+0. **Drag-to-paint teeth on a real phone/tablet, on the live site** — the one part of the merge nobody
+   has tested (a touch interaction). Edit → drag across teeth → **Cancel** (don't save real records).
+   Then delete the `merge-majorUpdates` branch. **Other laptop: `git pull && npm ci`** (deps changed).
 1. **SEC-12 two-browser check** once Vercel has deployed: log in on two browsers, log out of one —
    the other should land on login within 15 minutes.
 2. **A dev `.env` on this PC (SEC-00)** — the whole file from the laptop, never one line. **This is
