@@ -304,7 +304,7 @@ export const SchoolSelect = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex flex-col">
         <div className="bg-white border-b border-gray-200 px-6 py-5">
-          <div className="max-w-[1400px] mx-auto flex flex-wrap items-center justify-between gap-3">
+          <div className="w-full flex flex-wrap items-center justify-between gap-3">
             {brand}
             <div className="flex items-center gap-3">
               <div className="flex flex-col items-end leading-tight">
@@ -318,7 +318,7 @@ export const SchoolSelect = () => {
         </div>
 
         <div className="flex-1 px-6 py-10">
-          <div className="max-w-[1400px] mx-auto">
+          <div className="w-full">
             {user.schools.length === 0 ? noSchools : (
               <>
                 <div className="text-center">
@@ -358,7 +358,7 @@ export const SchoolSelect = () => {
                 {recentTiles.length > 0 && (
                   <div className="mt-8">
                     <div className="mb-2.5 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">Recently opened</div>
-                    <div className="flex flex-wrap gap-3.5">
+                    <div className="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(285px,1fr))]">
                       {recentTiles.map((r) => {
                         const isAll = r.school === ALL_SCHOOLS;
                         const sc = isAll ? null : getSchoolColor(r.school);
@@ -366,7 +366,7 @@ export const SchoolSelect = () => {
                           <button
                             key={r.school}
                             onClick={() => handleSelectSchool(isAll ? ALL_SCHOOLS : r.school)}
-                            className="flex w-[280px] items-center gap-3.5 rounded-2xl border border-[#E2E8F0] bg-white px-4 py-3 text-left transition-colors hover:bg-muted/40"
+                            className="flex w-full items-center gap-3.5 rounded-2xl border border-[#E2E8F0] bg-white px-4 py-3 text-left transition-colors hover:bg-muted/40"
                           >
                             <span className="h-9 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: sc?.solid ?? '#273A78' }} />
                             <span className="min-w-0">
@@ -383,9 +383,11 @@ export const SchoolSelect = () => {
                 <div className="mt-8 mb-2.5 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">
                   All schools{visibleSchools.length !== user.schools.length ? ` (${visibleSchools.length} of ${user.schools.length})` : ''}
                 </div>
-                {/* Cards keep one fixed width and start at the left; a new school
-                    simply lands at the end and the row wraps. */}
-                <div className="grid gap-5 justify-start [grid-template-columns:repeat(auto-fill,280px)]">
+                {/* Cards are never narrower than the original 285px. The row is
+                    filled edge to edge by letting each card grow a little, so
+                    there is no empty strip on the right; a new school lands at
+                    the end and the row wraps. */}
+                <div className="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(285px,1fr))]">
                   {showAll && !query.trim() && level === 'all' && allSchoolsCard}
                   {visibleSchools.map(schoolCard)}
                 </div>
