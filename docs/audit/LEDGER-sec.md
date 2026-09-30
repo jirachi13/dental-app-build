@@ -1055,3 +1055,38 @@ Claim:    Routes carry no role guard; only the nav hides screens. `/patients`, `
 Impact:   Not a disclosure on its own — the server decides what data arrives — but it means every
           SEC-19 narrowing turns those screens into broken pages rather than absent ones.
 Fix:      One guard in `RootLayout` reading the same role list as `allTabs`, redirecting to `/`.
+
+---
+
+## Sprint 163 plan RE-CHECKED against the merged `majorUpdates` code (2026-10-01, read-only)
+
+Everything the plan relied on still holds (clinical mounts still have no `readRoles`; Dashboard
+still fetches the six raw collections for every role at `Dashboard.tsx:94-108`, school_admin still
+reads only `treatmentCount`; Reports → "Internal Reports" is still `visible: true` for everyone with
+the Referral Tracking panel; the Target Client List still reads `/students`, `/oral-health-conditions`,
+`/student-iptrs`). The merge ADDED two problems:
+
+### SEC-35 · `/risk-stratifications` + `Root.tsx` nav + `AIAnalytics.tsx` · HIGH · OPEN
+Claim:    **The dentist-only sign-off of a risk result is not enforced, and the merge exposed it in
+          the UI.** A System Admin (and a Dental Aide, by URL) can validate a risk result, and the
+          audit trail then records "dentist validated".
+Evidence: The only client write is `AIAnalytics.tsx:321` (`POST /risk-stratifications`, created
+          already `validated_by_dentist: true`). The server mount uses `writeRoles:
+          CLINICAL_WRITE_ROLES` = `["system_admin","dentist","dental_aide"]`, and its
+          `auditCreateAction` writes "(dentist validated: …)" whoever the actor is.
+          `AIAnalytics.tsx` has NO role check of its own. Pre-merge, only the nav hid the page
+          (`roles: ['dentist']`, with a comment explaining exactly this risk); the merge changed it
+          to `['dentist','system_admin']`.
+Impact:   CLAUDE.md's core clinical rule — the dentist validates ALL recommendations before clinical
+          action — is claimed by the audit trail but not enforced. Chapter 3 rests on it.
+Fix:      Server: `writeRoles: ["dentist"]` on `/risk-stratifications` (the only writer is the
+          dentist's Validate & Save; seed scripts write through the model, not the API). Client: the
+          System Admin may keep VIEWING the page, but Validate & Save is shown only to a dentist,
+          with a plain note otherwise. Testable without a dev DB: only the REFUSAL needs checking
+          (an admin attempt → 403, nothing written); the dentist's path is unchanged.
+
+### SEC-03 — new instance: `/stats/notifications` `unmarkedAppointments`
+The merged handler returns, for EVERY non-admin role, `unmarkedAppointments[]` with each pupil's
+decrypted name and appointment time (`index.ts` ~430-440). School Administrators (their school) and
+BHO staff (all schools) get it by calling the endpoint; their UI shows no bell (`NOTIFIED_ROLES`
+excludes them), so the fix is to return `[]` for roles outside `NOTIFIED_ROLES`, server-side.

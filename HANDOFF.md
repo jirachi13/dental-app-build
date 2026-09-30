@@ -60,6 +60,14 @@ refused client-side with ZERO requests reaching the server · Exit restores the 
 reach the server again. Not tested: the other three preview roles, and a Vercel PREVIEW deployment
 (only local dev). ⚠ Chrome's localhost session is now the SYSTEM ADMIN (replaced the dentist's).
 
+**Sprint 163 plan RE-CHECKED vs the merged code (2026-10-01)** — still valid, plus two additions
+(details in `LEDGER-sec.md`, end): **SEC-35 HIGH** — risk sign-off is not dentist-only (server lets
+admin + aide write risk results; the merge put Risk Classification in the admin's nav; the audit
+still says "dentist validated"). **Can ship WITHOUT a dev `.env`** (only the refusal needs testing)
+— recommended as its own small sprint next. And a new SEC-03 instance: `/stats/notifications` sends
+pupil names to school_admin/bho via `unmarkedAppointments` → fold into Sprint 163 step 2. Step 5's
+route guard now also covers `students/scan`, `students/scan/review`, `notifications`.
+
 **Classmate's Risk Classification redesign — PENDING 3 ANSWERS** (list page + 4-step review popup,
 then a Students-list Risk chip + card). Two sprints, Opus high. Before planning: (1) does the dentist
 tick every sound tooth ✓ (decides "Number of Caries Free Teeth"); (2) treatment rules D→PF, d→SDF,
