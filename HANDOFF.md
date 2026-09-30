@@ -190,7 +190,14 @@ unblocks SEC-03/SEC-19 live checks), **SEC-30** (one Render dashboard look), **B
 DOH form's referral rows), plus SEC-04, BUG-05/06/08 and the `dohAggregate.ts:207`
 duplicate, all of which need reading before scoping.
 
-### ▶ MERGED on branch `merge-majorUpdates` (2026-09-30, `a3ee3ac5`) — NOT on `main` yet
+### ✅ MERGED TO `main` 2026-09-30 (fast-forward of `merge-majorUpdates`; user: "merge to main")
+
+Deployed via Vercel on push. On `main` before pushing: tsc both, `npm test` 111/111, build clean.
+⚠ **Other machine: `git pull && npm ci`** — dependencies changed (her font package swap).
+Still untested by anyone: drag-to-paint teeth on a real touchscreen — do it on a phone/tablet
+against the live site. Branch `merge-majorUpdates` can be deleted once that is confirmed.
+
+#### (history) Merged on branch `merge-majorUpdates` (2026-09-30, `a3ee3ac5`)
 
 All three decisions KEPT (Rotation, non-student patients, one staff per school — see CLAUDE.md).
 tsc both, `npm test` 111/111, build clean.
