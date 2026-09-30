@@ -49,9 +49,18 @@ the clinic's CURRENT form is the official Year 1-5 "Individual Patient Treatment
 header; sheets dated 2026). DOH Form 1 samples are dated 2023, Taguig CHO "Oral Health Form 1" 2022:
 older, do not build. On 2026 sheets only Oral Health Condition rows are ticked (Year 1); medical/dietary
 blank. OCR on real HANDWRITTEN phone photos: names/dates come back as junk (Tesseract limit), and the
-Year 1-5 grid reader finds no table on angled photos. ⚠ **The grid reader ALSO fails on the flat blank
-PDF ("6 column lines, expected 7")**, already broken before O2a; Sprint 86 read this same file, so
-something since then regressed it. Fix that FIRST in O2b.
+Year 1-5 grid reader finds no table on angled photos (it declines with a reason; nothing saved).
+✅ **Grid reader FIXED (2026-10-01, `utils/iptrCheckboxes.ts`), two pre-existing bugs:**
+(1) it never found the table through the app's OWN PDF path: pages render ~1028 px wide, rules are 1 px,
+and a slightly leaning rule split across two pixel columns under the 50% bar ("6 column lines").
+Sprint 86 was verified on a high-res PNG, never on this path. Now a 3 px strip is tested.
+(2) ⚠ **Rows were misattributed.** The "Dietary Habits…" and "Oral Health Condition" headings are RULED
+ROWS; taking the last 31 bands as the 31 conditions shifted medical rows by 2 and dietary by 1 (proved:
+a drawn Thumbsucking tick came back "Nail Biting", an Allergies tick was lost, confidence 75). Only
+oral rows were right. Now read through `TABLE_LAYOUT` (headings skipped). Invisible until now only
+because findings never reached the screen. Verified on the genuine blank PDF in the browser: 0 ticks;
+6 drawn ticks back on exactly their rows/years; upside-down page declined; full upload path 0 fields,
+grid confidence 75. `utils/iptrCheckboxes.test.ts` (2) fails on the old code ("Nail Biting"). 121/121.
 **O2b (NEXT, needs the user's decision): the tick TABLES.** (1) The Year 1-5 grid findings are computed
 but DROPPED: `ScanStudentForm.tsx` never passes `result.checkboxes` to Verify (lost when OCR moved
 from popup to page 2026-09-29). (2) The IPTR's own tables (medical history Oo/Hindi ✓, Oral Health
