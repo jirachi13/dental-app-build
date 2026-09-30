@@ -290,10 +290,10 @@ export const SchoolSelect = () => {
 
   const brand = (
     <div className="flex items-center gap-3">
-      <img src="/logo.svg" alt="FLORAL" className="w-10 h-10 object-contain flex-shrink-0" />
+      <img src="/logo.svg" alt="FLORAL" className="w-14 h-14 object-contain flex-shrink-0" />
       <div>
-        <div className="text-lg font-bold text-[#1E40AF]">FLORAL</div>
-        <div className="text-xs text-muted-foreground -mt-0.5">Dental Health Record Management System</div>
+        <div className="text-2xl font-bold text-[#1E40AF]">FLORAL</div>
+        <div className="text-sm text-muted-foreground -mt-0.5">Dental Health Record Management System</div>
       </div>
     </div>
   );
