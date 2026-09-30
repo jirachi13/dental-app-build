@@ -303,7 +303,7 @@ export const SchoolSelect = () => {
     const recentTiles = recent.filter((r) => r.school === ALL_SCHOOLS ? showAll : user.schools.includes(r.school));
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex flex-col">
-        <div className="bg-white border-b border-gray-200 px-6 py-5">
+        <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-6 py-5">
           <div className="max-w-[1400px] mx-auto flex flex-wrap items-center justify-between gap-3">
             {brand}
             <div className="flex items-center gap-3">
@@ -413,7 +413,7 @@ export const SchoolSelect = () => {
   // ── Every other role: the plain picker ─────────────────────────────────────
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex flex-col">
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           {brand}
           {logoutButton}
