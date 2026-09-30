@@ -2,6 +2,11 @@
 
 **Compressed 2026-09-04 (hygiene pass; previous one 2026-07-11).** Completed-sprint history → `docs/BUILD-LOG.md`; pre-2026-07-11 narratives → git history (`git show 73bc4e47:HANDOFF.md`). **This file keeps ONLY live state: current status, the resume note, unresolved findings, open work, user-only items, warnings and durable gotchas. A finished sprint belongs in BUILD-LOG the moment it is finished — do not let them accumulate here again.**
 
+## ⭐ SIDEBAR THEME (2026-09-30, `majorUpdates`): sky is live; the navy + gold rail is one word away
+- `Root.tsx` now reads its sidebar colours from a `SB` map keyed by `SIDEBAR_THEME`. **Go back to the original navy/gold sidebar = change `'sky'` to `'navy'`** on the `SIDEBAR_THEME` line near the top of `Root.tsx` (logo swaps too: `logo-sky.svg` vs `logo.svg`). Do not hand-reconstruct it.
+- Frozen full-file copy of the navy/gold `Root.tsx` before the change: `docs/snapshots/Root.sidebar-navy-gold.tsx.txt` (whole-file; restoring it also reverts any later Root.tsx work, so prefer the one-word switch).
+- Sky palette: gradient #F4FBFF→#DFF1FD, text #1E4E79, active pill #0369A1 with white text. Verified: esbuild syntax only. NOT yet viewed in a browser (no node_modules in the cloud session) - check the collapsed rail, mobile drawer, and Students submenu on a real run.
+
 ## `majorUpdates` session 2026-09-24: Dental Chart UI polish + Medical History expansion
 
 Work is on branch **`majorUpdates`** (pushed; not merged to main).

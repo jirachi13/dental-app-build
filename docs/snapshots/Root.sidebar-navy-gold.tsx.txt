@@ -27,61 +27,6 @@ import { apiClient, ApiError } from '../api/client';
 import { useToast } from './Toast';
 import { Modal } from './Modal';
 
-// Sidebar colour theme. 'sky' is the light-blue rail (2026-09-30); 'navy' is the
-// previous navy + gold rail, kept intact so it is a one-word revert:
-// change SIDEBAR_THEME to 'navy'. (Full-file copy: docs/snapshots/Root.sidebar-navy-gold.tsx.txt)
-const SIDEBAR_THEME: 'sky' | 'navy' = 'sky';
-const SB = {
-  navy: {
-    bg: 'radial-gradient(120% 45% at 100% 100%, rgba(66,87,196,0.34) 0%, rgba(66,87,196,0) 62%), radial-gradient(130% 70% at 0% 0%, #243579 0%, #1D2B69 38%, #17234D 68%, #101A40 100%)',
-    shadow: '0 15px 20px rgba(15,23,42,0.22), inset 0 0 0 1px rgba(255,255,255,0.04)',
-    logo: '/logo.svg',
-    border: 'md:border-white/10',
-    divider: 'bg-[#E2E8F0]/90',
-    title: 'text-white',
-    sub: 'text-white/55',
-    chipBtn: 'bg-white/10 text-white hover:bg-white/20',
-    closeBtn: 'text-white/70 hover:text-white hover:bg-white/10',
-    idle: 'text-white/70 hover:bg-white/10 hover:text-white font-medium',
-    active: 'bg-[linear-gradient(115deg,#FBD965_0%,#F4C542_55%,#E9B52F_100%)] text-sidebar-bg font-bold',
-    activeBadge: 'bg-sidebar-bg/20 text-sidebar-bg',
-    switchBtn: 'text-sidebar-active hover:bg-white/10',
-    section: 'text-[#94a3b8]',
-    rule: 'border-white/15',
-    childActive: 'bg-card text-primary font-semibold',
-    childIdle: 'text-white/60 hover:bg-white/10 hover:text-white font-medium',
-    avatar: 'bg-primary-surface',
-    avatarColor: '#4F63D9',
-    userName: 'text-white',
-    bellIdle: 'text-white/70 hover:bg-white/10 hover:text-white',
-    logout: 'text-white/55 hover:text-white hover:bg-white/10',
-  },
-  sky: {
-    bg: 'linear-gradient(170deg, #F4FBFF 0%, #DFF1FD 100%)',
-    shadow: '0 15px 20px rgba(15,23,42,0.14), inset 0 0 0 1px rgba(3,105,161,0.10)',
-    logo: '/logo-sky.svg',
-    border: 'md:border-[#C5DFF2]',
-    divider: 'bg-[#C5DFF2]',
-    title: 'text-[#0B3153]',
-    sub: 'text-[#5F89AD]',
-    chipBtn: 'bg-[#D0E8F8] text-[#0B3153] hover:bg-[#BFDDF3]',
-    closeBtn: 'text-[#2A6494] hover:text-[#0B3153] hover:bg-[#D0E8F8]',
-    idle: 'text-[#1E4E79] hover:bg-[#D0E8F8] hover:text-[#0B3153] font-medium',
-    active: 'bg-[#0369A1] text-white font-bold shadow-[0_6px_16px_rgba(3,105,161,0.30)]',
-    activeBadge: 'bg-white/25 text-white',
-    switchBtn: 'text-[#0369A1] hover:bg-[#D0E8F8]',
-    section: 'text-[#5F89AD]',
-    rule: 'border-[#C5DFF2]',
-    childActive: 'bg-white text-[#0369A1] font-semibold shadow-sm',
-    childIdle: 'text-[#1E4E79]/80 hover:bg-[#D0E8F8] hover:text-[#0B3153] font-medium',
-    avatar: 'bg-[#0369A1] text-white',
-    avatarColor: '#FFFFFF',
-    userName: 'text-[#0B3153]',
-    bellIdle: 'text-[#2A6494] hover:bg-[#D0E8F8] hover:text-[#0B3153]',
-    logout: 'text-[#2A6494] hover:text-[#0B3153] hover:bg-[#D0E8F8]',
-  },
-}[SIDEBAR_THEME];
-
 // Real working dropdown, matching RAMHIS's topbar.jsx exactly (sizes, radii,
 // the "Signed in as" panel) -- the avatar used to just open Change Password
 // directly with no menu at all.
@@ -434,22 +379,22 @@ export const Root = () => {
           collapsed ? 'md:justify-center md:px-0' : ''
         } ${
           isActive
-            ? SB.active
-            : SB.idle
+            ? 'bg-[linear-gradient(115deg,#FBD965_0%,#F4C542_55%,#E9B52F_100%)] text-sidebar-bg font-bold'
+            : 'text-white/70 hover:bg-white/10 hover:text-white font-medium'
         }`}
       >
         <Icon className="w-4 h-4 flex-shrink-0" />
         <span className={`${labelCls} text-[0.8125rem]`}>{tab.label}</span>
         {tab.path === '/ai-analytics' && highRiskCount > 0 && (
           <span className={`${badgeCls} ml-auto text-[0.625rem] font-bold px-1.5 py-0.5 rounded-full tabular-nums ${
-            isActive ? SB.activeBadge : 'bg-danger-surface text-destructive'
+            isActive ? 'bg-sidebar-bg/20 text-sidebar-bg' : 'bg-danger-surface text-destructive'
           }`}>
             {highRiskCount}
           </span>
         )}
         {tab.path === '/notifications' && notifTotal > 0 && (
           <span className={`${badgeCls} ml-auto text-[0.625rem] font-bold px-1.5 py-0.5 rounded-full tabular-nums ${
-            isActive ? SB.activeBadge : 'bg-danger-surface text-destructive'
+            isActive ? 'bg-sidebar-bg/20 text-sidebar-bg' : 'bg-danger-surface text-destructive'
           }`}>
             {notifTotal > 99 ? '99+' : notifTotal}
           </span>
@@ -524,8 +469,8 @@ export const Root = () => {
             collapsed ? 'md:justify-center md:px-0' : ''
           } ${
             highlighted
-              ? SB.active
-              : SB.idle
+              ? 'bg-[linear-gradient(115deg,#FBD965_0%,#F4C542_55%,#E9B52F_100%)] text-sidebar-bg font-bold'
+              : 'text-white/70 hover:bg-white/10 hover:text-white font-medium'
           }`}
         >
           <Icon className="w-4 h-4 flex-shrink-0" />
@@ -542,7 +487,7 @@ export const Root = () => {
         </Link>
 
         {isOpen && !collapsed && (
-          <div className={`mt-1 ml-[30px] mr-7 pl-3 border-l ${SB.rule} flex flex-col gap-1 flex-[1.4_1_0%] min-h-0`}>
+          <div className="mt-1 ml-[30px] mr-7 pl-3 border-l border-white/15 flex flex-col gap-1 flex-[1.4_1_0%] min-h-0">
             {children.map((child) => {
               // Dental Charts and Treatment both cover `/dental-chart/:id`,
               // an individual pupil's chart -- which one depends on
@@ -558,7 +503,9 @@ export const Root = () => {
                   onClick={() => { setDrawerOpen(false); resetStudentsClicks(); }}
                   aria-current={childIsActive ? 'page' : undefined}
                   className={`flex items-center gap-2.5 flex-1 basis-0 min-h-[1.5rem] max-h-8 pl-2.5 pr-3 rounded-full text-[0.8125rem] transition-colors ${
-                    childIsActive ? SB.childActive : SB.childIdle
+                    childIsActive
+                      ? 'bg-card text-primary font-semibold'
+                      : 'text-white/60 hover:bg-white/10 hover:text-white font-medium'
                   }`}
                 >
                   <ChildIcon className="w-3.5 h-3.5 flex-shrink-0" />
@@ -662,12 +609,15 @@ export const Root = () => {
         // Gradient fill (user, 2026-09-29): a soft lighter-navy glow from the top-left
         // fading into the sidebar navy and then a deeper navy at the bottom.
         style={{
-          background: SB.bg,
+          background:
+            // Bottom glow: a second, softer blue rising from the bottom-right corner.
+            'radial-gradient(120% 45% at 100% 100%, rgba(66,87,196,0.34) 0%, rgba(66,87,196,0) 62%), ' +
+            'radial-gradient(130% 70% at 0% 0%, #243579 0%, #1D2B69 38%, #17234D 68%, #101A40 100%)',
           // Only a faint inner edge; no bright top hairline or white sheen, so it reads as colour, not glass.
-          boxShadow: SB.shadow,
+          boxShadow: '0 15px 20px rgba(15,23,42,0.22), inset 0 0 0 1px rgba(255,255,255,0.04)',
         }}
         className={`flex flex-col fixed left-0 top-0 h-screen z-[70]
-          md:left-5 md:top-5 md:bottom-5 md:h-auto md:rounded-[24px] md:border ${SB.border}
+          md:left-5 md:top-5 md:bottom-5 md:h-auto md:rounded-[24px] md:border md:border-white/10
           w-[238px] transition-transform duration-200
           ${drawerOpen ? 'translate-x-0 visible' : '-translate-x-full invisible'}
           md:visible md:translate-x-0 md:transition-[width]
@@ -681,10 +631,10 @@ export const Root = () => {
           {/* CSS-hidden (md:hidden), not JS-gated -- collapsed only means
               anything at md+; mobile always ignores it and must keep showing
               the logo regardless of whatever collapsed was left at. */}
-          <img src={SB.logo} alt="FLORAL" className={`w-8 h-8 md:w-10 md:h-10 object-contain flex-shrink-0 ${collapsed ? 'md:hidden' : ''}`} />
+          <img src="/logo.svg" alt="FLORAL" className={`w-8 h-8 md:w-10 md:h-10 object-contain flex-shrink-0 ${collapsed ? 'md:hidden' : ''}`} />
           <div className={`min-w-0 ${collapsed ? 'md:hidden' : ''}`}>
-            <div className={`text-[1.1875rem] font-bold ${SB.title} tracking-[0.5px]`}>FLORAL</div>
-            <div className={`text-[0.5625rem] font-semibold tracking-wide ${SB.sub} leading-tight uppercase`}>Dental Health Record Management System</div>
+            <div className="text-[1.1875rem] font-bold text-white tracking-[0.5px]">FLORAL</div>
+            <div className="text-[0.5625rem] font-semibold tracking-wide text-white/55 leading-tight uppercase">Dental Health Record Management System</div>
           </div>
           {/* On mobile (below md) this row shows the logo plus an X to close the
               drawer, matching before. At md+ it's the RAMHIS toggle instead: a
@@ -693,7 +643,7 @@ export const Root = () => {
           <button
             onClick={() => setDrawerOpen(false)}
             aria-label="Close navigation menu"
-            className={`md:hidden ml-auto -mr-2 p-2 rounded-lg ${SB.closeBtn} transition-colors`}
+            className="md:hidden ml-auto -mr-2 p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -701,14 +651,14 @@ export const Root = () => {
             onClick={toggleCollapsed}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className={`hidden md:flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${SB.chipBtn} transition-colors ${collapsed ? '' : 'ml-auto'}`}
+            className={`hidden md:flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white hover:bg-white/20 transition-colors ${collapsed ? '' : 'ml-auto'}`}
           >
             <Menu className="w-[15px] h-[15px]" />
           </button>
         </div>
         {/* Inset divider -- a margin on both sides instead of a full-width
             border, so the line doesn't touch the rounded card's edges. */}
-        <div className={`h-px ${SB.divider} mx-8 ${collapsed ? "md:mx-2" : ""}`} />
+        <div className={`h-px bg-[#E2E8F0]/90 mx-8 ${collapsed ? "md:mx-2" : ""}`} />
 
         {/* School switcher — a button to the dedicated selection screen
             (reverted 2026-09-04 at the user's explicit request from the
@@ -724,7 +674,7 @@ export const Root = () => {
             // Identical shape/size/alignment to a plain main-menu row -- no
             // fill, no border, same subtle hover as every other row -- the
             // only difference is bold gold text/icon instead of white.
-            className={`mx-7 mt-2 mb-1 rounded-2xl min-h-12 flex items-center gap-3 px-3 ${SB.switchBtn} font-bold transition-colors ${
+            className={`mx-7 mt-2 mb-1 rounded-2xl min-h-12 flex items-center gap-3 px-3 text-sidebar-active font-bold hover:bg-white/10 transition-colors ${
               collapsed ? 'md:justify-center md:px-0' : ''
             }`}
           >
@@ -736,7 +686,7 @@ export const Root = () => {
         {/* Tabs */}
         <nav className="flex-1 min-h-0 overflow-y-auto flex flex-col py-2">
           {!collapsed && (
-            <div className={`px-8 pb-[6px] pt-1 text-[0.625rem] font-bold uppercase tracking-[1px] ${SB.section} flex-none`}>Main Menu</div>
+            <div className="px-8 pb-[6px] pt-1 text-[0.625rem] font-bold uppercase tracking-[1px] text-[#94a3b8] flex-none">Main Menu</div>
           )}
           {visibleTabs.map((tab) => {
             // Dental Charts (4) and Treatment (6) render nested inside the
@@ -757,19 +707,19 @@ export const Root = () => {
             10px muted role, no role badge; logout resting state is muted
             white, not red (red is reserved for the real app's confirm-modal
             icon, which FLORAL doesn't have a matching dialog for). */}
-        <div className={`h-px ${SB.divider} mx-8 ${collapsed ? "md:mx-2" : ""}`} />
+        <div className={`h-px bg-[#E2E8F0]/90 mx-8 ${collapsed ? "md:mx-2" : ""}`} />
         <div className="pt-2 px-8 pb-5">
           {/* Real spec hides this WHOLE block when collapsed (avatar included,
               not just the name/role text) -- CSS-based (md:hidden), not a JS
               conditional, so mobile (which ignores `collapsed`) still shows it
               regardless of whatever the flag was left at. */}
           <div className={`flex items-center gap-2.5 pb-[5px] pt-2.5 mb-1 ${collapsed ? 'md:justify-center' : ''}`}>
-            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] ${SB.avatar} text-[0.875rem] font-bold ${collapsed ? 'md:hidden' : ''}`} style={{ color: SB.avatarColor }}>
+            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-primary-surface text-[0.875rem] font-bold ${collapsed ? 'md:hidden' : ''}`} style={{ color: '#4F63D9' }}>
               {user.name.charAt(0).toUpperCase()}
             </span>
             <div className={`min-w-0 flex-1 flex flex-col ${collapsed ? 'md:hidden' : ''}`}>
-              <strong className={`text-[0.6875rem] font-bold ${SB.userName} truncate`}>{user.name}</strong>
-              <span className={`mt-[2.5px] text-[0.625rem] ${SB.sub} capitalize`}>{user.role.replace('_', ' ')}</span>
+              <strong className="text-[0.6875rem] font-bold text-white truncate">{user.name}</strong>
+              <span className="mt-[2.5px] text-[0.625rem] text-white/55 capitalize">{user.role.replace('_', ' ')}</span>
             </div>
             {NOTIFIED_ROLES.includes(user.role) && (
               <Link
@@ -779,8 +729,8 @@ export const Root = () => {
                 aria-label={notifTotal > 0 ? `Notifications, ${notifTotal} new` : 'Notifications'}
                 className={`relative ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] transition-colors ${
                   isTabActive('/notifications')
-                    ? SB.active
-                    : SB.bellIdle
+                    ? 'bg-[linear-gradient(115deg,#FBD965_0%,#F4C542_55%,#E9B52F_100%)] text-sidebar-bg'
+                    : 'text-white/70 hover:bg-white/10 hover:text-white'
                 }`}
               >
                 <Bell className="w-[1.125rem] h-[1.125rem]" />
@@ -796,7 +746,7 @@ export const Root = () => {
           <button
             onClick={handleLogout}
             title={collapsed ? 'Logout' : undefined}
-            className={`w-full h-11 flex items-center gap-3 px-3.5 text-[0.875rem] font-medium ${SB.logout} rounded-[9px] transition-colors justify-start ${collapsed ? 'md:justify-center' : 'md:justify-start'}`}
+            className={`w-full h-11 flex items-center gap-3 px-3.5 text-[0.875rem] font-medium text-white/55 hover:text-white hover:bg-white/10 rounded-[9px] transition-colors justify-start ${collapsed ? 'md:justify-center' : 'md:justify-start'}`}
           >
             <LogOut className="w-4 h-4 flex-shrink-0" />
             <span className={labelCls}>Logout</span>
