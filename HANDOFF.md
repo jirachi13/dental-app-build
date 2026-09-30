@@ -41,6 +41,17 @@ Tests: `utils/iptrOcr.test.ts` (8). 119/119, tsc, build clean. Verified through 
 screens for 12 and 14. **Known limits:** 13's Sex stays blank (OCR never sees the word "Female" on
 that screenshot's tinted option, even sparse or black-and-white; blank is the intended decline). Tick
 confidences are low (29-50), so Verify flags them for a human check, which is correct.
+✅ **O2a follow-up:** "Contact #:" / "Philhealth #:" captions never matched (`\b` after `#` before `:`),
+so the BLANK official IPTR invented 4 fields on the pre-O2a code; now **0** (measured on
+`Downloads/Individual Patient Treatment Record.pdf`, the blank supplied 2026-09-03).
+**REAL-FORM FINDINGS (2026-10-01, user's phone photos of REAL pupils' sheets, kept OUT of the repo):**
+the clinic's CURRENT form is the official Year 1-5 "Individual Patient Treatment Record" (Taguig CHO
+header; sheets dated 2026). DOH Form 1 samples are dated 2023, Taguig CHO "Oral Health Form 1" 2022:
+older, do not build. On 2026 sheets only Oral Health Condition rows are ticked (Year 1); medical/dietary
+blank. OCR on real HANDWRITTEN phone photos: names/dates come back as junk (Tesseract limit), and the
+Year 1-5 grid reader finds no table on angled photos. ⚠ **The grid reader ALSO fails on the flat blank
+PDF ("6 column lines, expected 7")**, already broken before O2a; Sprint 86 read this same file, so
+something since then regressed it. Fix that FIRST in O2b.
 **O2b (NEXT, needs the user's decision): the tick TABLES.** (1) The Year 1-5 grid findings are computed
 but DROPPED: `ScanStudentForm.tsx` never passes `result.checkboxes` to Verify (lost when OCR moved
 from popup to page 2026-09-29). (2) The IPTR's own tables (medical history Oo/Hindi ✓, Oral Health

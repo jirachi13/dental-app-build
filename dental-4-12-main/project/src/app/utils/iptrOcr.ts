@@ -244,11 +244,14 @@ const GRID_LABELS: [string, RegExp][] = [
   ['section', /^section\b/i],
   ['placeOfBirth', /^place\s*of\s*birth\b/i],
   ['address', /^address\b/i],
-  ['contactNumber', /^contact\s*(?:no\.?|number|#)\b/i],
+  // `(?![a-z])`, not `\b`: `\b` never matches after "#" or "." when a colon
+  // follows ("Contact #:"), so on the blank official IPTR these captions went
+  // unrecognised and were read as ANSWERS ("Contact #:" as the occupation).
+  ['contactNumber', /^contact\s*(?:no\.?|number|#)(?![a-z])/i],
   ['guardianOccupation', /^occupation\b/i],
   ['guardianName', /^guardian\s*name\b/i],
   ['guardianContact', /^guardian\s*contact\b/i],
-  ['philhealthNumber', /^phil\s*health\s*(?:#|no\.?|number)\b/i],
+  ['philhealthNumber', /^phil\s*health\s*(?:#|no\.?|number)(?![a-z])/i],
   ['__philhealthStatus__', /^phil\s*health\s*status\b/i],
   ['__signature__', /^(?:parent\s*\/\s*guardian|printed\s*name|date\s*of\s*form)\b/i],
   // The IPTR's "M.I." caption under the name line; OCR reads it as "ML".
