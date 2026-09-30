@@ -23,14 +23,26 @@ Work is on branch **`majorUpdates`** (pushed; not merged to main).
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## ▶ RESUME HERE — PARKED 2026-09-30 (12th session, 2nd day). ✅ **ALL PUSHED, LIVE**
+## ▶ RESUME HERE — PARKED 2026-10-01 (12th session, 3rd day). ✅ **ALL PUSHED, LIVE**
 
 **Nothing is in progress.** On `main`, working tree clean, level with origin (fetch + count, 0/0).
-`npm test` **111/111**, `tsc` both configs and `npm run build` clean ON `main`. **Deployed and
-verified live:** the site serves the exact build made on `main` (`index-DaqQyMps.js`).
-Dev servers **stopped** (4000/5173/5174 free, by port); temp worktree `../her-majorUpdates` removed.
-⚠ Chrome still has localhost tabs logged in as the dentist — deliberately NOT logged out (SEC-12:
-Logout revokes every device).
+`npm test` **111/111**, `tsc` both configs and `npm run build` clean. All dev processes stopped BY
+PROCESS (watchers included — see the gotcha below), ports 4000/5173 free.
+⚠ Chrome's localhost session is the **System Admin** (not logged out: Logout revokes every device).
+
+**2026-10-01 in one line: three things built, tested live, deployed — 30-min idle lock screen, "View
+as" (admin previews other roles, read-only), and SEC-35 (risk sign-off dentist-only).** Plus: the
+Sprint 163 plan re-checked against the merged code (still valid; adds a notifications name leak),
+and the classmate's Risk Classification redesign reviewed (waiting on 3 answers). Each has its own
+paragraph below.
+
+**▶ NEXT, in order:** (1) the **3 Risk-redesign answers** from the classmate/dentist — sound teeth ✓?
+treatment rules D→PF / d→SDF / Med-High→FV? relabel "Reasons" → "What the system looked at"? Then
+plan + build it (two sprints, Opus high). (2) **Phone test** on the live site: drag-to-paint teeth,
+and that the phone STAYS signed in when the laptop hits the idle lock. (3) **Dev `.env`** → Sprint 163.
+(4) SEC-12 two-browser logout test, Render API key.
+
+#### 2026-09-30 (merge day)
 
 **2026-09-30 in one line: the classmate's `majorUpdates` (589 commits) is MERGED TO `main`.** Details
 in "✅ MERGED TO `main`" below. Also this day: **BUG-02 fixed** (one age rule, 12 copies folded in;
