@@ -56,13 +56,28 @@ const SchoolAssignment = ({
   onChange,
   schools,
   idPrefix,
+  role,
+  selfId,
+  users,
 }: {
   value: string[];
   onChange: (ids: string[]) => void;
   schools: ApiSchool[];
   idPrefix: string;
+  /** Role of the account being edited; a school takes one dentist and one dental aide. */
+  role: ApiRole;
+  /** The account being edited, so it does not count as holding its own schools. */
+  selfId?: string;
+  users: { id: string; name: string; role: ApiRole; schoolIds: string[]; status: string }[];
 }) => {
   const all = value.length === 0;
+  // Who already holds a school in this role. Accounts covering ALL schools
+  // (empty list) name no school, so they are not counted. The server enforces
+  // the same rule; this only shows the reason before a save is refused.
+  const holderOf = (schoolId: string) =>
+    role === 'dentist' || role === 'dental_aide'
+      ? users.find((u) => u.id !== selfId && u.role === role && u.status === 'Active' && u.schoolIds.includes(schoolId))
+      : undefined;
   const toggle = (id: string) =>
     onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
 
@@ -98,16 +113,24 @@ const SchoolAssignment = ({
         </label>
         {!all && (
           <div className="p-3 space-y-2 max-h-48 overflow-y-auto">
-            {schools.map((school) => (
-              <label key={school._id} className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={value.includes(school._id)}
-                  onChange={() => toggle(school._id)}
-                />
-                <span className="text-sm text-foreground">{school.school_name}</span>
-              </label>
-            ))}
+            {schools.map((school) => {
+              const holder = holderOf(school._id);
+              const blocked = !!holder && !value.includes(school._id);
+              return (
+                <label key={school._id} className={`flex items-center gap-3 ${blocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+                  <input
+                    type="checkbox"
+                    checked={value.includes(school._id)}
+                    disabled={blocked}
+                    onChange={() => toggle(school._id)}
+                  />
+                  <span className="text-sm text-foreground">
+                    {school.school_name}
+                    {blocked && <span className="block text-xs text-muted-foreground">Already has a {role === 'dentist' ? 'dentist' : 'dental aide'}: {holder!.name}</span>}
+                  </span>
+                </label>
+              );
+            })}
           </div>
         )}
       </div>
@@ -471,6 +494,8 @@ export const AccountManagement = () => {
               value={form.school_ids}
               onChange={(school_ids) => setForm({ ...form, school_ids })}
               schools={schools}
+              role={form.role}
+              users={users}
             />
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-foreground mb-2">Temporary Password</label>
@@ -749,6 +774,9 @@ export const AccountManagement = () => {
                 value={editForm.school_ids}
                 onChange={(school_ids) => setEditForm({ ...editForm, school_ids })}
                 schools={schools}
+                role={editForm.role}
+                selfId={editingUserId ?? undefined}
+                users={users}
               />
               <p className="text-xs text-muted-foreground">Password isn't changed here — use the Reset Password action instead.</p>
 

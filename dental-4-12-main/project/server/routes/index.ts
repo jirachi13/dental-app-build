@@ -9,6 +9,7 @@ import predictionRoutes from "./predictionRoutes.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { scopeFilter } from "../utils/schoolScope.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { enforceOneStaffPerSchool } from "../middleware/oneStaffPerSchool.js";
 import { ADMIN_ONLY, CLINICAL_WRITE_ROLES } from "../middleware/roleGroups.js";
 import { aggregateDohReport } from "../../shared/dohAggregate.js";
 import { buildRiskCandidates, filterRiskCandidates } from "../../shared/riskCandidates.js";
@@ -56,7 +57,11 @@ router.use("/schools", createCrudRouter(School, { writeRoles: ADMIN_ONLY }));
 // Intercepts POST /users before the generic CRUD router so passwords are
 // always hashed server-side — the generic router would store a plaintext
 // "password" field as-is, and password_hash is stripped from its bodies.
-router.post("/users", requireAuth, requireRole(...ADMIN_ONLY), asyncHandler(createUser));
+// One dentist and one dental aide per school: checked here so every path that
+// can change an account's role or schools (create, edit, restore) obeys it.
+router.post("/users", requireAuth, requireRole(...ADMIN_ONLY), asyncHandler(enforceOneStaffPerSchool), asyncHandler(createUser));
+router.put("/users/:id", requireAuth, requireRole(...ADMIN_ONLY), asyncHandler(enforceOneStaffPerSchool));
+router.patch("/users/:id/restore", requireAuth, requireRole(...ADMIN_ONLY), asyncHandler(enforceOneStaffPerSchool));
 // Also intercepted before the generic CRUD router -- password_hash is a
 // PROTECTED_FIELD there (can't be set via the generic update), and this
 // needs bcrypt hashing the generic router doesn't do.
