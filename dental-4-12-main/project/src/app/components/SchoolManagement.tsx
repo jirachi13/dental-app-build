@@ -241,11 +241,11 @@ export const SchoolManagement = () => {
       {showForm && (
         <Modal onClose={() => setShowForm(false)} maxWidth="max-w-xl" rounded="rounded-2xl" closeDisabled={submitting}>
           <div className="overflow-hidden rounded-2xl">
-            <div className="flex items-center gap-4 bg-[#F4F7FF] px-7 py-6 border-b border-border">
-              <span className="w-12 h-12 flex-shrink-0 rounded-xl grid place-items-center bg-white text-[#273A78]"><SchoolIcon className="w-5 h-5" /></span>
+            <div className="flex items-center gap-4 bg-[#16214F] px-7 py-6">
+              <span className="w-12 h-12 flex-shrink-0 rounded-xl grid place-items-center bg-white/10 text-white"><SchoolIcon className="w-5 h-5" /></span>
               <div>
-                <h2 className="text-xl font-bold text-foreground">{editing ? 'Edit School' : 'Add School'}</h2>
-                <div className="text-sm text-muted-foreground">Every school dropdown in the app reads this list.</div>
+                <h2 className="text-xl font-bold text-white">{editing ? 'Edit School' : 'Add School'}</h2>
+                <div className="text-sm text-white/70">Every school dropdown in the app reads this list.</div>
               </div>
             </div>
             <div className="p-7 space-y-5">
