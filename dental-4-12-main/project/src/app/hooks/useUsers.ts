@@ -49,7 +49,9 @@ export function useUsers() {
     beginLoad();
     try {
       const [apiUsers, apiSchools] = await Promise.all([
-        apiClient.get<ApiUser[]>('/users'),
+        // Archived accounts too: a deactivated user is soft-deleted, and without
+        // this it vanished from the list so it could never be found or reactivated.
+        apiClient.get<ApiUser[]>('/users?includeArchived=true'),
         apiClient.get<ApiSchool[]>('/schools'),
       ]);
       const schoolNameById = new Map(apiSchools.map((s) => [s._id, s.school_name]));
