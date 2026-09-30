@@ -36,11 +36,28 @@ Sprint 163 plan re-checked against the merged code (still valid; adds a notifica
 and the classmate's Risk Classification redesign reviewed (waiting on 3 answers). Each has its own
 paragraph below.
 
-**▶ NEXT, in order:** (1) the **3 Risk-redesign answers** from the classmate/dentist — sound teeth ✓?
-treatment rules D→PF / d→SDF / Med-High→FV? relabel "Reasons" → "What the system looked at"? Then
-plan + build it (two sprints, Opus high). (2) **Phone test** on the live site: drag-to-paint teeth,
-and that the phone STAYS signed in when the laptop hits the idle lock. (3) **Dev `.env`** → Sprint 163.
-(4) SEC-12 two-browser logout test, Render API key.
+✅ **SEC-00 RESOLVED on this PC (2026-10-01):** `.env` now targets the DEV cluster
+(`cluster0.o7e3c5o`; `PRODUCTION_DB_HOST` = `floral-cluster.edqpjtu`), copied whole from the other
+machine's dev `.env`; the previous production-pointing file is `.env.production-backup-20261001`
+(gitignored). API verified `{"db":"connected"}`. **Sprint 163 is now unblocked** — test as every
+role against DEV, never production.
+
+⚠⚠ **SECRETS EXPOSED 2026-10-01 — ROTATE (user action, walk them through it):** the user uploaded
+their `.env` files into the chat, including PRODUCTION's DB password and FIELD_ENCRYPTION_SECRET,
+the JWT secrets (IDENTICAL in dev and prod — should differ), and the Brevo + Render API keys.
+Order: (1) new DB-user passwords in Atlas for BOTH clusters → update Vercel env + each machine's
+`.env`; (2) regenerate Brevo + Render keys; (3) new JWT secrets in Vercel (logs everyone out once),
+different from dev's; (4) change the demo-account passwords. The encryption key CANNOT simply be
+changed (CLAUDE.md) — it needs a planned re-encryption; (1) is what protects it meanwhile.
+**Never ask a user to paste `.env` contents; ask for host names only.**
+
+**▶ NEXT, in order:** (0) **Rotate the exposed secrets** (above). (1) **Risk redesign** — the user
+does not know the clinical answers; recommended defaults (awaiting "go"): treatment rules exactly as
+her pictures (FV "Medium or High risk", PF for a D tooth, SDF for a d tooth; dentist accepts/skips
+each), "Reasons" relabelled "Findings", caries-free count = teeth charted ✓ ("—" if uncharted); ask
+the dentist to glance at the rules before defense. (2) **Sprint 163** (now unblocked). LOW
+PRIORITY (user, 2026-10-01): phone test (drag-to-paint; phone stays signed in when the laptop locks),
+SEC-12 two-browser confirmation (the fix itself is live and tested), Render API key check.
 
 #### 2026-09-30 (merge day)
 
