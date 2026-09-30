@@ -300,7 +300,7 @@ const brand = (
   
   // Same page for every role. Search, filters, sort, recent schools and the
   // All schools card are System Admin only.
-const recentTiles = !isAdmin ? [] : recent.filter((r) => r.school === ALL_SCHOOLS ? showAll : user.schools.includes(r.school));
+  const recentTiles = !isAdmin ? [] : recent.filter((r) => r.school === ALL_SCHOOLS ? showAll : user.schools.includes(r.school));
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex flex-col">
       <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-6 py-5">
