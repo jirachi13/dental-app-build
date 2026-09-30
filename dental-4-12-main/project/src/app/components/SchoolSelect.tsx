@@ -323,9 +323,9 @@ export const SchoolSelect = () => {
               <>
                 <div className="text-center">
                   <img src="/logo.svg" alt="" aria-hidden="true" className="w-16 h-16 object-contain mx-auto" />
-                  <h1 className="mt-2 text-2xl font-bold text-foreground">Where are you working today?</h1>
+                  <h1 className="mt-2 text-2xl font-bold text-foreground">Which school do you want to manage?</h1>
                   <p className="text-sm text-muted-foreground">
-                    {user.schools.length} school{user.schools.length === 1 ? '' : 's'} assigned to your account
+                    {user.schools.length} registered school{user.schools.length === 1 ? '' : 's'}. Choose one to manage, or open all schools together.
                   </p>
                   <div className="relative mx-auto mt-5 max-w-2xl">
                     <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
