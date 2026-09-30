@@ -4,7 +4,7 @@ import { PageHeader } from './PageHeader';
 import { apiClient, ApiError } from '../api/client';
 import type { ApiUser, ApiStudent, ApiSchool } from '../api/types';
 import { SkeletonTable } from './Skeleton';
-import { ConfirmDialog } from './ConfirmDialog';
+import { Modal } from './Modal';
 import { Notice } from './Notice';
 import { useToast } from './Toast';
 import { formatDateTime } from '../utils/localDate';
@@ -28,11 +28,16 @@ type Row = Record<string, any>;
 interface Kind {
   key: string;
   label: string;
+  /** Singular module name shown as the pill ("Student"). */
+  module: string;
+  pill: { bg: string; fg: string; border: string };
   path: string;
   /** Human identity for one archived row. */
   describe: (r: Row, ctx: Ctx) => string;
   /** Extra context column, where one helps. */
   detail?: (r: Row, ctx: Ctx) => string;
+  /** Labelled facts shown in the restore pop-up. */
+  facts: (r: Row, ctx: Ctx) => [string, string][];
 }
 
 interface Ctx {
@@ -45,17 +50,29 @@ const KINDS: Kind[] = [
   {
     key: 'students',
     label: 'Students',
+    module: 'Student',
+    pill: { bg: '#F4F7FF', fg: '#273A78', border: '#DCE3F5' },
     path: '/students',
     describe: (r: ApiStudent) => surnameFirst(r),
     detail: (r: ApiStudent, c) =>
       [c.schoolById.get(r.school_id)?.school_name, r.grade_level, r.section].filter(Boolean).join(' · '),
+    facts: (r: ApiStudent, c) => [
+      ['School', c.schoolById.get(r.school_id)?.school_name ?? ''],
+      ['Grade and section', [r.grade_level, r.section].filter(Boolean).join(' · ')],
+    ],
   },
   {
     key: 'schools',
     label: 'Schools',
+    module: 'School',
+    pill: { bg: '#ECFEFF', fg: '#0E7490', border: '#A5F3FC' },
     path: '/schools',
     describe: (r: ApiSchool) => r.school_name,
     detail: (r: ApiSchool) => [r.school_type, r.barangay, r.city].filter(Boolean).join(', '),
+    facts: (r: ApiSchool) => [
+      ['Type', r.school_type ?? ''],
+      ['Location', [r.barangay, r.city].filter(Boolean).join(', ')],
+    ],
   },
 ];
 
@@ -63,6 +80,15 @@ const FIELD = 'w-full px-4 py-3 text-sm text-[#475569] bg-[#F8FAFC] rounded-2xl 
 const FIELD_STYLE = { border: '1px solid #E2E8F0' } as const;
 const CARD = 'bg-card rounded-2xl border border-border shadow-[0_4px_20px_rgba(0,0,0,0.06)]';
 const TH = 'px-6 py-3 text-left text-[12.5px] font-bold text-[#94A3B8] uppercase tracking-wider';
+
+const ModulePill = ({ kind }: { kind: Kind }) => (
+  <span
+    className="inline-flex items-center px-2.5 py-1 rounded-full border text-xs font-bold"
+    style={{ backgroundColor: kind.pill.bg, color: kind.pill.fg, borderColor: kind.pill.border }}
+  >
+    {kind.module}
+  </span>
+);
 
 export const ArchiveManagement = () => {
   const toast = useToast();
@@ -235,7 +261,7 @@ export const ArchiveManagement = () => {
                 <thead className="bg-gray-50 border-b border-border">
                   <tr>
                     <th className={TH} style={{ width: '23%' }}>Archived by</th>
-                    <th className={TH} style={{ width: '22%' }}>Details</th>
+                    <th className={TH} style={{ width: '22%' }}>Module</th>
                     <th className={TH} style={{ width: '20%' }}>Record</th>
                     <th className={TH} style={{ width: '15%' }}>Date</th>
                     <th className={TH} style={{ width: '10%' }}>Time</th>
@@ -246,7 +272,7 @@ export const ArchiveManagement = () => {
                   {visible.map((r) => (
                     <tr key={r._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4"><ArchivedBy r={r} /></td>
-                      <td className="px-6 py-4 text-sm text-muted-foreground">{kind.detail?.(r, ctx) ?? ''}</td>
+                      <td className="px-6 py-4"><ModulePill kind={kind} /></td>
                       <td className="px-6 py-4 text-sm text-foreground">{kind.describe(r, ctx)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                         {archivedDate(r)
@@ -293,14 +319,54 @@ export const ArchiveManagement = () => {
       )}
 
       {confirmRow && (
-        <ConfirmDialog
-          open
-          title={`Restore ${kind.describe(confirmRow, ctx)}?`}
-          message="It returns to the normal lists and reports immediately, and will be counted again wherever it was counted before."
-          confirmLabel={restoring ? 'Restoring…' : 'Restore'}
-          onConfirm={restore}
-          onCancel={() => setConfirmRow(null)}
-        />
+        <Modal onClose={() => setConfirmRow(null)} maxWidth="max-w-xl" rounded="rounded-2xl" closeDisabled={restoring}>
+          <div role="alertdialog" aria-label={`Restore ${kind.describe(confirmRow, ctx)}`} className="overflow-hidden rounded-2xl">
+            <div className="flex flex-wrap items-center gap-4 bg-[#F4F7FF] px-7 py-6 border-b border-border">
+              <span className="w-12 h-12 flex-shrink-0 rounded-xl grid place-items-center bg-white text-[#273A78] text-lg font-bold">
+                {kind.describe(confirmRow, ctx).trim().charAt(0).toUpperCase()}
+              </span>
+              <div className="min-w-0">
+                <div className="text-xl font-bold text-foreground break-words">{kind.describe(confirmRow, ctx)}</div>
+                <div className="mt-1.5"><ModulePill kind={kind} /></div>
+              </div>
+              <div className="ml-auto text-sm text-muted-foreground">Restore this record?</div>
+            </div>
+            <div className="p-7">
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+                {[
+                  ...kind.facts(confirmRow, ctx),
+                  ['Archived by', archiver(confirmRow)?.name ?? ''],
+                  ['Archived on', confirmRow.archivedAt ? formatDateTime(confirmRow.archivedAt) : ''],
+                ].map(([label, value]) => (
+                  <div key={label} className="min-w-0">
+                    <dt className="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8]">{label}</dt>
+                    <dd className="mt-1 text-sm font-semibold text-foreground break-words">{value || 'Not recorded'}</dd>
+                  </div>
+                ))}
+              </dl>
+              <div className="mt-6 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 text-sm text-[#475569]">
+                It returns to the normal lists and reports right away, and is counted again wherever it was counted before.
+              </div>
+            </div>
+            <div className="flex justify-end gap-2.5 border-t border-border px-7 py-5">
+              <button
+                onClick={() => setConfirmRow(null)}
+                disabled={restoring}
+                autoFocus
+                className="rounded-xl border border-[#CBD5E1] px-5 py-2.5 text-sm font-semibold text-foreground hover:bg-gray-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={restore}
+                disabled={restoring}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#273A78] px-5 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-60"
+              >
+                <RotateCcw className="w-4 h-4" /> {restoring ? 'Restoring...' : 'Restore'}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );
