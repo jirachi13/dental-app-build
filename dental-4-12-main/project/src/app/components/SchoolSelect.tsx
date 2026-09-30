@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth, ALL_SCHOOLS } from '../context/AuthContext';
 import { getSchoolColor } from '../utils/schoolColors';
-import { School, ChevronRight, LogOut, MapPin, Layers, Search } from 'lucide-react';
+import { School, ChevronRight, ChevronDown, Check, LogOut, MapPin, Layers, Search } from 'lucide-react';
 import { useSchools } from '../hooks/useSchools';
 import { SCHOOL_GRADES, schoolGradeRange } from '../utils/schoolGrades';
 import type { ApiSchool } from '../api/types';
@@ -30,6 +30,60 @@ const roleBadgeColors: Record<string, string> = {
 
 type LevelFilter = 'all' | 'elementary' | 'integrated' | 'high';
 type SortMode = 'az' | 'za' | 'newest';
+
+const SORT_OPTIONS: { key: SortMode; label: string }[] = [
+  { key: 'az', label: 'A to Z' },
+  { key: 'za', label: 'Z to A' },
+  { key: 'newest', label: 'Newest first' },
+];
+
+/** Pill-shaped sort menu. A custom list rather than a native <select>, so the
+ *  pill hugs the selected text while the open list is as wide as its longest
+ *  option. Closes on outside click or Escape. */
+const SortMenu = ({ value, onChange }: { value: SortMode; onChange: (v: SortMode) => void }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', away);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', away); document.removeEventListener('keydown', esc); };
+  }, [open]);
+  const current = SORT_OPTIONS.find((o) => o.key === value) ?? SORT_OPTIONS[0];
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="Sort schools"
+        className="inline-flex items-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-[13px] font-semibold text-[#475569] hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#16214F]/30"
+      >
+        {current.label}
+        <ChevronDown className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <ul role="listbox" className="absolute left-0 top-full z-20 mt-2 min-w-[11rem] overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white py-1.5 text-left shadow-[0_10px_30px_rgba(15,23,42,0.12)]">
+          {SORT_OPTIONS.map((o) => (
+            <li key={o.key} role="option" aria-selected={o.key === value}>
+              <button
+                type="button"
+                onClick={() => { onChange(o.key); setOpen(false); }}
+                className={`flex w-full items-center justify-between gap-4 px-4 py-2.5 text-[13px] font-semibold hover:bg-gray-50 ${o.key === value ? 'text-[#16214F]' : 'text-[#475569]'}`}
+              >
+                {o.label}
+                {o.key === value && <Check className="w-4 h-4" />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
 
 const LEVEL_CHIPS: { key: LevelFilter; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -297,16 +351,7 @@ export const SchoolSelect = () => {
                         {c.label}
                       </button>
                     ))}
-                    <select
-                      value={sort}
-                      onChange={(e) => setSort(e.target.value as SortMode)}
-                      aria-label="Sort schools"
-                      className="[field-sizing:content] rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-[13px] font-semibold text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#16214F]/30"
-                    >
-                      <option value="az">A to Z</option>
-                      <option value="za">Z to A</option>
-                      <option value="newest">Newest first</option>
-                    </select>
+                    <SortMenu value={sort} onChange={setSort} />
                   </div>
                 </div>
 
