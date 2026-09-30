@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
-import { RotateCcw, Archive as ArchiveIcon } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { RotateCcw, Archive as ArchiveIcon, Filter, Search } from 'lucide-react';
+import { PageHeader } from './PageHeader';
 import { apiClient, ApiError } from '../api/client';
 import type { ApiStudent, ApiSchool, ApiStudentIptr, ApiAppointment, ApiTreatment, ApiReferral } from '../api/types';
-import { SkeletonPageHeader, SkeletonTable } from './Skeleton';
+import { SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Notice } from './Notice';
 import { useToast } from './Toast';
@@ -93,6 +94,11 @@ const KINDS: Kind[] = [
   },
 ];
 
+const FIELD = 'w-full px-4 py-3 text-sm text-[#475569] bg-[#F8FAFC] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#16214F]/30';
+const FIELD_STYLE = { border: '1px solid #E2E8F0' } as const;
+const CARD = 'bg-card rounded-2xl border border-border shadow-[0_4px_20px_rgba(0,0,0,0.06)]';
+const TH = 'px-6 py-3 text-left text-[12.5px] font-bold text-[#94A3B8] uppercase tracking-wider';
+
 export const ArchiveManagement = () => {
   const toast = useToast();
   const [kindKey, setKindKey] = useState(KINDS[0].key);
@@ -102,6 +108,7 @@ export const ArchiveManagement = () => {
   const [error, setError] = useState<string | null>(null);
   const [confirmRow, setConfirmRow] = useState<Row | null>(null);
   const [restoring, setRestoring] = useState(false);
+  const [search, setSearch] = useState('');
 
   const kind = KINDS.find((k) => k.key === kindKey) ?? KINDS[0];
 
@@ -150,75 +157,137 @@ export const ArchiveManagement = () => {
     }
   };
 
-  const th = 'px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground';
-  const td = 'px-4 py-3 text-sm text-foreground';
+  // Search narrows the loaded list only; it never refetches.
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => `${kind.describe(r, ctx)} ${kind.detail?.(r, ctx) ?? ''}`.toLowerCase().includes(q));
+  }, [rows, search, kind, ctx]);
+
+  const archivedOn = (r: Row) =>
+    r.archivedAt ? formatDateTime(r.archivedAt) : <span className="text-muted-foreground">date not recorded</span>;
+
+  const RestoreBtn = ({ r }: { r: Row }) => (
+    <button
+      onClick={() => setConfirmRow(r)}
+      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary-surface text-primary text-sm font-bold hover:opacity-80 transition-opacity"
+    >
+      <RotateCcw className="w-4 h-4" /> Restore
+    </button>
+  );
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-lg font-bold text-foreground">Archived Records</h1>
-          <p className="text-xs text-muted-foreground">
-            Nothing is ever deleted. Archived records are hidden from every other screen and can be restored here.
-          </p>
+    <div className="space-y-6">
+      <PageHeader
+        icon={ArchiveIcon}
+        eyebrow="System Administration"
+        title="Archived Records"
+        description="Nothing is ever deleted. Archived records are hidden from every other screen and can be restored here."
+      />
+
+      {error && <Notice variant="error">{error}</Notice>}
+
+      <div className={CARD}>
+        <div className="flex items-center gap-4 px-6 py-5 border-b border-border">
+          <span className="w-12 h-12 rounded-xl grid place-items-center bg-[#F1F5F9] text-[#334155] flex-shrink-0"><Filter className="w-5 h-5" /></span>
+          <div>
+            <div className="text-base font-bold text-foreground">Search &amp; Filters</div>
+            <div className="text-sm text-muted-foreground">Choose a record type and refine the list.</div>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <label htmlFor="archive-kind" className="text-sm text-muted-foreground whitespace-nowrap">Record type</label>
+        <div className="p-6 grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-4">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
+            <input
+              type="text"
+              placeholder="Search by name or details"
+              aria-label="Search archived records"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className={`${FIELD} pl-12`}
+              style={FIELD_STYLE}
+            />
+          </div>
           <select
             id="archive-kind"
             aria-label="Record type"
             value={kindKey}
-            onChange={(e) => setKindKey(e.target.value)}
-            className="text-sm border border-border rounded-lg px-3 py-2 bg-card focus:outline-none focus:ring-2 focus:ring-ring"
+            onChange={(e) => { setKindKey(e.target.value); setSearch(''); }}
+            className={FIELD}
+            style={FIELD_STYLE}
           >
             {KINDS.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}
           </select>
         </div>
       </div>
 
-      {error && <Notice variant="error">{error}</Notice>}
+      {loading ? <SkeletonTable rows={4} /> : (
+        <div className={`${CARD} overflow-hidden`}>
+          <div className="flex items-center justify-between gap-3 px-6 py-5">
+            <div className="flex items-center gap-4">
+              <span className="w-12 h-12 rounded-xl grid place-items-center bg-[#F4F7FF] text-[#273A78] flex-shrink-0"><ArchiveIcon className="w-5 h-5" /></span>
+              <div>
+                <div className="text-xl font-bold text-foreground">Archived {kind.label}</div>
+                <div className="text-sm text-muted-foreground">Restore records hidden from the rest of the system.</div>
+              </div>
+            </div>
+            <span className="px-4 py-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-xs font-bold text-[#64748B] whitespace-nowrap">
+              {visible.length} {visible.length === 1 ? 'record' : 'records'} found
+            </span>
+          </div>
 
-      {loading ? <><SkeletonPageHeader /><SkeletonTable rows={4} /></> : (
-        <div className="bg-card rounded-xl border border-border overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead className="bg-gray-50 border-b border-border">
-              <tr>
-                <th className={th}>Record</th>
-                <th className={th}>Details</th>
-                <th className={th}>Archived</th>
-                <th className={`${th} text-right`}>Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {rows.length === 0 ? (
-                <tr>
-                  <td className={`${td} text-center text-muted-foreground py-10`} colSpan={4}>
-                    <ArchiveIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                    No archived {kind.label.toLowerCase()}.
-                  </td>
-                </tr>
-              ) : rows.map((r) => (
-                <tr key={r._id} className="hover:bg-gray-50">
-                  <td className={`${td} font-medium`}>{kind.describe(r, ctx)}</td>
-                  <td className={`${td} text-muted-foreground`}>{kind.detail?.(r, ctx) ?? ''}</td>
-                  {/* archivedAt can be null on records archived before the field
-                      was populated — say so rather than rendering an empty cell
-                      that reads as "not archived". */}
-                  <td className={td}>
-                    {r.archivedAt ? formatDateTime(r.archivedAt) : <span className="text-muted-foreground">date not recorded</span>}
-                  </td>
-                  <td className={`${td} text-right`}>
-                    <button
-                      onClick={() => setConfirmRow(r)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-sm text-foreground hover:bg-gray-50"
-                    >
-                      <RotateCcw className="w-4 h-4" /> Restore
-                    </button>
-                  </td>
-                </tr>
+          {visible.length > 0 && (
+            <div className="hidden lg:block overflow-x-auto border-t border-border">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-border">
+                  <tr>
+                    <th className={TH}>Record</th>
+                    <th className={TH}>Details</th>
+                    <th className={TH}>Archived</th>
+                    <th className={`${TH} text-right`}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {visible.map((r) => (
+                    <tr key={r._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 text-sm font-bold text-foreground">{kind.describe(r, ctx)}</td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground">{kind.detail?.(r, ctx) ?? ''}</td>
+                      {/* archivedAt can be null on records archived before the field
+                          was populated — say so rather than render an empty cell
+                          that reads as "not archived". */}
+                      <td className="px-6 py-4 text-sm text-muted-foreground whitespace-nowrap">{archivedOn(r)}</td>
+                      <td className="px-6 py-4 text-right"><RestoreBtn r={r} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {visible.length > 0 && (
+            <div className="lg:hidden border-t border-border divide-y divide-gray-200">
+              {visible.map((r) => (
+                <div key={r._id} className="p-4 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-bold text-foreground">{kind.describe(r, ctx)}</div>
+                    <div className="text-xs text-muted-foreground">{kind.detail?.(r, ctx) ?? ''}</div>
+                    <div className="text-xs text-muted-foreground mt-1">{archivedOn(r)}</div>
+                  </div>
+                  <RestoreBtn r={r} />
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          )}
+
+          {visible.length === 0 && (
+            <div className="border-t border-border flex flex-col items-center justify-center text-center px-6 py-20">
+              <span className="w-[4.5rem] h-[4.5rem] rounded-2xl grid place-items-center bg-[#F1F5F9] text-[#94A3B8]"><ArchiveIcon className="w-8 h-8" /></span>
+              <div className="mt-5 text-base font-bold text-foreground">No archived {kind.label.toLowerCase()}</div>
+              <div className="mt-2 text-xs text-muted-foreground">
+                {search ? 'Nothing matches your search.' : 'Nothing of this type has been archived.'}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
