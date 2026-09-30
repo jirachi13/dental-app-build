@@ -260,12 +260,12 @@ export const ArchiveManagement = () => {
               <table className="w-full table-fixed min-w-[1000px]">
                 <thead className="bg-gray-50 border-b border-border">
                   <tr>
-                    <th className={TH} style={{ width: '23%' }}>Archived by</th>
-                    <th className={TH} style={{ width: '22%' }}>Module</th>
-                    <th className={TH} style={{ width: '20%' }}>Record</th>
-                    <th className={TH} style={{ width: '15%' }}>Date</th>
+                    <th className={TH} style={{ width: '22%' }}>Archived by</th>
+                    <th className={TH} style={{ width: '13%' }}>Module</th>
+                    <th className={TH} style={{ width: '24%' }}>Record</th>
+                    <th className={TH} style={{ width: '18%' }}>Date archived</th>
                     <th className={TH} style={{ width: '10%' }}>Time</th>
-                    <th className={TH} style={{ width: '10%' }}>Actions</th>
+                    <th className={TH} style={{ width: '13%' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
