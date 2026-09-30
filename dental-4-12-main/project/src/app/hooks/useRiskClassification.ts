@@ -23,6 +23,7 @@ const EMPTY: RiskListPage = {
   rows: [],
   total: 0,
   counts: { High: 0, Medium: 0, Low: 0, unassessed: 0, worsening: 0, improving: 0 },
+  statusCounts: { needs_review: 0, reviewed: 0, not_checked: 0, no_visit: 0, all: 0 },
   gradeOptions: [],
   sectionOptions: [],
 };
@@ -49,6 +50,7 @@ export function useRiskClassification(query: RiskListQuery = {}) {
       if (q.gender && q.gender !== 'all') params.set('gender', q.gender);
       if (q.ageGroup && q.ageGroup !== 'all') params.set('age_group', q.ageGroup);
       if (q.sort) params.set('sort', q.sort);
+      if (q.status && q.status !== 'all') params.set('status', q.status);
       if (q.limit) params.set('limit', String(q.limit));
       if (q.offset) params.set('offset', String(q.offset));
       const qs = params.toString();
@@ -70,6 +72,7 @@ export function useRiskClassification(query: RiskListQuery = {}) {
     candidates: page.rows as RiskCandidate[],
     total: page.total,
     counts: page.counts,
+    statusCounts: page.statusCounts,
     gradeOptions: page.gradeOptions,
     sectionOptions: page.sectionOptions,
     loading,

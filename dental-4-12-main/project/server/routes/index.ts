@@ -765,7 +765,7 @@ router.get("/stats/risk-candidates", requireAuth, asyncHandler(async (req, res) 
     ToothRecord.find(active).select("chart_id condition tooth_number").lean(),
     OralHealthCondition.find(active).lean(),
     DietarySocialHabits.find(active).lean(),
-    PreventiveCareRecord.find(active).select("_id iptr_id visit_date").lean(),
+    PreventiveCareRecord.find(active).select("_id iptr_id visit_date visit_number").lean(),
     // Not `dentist_notes` (encrypted, and the list never shows it).
     RiskStratification.find(active).select("-dentist_notes").lean(),
   ]);
@@ -802,6 +802,7 @@ router.get("/stats/risk-candidates", requireAuth, asyncHandler(async (req, res) 
       _id: str(p._id),
       iptr_id: str(p.iptr_id),
       visit_date: p.visit_date ? new Date(p.visit_date).toISOString() : "",
+      visit_number: typeof p.visit_number === "number" ? p.visit_number : null,
     })),
     risks: (risks as any[]).map((r) => ({
       _id: str(r._id),
@@ -836,6 +837,7 @@ router.get("/stats/risk-candidates", requireAuth, asyncHandler(async (req, res) 
     gender: typeof req.query.gender === "string" ? req.query.gender : "all",
     ageGroup: typeof req.query.age_group === "string" ? req.query.age_group : "all",
     sort: req.query.sort === "name" ? "name" : "priority",
+    status: (["needs_review", "reviewed", "not_checked", "no_visit"] as const).find((s) => s === req.query.status) ?? "all",
     limit: Number(req.query.limit) > 0 ? Number(req.query.limit) : 50,
     offset: Number(req.query.offset) > 0 ? Number(req.query.offset) : 0,
   });
@@ -1391,11 +1393,13 @@ router.use("/risk-stratifications", createCrudRouter(RiskStratification, {
     if (body.validated_by_dentist !== true) {
       return `Created RiskStratification (system suggestion ${body.model_risk_level}, awaiting dentist review)`;
     }
+    // ⚠ Keep every line under AUDIT_TRAIL.action's 100 characters (logAudit
+    // trims as a safety net, but a whole line is better than a trimmed one).
     const accepted = body.model_risk_level === body.risk_level;
     const recEdited = body.recommendation_edited === true ? "; recommendation edited" : "";
     return accepted
-      ? `Created RiskStratification (dentist validated: accepted AI suggestion ${body.risk_level}${recEdited})`
-      : `Created RiskStratification (dentist validated: changed AI suggestion ${body.model_risk_level} → ${body.risk_level}${recEdited})`;
+      ? `Created RiskStratification (dentist validated ${body.risk_level}: kept suggestion${recEdited})`
+      : `Created RiskStratification (dentist validated ${body.risk_level}: changed from ${body.model_risk_level}${recEdited})`;
   },
   // The dentist's review of a stored suggestion is a PUT (the popup's "Save review").
   auditUpdateAction: (doc) => {
@@ -1404,10 +1408,8 @@ router.use("/risk-stratifications", createCrudRouter(RiskStratification, {
     const decisions = Array.isArray(doc.treatment_decisions) ? (doc.treatment_decisions as { decision?: string }[]) : [];
     const accepted = decisions.filter((d) => d.decision === "accepted").length;
     const skipped = decisions.filter((d) => d.decision === "skipped").length;
-    const level = model === null
-      ? `set ${doc.risk_level} (no system suggestion)`
-      : model === doc.risk_level ? `accepted system suggestion ${doc.risk_level}` : `changed system suggestion ${model} → ${doc.risk_level}`;
-    return `Updated RiskStratification (dentist validated: ${level}; treatments ${accepted} accepted, ${skipped} skipped)`;
+    const how = model === null ? "no suggestion" : model === doc.risk_level ? "kept suggestion" : `changed from ${model}`;
+    return `Updated RiskStratification (dentist validated ${doc.risk_level}: ${how}; ${accepted} accepted, ${skipped} skipped)`;
   },
 }));
 // dateField (Sprint 56): the Completed and Missed tabs have no self-limiting

@@ -44,7 +44,7 @@ export interface RiskOral {
   abnormal_growth?: boolean;
 }
 export interface RiskDietary { iptr_id: string; sugar_beverages?: boolean; tobacco_user?: boolean }
-export interface RiskPreventive { _id: string; iptr_id: string; visit_date: string }
+export interface RiskPreventive { _id: string; iptr_id: string; visit_date: string; visit_number?: number | null }
 export interface RiskStrat {
   _id: string;
   preventive_id: string;
@@ -131,6 +131,8 @@ export interface RiskCandidate {
   teeth: ChartedTooth[];
   /** Visit date of the latest RPC visit ("Visit 1 · Aug 12" in the popup). */
   latestVisitDate: string | null;
+  /** Its RPC visit number (1 or 2), when recorded. */
+  latestVisitNumber: number | null;
 }
 
 export interface RiskCandidatesInput {
@@ -306,6 +308,7 @@ export function buildRiskCandidates(input: RiskCandidatesInput): RiskCandidate[]
       caries: cariesStatus(conditionCounts(teeth)),
       teeth,
       latestVisitDate: latestVisit ? latestVisit.visit_date.slice(0, 10) : null,
+      latestVisitNumber: latestVisit?.visit_number ?? null,
     };
   });
 
@@ -342,6 +345,8 @@ export interface RiskListQuery {
   gender?: string;
   ageGroup?: string;
   sort?: 'name' | 'priority';
+  /** The tab (2026-10-01). Undefined or 'all' = every status. */
+  status?: RiskReviewStatus | 'all';
   limit?: number;
   offset?: number;
 }
@@ -352,6 +357,8 @@ export interface RiskListPage {
   total: number;
   /** Over the whole filtered set — the tiles must not describe one page. */
   counts: { High: number; Medium: number; Low: number; unassessed: number; worsening: number; improving: number };
+  /** Per tab, over every filter EXCEPT the tab (2026-10-01). */
+  statusCounts: Record<RiskReviewStatus, number> & { all: number };
   /** Over the WHOLE population, not the filtered set: a dropdown that hides
    *  the value you would need to select next is a trap. `sectionOptions`
    *  narrows to the chosen grade, which is how the page already behaved. */
@@ -360,10 +367,24 @@ export interface RiskListPage {
 }
 
 /** Unassessed sits between Medium and Low, as it did on the client. */
+/** The level the list SHOWS for a pupil (2026-10-01): the dentist's level once
+ *  reviewed, the stored suggestion while it waits, nothing when not checked.
+ *  Only this clinical screen shows a suggestion; reports never count one. */
+export function displayLevel(c: RiskCandidate): 'High' | 'Medium' | 'Low' | null {
+  if (c.status === 'needs_review') return c.suggestion?.level ?? null;
+  if (c.status === 'reviewed') return c.history[c.history.length - 1]?.riskLevel ?? null;
+  return null;
+}
+
+/** "Most urgent first", her wording: High risk that needs review, then Medium,
+ *  then the rest (not checked, then reviewed, then pupils with no visit). */
 function priorityRank(c: RiskCandidate): number {
-  const latest = c.history[c.history.length - 1];
-  if (!latest) return 2.5;
-  return { High: 1, Medium: 2, Low: 3 }[latest.riskLevel];
+  const lvl = displayLevel(c);
+  const within = lvl ? { High: 0, Medium: 1, Low: 2 }[lvl] : 1;
+  if (c.status === 'needs_review') return within;
+  if (c.status === 'not_checked') return 3;
+  if (c.status === 'reviewed') return 4 + within;
+  return 7;
 }
 
 export function filterRiskCandidates(all: RiskCandidate[], query: RiskListQuery): RiskListPage {
@@ -376,21 +397,30 @@ export function filterRiskCandidates(all: RiskCandidate[], query: RiskListQuery)
     if (query.gender && query.gender !== 'all' && c.gender !== query.gender) return false;
     if (query.ageGroup && query.ageGroup !== 'all' && getAgeGroup(calculateAge(c.birthdate)) !== query.ageGroup) return false;
     if (query.risk && query.risk !== 'all') {
-      const latest = c.history[c.history.length - 1];
-      if (query.risk === 'Unassessed' ? !!latest : latest?.riskLevel !== query.risk) return false;
+      const lvl = displayLevel(c);
+      if (query.risk === 'Unassessed' ? lvl !== null : lvl !== query.risk) return false;
     }
     return true;
   };
 
   const inSchool = query.school ? all.filter((c) => c.school === query.school) : all;
-  const filtered = all.filter(matches);
+  // Every filter EXCEPT the tab: the tabs' own counts must not depend on which
+  // tab is open, or "Reviewed 3" would read 0 while you look at Needs review.
+  const beforeTab = all.filter(matches);
+  const statusCounts = { needs_review: 0, reviewed: 0, not_checked: 0, no_visit: 0, all: beforeTab.length };
+  for (const c of beforeTab) statusCounts[c.status]++;
+  const tab = query.status && query.status !== 'all' ? query.status : null;
+  const filtered = tab ? beforeTab.filter((c) => c.status === tab) : beforeTab;
 
+  // The cards describe the whole filtered roll (every tab), like the tab counts.
   const counts = { High: 0, Medium: 0, Low: 0, unassessed: 0, worsening: 0, improving: 0 };
   const order = { High: 1, Medium: 2, Low: 3 } as const;
-  for (const c of filtered) {
+  for (const c of beforeTab) {
+    const lvl = displayLevel(c);
+    if (!lvl) counts.unassessed++;
+    else counts[lvl]++;
     const latest = c.history[c.history.length - 1];
-    if (!latest) { counts.unassessed++; continue; }
-    counts[latest.riskLevel]++;
+    if (!latest) continue;
     // ⚠ The trend needs the last TWO, which is exactly why the list keeps two
     // (Sprint 144) rather than one.
     if (c.history.length >= 2) {
@@ -402,7 +432,7 @@ export function filterRiskCandidates(all: RiskCandidate[], query: RiskListQuery)
 
   const sorted = filtered.slice();
   if (query.sort === 'name') sorted.sort((a, b) => a.name.localeCompare(b.name));
-  else sorted.sort((a, b) => priorityRank(a) - priorityRank(b) || b.features.dmf_score - a.features.dmf_score);
+  else sorted.sort((a, b) => priorityRank(a) - priorityRank(b) || b.features.dmf_score - a.features.dmf_score || a.name.localeCompare(b.name));
 
   const offset = Math.max(0, query.offset ?? 0);
   const limit = query.limit && query.limit > 0 ? query.limit : sorted.length;
@@ -411,6 +441,7 @@ export function filterRiskCandidates(all: RiskCandidate[], query: RiskListQuery)
     rows: sorted.slice(offset, offset + limit),
     total: filtered.length,
     counts,
+    statusCounts,
     // Scoped to the school context — otherwise the dropdowns would offer
     // grades and sections that belong to a school the user is not viewing.
     gradeOptions: [...new Set(inSchool.map((c) => c.grade))].filter(Boolean).sort(),

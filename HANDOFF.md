@@ -129,6 +129,20 @@ therefore make the live dashboards' risk figures and the risk-based DOH figures 
 zero) until the dentist reviews them — correct, but ship it WITH R2 so the review flow exists the
 moment the numbers change. Also fixed: the create audit line claimed "dentist validated" for any
 body with a model level; it now says so only when validated.
+✅ **R2 DONE 2026-10-01 on branch `risk-redesign`** — her list page (`AIAnalytics.tsx`, rewritten)
++ the 4-step popup (`components/risk/RiskReviewDialog.tsx`, reusable for R3). Tested LIVE on the
+DEV DB as the dentist, end to end with a real save: cards/tabs/columns match her screenshots; the
+popup's 4 steps match; saving moved the pupil Needs review → Reviewed ("✓ Reviewed · Oct 1, 2026");
+the row stores level, decisions, readable summary, and `dentist_notes` ENCRYPTED at rest (checked).
+**Found and fixed in testing:** AUDIT_TRAIL.action is maxlength 100 and `logAudit` swallows errors,
+so the review's (longer) audit line was SILENTLY NEVER WRITTEN — the old "changed AI suggestion"
+create line could exceed 100 too. Lines shortened (worst case 99) AND `logAudit` now trims instead
+of failing; re-tested: the audit row is written. Kept: service-asleep + synthetic-data banners.
+Dropped from the old page (her design has none): per-pupil trend tiles, history panel, checkbox
+bulk assess (replaced by "Check risk for the N on this page" on the Not checked tab). Not tested:
+"Check risk now" with the ML service awake (it was asleep), phone width, non-dentist "View".
+**Still NOT on `main`:** merging R1+R2 makes live dashboard risk figures drop until reviewed.
+
 **R1 — data + server (no UI change; build first):**
 1. `shared/cariesStatus.ts` — the DOH workbook's "Yes or No - Caries Experience" group from tooth
    condition counts: with caries experience (D+M+F+d+f>0), in temporary (d+f>0), in permanent
