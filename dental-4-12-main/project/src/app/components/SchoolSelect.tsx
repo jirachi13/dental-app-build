@@ -231,73 +231,73 @@ export const SchoolSelect = () => {
     const levels = range.from && range.to ? `${range.from} – ${range.to}` : '';
     const on = active === school;
     const soft = 'rgba(255, 255, 255, 0.22)';
-  return (
-    <button
-      key={school}
-      onClick={() => handleSelectSchool(school)}
-      onMouseEnter={() => setActive(school)}
-      onMouseLeave={() => setActive(null)}
-      onFocus={() => setActive(school)}
-      onBlur={() => setActive(null)}
-      style={{ borderColor: on ? sc.solid : sc.border, backgroundColor: on ? sc.solid : undefined }}
-      className="group w-full text-left bg-card rounded-2xl border-2 p-6 transition-colors duration-200"
-    >
-      {/* School color bar */}
-      <div style={{ backgroundColor: on ? 'rgba(255, 255, 255, 0.6)' : sc.solid }} className="w-full h-1.5 rounded-full mb-5 transition-colors duration-200" />
+    return (
+      <button
+        key={school}
+        onClick={() => handleSelectSchool(school)}
+        onMouseEnter={() => setActive(school)}
+        onMouseLeave={() => setActive(null)}
+        onFocus={() => setActive(school)}
+        onBlur={() => setActive(null)}
+        style={{ borderColor: on ? sc.solid : sc.border, backgroundColor: on ? sc.solid : undefined }}
+        className="group w-full text-left bg-card rounded-2xl border-2 p-6 transition-colors duration-200"
+      >
+        {/* School color bar */}
+        <div style={{ backgroundColor: on ? 'rgba(255, 255, 255, 0.6)' : sc.solid }} className="w-full h-1.5 rounded-full mb-5 transition-colors duration-200" />
 
-      {/* Icon + name */}
-      <div className="flex items-start justify-between mb-4">
-        <div style={{ backgroundColor: on ? soft : sc.light }} className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors duration-200">
-          <School style={{ color: on ? '#fff' : sc.solid }} className="w-6 h-6" />
+        {/* Icon + name */}
+        <div className="flex items-start justify-between mb-4">
+          <div style={{ backgroundColor: on ? soft : sc.light }} className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors duration-200">
+            <School style={{ color: on ? '#fff' : sc.solid }} className="w-6 h-6" />
+          </div>
+          <ChevronRight style={{ color: on ? '#fff' : sc.solid }} className="w-5 h-5 mt-1 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity" />
         </div>
-        <ChevronRight style={{ color: on ? '#fff' : sc.solid }} className="w-5 h-5 mt-1 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity" />
-      </div>
 
-      <div style={{ color: on ? '#fff' : sc.text }} className="font-bold text-base leading-tight mb-1 min-h-[2.5rem] transition-colors duration-200">
-        {school}
-      </div>
+        <div style={{ color: on ? '#fff' : sc.text }} className="font-bold text-base leading-tight mb-1 min-h-[2.5rem] transition-colors duration-200">
+          {school}
+        </div>
 
-      <div className={`flex items-center gap-1 text-xs mt-2 transition-colors duration-200 ${on ? 'text-white/90' : 'text-muted-foreground'}`}>
-        <MapPin className="w-3 h-3 flex-shrink-0" />
-        <span>{address}</span>
-      </div>
+        <div className={`flex items-center gap-1 text-xs mt-2 transition-colors duration-200 ${on ? 'text-white/90' : 'text-muted-foreground'}`}>
+          <MapPin className="w-3 h-3 flex-shrink-0" />
+          <span>{address}</span>
+        </div>
 
-      <div className="mt-3 pt-3 border-t transition-colors duration-200" style={{ borderColor: on ? 'rgba(255, 255, 255, 0.3)' : undefined }}>
-        {levels && (
-          <span style={{ backgroundColor: on ? soft : sc.light, color: on ? '#fff' : sc.text }} className="text-xs font-medium px-2 py-1 rounded-full transition-colors duration-200">
-            {levels}
-          </span>
-        )}
-      </div>
+        <div className="mt-3 pt-3 border-t transition-colors duration-200" style={{ borderColor: on ? 'rgba(255, 255, 255, 0.3)' : undefined }}>
+          {levels && (
+            <span style={{ backgroundColor: on ? soft : sc.light, color: on ? '#fff' : sc.text }} className="text-xs font-medium px-2 py-1 rounded-full transition-colors duration-200">
+              {levels}
+            </span>
+          )}
+        </div>
+      </button>
+    );
+  };
+
+  const noSchools = (
+    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-8 text-center">
+      <School className="w-12 h-12 text-yellow-500 mx-auto mb-3" />
+      <h2 className="font-semibold text-yellow-800 mb-1">No School Assigned</h2>
+      <p className="text-yellow-700 text-sm">Please contact the System Administrator to assign you to a school.</p>
+    </div>
+  );
+
+  const logoutButton = (
+    <button onClick={handleLogout} className="flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-danger-surface rounded-lg transition-colors">
+      <LogOut className="w-4 h-4" />
+      <span>Logout</span>
     </button>
   );
-};
 
-const noSchools = (
-  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-8 text-center">
-    <School className="w-12 h-12 text-yellow-500 mx-auto mb-3" />
-    <h2 className="font-semibold text-yellow-800 mb-1">No School Assigned</h2>
-    <p className="text-yellow-700 text-sm">Please contact the System Administrator to assign you to a school.</p>
-  </div>
-);
-
-const logoutButton = (
-  <button onClick={handleLogout} className="flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-danger-surface rounded-lg transition-colors">
-    <LogOut className="w-4 h-4" />
-    <span>Logout</span>
-  </button>
-);
-
-const brand = (
-  <div className="flex items-center gap-3">
-    <img src="/logo.svg" alt="FLORAL" className="w-14 h-14 object-contain flex-shrink-0" />
-    <div>
-      <div className="text-2xl font-bold text-[#1E40AF]">FLORAL</div>
-      <div className="text-sm text-muted-foreground -mt-0.5">Dental Health Record Management System</div>
+  const brand = (
+    <div className="flex items-center gap-3">
+      <img src="/logo.svg" alt="FLORAL" className="w-14 h-14 object-contain flex-shrink-0" />
+      <div>
+        <div className="text-2xl font-bold text-[#1E40AF]">FLORAL</div>
+        <div className="text-sm text-muted-foreground -mt-0.5">Dental Health Record Management System</div>
+      </div>
     </div>
-  </div>
-);
-  
+  );
+
   // Same page for every role. Search, filters, sort, recent schools and the
   // All schools card are System Admin only.
   const recentTiles = !isAdmin ? [] : recent.filter((r) => r.school === ALL_SCHOOLS ? showAll : user.schools.includes(r.school));
