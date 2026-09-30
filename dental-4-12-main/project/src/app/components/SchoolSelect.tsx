@@ -496,7 +496,7 @@ export const SchoolSelect = () => {
                 )}
               </div>
               {arranging && (
-                <div className="mb-3 text-[13px] text-destructive">
+                <div className="mb-3 text-[11px] text-destructive">
                   <b>Rearranging schools.</b> Drag a card to a new spot. Your order saves as you go.
                 </div>
               )}
