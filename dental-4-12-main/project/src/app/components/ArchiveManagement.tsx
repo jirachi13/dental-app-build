@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RotateCcw, Archive as ArchiveIcon, Filter, Search, Calendar } from 'lucide-react';
 import { PageHeader } from './PageHeader';
 import { apiClient, ApiError } from '../api/client';
-import type { ApiUser, ApiStudent, ApiSchool, ApiStudentIptr, ApiAppointment, ApiTreatment, ApiReferral } from '../api/types';
+import type { ApiUser, ApiStudent, ApiSchool } from '../api/types';
 import { SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Notice } from './Notice';
 import { useToast } from './Toast';
-import { formatDate, formatDateTime } from '../utils/localDate';
+import { formatDateTime } from '../utils/localDate';
 import { surnameFirst } from '../utils/studentName';
 import { ROLE_LABELS } from '../hooks/useUsers';
 
@@ -43,16 +43,6 @@ interface Ctx {
 
 const KINDS: Kind[] = [
   {
-    key: 'student-iptrs',
-    label: 'School years (IPTR)',
-    path: '/student-iptrs',
-    describe: (r: ApiStudentIptr, c) => {
-      const s = c.studentById.get(r.student_id);
-      return s ? surnameFirst(s) : 'Unknown student';
-    },
-    detail: (r: ApiStudentIptr) => `SY ${r.school_year}${r.grade_level ? ` · ${r.grade_level} ${r.section ?? ''}`.trimEnd() : ''}`,
-  },
-  {
     key: 'students',
     label: 'Students',
     path: '/students',
@@ -66,33 +56,6 @@ const KINDS: Kind[] = [
     path: '/schools',
     describe: (r: ApiSchool) => r.school_name,
     detail: (r: ApiSchool) => [r.school_type, r.barangay, r.city].filter(Boolean).join(', '),
-  },
-  {
-    key: 'appointments',
-    label: 'Appointments',
-    path: '/appointments',
-    describe: (r: ApiAppointment, c) => {
-      const s = c.studentById.get(r.student_id);
-      return s ? surnameFirst(s) : 'Unknown student';
-    },
-    detail: (r: ApiAppointment) => `${formatDate(r.appointment_datetime)} · ${r.appointment_type} · ${r.status}`,
-  },
-  {
-    key: 'treatments',
-    label: 'Treatments',
-    path: '/treatments',
-    describe: (r: ApiTreatment) => r.diagnosis || 'Treatment record',
-    detail: (r: ApiTreatment) => [formatDate(r.date), r.treatment_done].filter(Boolean).join(' · '),
-  },
-  {
-    // Sprint 129. Added because Sprint 127 shipped REFERRAL without it, which
-    // meant an archived referral was invisible here and therefore impossible to
-    // restore — soft-deleted in name only.
-    key: 'referrals',
-    label: 'Referrals',
-    path: '/referrals',
-    describe: (r: ApiReferral) => r.facility_name || 'Referral',
-    detail: (r: ApiReferral) => [formatDate(r.date_issued), r.reason].filter(Boolean).join(' · '),
   },
 ];
 
