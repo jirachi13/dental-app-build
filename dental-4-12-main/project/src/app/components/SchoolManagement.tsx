@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit, Archive, School as SchoolIcon } from 'lucide-react';
+import { Plus, Edit, Archive, X as XIcon, School as SchoolIcon } from 'lucide-react';
 import { useSchools } from '../hooks/useSchools';
 import { apiClient, ApiError } from '../api/client';
 import type { ApiSchool, ApiUser } from '../api/types';
@@ -307,6 +307,15 @@ export const SchoolManagement = () => {
                 <h2 className="text-xl font-bold text-foreground">{editing ? 'Edit School' : 'Add School'}</h2>
                 <div className="text-sm text-muted-foreground">Every school dropdown in the app reads this list.</div>
               </div>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => setShowForm(false)}
+                disabled={submitting}
+                className="ml-auto w-11 h-11 flex-shrink-0 grid place-items-center rounded-xl border border-[#E2E8F0] bg-white text-[#475569] hover:bg-gray-50 disabled:opacity-60"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
             </div>
             <div className="p-7 space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5">
