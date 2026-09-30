@@ -210,8 +210,20 @@ merge-majorUpdates`): her branch touches 105 files; the merge differs from hers 
 ours. Visible on screen: "—" instead of "Age 0" on a missing birthday (BUG-02) · BHO age table 5 DOH
 rows instead of her 3 (user decision) · year strip `DMFT 14 · dmft 2` instead of `DMFT: 16` (BUG-13).
 Invisible: SEC-12 auth, BUG-09/10/11, the one age rule, guardian-contact-required-on-create, the
-byte-identical panel move, docs. ⚠ **NOT yet seen rendered by anyone** — screenshots failed in this
-session's Chrome, so "it looks like hers" is unverified until the browser pass.
+byte-identical panel move, docs. ✅ **RENDERED SIDE BY SIDE, 2026-09-30** (her branch on :5174 vs the merge on :5173, same API
+and data, logged in as the dentist, read-only). Per screen, two fingerprints: all visible text,
+and the DOM structure (every element + its classes, so styling differences count too).
+**IDENTICAL in both:** Students, Dental Charts, Treatment Records, Appointments, RPC, Risk
+Classification, Reports, Notifications, Scan a Form, and on the dental chart page: Medical
+History, Caries Risk Assessment, Treatment, Dental History, Notes & Referrals. **Dashboard:**
+text identical (its structure reading was invalid — hidden tab had not redrawn). **Dental Chart
+tab:** structure identical; text differs in exactly 2 of 437 lines, both the year strip
+(`DMFT 0 · dmft 1` vs her `DMFT: 1` — BUG-13, intended); proven by fingerprinting the other 435.
+**Not compared:** admin-only screens (logged in as dentist) — but none of their files is among the
+35 that differ from hers, so they are code-identical; and the BHO age table (known, decided).
+Method note: Chrome's window was hidden all session, which throttles timers and blocked
+screenshots — it was not an app freeze (checked). Worktree + temp files removed afterwards.
+**What remains is human judgement only** (does it feel right on a phone/tablet, drag-to-paint).
 ⚠ On the other machine: `git fetch && git checkout merge-majorUpdates && npm ci` (deps changed).
 
 #### Review notes (kept for the record)
