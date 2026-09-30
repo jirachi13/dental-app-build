@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RotateCcw, Archive as ArchiveIcon, Filter, Search, Calendar, Hash } from 'lucide-react';
+import { RotateCcw, Archive as ArchiveIcon, Filter, Search, Calendar } from 'lucide-react';
 import { PageHeader } from './PageHeader';
 import { apiClient, ApiError } from '../api/client';
 import type { ApiUser, ApiStudent, ApiSchool, ApiStudentIptr, ApiAppointment, ApiTreatment, ApiReferral } from '../api/types';
@@ -268,33 +268,29 @@ export const ArchiveManagement = () => {
 
           {visible.length > 0 && (
             <div className="hidden lg:block overflow-x-auto border-t border-border">
-              <table className="w-full table-fixed min-w-[1200px]">
+              <table className="w-full table-fixed min-w-[1000px]">
                 <thead className="bg-gray-50 border-b border-border">
                   <tr>
-                    <th className={TH} style={{ width: '17%' }}>Record</th>
-                    <th className={TH} style={{ width: '18%' }}>Details</th>
-                    <th className={TH} style={{ width: '18%' }}>Archived by</th>
-                    <th className={TH} style={{ width: '12%' }}>Date</th>
-                    <th className={TH} style={{ width: '8%' }}>Time</th>
-                    <th className={TH} style={{ width: '18%' }}>Record ID</th>
-                    <th className={TH} style={{ width: '9%' }}>Actions</th>
+                    <th className={TH} style={{ width: '23%' }}>Archived by</th>
+                    <th className={TH} style={{ width: '22%' }}>Details</th>
+                    <th className={TH} style={{ width: '20%' }}>Record</th>
+                    <th className={TH} style={{ width: '15%' }}>Date</th>
+                    <th className={TH} style={{ width: '10%' }}>Time</th>
+                    <th className={TH} style={{ width: '10%' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {visible.map((r) => (
                     <tr key={r._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm font-bold text-foreground">{kind.describe(r, ctx)}</td>
-                      <td className="px-6 py-4 text-sm text-muted-foreground">{kind.detail?.(r, ctx) ?? ''}</td>
                       <td className="px-6 py-4"><ArchivedBy r={r} /></td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground">{kind.detail?.(r, ctx) ?? ''}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-foreground">{kind.describe(r, ctx)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                         {archivedDate(r)
                           ? <span className="inline-flex items-center gap-2"><Calendar className="w-3.5 h-3.5 text-[#94A3B8]" />{archivedDate(r)}</span>
                           : notRecorded}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{archivedTime(r) ?? notRecorded}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-xs text-muted-foreground font-mono">
-                        <span className="inline-flex items-center gap-2"><Hash className="w-3.5 h-3.5 text-[#94A3B8]" />{String(r._id)}</span>
-                      </td>
                       <td className="px-6 py-4"><RestoreBtn r={r} /></td>
                     </tr>
                   ))}
