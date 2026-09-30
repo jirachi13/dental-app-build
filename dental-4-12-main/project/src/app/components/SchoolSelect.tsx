@@ -490,14 +490,14 @@ export const SchoolSelect = () => {
                       aria-label="Rearrange schools"
                       className="text-[#94A3B8] transition-colors hover:text-[#334155]"
                     >
-                      <ArrowUpDown className="w-3.5 h-3.5" strokeWidth={1.75} />
+                      <ArrowUpDown className="w-4 h-4" strokeWidth={1.75} />
                     </button>
                   )
                 )}
               </div>
               {arranging && (
-                <div className="mb-3 rounded-xl border border-[#DCE3F5] bg-[#F4F7FF] px-4 py-2.5 text-[13px] text-[#475569]">
-                  <b className="text-foreground">Rearranging schools.</b> Drag a card to a new spot. Your order saves as you go.
+                <div className="mb-3 text-[13px] text-destructive">
+                  <b>Rearranging schools.</b> Drag a card to a new spot. Your order saves as you go.
                 </div>
               )}
               {/* Cards keep one fixed width and start at the left; a new school
