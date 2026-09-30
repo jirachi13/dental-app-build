@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RotateCcw, Archive as ArchiveIcon, Filter, Search } from 'lucide-react';
+import { RotateCcw, Archive as ArchiveIcon, Filter, Search, Calendar, Hash } from 'lucide-react';
 import { PageHeader } from './PageHeader';
 import { apiClient, ApiError } from '../api/client';
-import type { ApiStudent, ApiSchool, ApiStudentIptr, ApiAppointment, ApiTreatment, ApiReferral } from '../api/types';
+import type { ApiUser, ApiStudent, ApiSchool, ApiStudentIptr, ApiAppointment, ApiTreatment, ApiReferral } from '../api/types';
 import { SkeletonTable } from './Skeleton';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Notice } from './Notice';
 import { useToast } from './Toast';
 import { formatDate, formatDateTime } from '../utils/localDate';
 import { surnameFirst } from '../utils/studentName';
+import { ROLE_LABELS } from '../hooks/useUsers';
 
 // ─── Archived records (System Admin) ─────────────────────────────────────────
 // CLAUDE.md lists "restore archived records" as a System Admin capability and
@@ -37,6 +38,7 @@ interface Kind {
 interface Ctx {
   studentById: Map<string, ApiStudent>;
   schoolById: Map<string, ApiSchool>;
+  userById: Map<string, ApiUser>;
 }
 
 const KINDS: Kind[] = [
@@ -103,7 +105,7 @@ export const ArchiveManagement = () => {
   const toast = useToast();
   const [kindKey, setKindKey] = useState(KINDS[0].key);
   const [rows, setRows] = useState<Row[]>([]);
-  const [ctx, setCtx] = useState<Ctx>({ studentById: new Map(), schoolById: new Map() });
+  const [ctx, setCtx] = useState<Ctx>({ studentById: new Map(), schoolById: new Map(), userById: new Map() });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [confirmRow, setConfirmRow] = useState<Row | null>(null);
@@ -118,14 +120,17 @@ export const ArchiveManagement = () => {
       // Students and schools resolve the foreign keys the other kinds show.
       // Fetched WITH archived, so an archived student's archived IPTR still
       // renders a name instead of "Unknown student".
-      const [all, students, schools] = await Promise.all([
+      const [all, students, schools, users] = await Promise.all([
         apiClient.get<Row[]>(`${kind.path}?includeArchived=true`),
         apiClient.get<ApiStudent[]>('/students?includeArchived=true'),
         apiClient.get<ApiSchool[]>('/schools?includeArchived=true'),
+        // Whoever archived a record may have been deactivated since.
+        apiClient.get<ApiUser[]>('/users?includeArchived=true').catch(() => [] as ApiUser[]),
       ]);
       setCtx({
         studentById: new Map(students.map((s) => [s._id, s])),
         schoolById: new Map(schools.map((s) => [s._id, s])),
+        userById: new Map(users.map((u) => [u._id, u])),
       });
       setRows(
         all
@@ -164,8 +169,33 @@ export const ArchiveManagement = () => {
     return rows.filter((r) => `${kind.describe(r, ctx)} ${kind.detail?.(r, ctx) ?? ''}`.toLowerCase().includes(q));
   }, [rows, search, kind, ctx]);
 
-  const archivedOn = (r: Row) =>
-    r.archivedAt ? formatDateTime(r.archivedAt) : <span className="text-muted-foreground">date not recorded</span>;
+  // archivedAt / archivedBy can be null on records archived before those fields
+  // were populated: say so rather than render an empty cell that reads as
+  // "not archived".
+  const notRecorded = <span className="text-muted-foreground">Not recorded</span>;
+  const archivedDate = (r: Row) => r.archivedAt
+    ? new Date(r.archivedAt).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })
+    : null;
+  const archivedTime = (r: Row) => r.archivedAt
+    ? new Date(r.archivedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+    : null;
+  const archiver = (r: Row) => {
+    const u = r.archivedBy ? ctx.userById.get(String(r.archivedBy)) : undefined;
+    return u ? { name: u.full_name, role: ROLE_LABELS[u.role] ?? u.role } : null;
+  };
+  const ArchivedBy = ({ r }: { r: Row }) => {
+    const u = archiver(r);
+    if (!u) return r.archivedBy ? <span className="text-muted-foreground">Unknown user</span> : notRecorded;
+    return (
+      <div className="flex items-center gap-3">
+        <span className="w-10 h-10 flex-shrink-0 rounded-xl grid place-items-center bg-[#F4F7FF] text-[#273A78] text-sm font-bold">{u.name.trim().charAt(0).toUpperCase()}</span>
+        <div className="min-w-0">
+          <div className="text-sm font-bold text-foreground">{u.name}</div>
+          <div className="text-xs text-muted-foreground">{u.role}</div>
+        </div>
+      </div>
+    );
+  };
 
   const RestoreBtn = ({ r }: { r: Row }) => (
     <button
@@ -238,13 +268,16 @@ export const ArchiveManagement = () => {
 
           {visible.length > 0 && (
             <div className="hidden lg:block overflow-x-auto border-t border-border">
-              <table className="w-full">
+              <table className="w-full table-fixed min-w-[1200px]">
                 <thead className="bg-gray-50 border-b border-border">
                   <tr>
-                    <th className={TH}>Record</th>
-                    <th className={TH}>Details</th>
-                    <th className={TH}>Archived</th>
-                    <th className={TH}>Actions</th>
+                    <th className={TH} style={{ width: '17%' }}>Record</th>
+                    <th className={TH} style={{ width: '18%' }}>Details</th>
+                    <th className={TH} style={{ width: '18%' }}>Archived by</th>
+                    <th className={TH} style={{ width: '12%' }}>Date</th>
+                    <th className={TH} style={{ width: '8%' }}>Time</th>
+                    <th className={TH} style={{ width: '18%' }}>Record ID</th>
+                    <th className={TH} style={{ width: '9%' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -252,10 +285,16 @@ export const ArchiveManagement = () => {
                     <tr key={r._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 text-sm font-bold text-foreground">{kind.describe(r, ctx)}</td>
                       <td className="px-6 py-4 text-sm text-muted-foreground">{kind.detail?.(r, ctx) ?? ''}</td>
-                      {/* archivedAt can be null on records archived before the field
-                          was populated — say so rather than render an empty cell
-                          that reads as "not archived". */}
-                      <td className="px-6 py-4 text-sm text-muted-foreground whitespace-nowrap">{archivedOn(r)}</td>
+                      <td className="px-6 py-4"><ArchivedBy r={r} /></td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                        {archivedDate(r)
+                          ? <span className="inline-flex items-center gap-2"><Calendar className="w-3.5 h-3.5 text-[#94A3B8]" />{archivedDate(r)}</span>
+                          : notRecorded}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{archivedTime(r) ?? notRecorded}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-muted-foreground font-mono">
+                        <span className="inline-flex items-center gap-2"><Hash className="w-3.5 h-3.5 text-[#94A3B8]" />{String(r._id)}</span>
+                      </td>
                       <td className="px-6 py-4"><RestoreBtn r={r} /></td>
                     </tr>
                   ))}
@@ -271,7 +310,10 @@ export const ArchiveManagement = () => {
                   <div className="min-w-0">
                     <div className="text-sm font-bold text-foreground">{kind.describe(r, ctx)}</div>
                     <div className="text-xs text-muted-foreground">{kind.detail?.(r, ctx) ?? ''}</div>
-                    <div className="text-xs text-muted-foreground mt-1">{archivedOn(r)}</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {r.archivedAt ? formatDateTime(r.archivedAt) : 'Archive date not recorded'}
+                      {archiver(r) ? ` · by ${archiver(r)!.name}` : ''}
+                    </div>
                   </div>
                   <RestoreBtn r={r} />
                 </div>
