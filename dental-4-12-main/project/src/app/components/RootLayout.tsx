@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { Root } from './Root';
 import { SessionLock } from './SessionLock';
+import { ViewAsControl } from './ViewAsControl';
 
 export const RootLayout = () => {
   const { user, loading, schoolChoiceMade } = useAuth();
@@ -27,6 +28,7 @@ export const RootLayout = () => {
   return (
     <>
       <Root />
+      <ViewAsControl />
       <SessionLock />
     </>
   );

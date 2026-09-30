@@ -1,9 +1,12 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback, useMemo } from 'react';
 import { apiClient, ApiError } from '../api/client';
 import { saveUserCache, loadUserCache, clearUserCache, wasRemembered } from '../offline/authCache';
 import type { ApiUser, ApiRole, ApiSchool } from '../api/types';
 import { setSchoolRegistry } from '../utils/schoolColors';
 import { startIdleClock, clearIdleClock } from '../utils/sessionIdle';
+import { VIEW_AS_AVAILABLE, VIEW_AS_KEY } from '../utils/viewAs';
+import { setViewAsReadOnly } from '../api/client';
+import { ROLE_LABELS } from '../hooks/useUsers';
 
 interface User {
   id: string;
@@ -36,6 +39,13 @@ interface AuthContextType {
   lockSession: () => Promise<void>;
   /** Sign the SAME user back in from the lock screen, password only. */
   unlock: (password: string) => Promise<LoginResult>;
+  /** The signed-in account's REAL role. `user.role` is the previewed one while
+   *  "View as" is active (utils/viewAs.ts); use this for anything that must
+   *  not follow the preview, like the View-as control itself. */
+  realRole: ApiRole | null;
+  /** The role being previewed, or null. Only ever set for a System Admin. */
+  viewAs: ApiRole | null;
+  setViewAs: (role: ApiRole | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -182,6 +192,12 @@ async function resolveUser(apiUser: ApiUser): Promise<User> {
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  // "View as" preview (utils/viewAs.ts). Per TAB (sessionStorage), so it can
+  // never outlive the browser session or leak into another window.
+  const [viewAsChoice, setViewAsChoice] = useState<ApiRole | null>(() => {
+    if (!VIEW_AS_AVAILABLE) return null;
+    try { return (window.sessionStorage.getItem(VIEW_AS_KEY) as ApiRole | null) || null; } catch { return null; }
+  });
   // The RAW stored choice: a school name, ALL_SCHOOLS, or null for "not chosen
   // yet". Consumers get the mapped value below.
   const [schoolChoice, setSelectedSchoolState] = useState<string | null>(null);
@@ -271,6 +287,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     clearUserCache();
     clearSessionHint();
     clearIdleClock();
+    // Signing out ends any "View as" preview, so the next person never
+    // inherits one. (Done here, not in an effect on `user`, which would also
+    // fire on first load before the saved session is restored.)
+    setViewAsChoice(null);
+    try { window.sessionStorage.removeItem(VIEW_AS_KEY); } catch { /* nothing to clear */ }
     setSelectedSchoolState(null);
     // Deliberately keep SCHOOL_KEY: logging back in on the same machine
     // shouldn't re-ask a question the user already answered. Since Sprint 125
@@ -307,8 +328,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user]);
 
+  // Only a real System Admin, only where View as is allowed, and never
+  // "previewing" your own role. Everything else sees the real user.
+  const viewAs = user?.role === 'system_admin' && VIEW_AS_AVAILABLE && viewAsChoice && viewAsChoice !== 'system_admin'
+    ? viewAsChoice
+    : null;
+  const effectiveUser = useMemo(() => (user && viewAs ? { ...user, role: viewAs } : user), [user, viewAs]);
+  useEffect(() => {
+    // The API client refuses saves while this is set (api/client.ts).
+    setViewAsReadOnly(viewAs ? ROLE_LABELS[viewAs] : null);
+  }, [viewAs]);
+  const setViewAs = useCallback((role: ApiRole | null) => {
+    setViewAsChoice(role);
+    try {
+      if (role) window.sessionStorage.setItem(VIEW_AS_KEY, role);
+      else window.sessionStorage.removeItem(VIEW_AS_KEY);
+    } catch { /* storage unavailable: the preview just won't survive a reload */ }
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, selectedSchool, schoolChoiceMade, setSelectedSchool, login, verifyOtp, logout, lockSession, unlock }}>
+    <AuthContext.Provider value={{ user: effectiveUser, loading, selectedSchool, schoolChoiceMade, setSelectedSchool, login, verifyOtp, logout, lockSession, unlock, realRole: user?.role ?? null, viewAs, setViewAs }}>
       {children}
     </AuthContext.Provider>
   );

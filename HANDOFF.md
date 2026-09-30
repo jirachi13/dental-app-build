@@ -52,6 +52,23 @@ device-only lock (server code reviewed, not exercised with a second device).
 child and leaves the watcher alive, which restarts it on the next file save. Stop watchers by process
 (`tsx.*watch server/local.ts`), not by port.
 
+**2026-10-01: "View as" BUILT, tested live, deployed** (classmate asked to REMOVE role-based access
+for easier testing; declined, and this built instead, user's choice). System Admin only, never on
+the live host (hostname check), read-only. Verified in Chrome as System Admin: button shows · View as
+Dentist switches nav + Dentist Dashboard + amber "read-only preview" bar · a save while previewing is
+refused client-side with ZERO requests reaching the server · Exit restores the admin nav, and saves
+reach the server again. Not tested: the other three preview roles, and a Vercel PREVIEW deployment
+(only local dev). ⚠ Chrome's localhost session is now the SYSTEM ADMIN (replaced the dentist's).
+
+**Classmate's Risk Classification redesign — PENDING 3 ANSWERS** (list page + 4-step review popup,
+then a Students-list Risk chip + card). Two sprints, Opus high. Before planning: (1) does the dentist
+tick every sound tooth ✓ (decides "Number of Caries Free Teeth"); (2) treatment rules D→PF, d→SDF,
+Medium/High→FV — dentist agrees?; (3) relabel "Reasons" as "What the system looked at" (the model
+cannot explain one student). The five caries columns come from the DOH workbook's "Yes or No -
+Caries Experience" group; four already exist in `TargetClientList.tsx` STATUS_COLUMNS — move them to
+one shared function for both screens. Verify her card's "Not counted in reports until the dentist
+reviews it" is TRUE before showing it.
+
 **Browser automation: use "laptop chrome"**, not "laptop edge" — Edge could not take screenshots all
 session (both connected; switch with `select_browser`).
 

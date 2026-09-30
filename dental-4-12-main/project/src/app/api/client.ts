@@ -72,7 +72,19 @@ function isNeverQueuedPath(path: string): boolean {
   return path.startsWith('/auth/') || path.startsWith('/predictions') || path.includes('/twofa/');
 }
 
+// "View as" preview (utils/viewAs.ts): while the System Admin previews another
+// role, every data write is refused HERE, before it can reach the server or
+// the offline queue. /auth/* (log in/out), /predictions (a read-like model
+// call) and /twofa/ are exempt: none of them writes a record.
+let viewAsReadOnlyRole: string | null = null;
+export function setViewAsReadOnly(roleLabel: string | null) {
+  viewAsReadOnlyRole = roleLabel;
+}
+
 async function writeRequest<T>(path: string, method: 'POST' | 'PUT' | 'PATCH', body?: unknown): Promise<T> {
+  if (viewAsReadOnlyRole && !isNeverQueuedPath(path)) {
+    throw new ApiError(403, `You are viewing as ${viewAsReadOnlyRole}, a read-only preview. Exit View as to save changes.`);
+  }
   if (isNeverQueuedPath(path)) {
     return request<T>(path, { method, body: body ? JSON.stringify(body) : undefined });
   }

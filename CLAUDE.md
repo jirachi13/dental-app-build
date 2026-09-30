@@ -75,6 +75,7 @@ Full field-level specs for all 19 models live in **`/docs/DATA-MODEL.md`** — R
 ## AUTH RULES
 - JWT authentication, JWT expiry configured, refresh token handling
 - 5 roles with strict RBAC; all routes protected by auth middleware; role checked on every API call
+- **Do NOT remove RBAC to make testing easier** (asked 2026-10-01, declined with the user's agreement). Instead: one browser/profile per role, or **"View as"** (`utils/viewAs.ts`, `ViewAsControl.tsx`): the System Admin previews another role's SCREENS. Read-only by design (`api/client.ts` refuses every save while active; the server still sees the admin) and never on the live host. Test SAVING as a role by signing in as it.
 - bcrypt for all passwords
 - **Idle timeout: 30 minutes → lock screen** (2026-10-01, user's reference design; `SessionLock.tsx`, `utils/sessionIdle.ts`). Locking ENDS this device's server session (`/auth/logout` with `scope: "device"`, so other devices stay signed in), keeps the page mounted behind an opaque layer, and the SAME account unlocks with its password so unsaved work survives. A normal Logout still signs out every device (SEC-12). Change the time in `IDLE_MINUTES` only.
 - Audit trail logs ALL user actions (additions, edits, archives) across all three school sites
