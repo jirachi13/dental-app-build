@@ -101,7 +101,50 @@ still says "dentist validated"). **Can ship WITHOUT a dev `.env`** (only the ref
 pupil names to school_admin/bho via `unmarkedAppointments` → fold into Sprint 163 step 2. Step 5's
 route guard now also covers `students/scan`, `students/scan/review`, `notifications`.
 
-**Classmate's Risk Classification redesign — PENDING 3 ANSWERS** (list page + 4-step review popup,
+### ▶ PLANNED: Risk Classification redesign (classmate's design) — 3 sprints, Opus high
+
+**Decided 2026-10-01 (user: "go with your recommendations"):** treatment rules as her pictures —
+**FV** when the confirmed level is Medium/High ("whole mouth"), **PF** per permanent tooth marked
+**D**, **SDF** per primary tooth marked **d**; the dentist accepts or skips EACH (skip needs a
+reason). "Reasons" → **"Findings"** (real chart/diet facts; the model does not explain one pupil).
+Caries-free teeth = teeth charted ✓ (`sound_temporary` + `sound_permanent`), "—" when uncharted.
+Confidence labels: ≥80% "Very sure", 60–79% "Fairly sure", <60% "Not sure". Ask the dentist to
+glance at the treatment rules before defense.
+
+**Architecture finding that drives R1:** suggestions are NOT stored today — the page computes them
+and a `RISK_STRATIFICATION` row exists only once validated. Her "Needs review" state needs STORED
+suggestions: save the model's result as a row with `validated_by_dentist: false`; the dentist's
+review UPDATES that row. ⚠ Then every reader that counts risk must ignore unvalidated rows, or
+unreviewed ML output reaches filed figures: `dohAggregate` (DMF + orally-fit counts, via
+`/stats/doh-report` ~index.ts:907), `/stats/student-rows` (~1105: `riskLevel` + `oralStatus` →
+Students list, dashboards, BHO table), `/stats/high-risk-count` (~126). Her card's "Not counted in
+reports until the dentist reviews it" is only TRUE after that.
+
+**R1 — data + server (no UI change; build first):**
+1. `shared/cariesStatus.ts` — the DOH workbook's "Yes or No - Caries Experience" group from tooth
+   condition counts: with caries experience (D+M+F+d+f>0), in temporary (d+f>0), in permanent
+   (D+M+F>0), active caries (D+d>0), caries-free teeth (sound_temporary+sound_permanent; null if
+   nothing charted). `TargetClientList.tsx` STATUS_COLUMNS' first four switch to it (still print
+   1/0). Tests.
+2. `RiskStratification` + fields (ERD deviation → DATA-MODEL.md + Chapter 3 note): `model_risk_level`,
+   `model_confidence`, `dentist_notes` (ENCRYPTED → CLAUDE.md list), `treatment_decisions[]`
+   `{code, tooth|null, decision: accepted|skipped, skip_reason}`.
+3. Readers above filter `validated_by_dentist: true`. Test: an unvalidated row changes no DOH figure.
+4. `riskCandidates`: history = validated only; add `suggestion` (latest UNvalidated row on the latest
+   visit: level, confidence), `status` (reviewed / needs_review / not_checked / no_visit), the five
+   caries fields, and per-tooth conditions (add `tooth_number` to `RiskTooth`) for findings and
+   treatment suggestions. `shared/riskTreatments.ts`: the rules above, pure + tested.
+5. Review = `PUT /risk-stratifications/:id` (dentist-only since SEC-35) setting validated + fields;
+   add an update audit line mirroring the create one ("dentist validated: accepted/changed …").
+**R2 — Risk Classification page + 4-step review popup** per her screenshots (stat cards, tabs with
+counts, 5 caries columns, "N to decide", order by most urgent, 25/page; popup: Check the facts →
+Confirm risk level (notes required) → Decide treatments → Review & save). "Check risk" on Not
+checked yet stores a suggestion; ML asleep → "No suggestion available", dentist picks.
+**R3 — Students list** Risk chip (solid ✓ Reviewed · date / dashed Needs review) + small card
+(Review now → same popup in place; Open in Risk Classification → filtered view + "Back to
+Students"); Notifications' risk item opens the Needs review tab.
+
+**Classmate's Risk Classification redesign — answered, see PLANNED above** (list page + 4-step review popup,
 then a Students-list Risk chip + card). Two sprints, Opus high. Before planning: (1) does the dentist
 tick every sound tooth ✓ (decides "Number of Caries Free Teeth"); (2) treatment rules D→PF, d→SDF,
 Medium/High→FV — dentist agrees?; (3) relabel "Reasons" as "What the system looked at" (the model
