@@ -718,7 +718,7 @@ export const Root = () => {
               {user.name.charAt(0).toUpperCase()}
             </span>
             <div className={`min-w-0 flex-1 flex flex-col ${collapsed ? 'md:hidden' : ''}`}>
-              <strong className="text-[0.75rem] text-white truncate">{user.name}</strong>
+              <strong className="text-[0.6875rem] font-bold text-white truncate">{user.name}</strong>
               <span className="mt-[2.5px] text-[0.625rem] text-white/55 capitalize">{user.role.replace('_', ' ')}</span>
             </div>
             {NOTIFIED_ROLES.includes(user.role) && (
