@@ -169,9 +169,16 @@ function sessionOwner(req: Request): string | null {
 // 15-minute access-token life, because the access token itself is not checked
 // against the DB (that would cost a read per request). The cookies are cleared
 // whatever happens to the stamp.
+//
+// `{ scope: "device" }` ends THIS browser's session only (2026-10-01): the
+// idle-timeout lock (SessionLock.tsx) uses it, because a clinic PC left idle
+// must not also sign the dentist out of their phone. It only ever narrows what
+// a logout does, so there is nothing to abuse: the caller is ending their own
+// session either way.
 export async function logout(req: Request, res: Response) {
   const userId = sessionOwner(req);
-  if (userId) {
+  const thisDeviceOnly = (req.body as { scope?: unknown } | undefined)?.scope === "device";
+  if (userId && !thisDeviceOnly) {
     try {
       await User.updateOne({ _id: userId }, { $set: { sessions_valid_from: new Date() } });
     } catch { /* still log this browser out */ }

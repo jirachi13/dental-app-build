@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { Root } from './Root';
+import { SessionLock } from './SessionLock';
 
 export const RootLayout = () => {
   const { user, loading, schoolChoiceMade } = useAuth();
@@ -21,5 +22,12 @@ export const RootLayout = () => {
   // the user straight back to the picker.
   if (loading || !user || !schoolChoiceMade) return null;
 
-  return <Root />;
+  // SessionLock sits beside the app, not inside a screen, so the idle timer
+  // runs everywhere a signed-in user can be.
+  return (
+    <>
+      <Root />
+      <SessionLock />
+    </>
+  );
 };

@@ -39,6 +39,19 @@ one-dentist/one-aide-per-school KEPT; year strip shows `DMFT 0 · dmft 0` on an 
 ⚠ The sections at the TOP of this file dated 09-24…09-30 and saying "on branch `majorUpdates`, not
 merged" are HER session notes, merged in as-is — they are now on `main`.
 
+**2026-10-01: 30-minute idle lock screen BUILT, tested live, deployed** (user's reference screenshot
+"Session Expired", plus a password field by the user's choice). Verified in Chrome against the real
+API: lock appears after the idle time · the session is REALLY ended (`/auth/me` and `/auth/refresh`
+both 401 while locked) · page unreadable behind the lock but unsaved charting kept (tooth 16 `D`) ·
+the user unlocked with their password, SAME page, no reload, draft and edit mode intact · Cancel
+then discarded the test mark (nothing saved). A page RELOAD while locked goes to the normal login
+page instead (a reload loses unsaved work anyway) — seen and correct. **Not tested:** "Not you? Log
+out", the 2FA-account path, cross-tab sync, and that other devices really stay signed in after a
+device-only lock (server code reviewed, not exercised with a second device).
+⚠ Dev-server gotcha found: `npm run dev:server` is `tsx watch`; stopping the server by PORT kills the
+child and leaves the watcher alive, which restarts it on the next file save. Stop watchers by process
+(`tsx.*watch server/local.ts`), not by port.
+
 **Browser automation: use "laptop chrome"**, not "laptop edge" — Edge could not take screenshots all
 session (both connected; switch with `select_browser`).
 

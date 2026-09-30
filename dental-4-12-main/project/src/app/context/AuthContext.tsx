@@ -3,6 +3,7 @@ import { apiClient, ApiError } from '../api/client';
 import { saveUserCache, loadUserCache, clearUserCache, wasRemembered } from '../offline/authCache';
 import type { ApiUser, ApiRole, ApiSchool } from '../api/types';
 import { setSchoolRegistry } from '../utils/schoolColors';
+import { startIdleClock, clearIdleClock } from '../utils/sessionIdle';
 
 interface User {
   id: string;
@@ -30,6 +31,11 @@ interface AuthContextType {
   login: (email: string, password: string, remember: boolean) => Promise<LoginResult>;
   verifyOtp: (email: string, code: string, remember: boolean) => Promise<LoginResult>;
   logout: () => Promise<void>;
+  /** Idle timeout: end THIS device's server session but keep the page (and any
+   *  unsaved work) mounted behind the lock screen. */
+  lockSession: () => Promise<void>;
+  /** Sign the SAME user back in from the lock screen, password only. */
+  unlock: (password: string) => Promise<LoginResult>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -231,6 +237,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     saveUserCache(resolved, remember);
     setSessionHint(remember);
     setSelectedSchoolState(initialSchoolFor(resolved));
+    startIdleClock();
   }, []);
 
   const login = useCallback(async (email: string, password: string, remember: boolean): Promise<LoginResult> => {
@@ -263,6 +270,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     clearUserCache();
     clearSessionHint();
+    clearIdleClock();
     setSelectedSchoolState(null);
     // Deliberately keep SCHOOL_KEY: logging back in on the same machine
     // shouldn't re-ask a question the user already answered. Since Sprint 125
@@ -270,8 +278,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // logout no longer identifies who was here (backlog #21).
   }, []);
 
+  // ── Idle timeout (2026-10-01; SessionLock.tsx is the screen) ────────────
+  // Locking ends this device's session on the SERVER (cookies cleared, so a
+  // new tab cannot walk in) but leaves `user` set, so the page and any unsaved
+  // work stay mounted behind the lock screen. `scope: 'device'` keeps it from
+  // signing the account out everywhere, which a normal logout does (SEC-12).
+  const lockSession = useCallback(async () => {
+    await apiClient.post('/auth/logout', { scope: 'device' }).catch(() => {});
+  }, []);
+
+  // Password only, for the account already on screen: a different person
+  // cannot sign in through the lock screen, so they can never inherit the
+  // previous user's unsaved work. Keeps the original login's Remember-me tier.
+  // Deliberately NOT completeLogin, which would also reset the school choice.
+  const unlock = useCallback(async (password: string): Promise<LoginResult> => {
+    if (!user) return { ok: false, error: 'No signed-in account to unlock.' };
+    let remember = false;
+    try { remember = window.localStorage.getItem(SESSION_HINT_KEY) !== null; } catch { /* session-only */ }
+    try {
+      const data = await apiClient.post<ApiUser | { twofa_required: true }>('/auth/login', { email: user.email, password, remember });
+      if ('twofa_required' in data) return { ok: false, twofaRequired: true };
+      setSessionHint(remember);
+      startIdleClock();
+      return { ok: true };
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : 'No connection. Reconnect to sign back in.';
+      return { ok: false, error: message };
+    }
+  }, [user]);
+
   return (
-    <AuthContext.Provider value={{ user, loading, selectedSchool, schoolChoiceMade, setSelectedSchool, login, verifyOtp, logout }}>
+    <AuthContext.Provider value={{ user, loading, selectedSchool, schoolChoiceMade, setSelectedSchool, login, verifyOtp, logout, lockSession, unlock }}>
       {children}
     </AuthContext.Provider>
   );
