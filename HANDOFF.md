@@ -67,8 +67,7 @@ ONE FILE = ONE STUDENT, never one page: the IPTR is 2 pages), reads them one aft
 then "Batch done: N saved, M skipped." and back to Students. A file that cannot be read joins the queue
 empty with its reason; a spreadsheet must be alone (`utils/ocrBatch.ts` + 4 tests). One file behaves as
 before (save opens the chart). Verified on DEV with 12/13/14.png: skip, save, skip → "1 saved, 2
-skipped". 130/130. ⚠ **DEV DB now also has fictional "Reyes, Mikaela"** from that test (archive as admin,
-with "Testcase, Ocrtick").
+skipped". 130/130.
 ✅ **O2b DONE 2026-10-01 on `main`:** the Year 1-5 tick findings reach the Verify screen ("Ticks
 found on the form": unchecked boxes, Year select defaulting to the latest ticked column, text rows and
 unstorable rows explained, decline reason shown). On save, ACCEPTED storable ticks go into the new
@@ -76,12 +75,11 @@ school-year IPTR's records; a section with nothing accepted gets NO record. Help
 `utils/ocrTickFindings.ts` (+5 tests). **Verified end to end on DEV as the dentist:** a blank IPTR with
 4 drawn Year 1 ticks showed exactly those 4; accepting Thumbsucking + Gingivitis (not Calculus) saved
 dietary {thumb_sucking}, oral {gingivitis, oral_hygiene "Not assessed"}, and NO medical record.
-126/126, tsc clean. ⚠ **Test pupil "Testcase, Ocrtick" is on the DEV DB** (fictional); the dentist cannot
-archive students (403), so archive it as the System Admin.
-⚠ **NEW BUG (found in that test, not fixed):** STUDENT.address is `required: true` on the server, but
-every screen (Add Student, Edit, Verify) labels Address "(Optional)", and the clinic's own sheet prints
-"Address (Optional)". A save without an address fails with the raw "Path `address` is required".
-Decide: make it optional on the model (matches the forms) or required everywhere.
+126/126, tsc clean.
+✅ **FIXED 2026-10-01:** STUDENT.address was `required: true` on the server (left from Sprint 2) while
+every screen, DATA-MODEL.md and the clinic's sheet say optional; a save without one failed with the raw
+"Path `address` is required". Now optional on the model. Verified on DEV: POST without address → 201.
+✅ The fictional test pupils (Testcase Ocrtick, Reyes Mikaela, Noaddress Testpupil) are ARCHIVED on DEV.
 **O2b PLAN (as written before building, kept for reference):**
 1. `ScanStudentForm.tsx` ~91-115: add `checkboxes`, `checkboxConfidence`, `checkboxReason`,
    `unstorableFindings` from `extractIptrFields` to the handoff (they are computed and dropped today).

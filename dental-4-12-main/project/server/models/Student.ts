@@ -18,7 +18,11 @@ const studentSchema = new mongoose.Schema(
     middle_name: { type: String, maxlength: 60, default: "" },
     birthday: { type: Date, required: true },
     sex: { type: String, maxlength: 10, required: true },
-    address: { type: String, maxlength: 200, required: true },
+    // OPTIONAL (2026-10-01). `required: true` was left from Sprint 2 while every
+    // screen (Add Student, Edit, OCR Verify), DATA-MODEL.md and the clinic's own
+    // sheet ("Address (Optional)") treat it as optional, so a save without one
+    // failed with the raw "Path `address` is required".
+    address: { type: String, maxlength: 200 },
     contact_number: { type: String, maxlength: 15 },
     // Required unless is_not_student (below) -- a person who isn't actually
     // enrolled has no grade/section worth demanding on this form. Sex is NOT
