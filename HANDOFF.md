@@ -61,7 +61,20 @@ oral rows were right. Now read through `TABLE_LAYOUT` (headings skipped). Invisi
 because findings never reached the screen. Verified on the genuine blank PDF in the browser: 0 ticks;
 6 drawn ticks back on exactly their rows/years; upside-down page declined; full upload path 0 fields,
 grid confidence 75. `utils/iptrCheckboxes.test.ts` (2) fails on the old code ("Nail Biting"). 121/121.
-**O2b PLAN (written 2026-10-01, NOT started; Opus high to build):**
+✅ **O2b DONE 2026-10-01 on `main`:** the Year 1-5 tick findings reach the Verify screen ("Ticks
+found on the form": unchecked boxes, Year select defaulting to the latest ticked column, text rows and
+unstorable rows explained, decline reason shown). On save, ACCEPTED storable ticks go into the new
+school-year IPTR's records; a section with nothing accepted gets NO record. Helper
+`utils/ocrTickFindings.ts` (+5 tests). **Verified end to end on DEV as the dentist:** a blank IPTR with
+4 drawn Year 1 ticks showed exactly those 4; accepting Thumbsucking + Gingivitis (not Calculus) saved
+dietary {thumb_sucking}, oral {gingivitis, oral_hygiene "Not assessed"}, and NO medical record.
+126/126, tsc clean. ⚠ **Test pupil "Testcase, Ocrtick" is on the DEV DB** (fictional); the dentist cannot
+archive students (403), so archive it as the System Admin.
+⚠ **NEW BUG (found in that test, not fixed):** STUDENT.address is `required: true` on the server, but
+every screen (Add Student, Edit, Verify) labels Address "(Optional)", and the clinic's own sheet prints
+"Address (Optional)". A save without an address fails with the raw "Path `address` is required".
+Decide: make it optional on the model (matches the forms) or required everywhere.
+**O2b PLAN (as written before building, kept for reference):**
 1. `ScanStudentForm.tsx` ~91-115: add `checkboxes`, `checkboxConfidence`, `checkboxReason`,
    `unstorableFindings` from `extractIptrFields` to the handoff (they are computed and dropped today).
 2. `VerifyStudentForm.tsx`: a "Ticks found on the form" section. Each finding = row label + Year column,

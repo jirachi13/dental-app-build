@@ -32,6 +32,10 @@ export interface IptrCheckboxFinding {
   /** Model field this maps to, or null when the form carries the row and the
    *  data model has nowhere to store it. */
   field: string | null;
+  /** The row's value is free text on the form (Allergies, Others, Last
+   *  Admission): a tick says "yes" but the details must be typed, and the
+   *  model stores a STRING there, so a tick is never saved as `true`. */
+  text?: boolean;
   /** Which Year columns were ticked (1-5). */
   years: number[];
 }

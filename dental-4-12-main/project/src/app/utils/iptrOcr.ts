@@ -674,7 +674,7 @@ export async function extractIptrFields(
     if (scan.confidence > 0) {
       checkboxes = IPTR_FORM_ROWS.map((row, i) => {
         const years = IPTR_YEARS.filter((y) => scan.ticks[y]?.[i]);
-        return { label: row.label, section: row.section, field: row.field, years: [...years] };
+        return { label: row.label, section: row.section, field: row.field, text: !!row.text, years: [...years] };
       }).filter((f) => f.years.length > 0);
       for (const f of checkboxes) if (f.field === null) unstorable.add(f.label);
     }

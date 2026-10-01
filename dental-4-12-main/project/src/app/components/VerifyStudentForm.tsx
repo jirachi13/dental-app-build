@@ -11,7 +11,8 @@ import {
   BLANK_NEW_PATIENT, REQUIRED_STUDENT_FIELDS, duplicatesFromError,
   type NewPatientForm, type DuplicateCandidate,
 } from './PatientList';
-import type { IptrOcrFieldKey } from '../utils/iptrOcrShared';
+import type { IptrOcrFieldKey, IptrCheckboxFinding } from '../utils/iptrOcrShared';
+import { tickBodies, tickKind, tickKey, defaultTickYear } from '../utils/ocrTickFindings';
 // Same shared value-format rules the manual Add Student form and the server use.
 import { validateStudentValues } from '../../../shared/studentValidation';
 import { calculateAge } from '../utils/age';
@@ -29,6 +30,13 @@ type ExtractedHandoff = {
   ocrSourceLabel: 'scanned form' | 'uploaded file';
   sourceFileName: string;
   sourcePreviewUrl: string | null;
+  ticks?: { findings: IptrCheckboxFinding[]; confidence: number; reason?: string };
+};
+
+const SECTION_TITLES: Record<IptrCheckboxFinding['section'], string> = {
+  medical: 'Medical History',
+  dietary: 'Dietary Habits and Social History',
+  oral: 'Oral Health Condition',
 };
 
 // calculateAge: the shared one (BUG-02). Same null-on-bad-date behaviour as the
@@ -64,6 +72,16 @@ export const VerifyStudentForm = () => {
   const [missing, setMissing] = useState<Set<keyof NewPatientForm>>(new Set());
   const [duplicates, setDuplicates] = useState<DuplicateCandidate[] | null>(null);
   const [showSourcePreview, setShowSourcePreview] = useState(false);
+  // The IPTR tick grid (O2b, 2026-10-01). Every finding starts UNCHECKED and
+  // the Year select defaults to the latest column with ticks (user decisions).
+  const tickFindings = handoff?.ticks?.findings ?? [];
+  const [tickYear, setTickYear] = useState(() => defaultTickYear(tickFindings));
+  const [acceptedTicks, setAcceptedTicks] = useState<Set<string>>(new Set());
+  const toggleTick = (key: string) => setAcceptedTicks((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
 
   // No handoff (direct visit, or a page refresh -- router state doesn't
   // survive one) means there's nothing to verify.
@@ -113,13 +131,29 @@ export const VerifyStudentForm = () => {
         is_4ps: form.is4Ps, fourps_id: form.fourPsId,
         ...(confirmDuplicate ? { confirm_duplicate: true } : {}),
       });
+      let iptrId: string | null = null;
       try {
-        await apiClient.post('/student-iptrs', {
+        const iptr = await apiClient.post<{ _id: string }>('/student-iptrs', {
           student_id: created._id, school_year: schoolYearLabel(),
           grade_level: form.isNotStudent ? null : form.grade, section: form.isNotStudent ? null : form.section,
           consent_status: form.consentStatus,
         });
+        iptrId = iptr?._id ?? null;
       } catch { /* best-effort -- the chart's own "Add Year" still works */ }
+      // The accepted ticks go into THIS school year's records. A section with
+      // nothing accepted gets no record (see tickBodies). The student is
+      // already saved, so a failure here is reported, never silent.
+      const bodies = tickBodies(tickFindings, tickYear, acceptedTicks);
+      if (Object.keys(bodies).length) {
+        const writes: Promise<unknown>[] = [];
+        if (iptrId) {
+          if (bodies.medical) writes.push(apiClient.post('/medical-histories', { iptr_id: iptrId, ...bodies.medical }));
+          if (bodies.dietary) writes.push(apiClient.post('/dietary-social-habits', { iptr_id: iptrId, ...bodies.dietary }));
+          if (bodies.oral) writes.push(apiClient.post('/oral-health-conditions', { iptr_id: iptrId, oral_hygiene: 'Not assessed', ...bodies.oral }));
+        }
+        const failed = !iptrId || (await Promise.allSettled(writes)).some((r) => r.status === 'rejected');
+        if (failed) toast.error('The student was saved, but the ticks from the form were not. Enter them on the History tab.');
+      }
       toast.success(`Student added: ${form.lastName}, ${form.firstName} · ${schoolYearLabel()} record opened`);
       navigate(`/dental-chart/${created._id}?tab=history`);
     } catch (err) {
@@ -301,6 +335,69 @@ export const VerifyStudentForm = () => {
           </div>
         </div>
       </div>
+
+      {/* The IPTR Year 1-5 tick grid (O2b). Shown for review, saved only
+          when ticked here; absent for a spreadsheet upload. */}
+      {handoff.ticks && (
+        <div style={{ marginTop: '1.5rem', background: '#fff', border: '0.0625rem solid #E2E8F0', borderRadius: '1rem', padding: '1rem 1.125rem' }}>
+          <div style={{ fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#67687A' }}>Ticks found on the form</div>
+          {handoff.ticks.confidence === 0 ? (
+            <p style={{ margin: '0.5rem 0 0', fontSize: '0.8125rem', color: '#67687A' }}>
+              {handoff.ticks.reason ?? 'The Year 1-5 table could not be read.'} Enter the ticks on the History tab after saving.
+            </p>
+          ) : tickFindings.length === 0 ? (
+            <p style={{ margin: '0.5rem 0 0', fontSize: '0.8125rem', color: '#67687A' }}>No ticks were found on the Year 1-5 table.</p>
+          ) : (
+            <>
+              <p style={{ margin: '0.375rem 0 0.75rem', fontSize: '0.78125rem', color: '#67687A' }}>
+                Nothing here is saved unless you tick it. Ticked rows go into the {schoolYearLabel()} record.
+              </p>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78125rem', fontWeight: 600, color: '#33344a', marginBottom: '0.75rem' }}>
+                This school year is the form&apos;s
+                <select
+                  style={{ ...inputStyle, width: 'auto', appearance: 'auto' }}
+                  value={tickYear}
+                  onChange={(e) => { setTickYear(Number(e.target.value)); setAcceptedTicks(new Set()); }}
+                >
+                  {[1, 2, 3, 4, 5].map((y) => {
+                    const n = tickFindings.filter((f) => f.years.includes(y)).length;
+                    return <option key={y} value={y}>Year {y}{n ? ` (${n} ticked)` : ''}</option>;
+                  })}
+                </select>
+                column
+              </label>
+              {(['medical', 'dietary', 'oral'] as const).map((section) => {
+                const rows = tickFindings.filter((f) => f.section === section && f.years.includes(tickYear));
+                if (!rows.length) return null;
+                return (
+                  <div key={section} style={{ marginBottom: '0.625rem' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#141413', marginBottom: '0.25rem' }}>{SECTION_TITLES[section]}</div>
+                    {rows.map((f) => {
+                      const kind = tickKind(f);
+                      if (kind !== 'storable') {
+                        return (
+                          <div key={tickKey(f)} style={{ fontSize: '0.78125rem', color: '#67687A', padding: '0.1875rem 0' }}>
+                            {f.label}: {kind === 'text' ? 'ticked. Type the details on the History tab.' : 'ticked, but the system has no field for it, so it is not saved.'}
+                          </div>
+                        );
+                      }
+                      return (
+                        <label key={tickKey(f)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', padding: '0.1875rem 0', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={acceptedTicks.has(tickKey(f))} onChange={() => toggleTick(tickKey(f))} />
+                          {f.label}
+                        </label>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+              {!tickFindings.some((f) => f.years.includes(tickYear)) && (
+                <p style={{ margin: 0, fontSize: '0.78125rem', color: '#67687A' }}>No ticks in Year {tickYear}.</p>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {error && <p style={{ marginTop: '1rem', fontSize: '0.8125rem', color: '#BE123C' }}>{error}</p>}
       {missing.size > 0 && (

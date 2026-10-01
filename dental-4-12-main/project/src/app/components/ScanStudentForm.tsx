@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { CameraCapture } from './CameraCapture';
 import { parseSpreadsheetRecords, normalizeSex, normalizeGrade } from '../utils/studentImport';
 import { BLANK_NEW_PATIENT, type NewPatientForm } from './PatientList';
-import type { IptrOcrFieldKey } from '../utils/iptrOcrShared';
+import type { IptrOcrFieldKey, IptrCheckboxFinding } from '../utils/iptrOcrShared';
 
 // Full PAGE, not a modal (user, 2026-09-29: "restructure everything...
 // doesn't have to be a pop up, make it a page... i want the same exact copy
@@ -24,6 +24,9 @@ type ExtractedHandoff = {
   ocrSourceLabel: 'scanned form' | 'uploaded file';
   sourceFileName: string;
   sourcePreviewUrl: string | null;
+  /** The IPTR Year 1-5 tick grid (O2b, 2026-10-01). Computed by the OCR but
+   *  dropped here until now; absent for a spreadsheet upload. */
+  ticks?: { findings: IptrCheckboxFinding[]; confidence: number; reason?: string };
 };
 
 const ACCEPT = 'image/png,image/jpeg,image/jpg,application/pdf,text/csv,.csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -112,6 +115,7 @@ export const ScanStudentForm = () => {
           ocrSourceLabel: 'scanned form',
           sourceFileName: file.name,
           sourcePreviewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+          ticks: { findings: result.checkboxes, confidence: result.checkboxConfidence, reason: result.checkboxReason },
         };
       }
       navigate('/students/scan/review', { state: handoff });
