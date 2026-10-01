@@ -23,121 +23,31 @@ Work is on branch **`majorUpdates`** (pushed; not merged to main).
 - Local dev = 3 processes from `dental-4-12-main/project`: `npm run dev:server`, `npm run dev`, plus `uvicorn main:app --port 8000` from `ml-service/` if predictions are needed.
 - Demo accounts: admin/dentist/aide/schooladmin/bho `@floral.com` — passwords rotated, live in `.env` (`SEED_*`) only, never in docs.
 
-## OCR requests from the classmate (2026-10-01), 3 sprints, one at a time
-✅ **O1 DONE on `main`:** System Admin now sees Add Student + OCR (`PatientList.tsx` `canAddStudent`),
-matching the server's `CLINICAL_WRITE_ROLES` (verified: admin POST /students → 400 validation, not 403).
-✅ **O2a DONE on `main`: personal-info OCR, measured on her 3 test images** (`Downloads/12.png` clinic
-sheet, `13.png` web-form SCREENSHOT, `14.png` IPTR two-page spread, a SCREENSHOT of the app's IPTR
-preview). Before → after: 12 = 12/15 → 15/15 (birthdate, Sex, PhilHealth Status fixed); 13 = 11 junk or
-wrong → all right except Sex; 14 = name reversed, no DOB/Sex → Reyes/Mikaela/S., DOB, Female, address.
-Fixes, all in `utils/iptrOcr.ts` + `iptrTickBoxes.ts`: grid drops words OCR is <40% sure of; boundary
-captions (Age, PhilHealth Status) stop an answer; a far second line is not part of the answer; table
-marks `[ ] |` reject an answer; Sex must be M/F (else blank so the tick reader decides) and reads the
-IPTR's "M Fv"; phone needs ≥7 digits (placeholders "09XX…" blank); grade = first real grade; landscape
-spreads split at a blank middle gutter; fields come from the page with the most identity captions;
-IPTR names come from its "Name:" line in Surname/First/M.I. order; tick boxes measured with one
-window size per group (labels of different heights put the old measurement on the box border).
-Tests: `utils/iptrOcr.test.ts` (8). 119/119, tsc, build clean. Verified through the real Scan → Verify
-screens for 12 and 14. **Known limits:** 13's Sex stays blank (OCR never sees the word "Female" on
-that screenshot's tinted option, even sparse or black-and-white; blank is the intended decline). Tick
-confidences are low (29-50), so Verify flags them for a human check, which is correct.
-✅ **O2a follow-up:** "Contact #:" / "Philhealth #:" captions never matched (`\b` after `#` before `:`),
-so the BLANK official IPTR invented 4 fields on the pre-O2a code; now **0** (measured on
-`Downloads/Individual Patient Treatment Record.pdf`, the blank supplied 2026-09-03).
-**REAL-FORM FINDINGS (2026-10-01, user's phone photos of REAL pupils' sheets, kept OUT of the repo):**
-the clinic's CURRENT form is the official Year 1-5 "Individual Patient Treatment Record" (Taguig CHO
-header; sheets dated 2026). DOH Form 1 samples are dated 2023, Taguig CHO "Oral Health Form 1" 2022:
-older, do not build. On 2026 sheets only Oral Health Condition rows are ticked (Year 1); medical/dietary
-blank. OCR on real HANDWRITTEN phone photos: names/dates come back as junk (Tesseract limit), and the
-Year 1-5 grid reader finds no table on angled photos (it declines with a reason; nothing saved).
-✅ **Grid reader FIXED (2026-10-01, `utils/iptrCheckboxes.ts`), two pre-existing bugs:**
-(1) it never found the table through the app's OWN PDF path: pages render ~1028 px wide, rules are 1 px,
-and a slightly leaning rule split across two pixel columns under the 50% bar ("6 column lines").
-Sprint 86 was verified on a high-res PNG, never on this path. Now a 3 px strip is tested.
-(2) ⚠ **Rows were misattributed.** The "Dietary Habits…" and "Oral Health Condition" headings are RULED
-ROWS; taking the last 31 bands as the 31 conditions shifted medical rows by 2 and dietary by 1 (proved:
-a drawn Thumbsucking tick came back "Nail Biting", an Allergies tick was lost, confidence 75). Only
-oral rows were right. Now read through `TABLE_LAYOUT` (headings skipped). Invisible until now only
-because findings never reached the screen. Verified on the genuine blank PDF in the browser: 0 ticks;
-6 drawn ticks back on exactly their rows/years; upside-down page declined; full upload path 0 fields,
-grid confidence 75. `utils/iptrCheckboxes.test.ts` (2) fails on the old code ("Nail Biting"). 121/121.
-✅ **O3 DONE 2026-10-01 on `main`: bulk OCR.** The Scan page takes up to 20 files (multi-select or drop;
-ONE FILE = ONE STUDENT, never one page: the IPTR is 2 pages), reads them one after another ("Reading form
-2 of 3… 66%"), then Verify walks the QUEUE: "Student i of n", Save & Next / Skip this form / Stop batch,
-then "Batch done: N saved, M skipped." and back to Students. A file that cannot be read joins the queue
-empty with its reason; a spreadsheet must be alone (`utils/ocrBatch.ts` + 4 tests). One file behaves as
-before (save opens the chart). Verified on DEV with 12/13/14.png: skip, save, skip → "1 saved, 2
-skipped". 130/130.
-✅ **O2b DONE 2026-10-01 on `main`:** the Year 1-5 tick findings reach the Verify screen ("Ticks
-found on the form": unchecked boxes, Year select defaulting to the latest ticked column, text rows and
-unstorable rows explained, decline reason shown). On save, ACCEPTED storable ticks go into the new
-school-year IPTR's records; a section with nothing accepted gets NO record. Helper
-`utils/ocrTickFindings.ts` (+5 tests). **Verified end to end on DEV as the dentist:** a blank IPTR with
-4 drawn Year 1 ticks showed exactly those 4; accepting Thumbsucking + Gingivitis (not Calculus) saved
-dietary {thumb_sucking}, oral {gingivitis, oral_hygiene "Not assessed"}, and NO medical record.
-126/126, tsc clean.
-✅ **FIXED 2026-10-01:** STUDENT.address was `required: true` on the server (left from Sprint 2) while
-every screen, DATA-MODEL.md and the clinic's sheet say optional; a save without one failed with the raw
-"Path `address` is required". Now optional on the model. Verified on DEV: POST without address → 201.
-✅ The fictional test pupils (Testcase Ocrtick, Reyes Mikaela, Noaddress Testpupil) are ARCHIVED on DEV.
-**O2b PLAN (as written before building, kept for reference):**
-1. `ScanStudentForm.tsx` ~91-115: add `checkboxes`, `checkboxConfidence`, `checkboxReason`,
-   `unstorableFindings` from `extractIptrFields` to the handoff (they are computed and dropped today).
-2. `VerifyStudentForm.tsx`: a "Ticks found on the form" section. Each finding = row label + Year column,
-   grouped Medical / Dietary / Oral, each with its own accept checkbox. If confidence is 0, show
-   `checkboxReason` instead. Unstorable rows (Orally Fit, Dental Caries, Completely Edentulous) are
-   listed as "on the form, not stored". Text rows (Allergies, Others, Last Admission) get a tick only:
-   say "type the details on the chart".
-3. Save (`save()` ~83-131): capture the `/student-iptrs` POST's `_id` (today best-effort, errors
-   swallowed; must now surface), then POST `/medical-histories`, `/dietary-social-habits`,
-   `/oral-health-conditions` with `{ iptr_id, <field>: true }` for accepted findings, same body shapes
-   as `DentalChart.tsx` ~1204-1223. Offline queue: check how those POSTs behave offline.
-4. ✅ DECIDED by the user 2026-10-01: (a) accept boxes default UNCHECKED; (b) a Year select that
-   defaults to the column carrying ticks (a new pupil = Year 1).
-   Field facts checked for step 3: every tick row maps to a BOOLEAN except the text rows,
-   `allergies` / `others` / `last_admission` (MEDICAL_HISTORY, String; allergies, others and
-   last_admission are ENCRYPTED) and oral `others` (String). A tick on a text row must NOT write "true"
-   into a string: skip it and tell the encoder to type the details on the chart. Oral POST needs
-   `oral_hygiene` (chart sends 'Not assessed' when blank). Dietary body keys = the model's own names
-   (sugar_beverages, alcohol_drinker, tobacco_user, betel_nut_chewer, body_piercing, nail_biting,
-   thumb_sucking), same as IPTR_FORM_ROWS `field`.
-5. Verify with a drawn-tick copy of the blank IPTR PDF (see the grid-fix note above), then a unit test.
-**Older note, superseded by the plan above: the tick TABLES.** (1) The Year 1-5 grid findings are computed
-but DROPPED: `ScanStudentForm.tsx` never passes `result.checkboxes` to Verify (lost when OCR moved
-from popup to page 2026-09-29). (2) The IPTR's own tables (medical history Oo/Hindi ✓, Oral Health
-Status ✓/X per Age column, Services Rendered) are not read at all; the grid reader expects the
-official "Year 1-5" layout. Decision needed: where do reviewed findings save? Verify only creates the
-STUDENT; these belong to that school year's MEDICAL_HISTORY / ORAL_HEALTH_CONDITION (IPTR).
-**O3 (Opus high):** bulk OCR upload has no UI (scan page takes one file). Plan: many images or one
-multi-page PDF, one page = one student, review each on the existing Verify screen, nothing saves unreviewed.
-Also check: `14.png`'s bottom caption ("Place of Birth · Occupation … print blank") must NOT reach paper.
-✅ **Risk redesign R1–R3 MERGED to `main` and LIVE 2026-10-01** (merge `7a493079`; preview skipped by the
-user's call). Live dashboard risk figures now count dentist-validated results only, by design. The
-classmate reviews on the live site. Notes on the abandoned preview attempt, for reference: Preview set
-up 2026-10-01: the user set Preview `MONGODB_URI` + `FIELD_ENCRYPTION_SECRET` to the DEV values; I added
-Preview-only `ALLOWED_ORIGINS` = the branch alias (Vercel shortens it:
-`https://dental-app-build-git-risk-29fb62-jeraldalondres-9214s-projects.vercel.app`). ⚠ Use THAT address:
-each build's random URL is not on the allowlist ("Origin not allowed"). Deployment Protection is ON, so
-the classmate needs a Vercel Share link (or protection off temporarily). Merge to main after her review.
+## ▶ RESUME HERE — PARKED 2026-10-01 (12th session, late). ✅ **ALL PUSHED, LIVE**
 
-## ▶ RESUME HERE — PARKED 2026-10-01 (12th session, 3rd day). ✅ **ALL PUSHED, LIVE**
+**Nothing is in progress.** On `main`, level with origin. `npm test` **159/159**, `tsc` both configs and
+`npm run build` clean. Live https://dental-app-build.vercel.app healthy after the merge
+(`{"db":"connected"}`). Dev processes stopped by process.
 
-**Nothing is in progress.** On `main`, working tree clean, level with origin (fetch + count, 0/0).
-`npm test` **111/111**, `tsc` both configs and `npm run build` clean. All dev processes stopped BY
-PROCESS (watchers included — see the gotcha below), ports 4000/5173 free.
-⚠ Chrome's localhost session is the **System Admin** (not logged out: Logout revokes every device).
+**2026-10-01 in one line:** the classmate's **Risk Classification redesign (R1–R3) is MERGED and LIVE**,
+and her **three OCR requests are done**: the System Admin can use Add Student + OCR (O1), personal-info
+accuracy (O2a), the Year 1-5 tick grid fixed and its findings reviewed on Verify then saved (O2b), and
+bulk scanning of up to 20 files (O3). Plus STUDENT.address made optional on the server. Earlier the same
+day: 30-min idle lock screen, "View as", SEC-35. Full detail: `docs/BUILD-LOG.md` → "2026-10-01".
 
-**2026-10-01 in one line: three things built, tested live, deployed — 30-min idle lock screen, "View
-as" (admin previews other roles, read-only), and SEC-35 (risk sign-off dentist-only).** Plus: the
-Sprint 163 plan re-checked against the merged code (still valid; adds a notifications name leak),
-and the classmate's Risk Classification redesign reviewed (waiting on 3 answers). Each has its own
-paragraph below.
+**Facts to keep from the real forms (photos of REAL pupils, used locally only, never committed):**
+- The clinic's CURRENT form is the official Year 1-5 "Individual Patient Treatment Record" (Taguig CHO,
+  sheets dated 2026). DOH Form 1 (2023) and the CHO "Oral Health Form 1" (2022) are older: do not build.
+- OCR cannot read HANDWRITING (Tesseract limit): names and dates on real sheets come back as junk. It
+  reads typed text and tick marks. **Chapter 5 limitation.** The tick grid is not found on angled phone
+  photos; it declines with a reason and saves nothing.
+- Live risk dashboards now count dentist-VALIDATED results only, by design; numbers drop until reviewed.
 
-✅ **SEC-00 RESOLVED on this PC (2026-10-01):** `.env` now targets the DEV cluster
-(`cluster0.o7e3c5o`; `PRODUCTION_DB_HOST` = `floral-cluster.edqpjtu`), copied whole from the other
-machine's dev `.env`; the previous production-pointing file is `.env.production-backup-20261001`
-(gitignored). API verified `{"db":"connected"}`. **Sprint 163 is now unblocked** — test as every
-role against DEV, never production.
+✅ **SEC-00 RESOLVED on this PC (2026-10-01):** `.env` targets the DEV cluster (`cluster0.o7e3c5o`;
+`PRODUCTION_DB_HOST` = `floral-cluster.edqpjtu`); the old production-pointing file is
+`.env.production-backup-20261001` (gitignored). **Sprint 163 is unblocked**: test against DEV only.
+⚠ The DEV cluster's Atlas network allowlist does NOT admit Vercel, so a Vercel preview cannot reach it
+(seen 2026-10-01). A future preview needs a temporary "allow from anywhere" entry in Atlas.
 
 ⚠⚠ **SECRETS EXPOSED 2026-10-01 — ROTATE (user action, walk them through it):** the user uploaded
 their `.env` files into the chat, including PRODUCTION's DB password and FIELD_ENCRYPTION_SECRET,
@@ -148,13 +58,17 @@ different from dev's; (4) change the demo-account passwords. The encryption key 
 changed (CLAUDE.md) — it needs a planned re-encryption; (1) is what protects it meanwhile.
 **Never ask a user to paste `.env` contents; ask for host names only.**
 
-**▶ NEXT, in order:** (0) **Rotate the exposed secrets** (above). (1) **Risk redesign** — the user
-does not know the clinical answers; recommended defaults (awaiting "go"): treatment rules exactly as
-her pictures (FV "Medium or High risk", PF for a D tooth, SDF for a d tooth; dentist accepts/skips
-each), "Reasons" relabelled "Findings", caries-free count = teeth charted ✓ ("—" if uncharted); ask
-the dentist to glance at the rules before defense. (2) **Sprint 163** (now unblocked). LOW
-PRIORITY (user, 2026-10-01): phone test (drag-to-paint; phone stays signed in when the laptop locks),
-SEC-12 two-browser confirmation (the fix itself is live and tested), Render API key check.
+**▶ NEXT, in order:** (0) **Rotate the exposed secrets** (above). (1) The classmate's feedback on the
+live Risk redesign; ask the dentist to glance at the treatment rules (FV Medium/High, PF per D, SDF per
+d) before defense. (2) **Sprint 163** (unblocked). LOW PRIORITY: phone test (drag-to-paint; stays
+signed in when the laptop locks), SEC-12 two-browser confirmation, Render API key check.
+
+**User-only:** delete the real pupils' photos from Downloads. Optional: the Vercel PREVIEW-only env vars
+added for the abandoned preview (`MONGODB_URI`/`FIELD_ENCRYPTION_SECRET` = dev values, `ALLOWED_ORIGINS`
+= the risk-redesign branch alias) are harmless; delete them if unwanted.
+⚠ Chrome's localhost session is the dentist test account. Claude may sign in with the DEV seed accounts
+on localhost (user permission 2026-10-01) after checking the dev host; never press Logout in the shared
+Chrome (it revokes every device).
 
 #### 2026-09-30 (merge day)
 
