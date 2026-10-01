@@ -5,6 +5,7 @@ import { CameraCapture } from './CameraCapture';
 import { parseSpreadsheetRecords, normalizeSex, normalizeGrade } from '../utils/studentImport';
 import { BLANK_NEW_PATIENT, type NewPatientForm } from './PatientList';
 import type { IptrOcrFieldKey, IptrCheckboxFinding } from '../utils/iptrOcrShared';
+import { batchProblem, isSpreadsheet, MAX_BATCH_FILES } from '../utils/ocrBatch';
 
 // Full PAGE, not a modal (user, 2026-09-29: "restructure everything...
 // doesn't have to be a pop up, make it a page... i want the same exact copy
@@ -17,7 +18,13 @@ import type { IptrOcrFieldKey, IptrCheckboxFinding } from '../utils/iptrOcrShare
 // VerifyStudentForm.tsx (/students/scan/review) via router state -- nothing
 // is ever saved from this page.
 
-type ExtractedHandoff = {
+// Several forms at once (O3, 2026-10-01): each FILE is one student (see
+// utils/ocrBatch.ts for why not each page). All are read first, then handed
+// to Verify as a QUEUE that is reviewed one at a time.
+export type ExtractedHandoff = {
+  /** Set when this file could not be read: it still joins the queue, empty,
+   *  so the encoder can type it or skip it, and the rest of the batch goes on. */
+  readError?: string;
   newPatient: NewPatientForm;
   confidences: Partial<Record<IptrOcrFieldKey, number>>;
   extractedKeys: (keyof NewPatientForm)[];
@@ -36,23 +43,29 @@ export const ScanStudentForm = () => {
   const { selectedSchool } = useAuth();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<'photo' | 'file' | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [reading, setReading] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  const pickFile = (f: File) => { setError(null); setFile(f); setSelectedMethod('file'); };
-
-  const extract = async () => {
-    if (!file) return;
+  const addFiles = (list: File[]) => {
+    if (!list.length) return;
     setError(null);
-    setProcessing(true);
-    setProgress(0);
-    try {
+    setFiles((prev) => [...prev, ...list]);
+    setSelectedMethod('file');
+  };
+  const removeFile = (i: number) => setFiles((prev) => prev.filter((_, j) => j !== i));
+
+  const readError = (name: string, err: unknown) => (isSpreadsheet(name)
+    ? (err instanceof Error ? err.message : 'Could not read the file. Check the column headers and try again.')
+    : 'Could not read the image. Try a clearer photo or enter details manually.');
+
+  const readOne = async (file: File): Promise<ExtractedHandoff> => {
       let handoff: ExtractedHandoff;
-      if (/\.(csv|xlsx|xls)$/i.test(file.name)) {
+      if (isSpreadsheet(file.name)) {
         const [rec] = await parseSpreadsheetRecords(file);
         const get = (...keys: string[]) => { for (const k of keys) if (rec[k]) return rec[k]; return ''; };
         const sexRaw = get('sex', 'gender');
@@ -118,13 +131,47 @@ export const ScanStudentForm = () => {
           ticks: { findings: result.checkboxes, confidence: result.checkboxConfidence, reason: result.checkboxReason },
         };
       }
-      navigate('/students/scan/review', { state: handoff });
-    } catch (err) {
-      setError(
-        /\.(csv|xlsx|xls)$/i.test(file.name)
-          ? (err instanceof Error ? err.message : 'Could not read the file. Check the column headers and try again.')
-          : 'Could not read the image. Try a clearer photo or enter details manually.',
-      );
+      return handoff;
+  };
+
+  const extract = async () => {
+    if (!files.length) return;
+    const problem = batchProblem(files.map((f) => f.name));
+    if (problem) { setError(problem); return; }
+    setError(null);
+    setProcessing(true);
+    try {
+      // One file: exactly as before, a read failure stays on this page.
+      if (files.length === 1) {
+        setReading(0);
+        setProgress(0);
+        try {
+          const handoff = await readOne(files[0]);
+          navigate('/students/scan/review', { state: { queue: [handoff] } });
+        } catch (err) {
+          setError(readError(files[0].name, err));
+        }
+        return;
+      }
+      // A batch: one after another (the OCR worker is heavy), and a file that
+      // cannot be read joins the queue empty, with its reason.
+      const queue: ExtractedHandoff[] = [];
+      for (const [i, file] of files.entries()) {
+        setReading(i);
+        setProgress(0);
+        try {
+          queue.push(await readOne(file));
+        } catch (err) {
+          queue.push({
+            readError: readError(file.name, err),
+            newPatient: { ...BLANK_NEW_PATIENT, school: selectedSchool ?? '' },
+            confidences: {}, extractedKeys: [], ocrSourceLabel: 'scanned form',
+            sourceFileName: file.name,
+            sourcePreviewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+          });
+        }
+      }
+      navigate('/students/scan/review', { state: { queue } });
     } finally {
       setProcessing(false);
     }
@@ -191,42 +238,49 @@ export const ScanStudentForm = () => {
       <div
         onClick={() => fileInputRef.current?.click()}
         onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) pickFile(f); }}
+        onDrop={(e) => { e.preventDefault(); addFiles(Array.from(e.dataTransfer.files)); }}
         style={{ minHeight: '13.75rem', background: '#fff', border: '0.125rem dashed #E2E8F0', borderRadius: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.875rem', padding: '1.5rem', textAlign: 'center', cursor: 'pointer' }}
       >
-        {file ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', background: '#F6F9FC', border: '0.0625rem solid #E2E8F0', borderRadius: '0.75rem', padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: '0.625rem', background: '#ECECF0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#141413" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="15.3" height="15.3" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-            </div>
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>{file.name}</div>
-              <div style={{ fontSize: '0.75rem', color: '#67687A' }}>{(file.size / (1024 * 1024)).toFixed(1)} MB &middot; ready to extract</div>
-            </div>
-            <button
-              type="button"
-              aria-label="Remove selected file"
-              onClick={() => setFile(null)}
-              style={{ cursor: 'pointer', marginLeft: '0.5rem', width: '1.625rem', height: '1.625rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#67687A', background: 'none', border: 'none' }}
-            >
-              <svg width="13.6" height="13.6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-            </button>
+        {files.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '18rem', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+            {files.map((file, i) => (
+              <div key={`${file.name}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', background: '#F6F9FC', border: '0.0625rem solid #E2E8F0', borderRadius: '0.75rem', padding: '0.75rem 1rem' }}>
+                <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: '0.625rem', background: '#ECECF0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#141413" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="15.3" height="15.3" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                </div>
+                <div style={{ textAlign: 'left', minWidth: 0 }}>
+                  <div style={{ fontSize: '0.875rem', fontWeight: 600, wordBreak: 'break-word' }}>{file.name}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#67687A' }}>{(file.size / (1024 * 1024)).toFixed(1)} MB &middot; ready to extract</div>
+                </div>
+                <button
+                  type="button"
+                  aria-label={`Remove ${file.name}`}
+                  disabled={processing}
+                  onClick={() => removeFile(i)}
+                  style={{ cursor: 'pointer', marginLeft: 'auto', width: '1.625rem', height: '1.625rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#67687A', background: 'none', border: 'none', flexShrink: 0 }}
+                >
+                  <svg width="13.6" height="13.6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+              </div>
+            ))}
           </div>
         ) : (
           <>
             <svg width="27.2" height="27.2" viewBox="0 0 24 24" fill="none" stroke="#67687A" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
-            <div style={{ fontSize: '0.875rem', color: '#67687A', fontWeight: 500 }}>Drop a file here</div>
+            <div style={{ fontSize: '0.875rem', color: '#67687A', fontWeight: 500 }}>Drop files here</div>
           </>
         )}
-        <div style={{ fontSize: '0.8125rem', color: '#67687A' }}>{file ? 'or drag a new file here to replace it' : 'or click to browse'}</div>
+        <div style={{ fontSize: '0.8125rem', color: '#67687A' }}>
+          {files.length ? 'or drag more files here, or click to add' : `or click to browse. Choose up to ${MAX_BATCH_FILES} forms; each file is one student.`}
+        </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem', justifyContent: 'center', maxWidth: '35rem' }}>
           {['.jpg', '.jpeg', '.png', '.pdf', '.xlsx', '.csv'].map((ext) => (
             <span key={ext} style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#67687A', background: '#ECECF0', borderRadius: '62.4375rem', padding: '0.1875rem 0.625rem' }}>{ext}</span>
           ))}
         </div>
         <input
-          ref={fileInputRef} type="file" accept={ACCEPT} style={{ display: 'none' }}
-          onChange={(e) => { if (e.target.files?.[0]) pickFile(e.target.files[0]); e.target.value = ''; }}
+          ref={fileInputRef} type="file" accept={ACCEPT} multiple style={{ display: 'none' }}
+          onChange={(e) => { addFiles(Array.from(e.target.files ?? [])); e.target.value = ''; }}
         />
       </div>
 
@@ -237,7 +291,7 @@ export const ScanStudentForm = () => {
           <>
             <span style={{ width: '1.125rem', height: '1.125rem', borderRadius: '50%', border: '0.1875rem solid #F4F7FF', borderTopColor: '#273A78', display: 'inline-block', animation: 'fl-spin 0.8s linear infinite' }} />
             <style>{'@keyframes fl-spin { to { transform: rotate(360deg); } }'}</style>
-            Scanning form… {progress}%
+            {files.length > 1 ? `Reading form ${reading + 1} of ${files.length}… ${progress}%` : `Scanning form… ${progress}%`}
           </>
         )}
         {!processing && error && <span style={{ color: '#BE123C' }}>{error}</span>}
@@ -255,10 +309,10 @@ export const ScanStudentForm = () => {
         <button
           type="button"
           onClick={extract}
-          disabled={!file || processing}
-          style={{ cursor: !file || processing ? 'not-allowed' : 'pointer', opacity: !file || processing ? 0.5 : 1, boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6875rem 1.375rem', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: 700, background: '#273A78', color: '#fff', border: 'none' }}
+          disabled={!files.length || processing}
+          style={{ cursor: !files.length || processing ? 'not-allowed' : 'pointer', opacity: !files.length || processing ? 0.5 : 1, boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6875rem 1.375rem', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: 700, background: '#273A78', color: '#fff', border: 'none' }}
         >
-          Extract Information
+          {files.length > 1 ? `Extract ${files.length} Forms` : 'Extract Information'}
           <svg width="13.6" height="13.6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
         </button>
       </div>
@@ -266,7 +320,7 @@ export const ScanStudentForm = () => {
       {showCamera && (
         <CameraCapture
           onClose={() => setShowCamera(false)}
-          onCapture={(f) => { setShowCamera(false); pickFile(f); }}
+          onCapture={(f) => { setShowCamera(false); addFiles([f]); }}
         />
       )}
     </div>

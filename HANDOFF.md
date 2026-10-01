@@ -61,6 +61,14 @@ oral rows were right. Now read through `TABLE_LAYOUT` (headings skipped). Invisi
 because findings never reached the screen. Verified on the genuine blank PDF in the browser: 0 ticks;
 6 drawn ticks back on exactly their rows/years; upside-down page declined; full upload path 0 fields,
 grid confidence 75. `utils/iptrCheckboxes.test.ts` (2) fails on the old code ("Nail Biting"). 121/121.
+✅ **O3 DONE 2026-10-01 on `main`: bulk OCR.** The Scan page takes up to 20 files (multi-select or drop;
+ONE FILE = ONE STUDENT, never one page: the IPTR is 2 pages), reads them one after another ("Reading form
+2 of 3… 66%"), then Verify walks the QUEUE: "Student i of n", Save & Next / Skip this form / Stop batch,
+then "Batch done: N saved, M skipped." and back to Students. A file that cannot be read joins the queue
+empty with its reason; a spreadsheet must be alone (`utils/ocrBatch.ts` + 4 tests). One file behaves as
+before (save opens the chart). Verified on DEV with 12/13/14.png: skip, save, skip → "1 saved, 2
+skipped". 130/130. ⚠ **DEV DB now also has fictional "Reyes, Mikaela"** from that test (archive as admin,
+with "Testcase, Ocrtick").
 ✅ **O2b DONE 2026-10-01 on `main`:** the Year 1-5 tick findings reach the Verify screen ("Ticks
 found on the form": unchecked boxes, Year select defaulting to the latest ticked column, text rows and
 unstorable rows explained, decline reason shown). On save, ACCEPTED storable ticks go into the new

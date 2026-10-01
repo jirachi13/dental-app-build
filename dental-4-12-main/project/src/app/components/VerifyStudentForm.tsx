@@ -11,8 +11,10 @@ import {
   BLANK_NEW_PATIENT, REQUIRED_STUDENT_FIELDS, duplicatesFromError,
   type NewPatientForm, type DuplicateCandidate,
 } from './PatientList';
-import type { IptrOcrFieldKey, IptrCheckboxFinding } from '../utils/iptrOcrShared';
+import type { IptrCheckboxFinding } from '../utils/iptrOcrShared';
 import { tickBodies, tickKind, tickKey, defaultTickYear } from '../utils/ocrTickFindings';
+import { batchSummary, type BatchOutcome } from '../utils/ocrBatch';
+import type { ExtractedHandoff } from './ScanStudentForm';
 // Same shared value-format rules the manual Add Student form and the server use.
 import { validateStudentValues } from '../../../shared/studentValidation';
 import { calculateAge } from '../utils/age';
@@ -23,15 +25,6 @@ import { calculateAge } from '../utils/age';
 // reached only via router state handed off by ScanStudentForm -- there is
 // nothing to verify without it, so a direct/refreshed visit bounces back.
 
-type ExtractedHandoff = {
-  newPatient: NewPatientForm;
-  confidences: Partial<Record<IptrOcrFieldKey, number>>;
-  extractedKeys: (keyof NewPatientForm)[];
-  ocrSourceLabel: 'scanned form' | 'uploaded file';
-  sourceFileName: string;
-  sourcePreviewUrl: string | null;
-  ticks?: { findings: IptrCheckboxFinding[]; confidence: number; reason?: string };
-};
 
 const SECTION_TITLES: Record<IptrCheckboxFinding['section'], string> = {
   medical: 'Medical History',
@@ -58,15 +51,56 @@ const Label = ({ children, extracted, required }: { children: React.ReactNode; e
   </div>
 );
 
+// The route reads a QUEUE (O3, 2026-10-01): one scanned file is a queue of one
+// and behaves exactly as before (save opens the pupil's chart); a batch is
+// reviewed one form at a time with Save & next / Skip, then a summary.
 export const VerifyStudentForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const toast = useToast();
+  const queue = (location.state as { queue?: ExtractedHandoff[] } | null)?.queue ?? null;
+  const [index, setIndex] = useState(0);
+  const [outcomes, setOutcomes] = useState<BatchOutcome[]>([]);
+
+  // No queue (direct visit, or a page refresh: router state doesn't survive
+  // one) means there's nothing to verify.
+  useEffect(() => { if (!queue?.length) navigate('/students/scan', { replace: true }); }, [queue, navigate]);
+  if (!queue?.length) return null;
+
+  const done = (outcome: BatchOutcome) => {
+    const all = [...outcomes, outcome];
+    if (index + 1 < queue.length) {
+      setOutcomes(all);
+      setIndex(index + 1);
+      window.scrollTo(0, 0);
+      return;
+    }
+    toast.success(batchSummary(all));
+    navigate('/patients');
+  };
+
+  return (
+    <VerifyOne
+      key={index}
+      handoff={queue[index]}
+      position={queue.length > 1 ? { index, total: queue.length } : null}
+      onDone={done}
+    />
+  );
+};
+
+const VerifyOne = ({ handoff, position, onDone }: {
+  handoff: ExtractedHandoff;
+  /** Where this form sits in a batch; null for a single scan. */
+  position: { index: number; total: number } | null;
+  onDone: (outcome: BatchOutcome) => void;
+}) => {
+  const navigate = useNavigate();
   const { selectedSchool } = useAuth();
   const toast = useToast();
   const { schools } = useSchools();
-  const handoff = location.state as ExtractedHandoff | null;
 
-  const [form, setForm] = useState<NewPatientForm>(handoff?.newPatient ?? BLANK_NEW_PATIENT);
+  const [form, setForm] = useState<NewPatientForm>(handoff.newPatient ?? BLANK_NEW_PATIENT);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [missing, setMissing] = useState<Set<keyof NewPatientForm>>(new Set());
@@ -74,7 +108,7 @@ export const VerifyStudentForm = () => {
   const [showSourcePreview, setShowSourcePreview] = useState(false);
   // The IPTR tick grid (O2b, 2026-10-01). Every finding starts UNCHECKED and
   // the Year select defaults to the latest column with ticks (user decisions).
-  const tickFindings = handoff?.ticks?.findings ?? [];
+  const tickFindings = handoff.ticks?.findings ?? [];
   const [tickYear, setTickYear] = useState(() => defaultTickYear(tickFindings));
   const [acceptedTicks, setAcceptedTicks] = useState<Set<string>>(new Set());
   const toggleTick = (key: string) => setAcceptedTicks((prev) => {
@@ -82,11 +116,6 @@ export const VerifyStudentForm = () => {
     if (next.has(key)) next.delete(key); else next.add(key);
     return next;
   });
-
-  // No handoff (direct visit, or a page refresh -- router state doesn't
-  // survive one) means there's nothing to verify.
-  useEffect(() => { if (!handoff) navigate('/students/scan', { replace: true }); }, [handoff, navigate]);
-  if (!handoff) return null;
 
   const isExtracted = (key: keyof NewPatientForm) =>
     key in handoff.confidences || handoff.extractedKeys.includes(key);
@@ -154,6 +183,11 @@ export const VerifyStudentForm = () => {
         const failed = !iptrId || (await Promise.allSettled(writes)).some((r) => r.status === 'rejected');
         if (failed) toast.error('The student was saved, but the ticks from the form were not. Enter them on the History tab.');
       }
+      if (position) {
+        toast.success(`Saved ${form.lastName}, ${form.firstName} (${position.index + 1} of ${position.total})`);
+        onDone('saved');
+        return;
+      }
       toast.success(`Student added: ${form.lastName}, ${form.firstName} · ${schoolYearLabel()} record opened`);
       navigate(`/dental-chart/${created._id}?tab=history`);
     } catch (err) {
@@ -174,7 +208,9 @@ export const VerifyStudentForm = () => {
             <svg width="22.1" height="22.1" viewBox="0 0 24 24" fill="none" stroke="#273A78" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
           </div>
           <div>
-            <div style={{ fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#67687A' }}>Students &middot; OCR</div>
+            <div style={{ fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#67687A' }}>
+              Students &middot; OCR{position && <> &middot; Student {position.index + 1} of {position.total}</>}
+            </div>
             <h1 style={{ margin: '0.125rem 0 0', fontSize: '1.5rem', fontWeight: 700 }}>Verify Extracted Information</h1>
           </div>
         </div>
@@ -187,6 +223,12 @@ export const VerifyStudentForm = () => {
           Back
         </button>
       </div>
+
+      {handoff.readError && (
+        <div style={{ background: '#FFF7ED', border: '0.0625rem solid #FED7AA', borderRadius: '0.75rem', padding: '0.625rem 1rem', marginBottom: '1.125rem', fontSize: '0.78125rem', color: '#9A3412' }}>
+          {handoff.sourceFileName}: {handoff.readError} Type the details below, or skip this form.
+        </div>
+      )}
 
       {duplicates && (
         <div style={{ background: '#FFF1F2', border: '0.0625rem solid rgba(190,18,60,0.2)', borderRadius: '0.75rem', padding: '0.625rem 1rem', marginBottom: '1.125rem', fontSize: '0.78125rem', color: '#BE123C' }}>
@@ -343,7 +385,7 @@ export const VerifyStudentForm = () => {
           <div style={{ fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#67687A' }}>Ticks found on the form</div>
           {handoff.ticks.confidence === 0 ? (
             <p style={{ margin: '0.5rem 0 0', fontSize: '0.8125rem', color: '#67687A' }}>
-              {handoff.ticks.reason ?? 'The Year 1-5 table could not be read.'} Enter the ticks on the History tab after saving.
+              No Year 1-5 tick table was read from this form ({handoff.ticks.reason ?? 'not found'}). If the form has one, enter its ticks on the History tab after saving.
             </p>
           ) : tickFindings.length === 0 ? (
             <p style={{ margin: '0.5rem 0 0', fontSize: '0.8125rem', color: '#67687A' }}>No ticks were found on the Year 1-5 table.</p>
@@ -411,8 +453,18 @@ export const VerifyStudentForm = () => {
           onClick={() => navigate('/students/scan')}
           style={{ cursor: 'pointer', boxSizing: 'border-box', padding: '0.6875rem 1.25rem', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: 600, color: '#141413', border: '0.0625rem solid #E2E8F0', background: '#fff' }}
         >
-          Cancel
+          {position ? 'Stop batch' : 'Cancel'}
         </button>
+        {position && (
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => onDone('skipped')}
+            style={{ cursor: saving ? 'not-allowed' : 'pointer', boxSizing: 'border-box', padding: '0.6875rem 1.25rem', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: 600, color: '#141413', border: '0.0625rem solid #E2E8F0', background: '#fff' }}
+          >
+            Skip this form
+          </button>
+        )}
         <button
           type="button"
           onClick={() => void save(false)}
@@ -420,7 +472,7 @@ export const VerifyStudentForm = () => {
           style={{ cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1, boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6875rem 1.375rem', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: 700, background: '#273A78', color: '#fff', border: 'none' }}
         >
           <svg width="13.6" height="13.6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-          {saving ? 'Saving…' : 'Confirm & Save Student'}
+          {saving ? 'Saving…' : position && position.index + 1 < position.total ? 'Save & Next' : 'Confirm & Save Student'}
         </button>
       </div>
 
