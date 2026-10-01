@@ -14,6 +14,7 @@ import { usePreviewModal } from '../hooks/usePreviewModal';
 import { PreviewModal } from './PreviewModal';
 import { FileSpreadsheet } from 'lucide-react';
 import { ageOn, ageBracketIndex, DOH_AGE_BRACKETS } from '../../../shared/age';
+import { cariesStatus } from '../../../shared/cariesStatus';
 
 // ─── Target Client List for Oral Health Care and Services ────────────────────
 // Transcribed from the manuscript's APPENDIX E (not D — Appendix D is the DMFX
@@ -279,15 +280,16 @@ type IdentityCol = {
  *  Caries EXPERIENCE means decayed, missing or filled — a treated tooth still
  *  counts. Caries ACTIVE means currently decayed. They are different questions
  *  and the form asks both. */
-const dmftPerm = (r: Row) => (r.conditions['D'] ?? 0) + (r.conditions['M'] ?? 0) + (r.conditions['F'] ?? 0);
-const dftTemp = (r: Row) => (r.conditions['d'] ?? 0) + (r.conditions['f'] ?? 0);
 const yesNo = (b: boolean) => (b ? '1' : '0');
 
+// The first four come from `shared/cariesStatus.ts` (2026-10-01), the ONE
+// definition the Risk Classification screen also uses, so the two can never
+// disagree about the same child. This form still prints them as 1/0.
 const STATUS_COLUMNS: ServiceCol[] = [
-  { group: 'ORAL HEALTH STATUS', label: 'With Caries experience', value: (r) => yesNo(dmftPerm(r) + dftTemp(r) > 0) },
-  { group: 'ORAL HEALTH STATUS', label: 'With Caries experience in Temporary Teeth', value: (r) => yesNo(dftTemp(r) > 0) },
-  { group: 'ORAL HEALTH STATUS', label: 'With Caries experience in Permanent Dentition', value: (r) => yesNo(dmftPerm(r) > 0) },
-  { group: 'ORAL HEALTH STATUS', label: 'With Active Dental Caries', value: (r) => yesNo((r.conditions['D'] ?? 0) + (r.conditions['d'] ?? 0) > 0) },
+  { group: 'ORAL HEALTH STATUS', label: 'With Caries experience', value: (r) => yesNo(cariesStatus(r.conditions).withCariesExperience) },
+  { group: 'ORAL HEALTH STATUS', label: 'With Caries experience in Temporary Teeth', value: (r) => yesNo(cariesStatus(r.conditions).inTemporaryTeeth) },
+  { group: 'ORAL HEALTH STATUS', label: 'With Caries experience in Permanent Dentition', value: (r) => yesNo(cariesStatus(r.conditions).inPermanentDentition) },
+  { group: 'ORAL HEALTH STATUS', label: 'With Active Dental Caries', value: (r) => yesNo(cariesStatus(r.conditions).withActiveCaries) },
   { group: 'ORAL HEALTH STATUS', label: 'Gingivitis / Periodontal Disease', value: (r) => (r.oral === null ? NO_SOURCE : yesNo(r.oral.gum)) },
   { group: 'ORAL HEALTH STATUS', label: 'Oral Debris', value: (r) => (r.oral === null ? NO_SOURCE : yesNo(r.oral.debris)) },
   { group: 'ORAL HEALTH STATUS', label: 'Calcular Deposits', value: (r) => (r.oral === null ? NO_SOURCE : yesNo(r.oral.calculus)) },
@@ -303,7 +305,7 @@ const STATUS_COLUMNS: ServiceCol[] = [
   { group: 'ORAL HEALTH STATUS', label: 'F', value: (r) => String(r.conditions['F'] ?? '') },
   { group: 'ORAL HEALTH STATUS', label: 'X', value: (r) => String(r.conditions['X'] ?? '') },
   { group: 'ORAL HEALTH STATUS', label: 'Sound Permanent Teeth', value: (r) => String(r.conditions[SOUND_PERMANENT] ?? '') },
-  { group: 'ORAL HEALTH STATUS', label: 'Caries Free', value: (r) => yesNo(dmftPerm(r) + dftTemp(r) === 0) },
+  { group: 'ORAL HEALTH STATUS', label: 'Caries Free', value: (r) => yesNo(!cariesStatus(r.conditions).withCariesExperience) },
 ];
 
 const SERVICE_COLUMNS: ServiceCol[] = [

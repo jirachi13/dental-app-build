@@ -51,6 +51,9 @@ interface CrudOptions {
    *  RISK_STRATIFICATION records whether the dentist accepted or changed the
    *  AI suggestion). Return undefined to keep the default "Created X". */
   auditCreateAction?: (body: Record<string, unknown>) => string | undefined;
+  /** Same idea for a PUT, given the SAVED document (2026-10-01: the dentist's
+   *  review of a stored risk suggestion is an update, and must read as one). */
+  auditUpdateAction?: (doc: Record<string, unknown>) => string | undefined;
   /** Reject a POST that would duplicate an existing record on these fields.
    *  Added 2026-08-11 after a double-submit on "Add Year" created two
    *  StudentIptr rows for one school year a second apart, which surfaced as a
@@ -369,7 +372,8 @@ export function createCrudRouter(model: Model<any>, options: CrudOptions = {}) {
       }
       Object.assign(doc, updates);
       await doc.save();
-      await logAudit(req.user!.id, `Updated ${modelName}`, (doc._id as any).toString(), modelName);
+      const updateAction = options.auditUpdateAction?.(doc.toObject() as Record<string, unknown>) ?? `Updated ${modelName}`;
+      await logAudit(req.user!.id, updateAction, (doc._id as any).toString(), modelName);
       res.json(decryptForResponse(doc));
     }),
   );

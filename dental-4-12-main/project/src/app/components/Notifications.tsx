@@ -348,7 +348,7 @@ export const Notifications = () => {
         textBold: `${counts.awaitingValidation} risk assessment${counts.awaitingValidation === 1 ? '' : 's'}`,
         textAfter: ' awaiting validation. These were predicted by the system and still need to be reviewed by the dentist.',
         timeLabel: '',
-        linkTo: '/ai-analytics',
+        linkTo: '/ai-analytics?tab=needs_review',
         linkLabel: 'Go to Risk Classification',
       });
     }

@@ -215,6 +215,43 @@ unreviewed ML output reaches filed figures: `dohAggregate` (DMF + orally-fit cou
 Students list, dashboards, BHO table), `/stats/high-risk-count` (~126). Her card's "Not counted in
 reports until the dentist reviews it" is only TRUE after that.
 
+✅ **R1 DONE 2026-10-01 on branch `risk-redesign` (NOT on `main`)** — tsc both, `npm test` 137/137
+(26 new), build clean; verified on the DEV DB as the dentist (risk list carries status/suggestion/
+caries/teeth; DOH report, student rows, high-risk badge respond). **Deliberately NOT merged yet:**
+dev data has 21 unreviewed and 0 validated risk rows, and the live data probably also holds
+unreviewed seeded rows (her notifications showed "23 awaiting validation"). Validated-only readers
+therefore make the live dashboards' risk figures and the risk-based DOH figures DROP (possibly to
+zero) until the dentist reviews them — correct, but ship it WITH R2 so the review flow exists the
+moment the numbers change. Also fixed: the create audit line claimed "dentist validated" for any
+body with a model level; it now says so only when validated.
+✅ **R2 DONE 2026-10-01 on branch `risk-redesign`** — her list page (`AIAnalytics.tsx`, rewritten)
++ the 4-step popup (`components/risk/RiskReviewDialog.tsx`, reusable for R3). Tested LIVE on the
+DEV DB as the dentist, end to end with a real save: cards/tabs/columns match her screenshots; the
+popup's 4 steps match; saving moved the pupil Needs review → Reviewed ("✓ Reviewed · Oct 1, 2026");
+the row stores level, decisions, readable summary, and `dentist_notes` ENCRYPTED at rest (checked).
+**Found and fixed in testing:** AUDIT_TRAIL.action is maxlength 100 and `logAudit` swallows errors,
+so the review's (longer) audit line was SILENTLY NEVER WRITTEN — the old "changed AI suggestion"
+create line could exceed 100 too. Lines shortened (worst case 99) AND `logAudit` now trims instead
+of failing; re-tested: the audit row is written. Kept: service-asleep + synthetic-data banners.
+Dropped from the old page (her design has none): per-pupil trend tiles, history panel, checkbox
+bulk assess (replaced by "Check risk for the N on this page" on the Not checked tab). Not tested:
+"Check risk now" with the ML service awake (it was asleep), phone width, non-dentist "View".
+**Still NOT on `main`:** merging R1+R2 makes live dashboard risk figures drop until reviewed.
+✅ **R3 DONE 2026-10-01 on branch `risk-redesign`** — Students list (`/patients`) gets a Risk column
+(`components/risk/StudentRiskChip.tsx`): solid level + "✓ Reviewed · date", dashed level + "Needs
+review" (opens her card: visit, suggestion + confidence, Findings, "Not counted in reports…", Review
+now → the SAME `RiskReviewDialog`, Open in Risk Classification → `/ai-analytics?student=<id>` with
+"Show all students" + "← Back to Students"). `/stats/student-rows` returns `riskReview` via the new
+shared `reviewSummary` (same rule as the Risk page; `riskLevel` still validated-only). Notifications'
+risk link → `?tab=needs_review`. **Found and fixed:** the bell counted every unvalidated ROW (20 on
+dev) while the tab it opens counts PUPILS on their latest visit (10); now uses `reviewSummary` —
+verified 10=10 (BTIS) and 19=19 (all schools). The chip cell stops click AND keydown propagation:
+the row is `activatable`, so a Space typed in the review notes would otherwise preventDefault and
+navigate to the chart. Tested LIVE on DEV as the dentist incl. a real save from the Students list
+(Morales, Juan → "✓ Reviewed"). tsc both, 140/140 tests. Not tested: phone width, non-dentist view.
+**NEXT:** send the classmate the Vercel PREVIEW link for branch `risk-redesign`; after her OK, merge
+R1+R2+R3 to `main` together, deploy, verify live (expect dashboard risk figures to drop until reviewed).
+
 **R1 — data + server (no UI change; build first):**
 1. `shared/cariesStatus.ts` — the DOH workbook's "Yes or No - Caries Experience" group from tooth
    condition counts: with caries experience (D+M+F+d+f>0), in temporary (d+f>0), in permanent

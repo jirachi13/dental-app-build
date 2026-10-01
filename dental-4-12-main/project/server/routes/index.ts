@@ -12,7 +12,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import { enforceOneStaffPerSchool } from "../middleware/oneStaffPerSchool.js";
 import { ADMIN_ONLY, CLINICAL_WRITE_ROLES } from "../middleware/roleGroups.js";
 import { aggregateDohReport } from "../../shared/dohAggregate.js";
-import { buildRiskCandidates, filterRiskCandidates } from "../../shared/riskCandidates.js";
+import { buildRiskCandidates, filterRiskCandidates, reviewSummary } from "../../shared/riskCandidates.js";
 import { buildRpcRows, filterRpcRows } from "../../shared/rpcTracking.js";
 import { buildSchoolSummary } from "../../shared/schoolSummary.js";
 import { buildFhsisCounts } from "../../shared/fhsis.js";
@@ -123,7 +123,9 @@ router.get("/stats/high-risk-count", requireAuth, asyncHandler(async (req, res) 
     Student.find(studentFilter).select("_id").lean(),
     StudentIptr.find({ isArchived: false }).select("_id student_id").lean(),
     PreventiveCareRecord.find({ isArchived: false }).select("_id iptr_id").lean(),
-    RiskStratification.find({ isArchived: false }).select("preventive_id risk_level").lean(),
+    // VALIDATED only (2026-10-01): suggestions are now stored unvalidated, and
+    // an unreviewed machine suggestion must never count as a high-risk pupil.
+    RiskStratification.find({ isArchived: false, validated_by_dentist: true }).select("preventive_id risk_level").lean(),
   ]);
   const preventiveIptrById = new Map(preventives.map((p) => [String(p._id), String(p.iptr_id)]));
   const riskByIptr = new Map<string, string>();
@@ -329,7 +331,7 @@ router.get("/stats/notifications", requireAuth, asyncHandler(async (req, res) =>
     Student.find(studentFilter).select("_id").lean(),
     StudentIptr.find({ isArchived: false }).select("_id student_id school_year consent_status").lean(),
     PreventiveCareRecord.find({ isArchived: false }).select("iptr_id visit_number visit_date").lean(),
-    RiskStratification.find({ isArchived: false }).select("preventive_id validated_by_dentist").lean(),
+    RiskStratification.find({ isArchived: false }).select("preventive_id risk_level validated_by_dentist").lean(),
     Appointment.find({ isArchived: false, appointment_datetime: { $gte: unmarkedWindowStart, $lt: tomorrowEnd } })
       .select("student_id appointment_datetime status").lean(),
     // ⚠ school_id NULL means "every school" (see DayNote.ts) -- with a school
@@ -372,15 +374,29 @@ router.get("/stats/notifications", requireAuth, asyncHandler(async (req, res) =>
     if (Math.floor((now - first) / MS_PER_DAY) > RPC_INTERVAL_DAYS) overdueRpc++;
   }
 
-  const preventiveIptr = new Map(preventives.map((p) => [String((p as { _id?: unknown })._id), String(p.iptr_id)]));
+  // ⚠ MIRRORS the Risk Classification "Needs review" tab this links to: pupils
+  // (not rows) whose LATEST visit has an unreviewed suggestion, via the same
+  // shared reviewSummary. Counting every unvalidated row said 20 on dev while
+  // the tab said 10 (2026-10-01): superseded suggestions on older visits.
+  // Only in-scope pupils are walked, so the school switcher still applies.
+  const risksByPreventive = new Map<string, { risk_level: "High" | "Medium" | "Low"; validated_by_dentist?: boolean }[]>();
+  for (const r of risks as any[]) {
+    const k = String(r.preventive_id);
+    risksByPreventive.set(k, [...(risksByPreventive.get(k) ?? []), r]);
+  }
+  const latestVisitByStudent = new Map<string, { id: string; t: number }>();
+  const studentByIptr = new Map(iptrs.map((i) => [String(i._id), String(i.student_id)]));
+  for (const p of preventives as any[]) {
+    const iptrId = String(p.iptr_id);
+    if (!scopedIptrIds.has(iptrId) || !p.visit_date) continue;
+    const sid = studentByIptr.get(iptrId)!;
+    const t = new Date(p.visit_date).getTime();
+    const cur = latestVisitByStudent.get(sid);
+    if (!cur || t > cur.t) latestVisitByStudent.set(sid, { id: String(p._id), t });
+  }
   let awaitingValidation = 0;
-  for (const r of risks) {
-    if (r.validated_by_dentist) continue;
-    const iptrId = preventiveIptr.get(String(r.preventive_id));
-    // A risk row whose preventive record is outside the selected school must
-    // not be counted; without the scope check the badge would ignore the
-    // school switcher entirely.
-    if (iptrId && scopedIptrIds.has(iptrId)) awaitingValidation++;
+  for (const { id } of latestVisitByStudent.values()) {
+    if (reviewSummary(true, risksByPreventive.get(id) ?? []).status === "needs_review") awaitingValidation++;
   }
 
   // Consent is collected once per school year (STUDENT_IPTR.consent_status),
@@ -759,12 +775,13 @@ router.get("/stats/risk-candidates", requireAuth, asyncHandler(async (req, res) 
     Student.find(studentFilter),
     School.find(active).select("_id school_name").lean(),
     StudentIptr.find(active).select("_id student_id school_year").lean(),
-    DentalChart.find(active).select("_id iptr_id").lean(),
-    ToothRecord.find(active).select("chart_id condition").lean(),
+    DentalChart.find(active).select("_id iptr_id date_charted").lean(),
+    ToothRecord.find(active).select("chart_id condition tooth_number").lean(),
     OralHealthCondition.find(active).lean(),
     DietarySocialHabits.find(active).lean(),
-    PreventiveCareRecord.find(active).select("_id iptr_id visit_date").lean(),
-    RiskStratification.find(active).lean(),
+    PreventiveCareRecord.find(active).select("_id iptr_id visit_date visit_number").lean(),
+    // Not `dentist_notes` (encrypted, and the list never shows it).
+    RiskStratification.find(active).select("-dentist_notes").lean(),
   ]);
 
   const str = (v: unknown) => String(v ?? "");
@@ -783,14 +800,23 @@ router.get("/stats/risk-candidates", requireAuth, asyncHandler(async (req, res) 
     })),
     schools: (schools as any[]).map((s) => ({ _id: str(s._id), school_name: str(s.school_name) })),
     iptrs: (iptrs as any[]).map((i) => ({ _id: str(i._id), student_id: str(i.student_id), school_year: str(i.school_year) })),
-    charts: (charts as any[]).map((c) => ({ _id: str(c._id), iptr_id: str(c.iptr_id) })),
-    toothRecords: (toothRecords as any[]).map((t) => ({ chart_id: str(t.chart_id), condition: t.condition ?? null })),
+    charts: (charts as any[]).map((c) => ({
+      _id: str(c._id),
+      iptr_id: str(c.iptr_id),
+      date_charted: c.date_charted ? new Date(c.date_charted).toISOString() : null,
+    })),
+    toothRecords: (toothRecords as any[]).map((t) => ({
+      chart_id: str(t.chart_id),
+      condition: t.condition ?? null,
+      tooth_number: typeof t.tooth_number === "number" ? t.tooth_number : null,
+    })),
     orals: (orals as any[]).map((o) => ({ ...o, iptr_id: str(o.iptr_id) })),
     dietaries: (dietaries as any[]).map((d) => ({ ...d, iptr_id: str(d.iptr_id) })),
     preventives: (preventives as any[]).map((p) => ({
       _id: str(p._id),
       iptr_id: str(p.iptr_id),
       visit_date: p.visit_date ? new Date(p.visit_date).toISOString() : "",
+      visit_number: typeof p.visit_number === "number" ? p.visit_number : null,
     })),
     risks: (risks as any[]).map((r) => ({
       _id: str(r._id),
@@ -800,6 +826,8 @@ router.get("/stats/risk-candidates", requireAuth, asyncHandler(async (req, res) 
       dmf_score: Number(r.dmf_score ?? 0),
       validated_by_dentist: r.validated_by_dentist ?? false,
       validated_at: r.validated_at ? new Date(r.validated_at).toISOString() : null,
+      model_risk_level: r.model_risk_level ?? null,
+      model_confidence: typeof r.model_confidence === "number" ? r.model_confidence : null,
     })),
     // Sprint 144 — the LIST carries only the last two assessments per pupil.
     // The badge reads the latest and the trend compares the last two; nothing
@@ -816,6 +844,7 @@ router.get("/stats/risk-candidates", requireAuth, asyncHandler(async (req, res) 
   // computed over the whole filtered population, never the page.
   const page = filterRiskCandidates(rows, {
     q: typeof req.query.q === "string" ? req.query.q : "",
+    studentId: typeof req.query.student_id === "string" ? req.query.student_id : "",
     school: typeof req.query.school === "string" && req.query.school ? req.query.school : "",
     grade: typeof req.query.grade === "string" ? req.query.grade : "all",
     section: typeof req.query.section === "string" ? req.query.section : "all",
@@ -823,6 +852,7 @@ router.get("/stats/risk-candidates", requireAuth, asyncHandler(async (req, res) 
     gender: typeof req.query.gender === "string" ? req.query.gender : "all",
     ageGroup: typeof req.query.age_group === "string" ? req.query.age_group : "all",
     sort: req.query.sort === "name" ? "name" : "priority",
+    status: (["needs_review", "reviewed", "not_checked", "no_visit"] as const).find((s) => s === req.query.status) ?? "all",
     limit: Number(req.query.limit) > 0 ? Number(req.query.limit) : 50,
     offset: Number(req.query.offset) > 0 ? Number(req.query.offset) : 0,
   });
@@ -857,10 +887,13 @@ router.get("/stats/risk-history", requireAuth, asyncHandler(async (req, res) => 
   const preventives = await PreventiveCareRecord.find({ ...active, iptr_id: { $in: iptrIds } })
     .select("_id visit_date")
     .lean();
+  // VALIDATED only (2026-10-01): a stored suggestion is not an assessment
+  // until the dentist reviews it; the list row carries it as `suggestion`.
   const risks = await RiskStratification.find({
     ...active,
+    validated_by_dentist: true,
     preventive_id: { $in: (preventives as any[]).map((p) => p._id) },
-  }).lean();
+  }).select("-dentist_notes").lean();
 
   // ⚠ TO ISO FIRST. `.lean()` returns `visit_date` as a Date, and
   // `String(date).slice(0, 10)` yields "Sun Aug 09", not "2026-08-09" — the
@@ -904,7 +937,10 @@ router.get("/stats/doh-report", requireAuth, asyncHandler(async (req, res) => {
       DietarySocialHabits.find(active).lean(),
       OralHealthCondition.find(active).lean(),
       PreventiveCareRecord.find(active).select("_id iptr_id visit_number visit_date facility_based").lean(),
-      RiskStratification.find(active).select("preventive_id dmf_score dmf_index risk_level").lean(),
+      // VALIDATED only (2026-10-01): these feed FILED DOH figures (DMF counts,
+      // orally-fit count). Suggestions are now stored unvalidated; an unreviewed
+      // machine suggestion must never reach a form sent to the City Health Office.
+      RiskStratification.find({ ...active, validated_by_dentist: true }).select("preventive_id dmf_score dmf_index risk_level").lean(),
       DentalChart.find(active).select("_id iptr_id date_charted preventive_id").lean(),
       ToothRecord.find(active).select("chart_id treatment_code").lean(),
       Referral.find(active).select("iptr_id referral_type").lean(),
@@ -1096,18 +1132,43 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
   // schools' students to a school_admin pinned to one.
   const scope = await scopeFilter("Student", req);
   const studentFilter = scope ? { isArchived: false, ...scope } : { isArchived: false };
-  const [students, schools, iptrs, charts, preventives, risks, toothRecords, oralConditions] = await Promise.all([
+  const [students, schools, iptrs, charts, preventives, risks, toothRecords, oralConditions, reviewRows] = await Promise.all([
     Student.find(studentFilter),
     School.find({ isArchived: false }).select("_id school_name").lean(),
     StudentIptr.find({ isArchived: false }).select("_id student_id school_year").lean(),
     DentalChart.find({ isArchived: false }).select("_id iptr_id date_charted").lean(),
     PreventiveCareRecord.find({ isArchived: false }).select("_id iptr_id visit_number visit_date oral_screening oral_prophylaxis fluoride_varnish oral_hygiene_instruction consultation").lean(),
-    RiskStratification.find({ isArchived: false }).select("preventive_id risk_level recommendation").lean(),
+    // VALIDATED only (2026-10-01): `riskLevel` and `oralStatus` built from this
+    // feed the Students list, every dashboard and the BHO table. A stored but
+    // unreviewed suggestion is shown on the Risk Classification screen as
+    // "Needs review", never here as the pupil's risk.
+    RiskStratification.find({ isArchived: false, validated_by_dentist: true }).select("preventive_id risk_level recommendation").lean(),
     ToothRecord.find({ isArchived: false }).select("chart_id condition visit_number").lean(),
     OralHealthCondition.find({ isArchived: false }).select("iptr_id gingivitis periodontal_disease debris calculus abnormal_growth cleft_lip_palate others").lean(),
+    // ALL rows, validated or not, but ONLY for the review chip (2026-10-01):
+    // "Needs review" is exactly the unvalidated case. riskLevel/oralStatus
+    // above still read validated rows only.
+    RiskStratification.find({ isArchived: false }).select("preventive_id risk_level model_risk_level validated_by_dentist validated_at").lean(),
   ]);
 
   const schoolNameById = new Map(schools.map((s: any) => [String(s._id), String(s.school_name)]));
+  // The review chip on the Students list: the SAME rule Risk Classification
+  // uses (shared reviewSummary), judged on each pupil's latest RPC visit.
+  const reviewRowsByPreventive = new Map<string, any[]>();
+  for (const r of reviewRows as any[]) {
+    const k = String(r.preventive_id);
+    const list = reviewRowsByPreventive.get(k) ?? [];
+    list.push(r);
+    reviewRowsByPreventive.set(k, list);
+  }
+  const visitsByIptr = new Map<string, any[]>();
+  for (const p of preventives as any[]) {
+    if (!p.visit_date) continue;
+    const k = String(p.iptr_id);
+    const list = visitsByIptr.get(k) ?? [];
+    list.push(p);
+    visitsByIptr.set(k, list);
+  }
   const iptrsByStudent = new Map<string, string[]>();
   for (const i of iptrs as any[]) {
     const list = iptrsByStudent.get(String(i.student_id)) ?? [];
@@ -1235,6 +1296,11 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
     // Same iptr the risk level came from, so the two never disagree about
     // which assessment they're describing.
     const recommendation = studentIptrs.map((id) => recommendationByIptr.get(id)).find(Boolean) ?? "";
+    const visits = studentIptrs
+      .flatMap((id) => visitsByIptr.get(id) ?? [])
+      .sort((a, b) => new Date(a.visit_date).getTime() - new Date(b.visit_date).getTime());
+    const latestVisit = visits[visits.length - 1];
+    const review = reviewSummary(!!latestVisit, latestVisit ? reviewRowsByPreventive.get(String(latestVisit._id)) ?? [] : []);
     const last = (s.last_name ?? "").trim();
     const first = (s.first_name ?? "").trim();
     return {
@@ -1255,6 +1321,7 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
       oralStatus: deriveOralStatus(riskLevel),
       riskLevel,
       recommendation,
+      riskReview: { status: review.status, level: review.level, reviewedAt: review.reviewedAt },
       pipelineStatus: derivePipelineStatus(String(s._id)),
       consentStatus: s.consent_status,
     };
@@ -1359,13 +1426,32 @@ router.use("/preventive-care-records", createCrudRouter(PreventiveCareRecord, { 
 // "dentist validated". Seed scripts write through the model, not this route.
 router.use("/risk-stratifications", createCrudRouter(RiskStratification, {
   writeRoles: ["dentist"],
+  // ⚠ "dentist validated" ONLY when the row really is validated (2026-10-01).
+  // Suggestions are now stored UNvalidated, and the old line said "dentist
+  // validated: accepted AI suggestion" for any body carrying a model level,
+  // which would have recorded a validation that never happened.
   auditCreateAction: (body) => {
     if (typeof body.model_risk_level !== "string") return undefined;
+    if (body.validated_by_dentist !== true) {
+      return `Created RiskStratification (system suggestion ${body.model_risk_level}, awaiting dentist review)`;
+    }
+    // ⚠ Keep every line under AUDIT_TRAIL.action's 100 characters (logAudit
+    // trims as a safety net, but a whole line is better than a trimmed one).
     const accepted = body.model_risk_level === body.risk_level;
     const recEdited = body.recommendation_edited === true ? "; recommendation edited" : "";
     return accepted
-      ? `Created RiskStratification (dentist validated: accepted AI suggestion ${body.risk_level}${recEdited})`
-      : `Created RiskStratification (dentist validated: changed AI suggestion ${body.model_risk_level} → ${body.risk_level}${recEdited})`;
+      ? `Created RiskStratification (dentist validated ${body.risk_level}: kept suggestion${recEdited})`
+      : `Created RiskStratification (dentist validated ${body.risk_level}: changed from ${body.model_risk_level}${recEdited})`;
+  },
+  // The dentist's review of a stored suggestion is a PUT (the popup's "Save review").
+  auditUpdateAction: (doc) => {
+    if (doc.validated_by_dentist !== true) return undefined;
+    const model = typeof doc.model_risk_level === "string" ? doc.model_risk_level : null;
+    const decisions = Array.isArray(doc.treatment_decisions) ? (doc.treatment_decisions as { decision?: string }[]) : [];
+    const accepted = decisions.filter((d) => d.decision === "accepted").length;
+    const skipped = decisions.filter((d) => d.decision === "skipped").length;
+    const how = model === null ? "no suggestion" : model === doc.risk_level ? "kept suggestion" : `changed from ${model}`;
+    return `Updated RiskStratification (dentist validated ${doc.risk_level}: ${how}; ${accepted} accepted, ${skipped} skipped)`;
   },
 }));
 // dateField (Sprint 56): the Completed and Missed tabs have no self-limiting

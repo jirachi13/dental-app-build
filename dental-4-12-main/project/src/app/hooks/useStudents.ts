@@ -27,6 +27,15 @@ export interface StudentRow {
   /** The dentist-validated recommendation text from the same RiskStratification
    *  record `riskLevel` came from. Empty string when unassessed. */
   recommendation: string;
+  /** The Risk chip on the Students list (2026-10-01): the SAME review status
+   *  Risk Classification shows (shared `reviewSummary`). `level` is the
+   *  dentist's once reviewed, the waiting suggestion's while it needs review.
+   *  Absent on offline-queued rows. */
+  riskReview?: {
+    status: 'reviewed' | 'needs_review' | 'not_checked' | 'no_visit';
+    level: 'High' | 'Medium' | 'Low' | null;
+    reviewedAt: string | null;
+  };
   /** This school year's treatment pipeline stage (user, 2026-09-28) --
    *  distinct from riskLevel/oralStatus's clinical severity. Resets to
    *  "For Oral Exam" each new school year even for a pupil who finished
