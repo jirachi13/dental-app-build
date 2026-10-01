@@ -69,6 +69,14 @@ redesign; ask the dentist to glance at the treatment rules (FV Medium/High, PF p
 defense. LOW PRIORITY: phone test (drag-to-paint; stays signed in when the laptop locks), SEC-12
 two-browser confirmation, Render API key check.
 
+**Classmate testing (2026-10-01, end of day):** she tests on the LIVE site only. Her request to remove
+RBAC "to ease testing" came up AGAIN and was declined again (CLAUDE.md rule; Chapter 1 role limits;
+ISO 25010 security; Sprint 163 just made the limits real). Advice given: one browser window per role
+(Chrome, Incognito, Edge), all signed in at once. "View as" is localhost + System Admin only by design
+and does not test permissions (the server still sees the admin). The risk-redesign share/preview link
+is BROKEN (dev Atlas blocks Vercel) and no longer needed: the redesign is live. Offered, NOT built: a
+one-click "Switch test account" menu on localhost/dev only (useless for her, since she tests live).
+
 **User-only:** delete the real pupils' photos from Downloads. Optional: the Vercel PREVIEW-only env vars
 added for the abandoned preview (`MONGODB_URI`/`FIELD_ENCRYPTION_SECRET` = dev values, `ALLOWED_ORIGINS`
 = the risk-redesign branch alias) are harmless; delete them if unwanted.
