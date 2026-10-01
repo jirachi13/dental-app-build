@@ -63,6 +63,10 @@ records; School Admin rows carry no names; one role table (`utils/routeRoles.ts`
 a page guard. Details + per-role API results: `docs/audit/LEDGER-sec.md` → "Sprint 163 DONE".
 ⚠ Not yet seen in a browser AS the School Admin / BHO (dashboards + Reports render); API verified.
 
+⚠ **LIVE SITE IS IN TESTING MODE right now** (`OPEN_ACCESS_TESTING=true` in Vercel Production, set
+2026-10-01): role limits are off for the classmate's testing. Turn it OFF when she is done, and
+certainly before defense (see "TESTING MODE" below).
+
 **▶ NEXT, in order:** (0) **Rotate the exposed secrets** (above). (1) Browser check signed in as the
 School Admin and the BHO (Dashboard, Reports tabs). (2) The classmate's feedback on the live Risk
 redesign; ask the dentist to glance at the treatment rules (FV Medium/High, PF per D, SDF per d) before
