@@ -111,7 +111,9 @@ STUDENT; these belong to that school year's MEDICAL_HISTORY / ORAL_HEALTH_CONDIT
 **O3 (Opus high):** bulk OCR upload has no UI (scan page takes one file). Plan: many images or one
 multi-page PDF, one page = one student, review each on the existing Verify screen, nothing saves unreviewed.
 Also check: `14.png`'s bottom caption ("Place of Birth · Occupation … print blank") must NOT reach paper.
-**Risk redesign R1–R3 is on branch `risk-redesign`, not main** (see that branch's HANDOFF). Preview set
+✅ **Risk redesign R1–R3 MERGED to `main` and LIVE 2026-10-01** (merge `7a493079`; preview skipped by the
+user's call). Live dashboard risk figures now count dentist-validated results only, by design. The
+classmate reviews on the live site. Notes on the abandoned preview attempt, for reference: Preview set
 up 2026-10-01: the user set Preview `MONGODB_URI` + `FIELD_ENCRYPTION_SECRET` to the DEV values; I added
 Preview-only `ALLOWED_ORIGINS` = the branch alias (Vercel shortens it:
 `https://dental-app-build-git-risk-29fb62-jeraldalondres-9214s-projects.vercel.app`). ⚠ Use THAT address:
