@@ -43,9 +43,12 @@ interface AuthContextType {
    *  "View as" is active (utils/viewAs.ts); use this for anything that must
    *  not follow the preview, like the View-as control itself. */
   realRole: ApiRole | null;
-  /** The role being previewed, or null. Only ever set for a System Admin. */
+  /** The role being previewed, or null. Only a System Admin, except in testing mode. */
   viewAs: ApiRole | null;
   setViewAs: (role: ApiRole | null) => void;
+  /** The server's OPEN_ACCESS_TESTING switch (GET /config): role limits are off,
+   *  View as is open to every signed-in user and can save. */
+  testingMode: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -194,10 +197,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   // "View as" preview (utils/viewAs.ts). Per TAB (sessionStorage), so it can
   // never outlive the browser session or leak into another window.
+  // Read whether or not View as is available here: `viewAs` below decides if
+  // the stored choice applies (testing mode is only known after /config loads).
   const [viewAsChoice, setViewAsChoice] = useState<ApiRole | null>(() => {
-    if (!VIEW_AS_AVAILABLE) return null;
     try { return (window.sessionStorage.getItem(VIEW_AS_KEY) as ApiRole | null) || null; } catch { return null; }
   });
+  // Testing mode (server/middleware/auth.ts isTestingMode). Off until the
+  // server says otherwise, so a failed fetch leaves normal behaviour.
+  const [testingMode, setTestingMode] = useState(false);
+  useEffect(() => {
+    apiClient.get<{ testingMode?: boolean }>('/config')
+      .then((c) => setTestingMode(c?.testingMode === true))
+      .catch(() => { /* keep normal behaviour */ });
+  }, []);
   // The RAW stored choice: a school name, ALL_SCHOOLS, or null for "not chosen
   // yet". Consumers get the mapped value below.
   const [schoolChoice, setSelectedSchoolState] = useState<string | null>(null);
@@ -328,16 +340,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user]);
 
-  // Only a real System Admin, only where View as is allowed, and never
-  // "previewing" your own role. Everything else sees the real user.
-  const viewAs = user?.role === 'system_admin' && VIEW_AS_AVAILABLE && viewAsChoice && viewAsChoice !== 'system_admin'
-    ? viewAsChoice
-    : null;
+  // Normally: only a real System Admin, only where View as is allowed. In
+  // testing mode: any signed-in user, on any host. Never "previewing" your own
+  // role. Everything else sees the real user.
+  const canViewAs = (user?.role === 'system_admin' && VIEW_AS_AVAILABLE) || (!!user && testingMode);
+  const viewAs = canViewAs && viewAsChoice && viewAsChoice !== user?.role ? viewAsChoice : null;
   const effectiveUser = useMemo(() => (user && viewAs ? { ...user, role: viewAs } : user), [user, viewAs]);
   useEffect(() => {
-    // The API client refuses saves while this is set (api/client.ts).
-    setViewAsReadOnly(viewAs ? ROLE_LABELS[viewAs] : null);
-  }, [viewAs]);
+    // The API client refuses saves while this is set (api/client.ts). Not in
+    // testing mode: there the preview is meant to SAVE (the server lets every
+    // signed-in user through), so she can test each role without switching.
+    setViewAsReadOnly(viewAs && !testingMode ? ROLE_LABELS[viewAs] : null);
+  }, [viewAs, testingMode]);
   const setViewAs = useCallback((role: ApiRole | null) => {
     setViewAsChoice(role);
     try {
@@ -347,7 +361,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user: effectiveUser, loading, selectedSchool, schoolChoiceMade, setSelectedSchool, login, verifyOtp, logout, lockSession, unlock, realRole: user?.role ?? null, viewAs, setViewAs }}>
+    <AuthContext.Provider value={{ user: effectiveUser, loading, selectedSchool, schoolChoiceMade, setSelectedSchool, login, verifyOtp, logout, lockSession, unlock, realRole: user?.role ?? null, viewAs, setViewAs, testingMode }}>
       {children}
     </AuthContext.Provider>
   );

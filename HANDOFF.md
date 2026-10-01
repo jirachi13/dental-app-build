@@ -69,13 +69,15 @@ redesign; ask the dentist to glance at the treatment rules (FV Medium/High, PF p
 defense. LOW PRIORITY: phone test (drag-to-paint; stays signed in when the laptop locks), SEC-12
 two-browser confirmation, Render API key check.
 
-**Classmate testing (2026-10-01, end of day):** she tests on the LIVE site only. Her request to remove
-RBAC "to ease testing" came up AGAIN and was declined again (CLAUDE.md rule; Chapter 1 role limits;
-ISO 25010 security; Sprint 163 just made the limits real). Advice given: one browser window per role
-(Chrome, Incognito, Edge), all signed in at once. "View as" is localhost + System Admin only by design
-and does not test permissions (the server still sees the admin). The risk-redesign share/preview link
-is BROKEN (dev Atlas blocks Vercel) and no longer needed: the redesign is live. Offered, NOT built: a
-one-click "Switch test account" menu on localhost/dev only (useless for her, since she tests live).
+⚠ **TESTING MODE built 2026-10-01 (user's decision, so the classmate can test the LIVE site without
+switching accounts).** Vercel Production env `OPEN_ACCESS_TESTING=true` → role checks pass for every
+signed-in user, amber "Testing mode" banner, "View as" on the live site for everyone and it SAVES
+(audited under the signed-in account). **Turn OFF:** delete the variable in Vercel → redeploy → check
+`https://dental-app-build.vercel.app/api/config` says `{"testingMode":false}`. No code to revert; fixes
+made meanwhile stay. Pre-switch version: git tag `pre-open-access`. Verified on DEV both ways (ON: the
+School Admin gets 200 on medical/risk/users, no sign-in still 401; OFF: 403 again). **Must be OFF before
+defense** (on the Before-Defense checklist). The risk-redesign share/preview link is BROKEN (dev Atlas
+blocks Vercel) and no longer needed.
 
 **User-only:** delete the real pupils' photos from Downloads. Optional: the Vercel PREVIEW-only env vars
 added for the abandoned preview (`MONGODB_URI`/`FIELD_ENCRYPTION_SECRET` = dev values, `ALLOWED_ORIGINS`

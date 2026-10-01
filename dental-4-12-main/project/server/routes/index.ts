@@ -8,7 +8,7 @@ import authRoutes from "./authRoutes.js";
 import predictionRoutes from "./predictionRoutes.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { scopeFilter } from "../utils/schoolScope.js";
-import { requireAuth, requireRole } from "../middleware/auth.js";
+import { requireAuth, requireRole, isTestingMode } from "../middleware/auth.js";
 import { enforceOneStaffPerSchool } from "../middleware/oneStaffPerSchool.js";
 import { ADMIN_ONLY, CLINICAL_WRITE_ROLES, CLINICAL_READ_ROLES, CLINICAL_READ_ROLES_AND_BHO, NAME_BLIND_ROLES } from "../middleware/roleGroups.js";
 import { aggregateDohReport } from "../../shared/dohAggregate.js";
@@ -57,6 +57,9 @@ const studentNames = (s: any, blind: boolean) => ({
 });
 
 router.get("/health", getHealth);
+// Public, no auth: only whether testing mode is on, so the app can show its
+// banner and unlock "View as" (see isTestingMode in middleware/auth.ts).
+router.get("/config", (_req, res) => { res.json({ testingMode: isTestingMode() }); });
 router.use("/auth", authRoutes);
 // Predictive analytics (Sprint 21e) — proxies to the Python ML service;
 // dentist + system_admin only, every assessment audit-logged.

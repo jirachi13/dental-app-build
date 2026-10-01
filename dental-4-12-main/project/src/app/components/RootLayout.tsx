@@ -7,7 +7,7 @@ import { SessionLock } from './SessionLock';
 import { ViewAsControl } from './ViewAsControl';
 
 export const RootLayout = () => {
-  const { user, loading, schoolChoiceMade } = useAuth();
+  const { user, loading, schoolChoiceMade, testingMode } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   // Sprint 163 (SEC-34): a screen the sidebar hides is also refused by URL.
@@ -34,6 +34,13 @@ export const RootLayout = () => {
   // runs everywhere a signed-in user can be.
   return (
     <>
+      {/* Testing mode (OPEN_ACCESS_TESTING on the server): impossible to miss,
+          so it is not left on by accident before defense or real use. */}
+      {testingMode && (
+        <div role="status" className="fixed top-0 left-1/2 z-[260] -translate-x-1/2 rounded-b-lg bg-amber-500 px-4 py-1 text-center text-xs font-semibold text-white shadow">
+          Testing mode: role limits are off. Turn this off before real use.
+        </div>
+      )}
       <Root />
       <ViewAsControl />
       <SessionLock />
