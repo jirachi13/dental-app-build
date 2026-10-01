@@ -10,7 +10,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { scopeFilter } from "../utils/schoolScope.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { enforceOneStaffPerSchool } from "../middleware/oneStaffPerSchool.js";
-import { ADMIN_ONLY, CLINICAL_WRITE_ROLES } from "../middleware/roleGroups.js";
+import { ADMIN_ONLY, CLINICAL_WRITE_ROLES, CLINICAL_READ_ROLES, CLINICAL_READ_ROLES_AND_BHO, NAME_BLIND_ROLES } from "../middleware/roleGroups.js";
 import { aggregateDohReport } from "../../shared/dohAggregate.js";
 import { buildRiskCandidates, filterRiskCandidates, reviewSummary } from "../../shared/riskCandidates.js";
 import { buildRpcRows, filterRpcRows } from "../../shared/rpcTracking.js";
@@ -43,6 +43,18 @@ import {
 } from "../models/index.js";
 
 const router = Router();
+
+// Sprint 163 (SEC-03): the School Admin's /stats rows keep everything the
+// counts need (sex, grade, birthday, school) and lose every name. Same rule
+// `/students` applies through its `redact` option; these routes build their
+// rows by hand, so each one blanks the names here.
+const isNameBlind = (req: { user?: { role?: string } }) => NAME_BLIND_ROLES.includes(req.user?.role ?? "");
+const studentNames = (s: any, blind: boolean) => ({
+  last_name: blind ? "" : s.last_name ?? "",
+  first_name: blind ? "" : s.first_name ?? "",
+  middle_name: blind ? "" : s.middle_name ?? "",
+  full_name: blind ? "" : s.full_name ?? "",
+});
 
 router.get("/health", getHealth);
 router.use("/auth", authRoutes);
@@ -444,8 +456,11 @@ router.get("/stats/notifications", requireAuth, asyncHandler(async (req, res) =>
     const name = !last && !first ? (s.full_name ?? "").trim() : !last ? first : !first ? last : `${last}, ${first}`;
     return [String(s._id), name];
   }));
+  // Sprint 163 (SEC-03): the "visit not marked" list names pupils and is clinic
+  // work; non-clinical roles get counts only, never this list.
+  const clinical = CLINICAL_READ_ROLES.includes(req.user?.role ?? "");
   const unmarkedAppointments = unmarkedRaw
-    .filter((a) => nameById.has(a.studentId))
+    .filter((a) => clinical && nameById.has(a.studentId))
     .map((a) => ({ id: a.id, studentId: a.studentId, studentName: nameById.get(a.studentId)!, datetime: a.datetime.toISOString() }));
 
   res.json({
@@ -580,16 +595,14 @@ router.get("/stats/reports-panels", requireAuth, asyncHandler(async (req, res) =
 
   const str = (v: unknown) => String(v ?? "");
   const iso = (v: unknown) => (v ? new Date(v as string).toISOString() : "");
+  const blind = isNameBlind(req);
   const out = buildReportsPanels({
     students: (students as any[]).map((s) => ({
       _id: str(s._id),
       school_id: str(s.school_id),
       sex: str(s.sex),
       grade_level: str(s.grade_level),
-      last_name: s.last_name ?? "",
-      first_name: s.first_name ?? "",
-      middle_name: s.middle_name ?? "",
-      full_name: s.full_name ?? "",
+      ...studentNames(s, blind),
     })),
     schools: (schools as any[]).map((s) => ({ _id: str(s._id), school_name: str(s.school_name) })),
     iptrs: (iptrs as any[]).map((i) => ({
@@ -600,7 +613,9 @@ router.get("/stats/reports-panels", requireAuth, asyncHandler(async (req, res) =
     charts: (charts as any[]).map((c) => ({ _id: str(c._id), iptr_id: str(c.iptr_id), date_charted: iso(c.date_charted) })),
     toothRecords: (toothRecords as any[]).map((t) => ({ chart_id: str(t.chart_id), treatment_code: t.treatment_code ?? null })),
     treatments: (treatments as any[]).map((t) => ({ iptr_id: str(t.iptr_id), date: iso(t.date) })),
-    referrals: (referrals as any[]).map((r) => ({
+    // SEC-33: no referral rows for the School Admin (who was referred where,
+    // and why, is a clinical record). The Internal tab also hides the table.
+    referrals: (blind ? [] : referrals as any[]).map((r) => ({
       _id: str(r._id),
       iptr_id: str(r.iptr_id),
       referral_type: str(r.referral_type),
@@ -708,6 +723,7 @@ router.get("/stats/rpc-rows", requireAuth, asyncHandler(async (req, res) => {
   ]);
 
   const str = (v: unknown) => String(v ?? "");
+  const blind = isNameBlind(req);
   const rows = buildRpcRows({
     students: (students as any[]).map((s) => ({
       _id: str(s._id),
@@ -716,10 +732,7 @@ router.get("/stats/rpc-rows", requireAuth, asyncHandler(async (req, res) => {
       birthday: s.birthday ? new Date(s.birthday).toISOString() : "",
       grade_level: str(s.grade_level),
       section: str(s.section),
-      last_name: s.last_name ?? "",
-      first_name: s.first_name ?? "",
-      middle_name: s.middle_name ?? "",
-      full_name: s.full_name ?? "",
+      ...studentNames(s, blind),
     })),
     schools: (schools as any[]).map((s) => ({ _id: str(s._id), school_name: str(s.school_name) })),
     iptrs: (iptrs as any[]).map((i) => ({ _id: str(i._id), student_id: str(i.student_id), school_year: str(i.school_year) })),
@@ -766,7 +779,9 @@ router.get("/stats/rpc-rows", requireAuth, asyncHandler(async (req, res) => {
   res.json(page);
 }));
 
-router.get("/stats/risk-candidates", requireAuth, asyncHandler(async (req, res) => {
+// Sprint 163 (SEC-03): the risk screens and the chart's Prev/Next nav name
+// pupils and carry clinical findings; clinic roles + System Admin only.
+router.get("/stats/risk-candidates", requireAuth, requireRole(...CLINICAL_READ_ROLES), asyncHandler(async (req, res) => {
   const scope = await scopeFilter("Student", req);
   const studentFilter = scope ? { isArchived: false, ...scope } : { isArchived: false };
   const active = { isArchived: false };
@@ -863,7 +878,7 @@ router.get("/stats/risk-candidates", requireAuth, asyncHandler(async (req, res) 
 // Sprint 144 — one pupil's FULL assessment history, for the detail panel.
 // Deliberately its own endpoint rather than a bigger list row: it is read when
 // a dentist opens one pupil, which is once per selection, not once per page.
-router.get("/stats/risk-history", requireAuth, asyncHandler(async (req, res) => {
+router.get("/stats/risk-history", requireAuth, requireRole(...CLINICAL_READ_ROLES), asyncHandler(async (req, res) => {
   const studentId = typeof req.query.student_id === "string" ? req.query.student_id : "";
   if (!mongoose.isValidObjectId(studentId)) {
     res.status(400).json({ error: "Invalid student_id" });
@@ -1009,7 +1024,7 @@ router.get("/stats/doh-report", requireAuth, asyncHandler(async (req, res) => {
   res.json(out);
 }));
 
-router.get("/stats/student-nav", requireAuth, asyncHandler(async (req, res) => {
+router.get("/stats/student-nav", requireAuth, requireRole(...CLINICAL_READ_ROLES), asyncHandler(async (req, res) => {
   const scope = await scopeFilter("Student", req);
   const studentFilter = scope ? { isArchived: false, ...scope } : { isArchived: false };
   const [students, schools] = await Promise.all([
@@ -1127,11 +1142,23 @@ router.get("/stats/treatment-categories", requireAuth, asyncHandler(async (req, 
   res.json({ rows, schoolYearOptions, schoolYear: requestedYear });
 }));
 
+// Sprint 163: the School Admin dashboard's Treatments tile. A COUNT scoped to
+// the caller's school(s), so the tile no longer needs the treatment records
+// themselves (now clinical-read only), and no longer counts every school's.
+router.get("/stats/treatment-count", requireAuth, asyncHandler(async (req, res) => {
+  const scope = await scopeFilter("Student", req);
+  const students = await Student.find(scope ? { isArchived: false, ...scope } : { isArchived: false }).select("_id").lean();
+  const iptrs = await StudentIptr.find({ isArchived: false, student_id: { $in: students.map((s: any) => s._id) } }).select("_id").lean();
+  const count = await Treatment.countDocuments({ isArchived: false, iptr_id: { $in: iptrs.map((i: any) => i._id) } });
+  res.json({ count });
+}));
+
 router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => {
   // This is the endpoint the Sprint 101 probe caught handing all three
   // schools' students to a school_admin pinned to one.
   const scope = await scopeFilter("Student", req);
   const studentFilter = scope ? { isArchived: false, ...scope } : { isArchived: false };
+  const blind = isNameBlind(req);
   const [students, schools, iptrs, charts, preventives, risks, toothRecords, oralConditions, reviewRows] = await Promise.all([
     Student.find(studentFilter),
     School.find({ isArchived: false }).select("_id school_name").lean(),
@@ -1301,15 +1328,16 @@ router.get("/stats/student-rows", requireAuth, asyncHandler(async (req, res) => 
       .sort((a, b) => new Date(a.visit_date).getTime() - new Date(b.visit_date).getTime());
     const latestVisit = visits[visits.length - 1];
     const review = reviewSummary(!!latestVisit, latestVisit ? reviewRowsByPreventive.get(String(latestVisit._id)) ?? [] : []);
-    const last = (s.last_name ?? "").trim();
-    const first = (s.first_name ?? "").trim();
+    const n = studentNames(s, blind);
+    const last = n.last_name.trim();
+    const first = n.first_name.trim();
     return {
       id: String(s._id),
       // surnameFirst() from the client util, same fallbacks.
-      name: !last && !first ? (s.full_name ?? "").trim() : !last ? first : !first ? last : `${last}, ${first}`,
-      lastName: s.last_name ?? "",
-      firstName: s.first_name ?? "",
-      middleName: s.middle_name ?? "",
+      name: !last && !first ? n.full_name.trim() : !last ? first : !first ? last : `${last}, ${first}`,
+      lastName: n.last_name,
+      firstName: n.first_name,
+      middleName: n.middle_name,
       birthdate: s.birthday ? new Date(s.birthday).toISOString().slice(0, 10) : "",
       gender: s.sex,
       grade: s.grade_level,
@@ -1397,23 +1425,27 @@ router.use("/students", createCrudRouter(Student, {
 // dentist, but archive defaulted to System Admin only, so every click 403'd and
 // an accidentally added school year could not be removed. Restore stays admin
 // only (restoreRoles default), per the soft-delete rule in CLAUDE.md.
-router.use("/student-iptrs", createCrudRouter(StudentIptr, { writeRoles: CLINICAL_WRITE_ROLES, archiveRoles: ["system_admin", "dentist"], uniqueBy: ["student_id", "school_year"], filterable: ["student_id"] }));
-router.use("/medical-histories", createCrudRouter(MedicalHistory, { writeRoles: CLINICAL_WRITE_ROLES, filterable: ["iptr_id"] }));
-router.use("/dietary-social-habits", createCrudRouter(DietarySocialHabits, { writeRoles: CLINICAL_WRITE_ROLES, filterable: ["iptr_id"] }));
-router.use("/oral-health-conditions", createCrudRouter(OralHealthCondition, { writeRoles: CLINICAL_WRITE_ROLES, filterable: ["iptr_id"] }));
-router.use("/dental-charts", createCrudRouter(DentalChart, { writeRoles: CLINICAL_WRITE_ROLES, filterable: ["iptr_id"] }));
+// Sprint 163 (SEC-19): clinical records are READ by the clinic + System Admin
+// (CLINICAL_READ_ROLES). Reads used to default to every role, so a School Admin
+// could list every pupil's medical history. Three collections stay readable by
+// BHO staff for the named Target Client List / Consent Form (Part B decision).
+router.use("/student-iptrs", createCrudRouter(StudentIptr, { readRoles: CLINICAL_READ_ROLES_AND_BHO, writeRoles: CLINICAL_WRITE_ROLES, archiveRoles: ["system_admin", "dentist"], uniqueBy: ["student_id", "school_year"], filterable: ["student_id"] }));
+router.use("/medical-histories", createCrudRouter(MedicalHistory, { readRoles: CLINICAL_READ_ROLES, writeRoles: CLINICAL_WRITE_ROLES, filterable: ["iptr_id"] }));
+router.use("/dietary-social-habits", createCrudRouter(DietarySocialHabits, { readRoles: CLINICAL_READ_ROLES, writeRoles: CLINICAL_WRITE_ROLES, filterable: ["iptr_id"] }));
+router.use("/oral-health-conditions", createCrudRouter(OralHealthCondition, { readRoles: CLINICAL_READ_ROLES_AND_BHO, writeRoles: CLINICAL_WRITE_ROLES, filterable: ["iptr_id"] }));
+router.use("/dental-charts", createCrudRouter(DentalChart, { readRoles: CLINICAL_READ_ROLES, writeRoles: CLINICAL_WRITE_ROLES, filterable: ["iptr_id"] }));
 // archiveRoles: a dentist who clears every code off a tooth and saves retires
 // that tooth's record -- the chart's own "empty this tooth" action. Before this
 // the archive route was ADMIN_ONLY, so the chart could not persist a cleared
 // tooth at all and the old codes returned on reload. Restore stays admin-only.
-router.use("/tooth-records", createCrudRouter(ToothRecord, { writeRoles: CLINICAL_WRITE_ROLES, archiveRoles: ["system_admin", "dentist"], filterable: ["chart_id"] }));
-router.use("/treatments", createCrudRouter(Treatment, { writeRoles: CLINICAL_WRITE_ROLES, filterable: ["iptr_id"] }));
+router.use("/tooth-records", createCrudRouter(ToothRecord, { readRoles: CLINICAL_READ_ROLES, writeRoles: CLINICAL_WRITE_ROLES, archiveRoles: ["system_admin", "dentist"], filterable: ["chart_id"] }));
+router.use("/treatments", createCrudRouter(Treatment, { readRoles: CLINICAL_READ_ROLES, writeRoles: CLINICAL_WRITE_ROLES, filterable: ["iptr_id"] }));
 // archiveRoles: CLINICAL_WRITE_ROLES (2026-09-28) -- DentalChart.tsx's own
 // save archives a visit whose services/teeth were all cleared out (see
 // handleSave), and that save is available to dentist AND dental_aide, same
 // as the write itself; defaulting to ADMIN_ONLY here would 403 an aide's
 // own save the moment it tried to clear a visit empty.
-router.use("/preventive-care-records", createCrudRouter(PreventiveCareRecord, { writeRoles: CLINICAL_WRITE_ROLES, archiveRoles: CLINICAL_WRITE_ROLES, filterable: ["iptr_id"] }));
+router.use("/preventive-care-records", createCrudRouter(PreventiveCareRecord, { readRoles: CLINICAL_READ_ROLES_AND_BHO, writeRoles: CLINICAL_WRITE_ROLES, archiveRoles: CLINICAL_WRITE_ROLES, filterable: ["iptr_id"] }));
 // The audit action records whether the dentist accepted the AI suggestion
 // as-is or changed it (Chapter 4 evidence for the dentist-validates-model
 // gate). `model_risk_level` / `recommendation_edited` ride in the request
@@ -1425,6 +1457,7 @@ router.use("/preventive-care-records", createCrudRouter(PreventiveCareRecord, { 
 // or Dental Aide could create a row the audit trail below then describes as
 // "dentist validated". Seed scripts write through the model, not this route.
 router.use("/risk-stratifications", createCrudRouter(RiskStratification, {
+  readRoles: CLINICAL_READ_ROLES,
   writeRoles: ["dentist"],
   // ⚠ "dentist validated" ONLY when the row really is validated (2026-10-01).
   // Suggestions are now stored UNvalidated, and the old line said "dentist
@@ -1463,6 +1496,7 @@ router.use("/appointments", createCrudRouter(Appointment, { writeRoles: CLINICAL
 // dentist. archiveRoles: the tab's "Clear day" is a dentist/aide action on a
 // schedule they keep, not a clinical record; restore stays admin-only.
 router.use("/dentist-rotations", createCrudRouter(DentistRotation, {
+  readRoles: CLINICAL_READ_ROLES,
   writeRoles: CLINICAL_WRITE_ROLES,
   archiveRoles: CLINICAL_WRITE_ROLES,
   dateField: "week_start",
@@ -1479,6 +1513,7 @@ router.use("/dentist-rotations", createCrudRouter(DentistRotation, {
 // stays admin-only per CLAUDE.md's soft-delete rule; this only governs archiving
 // a note you just wrote, which is the "typed it on the wrong day" case.
 router.use("/day-notes", createCrudRouter(DayNote, {
+  readRoles: CLINICAL_READ_ROLES,
   writeRoles: CLINICAL_WRITE_ROLES,
   archiveRoles: CLINICAL_WRITE_ROLES,
   dateField: "date",
@@ -1499,6 +1534,7 @@ router.use("/day-notes", createCrudRouter(DayNote, {
 // together — a control that appears to work must work, and so must its absence
 // be deliberate.
 router.use("/referrals", createCrudRouter(Referral, {
+  readRoles: CLINICAL_READ_ROLES,
   writeRoles: CLINICAL_WRITE_ROLES,
   filterable: ["iptr_id"],
   dateField: "date_issued",

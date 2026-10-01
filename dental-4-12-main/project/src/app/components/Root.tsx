@@ -23,6 +23,9 @@ import { TOPBAR_H } from '../utils/layout';
 import { SyncStatus } from './SyncStatus';
 import { useOfflineQueue } from '../hooks/useOfflineQueue';
 import { useNotifications, NOTIFIED_ROLES } from '../hooks/useNotifications';
+// Sprint 163: who may open each screen. The SAME table the page guard in
+// RootLayout uses, so the menu and the guard cannot disagree.
+import { ROUTE_ROLES } from '../utils/routeRoles';
 import { apiClient, ApiError } from '../api/client';
 import { useToast } from './Toast';
 import { Modal } from './Modal';
@@ -342,15 +345,15 @@ export const Root = () => {
   const allTabs = [
     {
       id: 1, path: '/', label: 'Dashboard', icon: LayoutDashboard,
-      roles: ['dentist','dental_aide','school_admin','bho_staff','system_admin']
+      roles: ROUTE_ROLES['/']
     },
     {
       id: 2, path: '/appointments', label: 'Appointments', icon: Calendar,
-      roles: ['dentist','dental_aide','system_admin']
+      roles: ROUTE_ROLES['/appointments']
     },
     {
       id: 3, path: '/patients', label: 'Students', icon: Users,
-      roles: ['dentist','dental_aide','system_admin']
+      roles: ROUTE_ROLES['/patients']
     },
     // Rendered as children of Students (see StudentsGroup below), not as
     // their own top-level rows -- requested to match RAMHIS's real
@@ -359,45 +362,45 @@ export const Root = () => {
     // them here and draws them nested instead.
     {
       id: 4, path: '/dental-charts', label: 'Dental Charts', icon: Stethoscope,
-      roles: ['dentist','dental_aide','system_admin']
+      roles: ROUTE_ROLES['/dental-charts']
     },
     {
       id: 6, path: '/treatment-records', label: 'Treatment', icon: Clipboard,
-      roles: ['dentist','dental_aide','system_admin']
+      roles: ROUTE_ROLES['/treatment-records']
     },
     {
       id: 5, path: '/ai-analytics', label: 'Risk Classification', icon: Brain,
-      roles: ['dentist','system_admin']
+      roles: ROUTE_ROLES['/ai-analytics']
     },
     {
       id: 7, path: '/rpc', label: 'RPC Monitoring', icon: Shield,
-      roles: ['dentist','dental_aide','system_admin']
+      roles: ROUTE_ROLES['/rpc']
     },
     {
       id: 8, path: '/reports', label: 'Reports', icon: FileBarChart,
-      roles: ['dentist','dental_aide','school_admin','bho_staff','system_admin']
+      roles: ROUTE_ROLES['/reports']
     },
     {
       id: 9, path: '/schools', label: 'Schools', icon: School,
-      roles: ['system_admin']
+      roles: ROUTE_ROLES['/schools']
     },
     {
       id: 10, path: '/accounts', label: 'User Management', icon: UserCog,
-      roles: ['system_admin']
+      roles: ROUTE_ROLES['/accounts']
     },
     {
       id: 11, path: '/archive', label: 'Archived Records', icon: Archive,
-      roles: ['system_admin']
+      roles: ROUTE_ROLES['/archive']
     },
     {
       id: 12, path: '/audit', label: 'Audit Trail', icon: ClipboardList,
-      roles: ['system_admin']
+      roles: ROUTE_ROLES['/audit']
     },
     {
       // Moved into the main nav list, at the very end of the list (user, 2026-09-29); was a
       // separate inline popover section above the user block.
       id: 8.5, path: '/notifications', label: 'Notifications', icon: Bell,
-      roles: NOTIFIED_ROLES,
+      roles: ROUTE_ROLES['/notifications']
     },
     // Follow Up Alerts REMOVED
   ];

@@ -1289,7 +1289,10 @@ export const Reports = () => {
                 </div>
               </div>
 
-              {/* Referral Tracking */}
+              {/* Referral Tracking. Not for the School Admin (Sprint 163, SEC-33):
+                  who was referred where, and why, is a clinical record; the
+                  server also sends them no referral rows. */}
+              {user?.role !== 'school_admin' && (
               <div className="bg-card rounded-xl border border-border overflow-hidden">
                 <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
                   <h3 className="text-sm font-bold text-foreground">Referral Tracking</h3>
@@ -1349,6 +1352,7 @@ export const Reports = () => {
                   </table>
                 </div>
               </div>
+              )}
             </div>
           )}
         </div>

@@ -58,10 +58,16 @@ different from dev's; (4) change the demo-account passwords. The encryption key 
 changed (CLAUDE.md) — it needs a planned re-encryption; (1) is what protects it meanwhile.
 **Never ask a user to paste `.env` contents; ask for host names only.**
 
-**▶ NEXT, in order:** (0) **Rotate the exposed secrets** (above). (1) The classmate's feedback on the
-live Risk redesign; ask the dentist to glance at the treatment rules (FV Medium/High, PF per D, SDF per
-d) before defense. (2) **Sprint 163** (unblocked). LOW PRIORITY: phone test (drag-to-paint; stays
-signed in when the laptop locks), SEC-12 two-browser confirmation, Render API key check.
+✅ **Sprint 163 DONE 2026-10-01** (SEC-03/19/33/34): the School Admin and BHO no longer read clinical
+records; School Admin rows carry no names; one role table (`utils/routeRoles.ts`) drives the sidebar AND
+a page guard. Details + per-role API results: `docs/audit/LEDGER-sec.md` → "Sprint 163 DONE".
+⚠ Not yet seen in a browser AS the School Admin / BHO (dashboards + Reports render); API verified.
+
+**▶ NEXT, in order:** (0) **Rotate the exposed secrets** (above). (1) Browser check signed in as the
+School Admin and the BHO (Dashboard, Reports tabs). (2) The classmate's feedback on the live Risk
+redesign; ask the dentist to glance at the treatment rules (FV Medium/High, PF per D, SDF per d) before
+defense. LOW PRIORITY: phone test (drag-to-paint; stays signed in when the laptop locks), SEC-12
+two-browser confirmation, Render API key check.
 
 **User-only:** delete the real pupils' photos from Downloads. Optional: the Vercel PREVIEW-only env vars
 added for the abandoned preview (`MONGODB_URI`/`FIELD_ENCRYPTION_SECRET` = dev values, `ALLOWED_ORIGINS`

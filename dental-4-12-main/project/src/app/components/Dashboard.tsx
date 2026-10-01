@@ -83,6 +83,15 @@ export const Dashboard = () => {
   useEffect(() => {
     (async () => {
       try {
+        // Sprint 163: the School Admin and BHO dashboards read none of the six
+        // clinical collections below (and the server now refuses them). The
+        // School Admin's Treatments tile gets a count scoped to their school.
+        if (user?.role === 'school_admin' || user?.role === 'bho_staff') {
+          if (user.role === 'school_admin') {
+            setTreatmentCount((await apiClient.get<{ count: number }>('/stats/treatment-count')).count);
+          }
+          return;
+        }
         // /users and /audit-trails are both system_admin-only on the backend
         // (Sprint 15 RBAC) — the other 4 roles got a 403 here, which threw
         // uncaught inside Promise.all and left extraLoading (and the whole

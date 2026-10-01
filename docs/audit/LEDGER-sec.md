@@ -89,7 +89,7 @@ Impact:   This is the architectural root of SEC-03 and SEC-04. Every guarantee t
 Fix:      needs scoping — Sprint 154 enumerates, then a fix sprint decides between per-route guards
           and a shared `statsRoute()` wrapper carrying role + scope + redaction.
 
-### SEC-03 · `server/routes/index.ts:846` (+ :362, :492, :566) · HIGH · OPEN
+### SEC-03 · `server/routes/index.ts:846` (+ :362, :492, :566) · HIGH · ✅ FIXED Sprint 163 (2026-10-01)
 Claim:    **Four `/stats/*` routes return pupil names to any authenticated caller, including
           `school_admin`, while `GET /api/students` redacts exactly those fields for that role.**
 Evidence: `index.ts:921–926` redacts `full_name, first_name, last_name, middle_name, address,
@@ -512,7 +512,7 @@ Fix:      Read `school_ids` in `createUser` and pass it to `User.create()`. Smal
           may be carrying `[]` unintentionally, and the ones to check first are the `school_admin`
           and any scoped role.
 
-### SEC-19 · `server/routes/index.ts:876` · HIGH · OPEN
+### SEC-19 · `server/routes/index.ts:876` · HIGH · ✅ FIXED Sprint 163 (2026-10-01)
 Claim:    **Thirteen clinical models are readable, unredacted, by `school_admin` and `bho_staff`** —
           the two roles CLAUDE.md defines as non-clinical.
 Evidence: Every clinical mount omits `readRoles`, so it takes `crudFactory`'s `ALL_ROLES` default:
@@ -1034,7 +1034,7 @@ The other Reports tabs are aggregates: `/stats/doh-report`, `/stats/school-summa
 `/day-notes`, `/dentist-rotations`, `/referrals` (raw), `/stats/risk-candidates`,
 `/stats/student-nav`, `/stats/risk-history` — reached only from screens neither role is shown.
 
-### SEC-33 · `src/app/components/Reports.tsx` Internal tab → Referral Tracking · HIGH · OPEN
+### SEC-33 · `src/app/components/Reports.tsx` Internal tab → Referral Tracking · HIGH · ✅ FIXED Sprint 163 (2026-10-01)
 Claim:    **A School Administrator sees identified referrals, with their clinical reason, in the
           ordinary UI** — no direct API call needed.
 Evidence: The `internal` tab button has no role gate (only `tcl`/`consent` are wrapped in
@@ -1049,7 +1049,7 @@ Fix:      Hide the panel for school_admin in the UI AND drop `referralRows` serv
           role in `/stats/reports-panels` — hiding alone leaves the API.
 ⚠ Read off the code; confirm live as school_admin once SEC-00 is resolved.
 
-### SEC-34 · `src/app/routes.tsx` · LOW · OPEN
+### SEC-34 · `src/app/routes.tsx` · LOW · ✅ FIXED Sprint 163 (2026-10-01)
 Claim:    Routes carry no role guard; only the nav hides screens. `/patients`, `/dental-chart/:id`,
           `/treatment-records` etc. load for school_admin and bho_staff by URL.
 Impact:   Not a disclosure on its own — the server decides what data arrives — but it means every
@@ -1098,3 +1098,25 @@ The merged handler returns, for EVERY non-admin role, `unmarkedAppointments[]` w
 decrypted name and appointment time (`index.ts` ~430-440). School Administrators (their school) and
 BHO staff (all schools) get it by calling the endpoint; their UI shows no bell (`NOTIFIED_ROLES`
 excludes them), so the fix is to return `[]` for roles outside `NOTIFIED_ROLES`, server-side.
+
+## ✅ Sprint 163 DONE 2026-10-01: non-clinical roles stop reading clinical data (SEC-03/19/33/34)
+- **SEC-19:** `readRoles` on the CRUD mounts. `CLINICAL_READ_ROLES` (system_admin, dentist,
+  dental_aide) for medical-histories, dietary-social-habits, dental-charts, tooth-records, treatments,
+  risk-stratifications, referrals, day-notes, dentist-rotations; `CLINICAL_READ_ROLES_AND_BHO` for
+  oral-health-conditions, student-iptrs, preventive-care-records (Part B). `/appointments` unchanged.
+- **SEC-03:** School Admin names blanked in `/stats/student-rows`, `/stats/rpc-rows`,
+  `/stats/reports-panels` (`isNameBlind` + `studentNames` in index.ts, `NAME_BLIND_ROLES`);
+  `/stats/risk-candidates`, `/stats/risk-history`, `/stats/student-nav` gated to clinical roles;
+  `unmarkedAppointments` only for clinical roles.
+- **SEC-33:** no referral rows for the School Admin (server) and the Referral Tracking card hidden.
+- **SEC-34:** `utils/routeRoles.ts` is now the ONE role table; the sidebar (`Root.tsx`) and a page
+  guard in `RootLayout.tsx` both read it (+3 tests).
+- Dashboard: the School Admin and BHO no longer fetch the six clinical collections; the School
+  Admin's Treatments tile reads the new `/stats/treatment-count`, scoped to their school (it used to
+  count every school's treatments).
+- **Verified on DEV via the API as each role:** School Admin 403 on medical/oral/iptrs/referrals/
+  risk/nav, 200 on appointments, 6 rows (own school) with 0 names, 0 referral rows, 0 unmarked;
+  BHO 403 on medical/referrals/risk, 200 on oral/iptrs, names kept; dentist unchanged (all 200, 10
+  unmarked). Guard: the dentist typing `/audit` lands on the Dashboard. 162/162, tsc both clean.
+  **Not verified in a browser as the School Admin / BHO** (their dashboards and Reports render): to do
+  when signed in as them.
